@@ -20,7 +20,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | ~~F12~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `/transition/` now gates on `shipment.can_edit` (`resource_edit_permission`) instead of inheriting POST→`can_create`; `transition_to()` stays the per-edge authority. Does **not** close P5 — `loading_dept_head` reaches the endpoint and the graph still refuses it | `export/views.py:183-198`, `core/permissions.py` |
 | F9 | **HIGH** | Customs-expense ledger (full cash float) readable by all 15 roles | `export/views_finance.py:369` |
 | F2 | **HIGH** | `domestic-sales` serves `price_per_kg` to all 15 roles | `greenhouse/views.py:513` |
-| F6 | HIGH | `greenhouse_manager` sees the Shipments nav link; all 7 endpoints behind it 403 | `seed_permissions.py:269` |
+| ~~F6~~ | ~~HIGH~~ | **CLOSED 2026-09-01.** It was **three** dead links, not one (migration 0036 split the page code in three and copied the drift into all of them). Migration `core/0037` hides all three for `greenhouse_manager` — the only role holding them without `shipment.can_view`. Applied to live | `core/migrations/0037` |
 | F13 | LOW | The repo contradicts itself on `warehouse_chief.can_create`, and `seed_permissions` cannot heal drift | `seed_permissions.py:218` vs `reference/api-endpoint-map.md:88` |
 | F10 | MED | `clients-report` relies on the frontend route guard for access control | `export/views_clients_report.py:5` |
 | F3 | MED | `greenhouse/admin/blocks/` + `admin/block-assignments/` readable by all 15 | `greenhouse/views_admin.py:113,138` |

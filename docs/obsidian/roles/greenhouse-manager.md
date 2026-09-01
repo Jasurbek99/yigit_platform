@@ -31,7 +31,15 @@ Each manager has rows in `greenhouse.block_manager_assignments`:
 
 ## Pages They See
 
-Dashboard, Weekly Plan Grid, Block Summary, Domestic Sales.
+Dashboard, Weekly Plan Grid (`export.plan`), Domestic Sales, Daily Harvest Board
+(`export.harvest_board`) — plus the four universal pages (My Board and the three
+feedback pages). Eight in total; verified against the live matrix 2026-09-01.
+
+**Not the Shipments pages.** The role held `export.shipments`,
+`export.shipments_sheet` and `export.shipments_dashboard` in the live DB until
+2026-09-01 while holding **no `shipment` resource permission**, so all three
+sidebar entries led to 403s. Migration `core/0037` switched them off (F6). Turning
+any of them back on needs a `shipment` resource grant too, or the link is dead again.
 
 ## Key Workflows
 

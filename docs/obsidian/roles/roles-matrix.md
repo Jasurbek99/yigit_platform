@@ -14,7 +14,11 @@ related: [[permissions-system]]
 > least three cells and is missing four role columns entirely:
 > - **Dashboard** is marked `Y` for `sales_rep` and `seller` — neither has it. `sales_rep`
 >   sees 7 pages (no dashboard); `seller` sees 5 (`export.quota.local_sell` + the universal four).
-> - **Shipment List** is marked `-` for `greenhouse_manager`, which does have `export.shipments`.
+> - ~~**Shipment List** is marked `-` for `greenhouse_manager`, which does have `export.shipments`.~~
+>   **Resolved 2026-09-01 the other way:** the table was right about the intent and the DB was
+>   drifted. `greenhouse_manager` had `export.shipments` + the two codes migration 0036 split
+>   off it, but **no `shipment` resource row at all**, so all three links 403'd (F6). Migration
+>   `core/0037` switched them off; the role is now back to its 8 seeded pages.
 > - No columns for **`loading_dept_head` (21 pages), `loading_dept_head_deputy` (19),
 >   `weight_master` (9), `accountant` (8)** — the head/deputy pair differs by exactly two
 >   pages, `admin.staff_access` + `admin.users`.
