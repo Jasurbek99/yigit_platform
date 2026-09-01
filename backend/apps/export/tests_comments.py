@@ -5,6 +5,8 @@ Run with:
 """
 from unittest.mock import patch, call
 
+from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -275,6 +277,95 @@ class TestLegacyCommentEndpoint(TestCase):
 
 
 # ── Test: deleting a root cascades to its replies ────────────────────────────
+
+class TestLegacyCommentEndpointChecksTheCommentResource(TestCase):
+    """F18 -- the endpoint must gate on `shipment_comment.can_create`.
+
+    `POST /shipments/{id}/comment/` is an @action on ShipmentViewSet, whose
+    class-level DynamicResourcePermission carries `resource_code = 'shipment'`
+    and maps every POST to `shipment.can_create`. That flag is 0 for
+    document_team, transport, sales_rep, finansist and weight_master -- the
+    exact roles `seed_permissions` grants `shipment_comment.can_create = 1` so
+    that they CAN comment. The endpoint was checking the wrong resource's flag,
+    and `CommentComposer.tsx` (the composer on ShipmentActivityLog) posts here,
+    so those five roles could not comment from that screen.
+
+    `CommentViewSet` -- the Sheet's richer comment UI -- already gates on
+    `shipment_comment` correctly; this endpoint now agrees with it.
+
+    Note the class above deliberately authenticates a SUPERUSER, which bypasses
+    the resource gate entirely; that is why it never caught this.
+    """
+
+    #: Hold `shipment_comment.can_create` but NOT `shipment.can_create`.
+    COMMENTERS_WITHOUT_SHIPMENT_CREATE = [
+        'document_team', 'transport', 'sales_rep', 'finansist', 'weight_master',
+    ]
+
+    #: No `shipment_comment` row at all -- fail-closed, must stay refused.
+    NOT_GRANTED_COMMENTING = ['accountant', 'greenhouse_manager', 'seller']
+
+    @classmethod
+    def setUpTestData(cls):
+        # The production matrix, so a 403 here means what it means in production.
+        call_command('seed_permissions')
+        cls.author = _make_user('f18_author')
+        cls.shipment = _make_shipment(cls.author)
+
+    def setUp(self):
+        # get_resource_perm memoises per (role, resource) process-wide with no
+        # per-test reset -- see tests_boss_transitions.
+        cache.clear()
+
+    def _post_as(self, role):
+        user = _make_user('f18_' + role, role=role)
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client.post(
+            '/api/v1/export/shipments/{}/comment/'.format(self.shipment.id),
+            {'content': 'comment from ' + role}, format='json',
+        )
+
+    def test_roles_granted_commenting_can_comment(self):
+        from apps.core.models import RoleResourcePermission
+
+        for role in self.COMMENTERS_WITHOUT_SHIPMENT_CREATE:
+            with self.subTest(role=role):
+                # The premise: the two flags disagree for this role. If this
+                # ever stops holding, the test no longer proves anything.
+                self.assertFalse(
+                    RoleResourcePermission.objects.get(
+                        role=role, resource_code='shipment').can_create,
+                    role + ' unexpectedly has shipment.can_create',
+                )
+                self.assertTrue(
+                    RoleResourcePermission.objects.get(
+                        role=role, resource_code='shipment_comment').can_create,
+                    role + ' unexpectedly lacks shipment_comment.can_create',
+                )
+                resp = self._post_as(role)
+                self.assertEqual(resp.status_code, 201, getattr(resp, 'data', resp))
+
+    def test_roles_without_the_comment_grant_are_still_refused(self):
+        from apps.core.models import RoleResourcePermission
+
+        for role in self.NOT_GRANTED_COMMENTING:
+            with self.subTest(role=role):
+                self.assertFalse(
+                    RoleResourcePermission.objects.filter(
+                        role=role, resource_code='shipment_comment').exists(),
+                    role + ' unexpectedly has a shipment_comment row',
+                )
+                self.assertEqual(self._post_as(role).status_code, 403)
+
+    def test_no_comment_row_is_written_when_the_post_is_refused(self):
+        before = ShipmentComment.objects.filter(shipment=self.shipment).count()
+        for role in self.NOT_GRANTED_COMMENTING:
+            self._post_as(role)
+        self.assertEqual(
+            ShipmentComment.objects.filter(shipment=self.shipment).count(), before,
+        )
+
 
 class TestDeleteRootCascadesReplies(TestCase):
     """test_delete_root_soft_deletes_replies

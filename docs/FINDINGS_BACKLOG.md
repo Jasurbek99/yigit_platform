@@ -38,7 +38,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F15 | MED | Admin panel has no way to create ad-hoc Tasks or delete/cancel existing ones | `export/views.py:3746` |
 | F16 | LOW | nginx forwards `Host $host`, which **drops the port** — every absolute url Django builds behind it is portless | `frontend/nginx.conf:59,79` |
 | F17 | LOW | `/static/` has the same missing-location hole `/media/` had; masked by `DJANGO_DEBUG=True` | `frontend/nginx.conf` |
-| F18 | **HIGH** | `POST /shipments/{id}/comment/` is gated on `shipment.can_create`, not `shipment_comment.can_create` — the five roles granted comment rights cannot use the activity-log composer | `export/views.py:2740` |
+| ~~F18~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `comment` now gates on `shipment_comment.can_create` via `resource_write_permission`, agreeing with `CommentViewSet` instead of contradicting it | `export/views.py:183-194` |
 | F19 | MED | `swap` inherits the same wrong flag; latent only because its two callers are privileged screens | `export/views.py:2447` |
 | F20 | LOW | `cancel` + `assign` keep a role allowlist in the method body AND pass the `can_create` gate — two sources of truth that agree today | `export/views.py:621,2134` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
@@ -56,6 +56,15 @@ branch per action that is a POST without being a creation. F12 fixed `transition
 are what the same sweep turned up.
 
 ### F18 — HIGH: the comment composer is closed to the roles granted commenting
+
+> **CLOSED 2026-09-01.** `get_permissions()` gained a `comment` branch returning
+> `resource_write_permission('shipment_comment')` — POST → that resource's own
+> `can_create`, which is what `CommentViewSet` has always checked. Confirmed as a
+> live bug first: with the seeded matrix all five roles got 403 before the change
+> and 201 after. Roles with **no** `shipment_comment` row (`accountant`,
+> `greenhouse_manager`, `seller`) stay refused — pinned, along with "a refused POST
+> writes no comment row". Tests:
+> `TestLegacyCommentEndpointChecksTheCommentResource` in `apps/export/tests_comments.py`.
 
 `POST /api/v1/export/shipments/{id}/comment/`
 ([views.py:2740](../backend/apps/export/views.py#L2740)) has no branch in `get_permissions()`, so

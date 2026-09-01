@@ -180,6 +180,18 @@ class ShipmentViewSet(ModelViewSet):
         if action == 'set_block_sources':
             return [IsAuthenticated(), SeasonNotClosed(),
                     junction_write_permission('shipment_block_source')()]
+        if action == 'comment':
+            # Same class of bug as `transition` above (F18): this POST creates a
+            # ShipmentComment, not a Shipment, so it must gate on the comment
+            # resource's own can_create. shipment.can_create is 0 for
+            # document_team, transport, sales_rep, finansist and weight_master —
+            # the exact roles seed_permissions grants shipment_comment.can_create
+            # so they CAN comment — which closed the activity-log composer
+            # (CommentComposer.tsx) to all five. CommentViewSet, the Sheet's
+            # richer comment UI, already gates on shipment_comment; this action
+            # now agrees with it instead of contradicting it.
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    resource_write_permission('shipment_comment')()]
         if action == 'transition':
             # A transition EDITS a shipment; it does not create one. The
             # class-level DynamicResourcePermission maps POST to
