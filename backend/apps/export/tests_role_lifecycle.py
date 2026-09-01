@@ -458,6 +458,65 @@ class CancelTests(LifecycleBase):
             self.assertEqual(resp.status_code, 403, role + ' must not cancel')
 
 
+class LoadingDepartmentOwnsTheLoadingEdgeTests(LifecycleBase):
+    """P5 -- the people who load the trucks may mark loading started.
+
+    `gumruk_chykysh -> yuklenme` (Zagruzka nachalas) belonged to `warehouse_chief`
+    alone. The May 2026 org change moved that work to `loading_dept_head`
+    (Soltanmyrad) and his five deputies, and reached `HARVEST_DAY_WRITE`,
+    `DOMESTIC_WRITE`, `PALLET_WRITE_ROLES` and the delegated user-management rules
+    -- but never `TRANSITIONS`. Live, the only account holding `warehouse_chief` is
+    the seed user "Anwar Test", so nobody who actually loads a truck could press
+    the button. `seed_task_rules.py` had already made the opposite call for the
+    very same step ("The loading department owns this, not warehouse_chief -- the
+    latter is a leftover of the May 2026 role change (confirmed 2026-07-16: no
+    real user holds it)"), so the task telling Soltanmyrad to fill
+    `loading_started_at` and the transition that field fires disagreed with each
+    other.
+
+    `warehouse_chief` is KEPT on the edge -- this widens, it does not re-assign.
+    """
+
+    LOADING_ROLES = ['loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief']
+
+    def test_every_loading_role_can_mark_loading_started(self):
+        for i, role in enumerate(self.LOADING_ROLES):
+            with self.subTest(role=role):
+                s = self.make_shipment('LC-LOAD-{}'.format(i))
+                self.advance_to(s, 'gumruk_chykysh')
+                self.fire(role, s, 'yuklenme')
+                self.assertEqual(s.status.code, 'yuklenme')
+
+    def test_the_loading_head_can_press_the_button_through_the_endpoint(self):
+        """The F12 + P5 chain end to end: the button was always visible
+        (`canDo(user, 'shipment', 'edit')`), F12 let the request reach the
+        service, and this is what makes it succeed."""
+        for i, role in enumerate(['loading_dept_head', 'loading_dept_head_deputy']):
+            with self.subTest(role=role):
+                s = self.make_shipment('LC-LOADAPI-{}'.format(i))
+                self.advance_to(s, 'gumruk_chykysh')
+                resp = self.transition(role, s, 'yuklenme')
+                self.assertEqual(resp.status_code, 200, getattr(resp, 'data', resp))
+                s.refresh_from_db()
+                self.assertEqual(s.status.code, 'yuklenme')
+
+    def test_the_widening_is_confined_to_this_one_edge(self):
+        """The loading roles gained `yuklenme` and nothing else."""
+        for i, role in enumerate(('loading_dept_head', 'loading_dept_head_deputy')):
+            with self.subTest(role=role):
+                # head and deputy share every prefix -- index the code.
+                s = self.make_shipment('LC-LOADONLY-{}'.format(i))
+                with self.assertRaises(PermissionError):
+                    self.fire(role, s, 'gumruk_girish')
+
+    def test_a_role_outside_the_loading_department_is_still_refused(self):
+        s = self.make_shipment('LC-LOADDENY')
+        self.advance_to(s, 'gumruk_chykysh')
+        with self.assertRaises(PermissionError) as ctx:
+            self.fire('transport', s, 'yuklenme')
+        self.assertIn('cannot trigger transition', str(ctx.exception))
+
+
 class TransitionEndpointReachabilityTests(LifecycleBase):
     """POST /transition/ admits `shipment.can_edit`; the EDGE gate stays in the service.
 
@@ -473,8 +532,8 @@ class TransitionEndpointReachabilityTests(LifecycleBase):
 
     The point of this class is that the gate MOVED rather than vanished: reaching
     the endpoint is not permission to walk an edge. A role with `can_edit` but no
-    edge (loading_dept_head -- see FINDINGS_BACKLOG P5) gets through DRF and is
-    then refused by `transition_to()` with its own message.
+    edge gets through DRF and is then refused by `transition_to()` with its own
+    message.
     """
 
     #: (role, status to stand on, edge it owns) for the four edge-owning roles
@@ -486,10 +545,16 @@ class TransitionEndpointReachabilityTests(LifecycleBase):
         ('finansist',     'satyldy',       'tamamlandy'),
     ]
 
-    #: Holds `shipment.can_edit`, owns no edge anywhere in TRANSITIONS.
-    #: The loading department's real accounts -- FINDINGS_BACKLOG P5, untouched
-    #: by this fix: they reach the endpoint and the graph still refuses them.
-    EDIT_BUT_NO_EDGE = ['loading_dept_head', 'loading_dept_head_deputy']
+    #: Holds `shipment.can_edit`, owns no edge anywhere in TRANSITIONS, and is
+    #: NOT in PRIVILEGED_ROLES (which is {export_manager, director, boss} -- the
+    #: `admin` ROLE is not privileged on the graph; real admin accounts get
+    #: through by being superusers, and LifecycleBase clears that flag on
+    #: purpose so this suite is not vacuous).
+    #:
+    #: This was `loading_dept_head` + deputy until 2026-09-01, when P5 was closed
+    #: by giving the loading department the `gumruk_chykysh -> yuklenme` edge.
+    #: They own an edge now, so they no longer prove what this asserts.
+    EDIT_BUT_NO_EDGE = ['admin']
 
     #: No `shipment.can_edit` at all -- refused by DRF, before the graph.
     NO_SHIPMENT_EDIT = ['weight_master', 'accountant']

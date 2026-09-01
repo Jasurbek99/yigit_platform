@@ -30,7 +30,9 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F11 | LOW | Six page grants with no matching resource grant (config drift) | `seed_permissions.py` |
 | F14 | LOW | `tests_cancel` is order-dependent; 10+ failures when run alone | `export/tests_cancel.py` |
 | F5 | LOW | Transport module open to all — already tracked as an interim choice. **Partially narrowed 2026-08-23**: `live-positions/` now 403s `seller` via `CanViewFleetMap`; every other transport endpoint is unchanged, so this stays open | `transport/views.py` |
-| P5 | **needs owner call** | The real loading department (`loading_dept_head` + 5 deputies) owns **no** lifecycle edge; the two loading edges belong to `warehouse_chief`, which has one test account | `services/shipment.py:68,74` |
+| ~~P5~~ | ~~**needs owner call**~~ | **CLOSED 2026-09-01.** `loading_dept_head` + `loading_dept_head_deputy` added to the `gumruk_chykysh → yuklenme` edge; `warehouse_chief` kept, so this widens rather than re-assigns. Two residuals opened below: N1 (notifications) and N2 (should a test-only role keep an edge) | `services/shipment.py:73` |
+| N1 | MED | `STATUS_NOTIFY_ROLES` still routes `draft` and `yuklenme` to `warehouse_chief` alone — the action-required notification reaches only the seed account | `services/shipment.py:103,106` |
+| N2 | LOW | `warehouse_chief` keeps a lifecycle edge although the only account holding it is the seed user "Anwar Test" | `services/shipment.py:73` |
 | P1 | — | `yola_chykdy` owned by `document_team` in code, `transport` in the DB | `services/shipment.py:75` |
 | P2 | — | `ShipmentStatusType.step_order` contradicts the real graph | live DB |
 | P3 | — | `ShipmentStatusType.required_role` is dead data, read by nothing | live DB |
@@ -223,6 +225,48 @@ department is 1 × `loading_dept_head` (Soltanmyrat) + 5 × `loading_dept_head_d
 warehouse_chief fallback entirely"*. Confirm with the owner before changing anything here.
 
 ## P5 — the loading department cannot move a shipment by hand
+
+> **CLOSED 2026-09-01 — option (a): the loading roles were added to the edge.**
+> `TRANSITIONS['gumruk_chykysh']` now reads
+> `('yuklenme', ['warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'])`.
+> `warehouse_chief` was **kept**: this widens the edge, it does not re-assign it, so the
+> existing walk and the seed account are untouched and the change reverses in one line.
+>
+> The "needs owner call" below overstated the ambiguity — the repo had **already** made
+> this call for the very same step. `seed_task_rules.py:169` assigns the `yuklenme` task
+> to `loading_dept_head` with the comment *"The loading department owns this, not
+> warehouse_chief — the latter is a leftover of the May 2026 role change (confirmed
+> 2026-07-16: no real user holds it)"*. So the task telling Soltanmyrad to fill
+> `loading_started_at` and the transition that field fires disagreed with each other.
+> Re-measured on the live DB 2026-09-01: `warehouse_chief` = **1** account ("Anwar Test",
+> a seed user); `loading_dept_head` = **2**; `loading_dept_head_deputy` = **6**.
+>
+> Auto-advance is unaffected either way — `transition_to(is_auto=True)` skips the role
+> check entirely, which is what kept this invisible day to day.
+>
+> Chain worth noting: the button was always *visible* to the loading roles
+> (`ShipmentDetailHero` gates on `canDo(user, 'shipment', 'edit')`), **F12** let the
+> request reach the service layer, and **P5** is what makes it succeed. The three
+> findings were one broken path.
+>
+> Tests: `LoadingDepartmentOwnsTheLoadingEdgeTests` in `apps/export/tests_role_lifecycle.py`
+> — including one asserting the widening is confined to this single edge.
+>
+> **Two residuals, deliberately not folded in:**
+>
+> **N1 (MED) — the notification still goes to the seed account.** `STATUS_NOTIFY_ROLES`
+> ([shipment.py:103,106](../backend/apps/export/services/shipment.py#L103)) maps `draft` and
+> `yuklenme` to `['warehouse_chief']`, and `notify` resolves it with a plain
+> `User.objects.filter(role__in=roles, is_active=True)` — **no `TASK_ROLE_EQUIVALENTS`
+> expansion**. So when a shipment reaches `yuklenme` the action-required notification is
+> delivered to "Anwar Test" and to nobody who loads a truck. Adding both loading roles
+> would take those two statuses from 1 recipient to 8, and the `draft` half would fire on
+> every supply-draft creation — different blast radius from the edge change, so it needs
+> its own decision rather than riding along.
+>
+> **N2 (LOW) — should `warehouse_chief` keep the edge at all?** Keeping it was the safe
+> move today. Whether a role held only by a seed account should own a lifecycle edge is a
+> narrowing decision, and narrowing is not reversible the way widening is.
 
 `TRANSITIONS` gives `warehouse_chief` two edges: creating a `draft` and
 `gumruk_chykysh → yuklenme` (Загрузка началась). Neither `loading_dept_head` nor

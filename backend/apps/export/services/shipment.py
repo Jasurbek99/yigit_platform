@@ -70,7 +70,18 @@ TRANSITIONS: dict[Optional[str], list[tuple]] = {
                         ('cancelled',      list(CANCEL_ROLES))],
     'gumruk_girish':   [('gumruk_chykysh', ['document_team']),
                         ('cancelled',      list(CANCEL_ROLES))],
-    'gumruk_chykysh':  [('yuklenme',       ['warehouse_chief']),
+    # P5 (2026-09-01): the May 2026 org change moved the loading work from
+    # warehouse_chief to loading_dept_head + his 5 deputies. It reached
+    # HARVEST_DAY_WRITE, DOMESTIC_WRITE, PALLET_WRITE_ROLES and the delegated
+    # user-management rules, but never this table — so the only account that
+    # could mark loading started was the seed user holding warehouse_chief.
+    # seed_task_rules.py had already made the opposite call for this very step,
+    # which meant the task telling Soltanmyrad to fill loading_started_at and
+    # the transition that field fires disagreed. warehouse_chief is KEPT: this
+    # widens the edge, it does not re-assign it.
+    'gumruk_chykysh':  [('yuklenme',       ['warehouse_chief',
+                                            'loading_dept_head',
+                                            'loading_dept_head_deputy']),
                         ('cancelled',      list(CANCEL_ROLES))],
     'yuklenme':        [('yola_chykdy',    ['document_team']),
                         ('cancelled',      list(CANCEL_ROLES))],

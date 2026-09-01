@@ -89,7 +89,7 @@ Each transition is strictly linear (no skipping steps, no going back). The `TRAN
 |------|------|-----------|-----------|--------------------------------------|--------|
 | 0 | `draft` | Draft | `document_team` | see [[#Leaving `draft` — four triggers plus a join guard]] | `gumruk_girish` |
 | 1 | `gumruk_girish` | Customs Entry | `document_team` | `customs_exit_at` (R25) | `gumruk_chykysh` |
-| 2 | `gumruk_chykysh` | Customs Exit | `warehouse_chief` | `loading_started_at` (R19) | `yuklenme` |
+| 2 | `gumruk_chykysh` | Customs Exit | `warehouse_chief`, `loading_dept_head` (+ deputy) | `loading_started_at` (R19) | `yuklenme` |
 | 3 | `yuklenme` | Loading | `document_team` | `shipment_code` + `block_sources` (R8) + `variety` (R38) + `weight_net` (R37), and `departed_at` (R21) | `yola_chykdy` |
 | 4 | `yola_chykdy` | Departed | `transport` | `border_crossed_at` (R30) | `serhet_gechdi` |
 | 5 | `serhet_gechdi` | Crossed TM Border | `sales_rep` | `dest_entry_at` (R31) | `dest_entry` |
@@ -495,8 +495,14 @@ Single grouped fetch via `useShipmentBoard(filters)` → `GET /export/shipments/
 Two different things are gated per role and they do not line up — the **transition edge** a role owns
 (`TRANSITIONS`) versus the **Sheet cell** whose fill actually triggers that edge (`TASK_RULES`
 `assignee_role`). Auto-advance runs with `is_auto=True`, which **bypasses the edge role check**, so the
-person who types the value need not own the edge. Example: `loading_started_at` is filled by
-`loading_dept_head`, but the `gumruk_chykysh → yuklenme` edge is owned by `warehouse_chief`.
+person who types the value need not own the edge. They still line up less than you would expect:
+`sales_report` is filed by `sales_rep` while `satyldy → tamamlandy` belongs to `finansist`, and
+`departed_at` is typed by `transport` while `yuklenme → yola_chykdy` belongs to `document_team`.
+
+The loading step used to be the sharpest case — `loading_started_at` filled by `loading_dept_head`
+while the edge it fires belonged to `warehouse_chief` alone — and that one was **closed 2026-09-01**
+(FINDINGS_BACKLOG P5): both loading roles were added to the edge. `warehouse_chief` was kept, so the
+change widens rather than re-assigns.
 
 | Role | Owns edge(s) | Fills trigger cell(s) on the Sheet | My Work (DB phase) | Can Create |
 |------|--------------|------------------------------------|--------------------|------------|
@@ -504,7 +510,7 @@ person who types the value need not own the edge. Example: `loading_started_at` 
 | `director` | any (privileged) | — | all | Yes |
 | `boss` | any (privileged) | — | all | No |
 | `warehouse_chief` | `gumruk_chykysh → yuklenme` | shares `loading_dept_head`'s fields | LOADING | No |
-| `loading_dept_head` (+ deputy) | — | `loading_started_at`, `block_sources`, `variety`, `weight_net` | LOADING | No |
+| `loading_dept_head` (+ deputy) | `gumruk_chykysh → yuklenme` (since 2026-09-01) | `loading_started_at`, `block_sources`, `variety`, `weight_net` | LOADING | Yes |
 | `document_team` | `draft → gumruk_girish`, `gumruk_girish → gumruk_chykysh`, `yuklenme → yola_chykdy` | `documents_status='ready'`, `firm_splits`, `customs_exit_at`, `departed_at` | LOADING + CUSTOMS | No |
 | `transport` | `yola_chykdy → serhet_gechdi` | `driver_name`, `driver_phone`, `truck_plate`, `border_crossed_at` | LOADING + CUSTOMS + TRANSIT + BORDER | No |
 | `sales_rep` | `serhet_gechdi` → … → `satylyar → satyldy` | `dest_entry_at`, `customs_entry_at`, `peregruz_date`, `arrived_at`, `city`, `sale_started_at`, `sale_ended_at` | BORDER + TRANSIT + SALES | No |
