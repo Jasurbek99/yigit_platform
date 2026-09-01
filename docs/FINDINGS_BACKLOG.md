@@ -42,7 +42,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F17 | LOW | `/static/` has the same missing-location hole `/media/` had; masked by `DJANGO_DEBUG=True` | `frontend/nginx.conf` |
 | ~~F18~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `comment` now gates on `shipment_comment.can_create` via `resource_write_permission`, agreeing with `CommentViewSet` instead of contradicting it | `export/views.py:183-194` |
 | ~~F19~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `swap` gates on `shipment.can_edit` (`resource_edit_permission`), so the per-field `can_edit_sheet_field` loop finally runs; the Sheet's Swap button gained the matching `canDo(user,'shipment','edit')` gate | `export/views.py`, `SheetToolbar.tsx` |
-| F20 | LOW | `cancel` + `assign` keep a role allowlist in the method body AND pass the `can_create` gate — two sources of truth that agree today | `export/views.py:621,2134` |
+| F20 | LOW | **Shipment-Detail half CLOSED 2026-09-01** (`boss` sees the button; label named the wrong status; endpoint off `can_create`). The Assignment Board half is **parked** — owner: nobody uses `/export/assign`, it is kept "just in case" and will be deleted | `export/views.py`, `AssignmentBoard.tsx:35` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
@@ -134,7 +134,68 @@ defeating the endpoint's stated design. `tests_shipment_swap` uses `export_manag
 and `test_permission_denied_returns_403` patches `can_edit_sheet_field` to force its 403 rather
 than authenticating as a role that would hit the coarse gate, so the suite cannot see this.
 
-### F20 — LOW: `cancel` and `assign` carry two sources of truth
+### F20 — MED: `assign` has four gates and three of them already disagree
+
+> **Re-measured 2026-09-01 and re-graded LOW → MED.** The first write-up (below) said "two
+> sources of truth that agree today". For `assign` there are **four**, and they do not agree.
+
+| Gate | Where | Who it admits |
+|---|---|---|
+| in-body allowlist | [`views.py:2181`](../backend/apps/export/views.py#L2181) — `PRIVILEGED_ROLES \| {'boss'}` | admin, export_manager, director, boss |
+| class-level resource gate | `DynamicResourcePermission` → `shipment.can_create` | + loading_dept_head, loading_dept_head_deputy |
+| Shipment Detail button | [`ShipmentDetailHero.tsx:109`](../frontend/src/components/shipment/ShipmentDetailHero.tsx#L109) — a hardcoded role literal | admin, export_manager, director — **not boss** |
+| Assignment Board button | [`AssignmentBoard.tsx:35`](../frontend/src/pages/export/AssignmentBoard.tsx#L35) — `canDo(user, 'shipment_assign', 'edit')` | + document_team, loading_dept_head, loading_dept_head_deputy |
+
+Measured against the live matrix, that produces three real divergences:
+
+- **`document_team`** — `shipment_assign.can_edit = 1`, so the Board offers the button; the API
+  refuses twice over (`shipment.can_create = 0`, and not in the in-body list).
+- **`loading_dept_head` + `loading_dept_head_deputy`** (8 accounts) — Board offers the button,
+  `can_create = 1` lets them **past** the DRF gate, and the in-body allowlist then 403s them.
+  Same shape as F19: a control that can only fail.
+- **`boss`** — accepted by the API since 2026-08-05 and offered on the Assignment Board, but the
+  Shipment Detail hero's hardcoded literal hides Promote from him. One operation, two screens,
+  opposite answers.
+
+> **Resolved 2026-09-01 — the Shipment-Detail half fixed, the Board half parked.**
+> Owner's call: **nobody uses `/export/assign`**; it is kept "just in case" and they will
+> delete it themselves. So the two dead-button rows above (`document_team`, the loading
+> roles) sit on a page with no traffic and no nav entry, and rewiring its gate would be
+> work thrown away. **Do not refactor `shipment_assign` into a single source of truth
+> while that page is scheduled for deletion** — revisit only if it survives.
+>
+> What WAS fixed, because it lives on the Shipment Detail card, which is used every day and
+> outlives the Board (`usePromoteFromDraft` hits the same endpoint):
+>
+> 1. **`boss` now sees the button.** The API was widened to him 2026-08-05; the hardcoded
+>    literal was never updated. Mirrors `canJoinSupply`'s pattern right below it.
+> 2. **The label named the wrong status.** It read *"Perevesti v Zagruzku" / "Promote to
+>    Loading" / "Ýüklemä geçir"* in all three languages while `assign` calls
+>    `transition_to(..., 'gumruk_girish')` — **TM Customs Entry**. Pressing it did something
+>    other than what it said. Now named for the status it actually reaches. ⚠ The Turkmen
+>    string is machine-built from the existing status label and **needs a native read**.
+> 3. **The endpoint moved off `can_create`** onto `resource_edit_permission('shipment')` —
+>    the last copy of the F12 pattern. It blocks nobody today, which is precisely why it
+>    would have bitten later: widen the in-body allowlist to a view+edit role and the coarse
+>    gate would silently refuse it.
+>
+> Still true and still unfixed: `/export/assign` was dropped from **every** sidebar on
+> 2026-08-24 and survives only as a direct URL, while its page permission is still granted
+> to `document_team` and both loading roles.
+
+Compounding it, **P4**: `apps.core.roles.PRIVILEGED_ROLES` is `{admin, export_manager, director}`
+while `apps.export.services.shipment.PRIVILEGED_ROLES` is `{export_manager, director, boss}` —
+two same-named constants with different members, both live in this one request path.
+
+**`cancel` is the milder half and still holds.** Its three gates — the in-body
+`PRIVILEGED_ROLES` check ([`views.py:670`](../backend/apps/export/views.py#L670)), `CANCEL_ROLES`
+inside `transition_to`, and `shipment.can_create` — all resolve to
+`{admin, export_manager, director}`, every one of which holds `can_create`. Nothing breaks today;
+the drift risk below is the whole finding.
+
+---
+
+*Original write-up, kept for the record:*
 
 Both check a role allowlist in the method body (`PRIVILEGED_ROLES`, plus `boss` for `assign`)
 **and** still pass through the class-level `can_create` gate. Every role in those allowlists holds

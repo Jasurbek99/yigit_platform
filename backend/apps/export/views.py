@@ -180,6 +180,17 @@ class ShipmentViewSet(ModelViewSet):
         if action == 'set_block_sources':
             return [IsAuthenticated(), SeasonNotClosed(),
                     junction_write_permission('shipment_block_source')()]
+        if action == 'assign':
+            # Last copy of the F12 pattern (F20). `assign` sets country/customer
+            # on a draft and fires transition_to(..., 'gumruk_girish') — an edit,
+            # not a creation, so shipment.can_create was the wrong flag. It
+            # blocks nobody today (every role the in-body allowlist admits holds
+            # can_create), which is exactly why it went unnoticed: widen that
+            # allowlist to a view+edit role and the coarse gate would silently
+            # refuse it. The in-body allowlist stays the authority on WHO, and
+            # transition_to still owns the edge check.
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    resource_edit_permission('shipment')()]
         if action == 'swap':
             # Same class of bug as `transition` (F19): a swap EDITS two
             # shipments, it does not create one, so shipment.can_create is the

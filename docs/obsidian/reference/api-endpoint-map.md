@@ -35,7 +35,7 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/` | ShipmentViewSet (create) | `useShipments` (mutation) | ShipmentCreateModal |
 | PATCH | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (partial_update) | `useShipmentPatch` | ShipmentDetail, ShipmentSheet |
 | POST | `/api/v1/export/shipments/{id}/transition/` | ShipmentViewSet.transition | `useShipmentDetail` (mutation) | TransitionButton |
-| POST | `/api/v1/export/shipments/{id}/assign/` | ShipmentViewSet.assign | `useAssignDraft` | AssignmentBoard |
+| POST | `/api/v1/export/shipments/{id}/assign/` | ShipmentViewSet.assign | `useAssignDraft`, `usePromoteFromDraft` | AssignmentBoard, **ShipmentDetail hero** |
 | POST | `/api/v1/export/shipments/{target_id}/join/` | ShipmentViewSet.join | _(in useDrafts)_ | ShipmentSheet (JoinShipmentsModal) |
 | POST | `/api/v1/export/shipments/bulk-delete/` | ShipmentViewSet.bulk_delete | _(inline in page)_ | ShipmentList (admin only) |
 | POST | `/api/v1/export/shipments/{id}/hard-delete/` | ShipmentViewSet.hard_delete_draft | `useHardDeleteDraftShipment` | ShipmentDetail (admin only, draft only) |

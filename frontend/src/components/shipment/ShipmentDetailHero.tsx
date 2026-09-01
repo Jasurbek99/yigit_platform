@@ -105,11 +105,20 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
   // Stream F — only privileged roles can promote a draft. The backend's
   // /assign/ endpoint enforces this server-side; gating client-side just
   // hides the button entirely for unauthorised users.
+  //
+  // `boss` added 2026-09-01 (F20): the endpoint was widened to him on
+  // 2026-08-05 — "assigning a draft is a genuine process step, so its only
+  // action must work" — but this literal was never updated, so the API accepted
+  // him while this screen hid the button. The Assignment Board offered it to him
+  // all along: one action, two screens, opposite answers. Mirrors the backend
+  // list (`PRIVILEGED_ROLES | {'boss'}` in export/views.py) and deliberately does
+  // NOT route through canDo/bossEditMode, exactly like canJoinSupply below.
   const canPromote =
     shipment.can_promote_from_draft &&
     (user?.role === 'export_manager' ||
       user?.role === 'director' ||
       user?.role === 'admin' ||
+      user?.role === 'boss' ||
       user?.is_superuser === true) &&
     !isReadOnly;
 

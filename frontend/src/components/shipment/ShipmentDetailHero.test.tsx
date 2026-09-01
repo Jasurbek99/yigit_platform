@@ -219,6 +219,67 @@ describe('ShipmentDetailHero — join supply gate', () => {
     expect(screen.getByText('Join supply')).toBeInTheDocument();
   });
 
+  // ── Promote to customs (the /assign/ endpoint) ─────────────────────────
+  // The button used to be gated on a hardcoded ['export_manager','director',
+  // 'admin'] literal that omitted `boss`, even though the backend widened
+  // /assign/ to him on 2026-08-05 (FINDINGS_BACKLOG F20). Same shape as
+  // canJoinSupply above: mirrors the backend list, not canDo/bossEditMode.
+  const promotableDraft = {
+    ...destinationDraftShipment,
+    can_promote_from_draft: true,
+  } as unknown as IShipmentDetail;
+
+  it('shows the promote button for a boss on a promotable draft', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'boss' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero(promotableDraft);
+    expect(screen.getByText(/Promote to/)).toBeInTheDocument();
+  });
+
+  it('still hides the promote button for a role the API refuses', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'document_team' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero(promotableDraft);
+    expect(screen.queryByText(/Promote to/)).not.toBeInTheDocument();
+  });
+
+  it('names the status the button actually moves the shipment to', () => {
+    // The button, its confirm dialog and its success toast all said "Loading"
+    // in all three languages, while /assign/ calls
+    // transition_to(..., 'gumruk_girish') -- TM Customs Entry. Pressing it did
+    // something other than what it said. All four strings are asserted, not
+    // just the button: fixing the label alone would have left the dialog
+    // contradicting it, which reads as a bug rather than a wording slip.
+    for (const key of [
+      'shipment.detail.promote_button',
+      'shipment.detail.promote_confirm_title',
+      'shipment.detail.promote_confirm_body',
+      'shipment.detail.promote_toast_success',
+    ]) {
+      expect(i18n.t(key)).not.toMatch(/Loading/);
+      expect(i18n.t(key)).toMatch(/Customs/);
+    }
+  });
+
+  it('names the team the promotion actually notifies', () => {
+    // STATUS_NOTIFY_ROLES['gumruk_girish'] is ['document_team']; the body
+    // promised the warehouse would be told.
+    expect(i18n.t('shipment.detail.promote_confirm_body')).not.toMatch(/warehouse/i);
+    expect(i18n.t('shipment.detail.promote_confirm_body')).toMatch(/document team/i);
+  });
+
   it('hides the Join supply button for a non-draft shipment', () => {
     vi.mocked(useAuth).mockReturnValue({
       user: fakeUser({
