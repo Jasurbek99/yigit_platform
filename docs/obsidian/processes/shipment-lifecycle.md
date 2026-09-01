@@ -89,7 +89,7 @@ Each transition is strictly linear (no skipping steps, no going back). The `TRAN
 |------|------|-----------|-----------|--------------------------------------|--------|
 | 0 | `draft` | Draft | `document_team` | see [[#Leaving `draft` — four triggers plus a join guard]] | `gumruk_girish` |
 | 1 | `gumruk_girish` | Customs Entry | `document_team` | `customs_exit_at` (R25) | `gumruk_chykysh` |
-| 2 | `gumruk_chykysh` | Customs Exit | `warehouse_chief`, `loading_dept_head` (+ deputy) | `loading_started_at` (R19) | `yuklenme` |
+| 2 | `gumruk_chykysh` | Customs Exit | `loading_dept_head` (+ deputy) | `loading_started_at` (R19) | `yuklenme` |
 | 3 | `yuklenme` | Loading | `document_team` | `shipment_code` + `block_sources` (R8) + `variety` (R38) + `weight_net` (R37), and `departed_at` (R21) | `yola_chykdy` |
 | 4 | `yola_chykdy` | Departed | `transport` | `border_crossed_at` (R30) | `serhet_gechdi` |
 | 5 | `serhet_gechdi` | Crossed TM Border | `sales_rep` | `dest_entry_at` (R31) | `dest_entry` |
@@ -501,15 +501,16 @@ person who types the value need not own the edge. They still line up less than y
 
 The loading step used to be the sharpest case — `loading_started_at` filled by `loading_dept_head`
 while the edge it fires belonged to `warehouse_chief` alone — and that one was **closed 2026-09-01**
-(FINDINGS_BACKLOG P5): both loading roles were added to the edge. `warehouse_chief` was kept, so the
-change widens rather than re-assigns.
+(FINDINGS_BACKLOG P5): both loading roles were added to the edge, and `warehouse_chief` was then
+removed from it (N2) — its one account has never logged in, so a live edge sat on a role no human
+holds. It keeps its `PALLET_WRITE_ROLES` membership; that is a different subsystem.
 
 | Role | Owns edge(s) | Fills trigger cell(s) on the Sheet | My Work (DB phase) | Can Create |
 |------|--------------|------------------------------------|--------------------|------------|
 | `export_manager` | any (privileged) | `country`, `customer`, `import_firm` | all | Yes |
 | `director` | any (privileged) | — | all | Yes |
 | `boss` | any (privileged) | — | all | No |
-| `warehouse_chief` | `gumruk_chykysh → yuklenme` | shares `loading_dept_head`'s fields | LOADING | No |
+| `warehouse_chief` | — (had `gumruk_chykysh → yuklenme` until 2026-09-01; no human holds this role) | shares `loading_dept_head`'s fields | LOADING | No |
 | `loading_dept_head` (+ deputy) | `gumruk_chykysh → yuklenme` (since 2026-09-01) | `loading_started_at`, `block_sources`, `variety`, `weight_net` | LOADING | Yes |
 | `document_team` | `draft → gumruk_girish`, `gumruk_girish → gumruk_chykysh`, `yuklenme → yola_chykdy` | `documents_status='ready'`, `firm_splits`, `customs_exit_at`, `departed_at` | LOADING + CUSTOMS | No |
 | `transport` | `yola_chykdy → serhet_gechdi` | `driver_name`, `driver_phone`, `truck_plate`, `border_crossed_at` | LOADING + CUSTOMS + TRANSIT + BORDER | No |

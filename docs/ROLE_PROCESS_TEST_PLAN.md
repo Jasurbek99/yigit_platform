@@ -15,7 +15,7 @@ enforced by `transition_to()` — the only function permitted to change a shipme
 | 1 | Garalama | `draft` | `warehouse_chief` (creates) |
 | 2 | Gümrük giriş | `gumruk_girish` | `document_team` |
 | 3 | Gümrük çykyş | `gumruk_chykysh` | `document_team` |
-| 4 | Ýüklenme | `yuklenme` | `warehouse_chief`, `loading_dept_head` (+ deputy) — P5, 2026-09-01 |
+| 4 | Ýüklenme | `yuklenme` | `loading_dept_head` (+ deputy) — P5/N2, 2026-09-01 |
 | 5 | Ýola çykdy | `yola_chykdy` | **`document_team`** ⚠️ see §2 |
 | 6 | Serhet geçdi | `serhet_gechdi` | `transport` |
 | 7 | Barýan ýurduna girdi | `dest_entry` | `sales_rep` |
@@ -91,7 +91,7 @@ Run these in order — each role hands off to the next. Log in with the account 
 | 1 | `warehouse_chief` | `warehouse_chief` / `wc123` | Create a supply draft (blocks + weight). Confirm it **cannot** advance — expect a 400 naming `country`, `customer`. |
 | 2 | `export_manager` | `t_export_manager` | Create the destination half, then Join the two drafts. Confirm the merged row now advances. |
 | 3 | `document_team` | `t_document_team` | Fire `gumruk_girish`, then `gumruk_chykysh`. Generate the customs packet. |
-| 4 | `warehouse_chief` | `warehouse_chief` | Fire `yuklenme`. Fill the pallet manifest. Repeat as `loading_dept_head` and a deputy — they own this edge too since P5 closed. |
+| 4 | `loading_dept_head` | `soltanmyrad` | Fire `yuklenme`. Fill the pallet manifest. Repeat as a deputy. `warehouse_chief` must now be **refused** on this step (N2) while keeping its pallet-manifest rights. |
 | 5 | `weight_master` | `t_weight_master` | Enter weights on the pallet manifest. Confirm it **cannot** fire any transition. |
 | 6 | `document_team` | `t_document_team` | Fire `yola_chykdy` — **not** `transport`, despite the DB (§2.1). |
 | 7 | `transport` | `transport` / `tr123` | Fire `serhet_gechdi`. Check the truck shows on the fleet map. |

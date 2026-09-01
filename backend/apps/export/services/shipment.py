@@ -70,17 +70,17 @@ TRANSITIONS: dict[Optional[str], list[tuple]] = {
                         ('cancelled',      list(CANCEL_ROLES))],
     'gumruk_girish':   [('gumruk_chykysh', ['document_team']),
                         ('cancelled',      list(CANCEL_ROLES))],
-    # P5 (2026-09-01): the May 2026 org change moved the loading work from
+    # P5 + N2 (2026-09-01): the May 2026 org change moved the loading work from
     # warehouse_chief to loading_dept_head + his 5 deputies. It reached
     # HARVEST_DAY_WRITE, DOMESTIC_WRITE, PALLET_WRITE_ROLES and the delegated
     # user-management rules, but never this table — so the only account that
-    # could mark loading started was the seed user holding warehouse_chief.
-    # seed_task_rules.py had already made the opposite call for this very step,
-    # which meant the task telling Soltanmyrad to fill loading_started_at and
-    # the transition that field fires disagreed. warehouse_chief is KEPT: this
-    # widens the edge, it does not re-assign it.
-    'gumruk_chykysh':  [('yuklenme',       ['warehouse_chief',
-                                            'loading_dept_head',
+    # could mark loading started was the seed user holding warehouse_chief, and
+    # seed_task_rules.py had already made the opposite call for this very step.
+    # warehouse_chief was then dropped (N2): its one account has never logged in
+    # (last_login NULL, 0 status-log rows, 0 shipments), so leaving a live edge on
+    # a role no human holds only invites the drift back. It stays in
+    # PALLET_WRITE_ROLES — that is a different subsystem.
+    'gumruk_chykysh':  [('yuklenme',       ['loading_dept_head',
                                             'loading_dept_head_deputy']),
                         ('cancelled',      list(CANCEL_ROLES))],
     'yuklenme':        [('yola_chykdy',    ['document_team']),
@@ -111,10 +111,22 @@ TRANSITIONS: dict[Optional[str], list[tuple]] = {
 
 # When a shipment transitions TO this status, notify these roles to fill their fields.
 STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
+    # NOT fanned out (N1, deliberate): create_shipment() calls
+    # _notify_action_required(shipment, 'draft') on EVERY shipment creation, and
+    # the draft-step TASK_RULES assign the work to export_manager (destination),
+    # document_team (firm splits) and transport (driver) — 15 active accounts.
+    # Matching them here would turn one dead notification into 15 live ones per
+    # shipment, for work the Task engine already surfaces. Left pointing at
+    # warehouse_chief, whose sole account has never logged in, so this entry is
+    # currently a no-op by measurement. Needs an owner call — FINDINGS_BACKLOG N1.
     'draft':           ['warehouse_chief'],
     'gumruk_girish':   ['document_team'],
     'gumruk_chykysh':  ['document_team'],
-    'yuklenme':        ['warehouse_chief'],
+    # N1: was ['warehouse_chief'], whose sole account has never logged in — the
+    # "action required" ping for loading reached nobody. _notify_action_required
+    # resolves this with a plain role__in filter and does NOT expand
+    # TASK_ROLE_EQUIVALENTS, so the deputies must be listed explicitly.
+    'yuklenme':        ['loading_dept_head', 'loading_dept_head_deputy'],
     'yola_chykdy':     ['transport'],
     'serhet_gechdi':   ['transport'],
     'dest_entry':      ['sales_rep'],

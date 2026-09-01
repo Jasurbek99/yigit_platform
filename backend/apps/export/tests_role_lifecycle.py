@@ -42,7 +42,7 @@ from apps.export.services import transition_to
 LIFECYCLE = [
     ('gumruk_girish',  'document_team'),
     ('gumruk_chykysh', 'document_team'),
-    ('yuklenme',       'warehouse_chief'),
+    ('yuklenme',       'loading_dept_head'),
     ('yola_chykdy',    'document_team'),
     ('serhet_gechdi',  'transport'),
     ('dest_entry',     'sales_rep'),
@@ -474,10 +474,14 @@ class LoadingDepartmentOwnsTheLoadingEdgeTests(LifecycleBase):
     `loading_started_at` and the transition that field fires disagreed with each
     other.
 
-    `warehouse_chief` is KEPT on the edge -- this widens, it does not re-assign.
+    `warehouse_chief` was kept on the edge when P5 was closed, then removed a step
+    later as N2: the account holding it has **never logged in** (`last_login` NULL,
+    0 ShipmentStatusLog rows, 0 shipments created, joined 2026-04-06), so leaving a
+    lifecycle edge on a role no human holds only invited the drift back.
+    `PALLET_WRITE_ROLES` still includes it -- that is a different subsystem.
     """
 
-    LOADING_ROLES = ['loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief']
+    LOADING_ROLES = ['loading_dept_head', 'loading_dept_head_deputy']
 
     def test_every_loading_role_can_mark_loading_started(self):
         for i, role in enumerate(self.LOADING_ROLES):
@@ -508,6 +512,40 @@ class LoadingDepartmentOwnsTheLoadingEdgeTests(LifecycleBase):
                 s = self.make_shipment('LC-LOADONLY-{}'.format(i))
                 with self.assertRaises(PermissionError):
                     self.fire(role, s, 'gumruk_girish')
+
+    def test_warehouse_chief_no_longer_owns_the_loading_edge(self):
+        """N2 -- the dead role was taken off the edge.
+
+        Pins the narrowing. Removing this without a replacement would silently
+        hand the step back to a role no human holds.
+        """
+        s = self.make_shipment('LC-WCGONE')
+        self.advance_to(s, 'gumruk_chykysh')
+        with self.assertRaises(PermissionError) as ctx:
+            self.fire('warehouse_chief', s, 'yuklenme')
+        self.assertIn('cannot trigger transition', str(ctx.exception))
+
+    def test_reaching_yuklenme_notifies_the_loading_department(self):
+        """N1 -- the action-required notification reached only the dead account.
+
+        `_notify_action_required` resolves STATUS_NOTIFY_ROLES with a plain
+        `User.objects.filter(role__in=..., is_active=True)` and does NOT expand
+        TASK_ROLE_EQUIVALENTS, so the deputies have to be listed explicitly.
+        """
+        from apps.export.models import Notification
+
+        s = self.make_shipment('LC-NOTIFY')
+        self.advance_to(s, 'gumruk_chykysh')
+        Notification.objects.filter(message=s.shipment_code).delete()
+        self.fire('loading_dept_head', s, 'yuklenme')
+
+        notified = set(
+            Notification.objects
+            .filter(message=s.shipment_code, kind='action_required')
+            .values_list('user__role', flat=True)
+        )
+        self.assertEqual(notified, {'loading_dept_head', 'loading_dept_head_deputy'})
+        self.assertNotIn('warehouse_chief', notified)
 
     def test_a_role_outside_the_loading_department_is_still_refused(self):
         s = self.make_shipment('LC-LOADDENY')
