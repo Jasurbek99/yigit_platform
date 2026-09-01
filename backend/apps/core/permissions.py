@@ -232,6 +232,37 @@ def resource_write_permission(resource_code: str) -> type:
     return _ResourceWritePermission
 
 
+def page_write_permission(page_code: str) -> type:
+    """DRF permission for a screen whose WRITES require the page to be visible
+    to the caller's role, while its READS stay open to any authenticated user.
+
+    Used where a page deliberately relaxes the role/window gates that guard the
+    same columns elsewhere (the daily harvest board), so "who may edit" collapses
+    to "who can see the screen". Page visibility lives in ``RolePagePermission``,
+    so an admin can grant or revoke it from the permission matrix without a deploy.
+
+    Fail-closed: a role with no row for ``page_code`` gets no writes.
+    Superusers bypass, as in every sibling class here.
+
+    Usage:
+        permission_classes = [IsAuthenticated, page_write_permission('export.harvest_board')]
+    """
+    class _PageWritePermission(BasePermission):
+        def has_permission(self, request, view) -> bool:
+            if not request.user or not request.user.is_authenticated:
+                return False
+            if request.method in SAFE_METHODS:
+                return True
+            if getattr(request.user, 'is_superuser', False):
+                return True
+            role = getattr(request.user, 'role', None)
+            if not role:
+                return False
+            return get_page_permissions(role).get(page_code, False)
+
+    return _PageWritePermission
+
+
 def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -> type:
     """Permission class for model CRUD that supports both role-based and Django permission-based access.
 

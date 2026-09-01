@@ -27,6 +27,16 @@ gated reads too. Page visibility then hides the screen while the API still serve
 
 ## F1 — CRITICAL: any authenticated user can overwrite a block's harvest forecast
 
+> **CLOSED 2026-09-01.** Fixed the first way — a page check, not `set_forecast_value()`.
+> `DailyHarvestBoardViewSet` now carries `page_write_permission('export.harvest_board')`
+> (`core/permissions.py`), which allows reads to every authenticated user and admits a
+> write only when `RolePagePermission` marks the page visible for the caller's role.
+> Fail-closed for a role with no row; superusers bypass. Routing through
+> `set_forecast_value()` was rejected: it raises `PermissionError` for the seven roles
+> that hold this board on purpose, and it does not cover `yesterday_rest` or `note`.
+> Reads stay open — pinned by a test, and reopened only if F4 is answered.
+> Tests: `apps/greenhouse/tests/test_daily_board_access.py`.
+
 `POST /api/v1/greenhouse/daily-plan/` →
 [views_daily_board.py:71](../backend/apps/greenhouse/views_daily_board.py#L71) carries
 `permission_classes = [IsAuthenticated]` and its `create()` performs **no role check** — only

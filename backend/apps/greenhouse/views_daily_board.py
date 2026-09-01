@@ -8,7 +8,9 @@ GET  /api/v1/greenhouse/daily-plan/?date=YYYY-MM-DD[&season=<id>]
 POST /api/v1/greenhouse/daily-plan/
     Upsert one block/date cell. Body: {block, date, today_plan?, yesterday_rest?, note?}.
     Only the keys present are written. Any authenticated user with page access
-    may write — there are no role/window gates (see services.daily_board).
+    may write — there are no role/window gates (see services.daily_board). The
+    page check is ENFORCED (F1): a role that cannot see `export.harvest_board`
+    is refused. Reads stay open to every authenticated user on purpose.
 """
 from decimal import Decimal
 
@@ -20,6 +22,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
 from apps.core.models import GreenhouseBlock
+from apps.core.permissions import page_write_permission
 from apps.core.seasons import resolve_season
 from apps.greenhouse.models import HarvestDayEntry
 from apps.greenhouse.services.daily_board import (
@@ -68,7 +71,11 @@ def _build_row(block: GreenhouseBlock, entry: HarvestDayEntry | None, entry_date
 class DailyHarvestBoardViewSet(ViewSet):
     """Per-block daily harvest board (yesterday's rest + today's plan)."""
 
-    permission_classes = [IsAuthenticated]
+    # Writes need `export.harvest_board` visible for the caller's role — the
+    # board writes forecast_value, the column the Weekly Plan grid guards with a
+    # role x window x block matrix, so an ungated POST bypassed all of it (F1).
+    # Reads are left open deliberately; narrowing them is F4's separate call.
+    permission_classes = [IsAuthenticated, page_write_permission('export.harvest_board')]
 
     def list(self, request):
         date_str = request.query_params.get('date')

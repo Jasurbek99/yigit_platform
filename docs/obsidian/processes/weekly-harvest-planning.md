@@ -354,9 +354,14 @@ operational Google Sheet: one row per active block with **Düýnki galyndy**
 - **Endpoint**: `GET /api/v1/greenhouse/daily-plan/?date=YYYY-MM-DD` (one row per
   active block; default today) and `POST` to upsert one cell
   (`{block, date, today_plan?, yesterday_rest?, note?}`).
-- **No gates**: unlike the weekly forecast path, `upsert_daily_board()` applies
-  **no role or time-window restriction** — any authenticated user with the
-  `export.harvest_board` page permission may edit. The parent
+- **One gate, and only one**: unlike the weekly forecast path, `upsert_daily_board()`
+  applies **no role or time-window restriction** — any user whose role has the
+  `export.harvest_board` page permission may edit, and that page check *is*
+  enforced on the endpoint (`page_write_permission` in `core/permissions.py`).
+  Until 2026-09-01 it was not, and any authenticated account could overwrite any
+  block's forecast for any date — [[permissions-system|F1]]. A role with no row
+  for the page gets no writes; superusers bypass. **Reads are open to every
+  authenticated user by design.** The parent
   `WeeklyHarvestPlan` / `HarvestDayEntry` rows are created on demand, and each
   write logs an AuditLog `daily_board_set` entry.
 

@@ -16,7 +16,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 
 | # | Sev | What | Where |
 |---|-----|------|-------|
-| F1 | **CRITICAL** | Any authenticated user can overwrite any block's harvest forecast | `greenhouse/views_daily_board.py:71` |
+| ~~F1~~ | ~~**CRITICAL**~~ | **CLOSED 2026-09-01.** `page_write_permission('export.harvest_board')` now gates board WRITES on the permission matrix (fail-closed, superuser bypass); reads left open on purpose — that is F4 | `greenhouse/views_daily_board.py:78`, `core/permissions.py` |
 | F12 | **HIGH** | The lifecycle transition button is unreachable for every role that owns a step | `export/views.py:143-171` |
 | F9 | **HIGH** | Customs-expense ledger (full cash float) readable by all 15 roles | `export/views_finance.py:369` |
 | F2 | **HIGH** | `domestic-sales` serves `price_per_kg` to all 15 roles | `greenhouse/views.py:513` |
