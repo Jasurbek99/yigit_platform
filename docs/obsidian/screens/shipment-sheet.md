@@ -48,6 +48,8 @@ The toolbar's **⚙ Settings** button (top-left, after the Filters popover) open
 
 Both pickers apply changes live (no Save button); the modal has `Reset to default` (rows=13, cols=0) and `Done` (close). A small badge dot on the gear button indicates the freeze is non-default. There is no longer an "Up to current row/column" shortcut — picking the row/column directly from the modal is more discoverable and doesn't require the user to first click a cell.
 
+The **Field name** column (Col C, 210 px at 100 %) wraps a long label onto a **second line** instead of cutting it with an ellipsis — a 2-line `-webkit-line-clamp` with `overflow-wrap: anywhere`, set inline in `SheetLabelColumn`. Two lines is the ceiling on purpose: row height is fixed by the virtualizer (`ROW_HEIGHT = 36`, scaled by zoom and variant density), so a third line would be clipped mid-glyph. At 11 px / line-height 1.15 two lines occupy ~25 px of the 36 px row, so nothing else in the band moves.
+
 A blue 2px line on the trailing edge of the last frozen row/column marks the freeze line, mirroring Excel/Sheets. Header label cells (`#`, Who, Field name) are also `position: sticky; left: 0` so they remain visible during horizontal scrolling. Rows and section containers carry `min-width: max-content` so the sticky-left cells are bounded by the row's full content width — without this they unstick once the user scrolls past one viewport-width.
 
 ## Zoom

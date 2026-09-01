@@ -259,11 +259,18 @@ function SheetLabelRowInner({
           gap: 4,
         }}
       >
+        {/* Long labels wrap onto a second line instead of being ellipsised.
+            Two lines is the ceiling: row height is fixed by the virtualizer
+            (ROW_HEIGHT), so a third line would be clipped mid-glyph. */}
         <span
           style={{
+            display: '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: 2,
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
+            lineHeight: 1.15,
             flex: 1,
             minWidth: 0,
           }}
