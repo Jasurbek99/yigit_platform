@@ -593,6 +593,45 @@ class DynamicResourcePermission(BasePermission):
         return perm['can_edit']
 
 
+def resource_edit_permission(resource_code: str) -> type:
+    """DRF permission for a POST action that EDITS an existing row of
+    ``resource_code`` rather than creating one — gated on ``can_edit``.
+
+    Why it exists: `DynamicResourcePermission` maps every POST to ``can_create``,
+    which is right for "create a new thing" and wrong for an action that is a POST
+    only because it takes a body. `/shipments/{id}/transition/` is the case that
+    made this visible — ``shipment.can_create`` is 0 for document_team, transport,
+    sales_rep and finansist, the roles owning 10 of the 11 lifecycle edges, so the
+    lifecycle button was unreachable for everyone who owns a step
+    (docs/ROLE_ACCESS_AUDIT.md F12). ``can_edit`` is 1 for all of them, and it is
+    the flag the frontend already gates that button on.
+
+    This is the resource check only. An action with its own finer authority — a
+    per-edge role gate, a time window — still runs it in the body; this class just
+    stops the wrong flag from refusing the caller first.
+
+    Fail-closed: no row for the role → no write. Superusers bypass.
+
+    Usage in ``get_permissions()``:
+        if action == 'transition':
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    resource_edit_permission('shipment')()]
+    """
+    class _ResourceEditPermission(BasePermission):
+        def has_permission(self, request, view) -> bool:
+            if not request.user or not request.user.is_authenticated:
+                return False
+            if getattr(request.user, 'is_superuser', False):
+                return True
+            role = getattr(request.user, 'role', None)
+            if not role:
+                return False
+            perm = get_resource_perm(role, resource_code)
+            return bool(perm and perm['can_edit'])
+
+    return _ResourceEditPermission
+
+
 def junction_write_permission(resource_code: str) -> type:
     """DRF permission for a single POST action that REPLACES a shipment's
     related-table rows (e.g. firm splits, block sources) — pinned to that
@@ -619,16 +658,7 @@ def junction_write_permission(resource_code: str) -> type:
             return [IsAuthenticated(), SeasonNotClosed(),
                     junction_write_permission('shipment_firm_split')()]
     """
-    class _JunctionWritePermission(BasePermission):
-        def has_permission(self, request, view) -> bool:
-            if not request.user or not request.user.is_authenticated:
-                return False
-            if getattr(request.user, 'is_superuser', False):
-                return True
-            role = getattr(request.user, 'role', None)
-            if not role:
-                return False
-            perm = get_resource_perm(role, resource_code)
-            return bool(perm and perm['can_edit'])
-
-    return _JunctionWritePermission
+    # Same check as resource_edit_permission — a junction POST is an edit of the
+    # shipment's composition. Kept as its own name because callers read better
+    # for it; one implementation, so the two can never drift.
+    return resource_edit_permission(resource_code)

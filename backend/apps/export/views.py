@@ -31,6 +31,7 @@ from apps.core.permissions import (
     can_edit_sheet_field,
     get_sheet_edit_map,
     junction_write_permission,
+    resource_edit_permission,
     resource_write_permission,
     write_permission,
 )
@@ -179,6 +180,21 @@ class ShipmentViewSet(ModelViewSet):
         if action == 'set_block_sources':
             return [IsAuthenticated(), SeasonNotClosed(),
                     junction_write_permission('shipment_block_source')()]
+        if action == 'transition':
+            # A transition EDITS a shipment; it does not create one. The
+            # class-level DynamicResourcePermission maps POST to
+            # shipment.can_create, which is 0 for document_team, transport,
+            # sales_rep and finansist — the roles that own 10 of the 11
+            # lifecycle edges — so the endpoint was unreachable for everyone
+            # who owns a step, and only export_manager/director/boss could
+            # drive the process by hand (ROLE_ACCESS_AUDIT F12). can_edit is
+            # what the Detail hero already gates the button on
+            # (canDo(user, 'shipment', 'edit')); the two layers simply
+            # disagreed on the flag. The per-edge authority stays where it
+            # belongs — transition_to() still refuses a role that does not own
+            # the edge, with its own message.
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    resource_edit_permission('shipment')()]
         return super().get_permissions()
 
     queryset = Shipment.objects.select_related(

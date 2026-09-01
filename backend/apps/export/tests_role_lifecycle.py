@@ -2,9 +2,11 @@
 
 Exercises the export process end to end. Create / edit / delete / cancel run
 through the API so the DRF permission layer and the season write-freeze are in
-the path. The lifecycle walk itself runs through `transition_to()`, because the
-endpoint currently refuses five of the six edge-owning roles before the role
-gate is reached -- pinned by TransitionEndpointReachabilityTests below.
+the path. The lifecycle walk itself runs through `transition_to()` -- the
+service layer is where the per-edge role gate lives, so calling it directly
+keeps this suite about the graph rather than about DRF. That the ENDPOINT is
+now reachable for the roles that own the edges is pinned separately by
+TransitionEndpointReachabilityTests below (F12, fixed 2026-09-01).
 
 Safe by construction: `config/settings.py` routes every test run to
 `test_YIGIT_PLATFROM` on localhost, and the production DATABASES block carries
@@ -133,9 +135,9 @@ class LifecycleBase(TestCase):
     def transition(self, role, shipment, target):
         """Fire a transition through the HTTP endpoint.
 
-        Only usable by roles holding `shipment.can_create` -- see
-        TransitionEndpointReachabilityTests for why that is not the same set as
-        the roles that own the edges.
+        Reachable by any role holding `shipment.can_edit`; which EDGE that role
+        may then walk is decided by `transition_to()`. See
+        TransitionEndpointReachabilityTests.
         """
         return self.client_as(role).post(
             '/api/v1/export/shipments/{}/transition/'.format(shipment.pk),
@@ -145,9 +147,9 @@ class LifecycleBase(TestCase):
     def fire(self, role, shipment, target):
         """Fire a transition at the service layer, where the role gate lives.
 
-        The lifecycle walk uses this rather than the endpoint because the DRF
-        layer currently refuses five of the six edge-owning roles before
-        `transition_to()` is reached. Pinned separately.
+        The lifecycle walk uses this rather than the endpoint so a failure here
+        means "the graph is wrong", never "the DRF layer refused". Endpoint
+        reachability is pinned separately.
         """
         transition_to(shipment, target, self.users[role])
         shipment.refresh_from_db()
@@ -457,74 +459,98 @@ class CancelTests(LifecycleBase):
 
 
 class TransitionEndpointReachabilityTests(LifecycleBase):
-    """POST /transition/ is unreachable for the roles that own the edges.
+    """POST /transition/ admits `shipment.can_edit`; the EDGE gate stays in the service.
 
-    `DynamicResourcePermission` maps **POST -> shipment.can_create**
-    (apps/core/permissions.py). In the live matrix `can_create` is 0 for
-    document_team, warehouse_chief, transport, sales_rep and finansist -- the
-    roles that own 10 of the 11 lifecycle edges. They are therefore 403'd by
-    DRF before `transition_to()` runs, even though the role gate would have
-    admitted them.
+    Until 2026-09-01 this action inherited `DynamicResourcePermission`, which maps
+    POST -> `shipment.can_create`. That flag is 0 for document_team, transport,
+    sales_rep and finansist -- the roles owning 10 of the 11 lifecycle edges -- so
+    DRF refused them before `transition_to()`'s per-edge gate ever ran, and only
+    export_manager / director / boss could drive a step by hand
+    (docs/ROLE_ACCESS_AUDIT.md F12). A transition EDITS a shipment, it does not
+    create one, and the Detail hero already gated its button on
+    `canDo(user, 'shipment', 'edit')` -- the frontend and backend simply disagreed
+    on which flag.
 
-    `ShipmentViewSet.get_permissions` already relaxes this exact clash three
-    times -- `_OPEN_ACTIONS`, the pallet-manifest writes, and
-    `set_sales_report`, each with a comment saying POST->can_create "would
-    wrongly block" the role that owns the work. `transition` never got the same
-    treatment.
-
-    These tests assert the behaviour as it is TODAY. When the gate is fixed
-    they go red, which is the point: that is the signal to move the lifecycle
-    walk back onto the endpoint.
+    The point of this class is that the gate MOVED rather than vanished: reaching
+    the endpoint is not permission to walk an edge. A role with `can_edit` but no
+    edge (loading_dept_head -- see FINDINGS_BACKLOG P5) gets through DRF and is
+    then refused by `transition_to()` with its own message.
     """
 
-    #: Roles that own a lifecycle edge but hold no `shipment.can_create`.
-    #:
-    #: This is the set produced by `seed_permissions`, which is what a test DB
-    #: has. The LIVE matrix differs: `warehouse_chief` has can_create=0 there
-    #: but _VCE here, so in production it is blocked from the endpoint too.
-    #: The live value is the documented one -- `roles/support-roles.md` and
-    #: `shipment-lifecycle.md:422` both say warehouse_chief cannot create, and
-    #: `api-endpoint-map.md:88` relies on it being False. The seed line is the
-    #: stale side. See docs/ROLE_ACCESS_AUDIT.md F13.
-    BLOCKED_EDGE_OWNERS = [
-        'document_team', 'transport', 'sales_rep', 'finansist',
+    #: (role, status to stand on, edge it owns) for the four edge-owning roles
+    #: that hold NO `shipment.can_create` -- the ones F12 locked out.
+    EDGE_OWNERS_WITHOUT_CREATE = [
+        ('document_team', None,            'gumruk_girish'),
+        ('transport',     'yola_chykdy',   'serhet_gechdi'),
+        ('sales_rep',     'serhet_gechdi', 'dest_entry'),
+        ('finansist',     'satyldy',       'tamamlandy'),
     ]
 
-    def test_edge_owning_roles_are_refused_by_the_drf_layer(self):
-        for role in self.BLOCKED_EDGE_OWNERS:
-            s = self.make_shipment('LC-REACH-' + role[:6])
-            resp = self.transition(role, s, 'gumruk_girish')
-            self.assertEqual(
-                resp.status_code, 403,
-                '{} now reaches the endpoint -- move the walk back onto the '
-                'API and delete this test'.format(role),
-            )
-            # DRF's generic message, NOT transition_to's "cannot trigger
-            # transition ..." -- proof the request died before the role gate.
-            self.assertNotIn('cannot trigger transition', str(resp.data))
+    #: Holds `shipment.can_edit`, owns no edge anywhere in TRANSITIONS.
+    #: The loading department's real accounts -- FINDINGS_BACKLOG P5, untouched
+    #: by this fix: they reach the endpoint and the graph still refuses them.
+    EDIT_BUT_NO_EDGE = ['loading_dept_head', 'loading_dept_head_deputy']
 
-    def test_the_same_roles_are_admitted_by_the_role_gate_itself(self):
-        """The gate would have let them through. Only the DRF layer refuses."""
-        s = self.make_shipment('LC-REACH-SVC')
-        self.fire('document_team', s, 'gumruk_girish')
-        self.assertEqual(s.status.code, 'gumruk_girish')
+    #: No `shipment.can_edit` at all -- refused by DRF, before the graph.
+    NO_SHIPMENT_EDIT = ['weight_master', 'accountant']
+
+    def test_edge_owning_roles_reach_the_endpoint_and_walk_their_edge(self):
+        from apps.core.models import RoleResourcePermission
+
+        for role, stand_on, target in self.EDGE_OWNERS_WITHOUT_CREATE:
+            with self.subTest(role=role):
+                # The premise: none of them can create a shipment. If this ever
+                # flips, the test stops proving that can_edit is what admits them.
+                perm = RoleResourcePermission.objects.get(
+                    role=role, resource_code='shipment',
+                )
+                self.assertFalse(perm.can_create, role + ' unexpectedly has can_create')
+                self.assertTrue(perm.can_edit, role + ' unexpectedly lacks can_edit')
+
+                s = self.make_shipment('LC-RCH-' + role[:6])
+                if stand_on is not None:
+                    self.advance_to(s, stand_on)
+                resp = self.transition(role, s, target)
+                self.assertEqual(resp.status_code, 200, getattr(resp, 'data', resp))
+                s.refresh_from_db()
+                self.assertEqual(s.status.code, target)
+
+    def test_a_role_with_edit_but_no_edge_is_refused_by_the_graph_not_by_drf(self):
+        """The gate moved, it did not disappear.
+
+        `transition_to()`'s message is the proof: the request reached the service
+        layer and the per-edge role check is what turned it away.
+        """
+        for i, role in enumerate(self.EDIT_BUT_NO_EDGE):
+            with self.subTest(role=role):
+                # head and deputy share their first 8 characters — index the code.
+                s = self.make_shipment('LC-NOEDGE-{}'.format(i))
+                resp = self.transition(role, s, 'gumruk_girish')
+                self.assertEqual(resp.status_code, 403, getattr(resp, 'data', resp))
+                self.assertIn('cannot trigger transition', str(resp.data))
+
+    def test_a_role_without_shipment_edit_never_reaches_the_graph(self):
+        for role in self.NO_SHIPMENT_EDIT:
+            with self.subTest(role=role):
+                s = self.make_shipment('LC-NOEDIT-' + role[:6])
+                resp = self.transition(role, s, 'gumruk_girish')
+                self.assertEqual(resp.status_code, 403, getattr(resp, 'data', resp))
+                # DRF's generic message, NOT transition_to's -- the request died
+                # at the permission layer.
+                self.assertNotIn('cannot trigger transition', str(resp.data))
 
     def test_privileged_roles_do_reach_the_endpoint(self):
-        """They hold shipment.can_create, so the endpoint works for them.
-
-        This is why the process still runs in production: export_manager,
-        director and boss can drive every step by hand.
-        """
+        """They bypass the per-edge check inside transition_to()."""
         for role in PRIVILEGED:
             s = self.make_shipment('LC-REACH-OK-' + role[:6])
             resp = self.transition(role, s, 'gumruk_girish')
             self.assertEqual(resp.status_code, 200, getattr(resp, 'data', resp))
 
-    def test_can_create_is_what_decides_it(self):
-        """Granting can_create alone makes the endpoint reachable.
+    def test_can_edit_is_what_decides_reachability(self):
+        """Revoking can_edit alone closes the endpoint again.
 
         Isolates the cause: nothing about document_team changes except the one
-        flag DynamicResourcePermission reads for POST.
+        flag the permission class reads.
         """
         from django.core.cache import cache
 
@@ -534,23 +560,22 @@ class TransitionEndpointReachabilityTests(LifecycleBase):
         perm = RoleResourcePermission.objects.get(
             role='document_team', resource_code='shipment',
         )
-        self.assertFalse(perm.can_create)
-        perm.can_create = True
-        perm.save(update_fields=['can_create'])
-        # get_resource_perm memoises per (role, resource) in a process-wide
-        # cache with no per-test reset, so the entry must be written in step
-        # with the row -- and restored afterwards, or later modules in the same
-        # run inherit a permissive document_team. See tests_boss_transitions.
+        self.assertTrue(perm.can_edit)
+        # get_resource_perm memoises per (role, resource) in a process-wide cache
+        # with no per-test reset, so the entry must be written in step with the
+        # row -- and restored afterwards, or later modules in the same run
+        # inherit a crippled document_team. See tests_boss_transitions.
         key = '{}:resource:document_team:shipment'.format(PERM_CACHE_PREFIX)
         previous = cache.get(key)
         try:
             cache.set(key, {
-                'can_view': perm.can_view, 'can_create': True,
-                'can_edit': perm.can_edit, 'can_delete': perm.can_delete,
+                'can_view': perm.can_view, 'can_create': perm.can_create,
+                'can_edit': False, 'can_delete': perm.can_delete,
             }, PERM_CACHE_TTL)
-            s = self.make_shipment('LC-REACH-GRANT')
+            s = self.make_shipment('LC-REACH-REVOKE')
             resp = self.transition('document_team', s, 'gumruk_girish')
-            self.assertEqual(resp.status_code, 200, getattr(resp, 'data', resp))
+            self.assertEqual(resp.status_code, 403, getattr(resp, 'data', resp))
+            self.assertNotIn('cannot trigger transition', str(resp.data))
         finally:
             if previous is None:
                 cache.delete(key)

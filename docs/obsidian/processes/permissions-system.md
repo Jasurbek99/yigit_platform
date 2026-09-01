@@ -135,6 +135,24 @@ A DRF permission class that:
 4. Returns 403 if not allowed
 5. **60-second cache** per `(role, resource)` to avoid DB hits on every request
 
+**Step 3 is the class's one recurring trap.** Plenty of POSTs are not creations — a
+status transition, a manifest close, a sales report, a junction replace — and mapping
+them to `can_create` refuses exactly the operational role that owns the work, since
+those roles hold `can_edit` and not `can_create` by design. Every such action needs its
+own branch in `ShipmentViewSet.get_permissions()`. Current exemptions:
+
+| Action | Gate instead | Why |
+|---|---|---|
+| `soft_delete`, `restore`, `set_column_color`, `set_cell_color` | `IsAuthenticated` | UI decoration / recoverable, open to every Sheet viewer |
+| `pallets` POST, `manifest_close`, `import_weightmaster` | in-body `PALLET_WRITE_ROLES` | weight_master + warehouse_chief own the manifest, hold no `shipment.can_create` |
+| `set_sales_report` | in-body role gate | writes the `sales_report` resource, not `shipment` |
+| `set_firm_splits`, `set_block_sources` | `junction_write_permission(<junction>)` | writes a junction resource's own `can_edit` |
+| `transition` | `resource_edit_permission('shipment')` | a transition **edits** a shipment; `transition_to()` keeps the per-edge role gate (added 2026-09-01, ROLE_ACCESS_AUDIT F12) |
+
+`resource_edit_permission(code)` and `junction_write_permission(code)` are the same
+check — POST → `can_edit` on `code`, fail-closed, superuser bypass — under two names
+that read correctly at their call sites; one implementation, so they cannot drift.
+
 ### Seed Permissions Command
 
 **File**: `backend/apps/core/management/commands/seed_permissions.py`

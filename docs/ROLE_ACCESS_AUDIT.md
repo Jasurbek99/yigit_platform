@@ -247,6 +247,28 @@ lifecycle test, verified against both the seeded matrix and the live DB.
 
 ## F12 — HIGH: `POST /transition/` is unreachable for the roles that own the steps
 
+> **CLOSED 2026-09-01.** Treated as the oversight this section argues it is: three
+> precedents in the same `get_permissions()`, each commented as "would wrongly block"
+> the role that owns the work, and a per-edge gate that already admits these roles.
+> `ShipmentViewSet.get_permissions` now returns
+> `resource_edit_permission('shipment')` for `action == 'transition'` — **`can_edit`,
+> not `can_create`**, because a transition edits a shipment rather than creating one.
+> The decisive evidence it was a divergence and not a decision: `ShipmentDetailHero`
+> already gated its own button on `canDo(user, 'shipment', 'edit')`, so the frontend
+> and backend disagreed on which flag.
+>
+> **The gate moved, it did not vanish.** `transition_to()` is still the per-edge
+> authority: `loading_dept_head` holds `can_edit`, owns no edge, reaches the endpoint,
+> and is refused there with *"cannot trigger transition"* — so **P5 is untouched and
+> still needs an owner call.** Roles with no `shipment.can_edit` (`weight_master`,
+> `accountant`) never reach the graph at all.
+>
+> `ShipmentBulkTransitionModal` POSTs `/transition/` per row, so bulk status changes
+> open up for the edge owners at the same time.
+>
+> Tests: `TransitionEndpointReachabilityTests` in `apps/export/tests_role_lifecycle.py`,
+> rewritten from pinning the bug to pinning the fix.
+
 `DynamicResourcePermission` maps **POST → `shipment.can_create`**
 ([permissions.py:463-495](../backend/apps/core/permissions.py#L463)). `/transition/` is a POST,
 and `ShipmentViewSet.get_permissions` has **no relaxation branch for it**. Live

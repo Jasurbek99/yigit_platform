@@ -17,7 +17,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | # | Sev | What | Where |
 |---|-----|------|-------|
 | ~~F1~~ | ~~**CRITICAL**~~ | **CLOSED 2026-09-01.** `page_write_permission('export.harvest_board')` now gates board WRITES on the permission matrix (fail-closed, superuser bypass); reads left open on purpose — that is F4 | `greenhouse/views_daily_board.py:78`, `core/permissions.py` |
-| F12 | **HIGH** | The lifecycle transition button is unreachable for every role that owns a step | `export/views.py:143-171` |
+| ~~F12~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `/transition/` now gates on `shipment.can_edit` (`resource_edit_permission`) instead of inheriting POST→`can_create`; `transition_to()` stays the per-edge authority. Does **not** close P5 — `loading_dept_head` reaches the endpoint and the graph still refuses it | `export/views.py:183-198`, `core/permissions.py` |
 | F9 | **HIGH** | Customs-expense ledger (full cash float) readable by all 15 roles | `export/views_finance.py:369` |
 | F2 | **HIGH** | `domestic-sales` serves `price_per_kg` to all 15 roles | `greenhouse/views.py:513` |
 | F6 | HIGH | `greenhouse_manager` sees the Shipments nav link; all 7 endpoints behind it 403 | `seed_permissions.py:269` |
