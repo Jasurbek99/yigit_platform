@@ -38,12 +38,62 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F15 | MED | Admin panel has no way to create ad-hoc Tasks or delete/cancel existing ones | `export/views.py:3746` |
 | F16 | LOW | nginx forwards `Host $host`, which **drops the port** — every absolute url Django builds behind it is portless | `frontend/nginx.conf:59,79` |
 | F17 | LOW | `/static/` has the same missing-location hole `/media/` had; masked by `DJANGO_DEBUG=True` | `frontend/nginx.conf` |
+| F18 | **HIGH** | `POST /shipments/{id}/comment/` is gated on `shipment.can_create`, not `shipment_comment.can_create` — the five roles granted comment rights cannot use the activity-log composer | `export/views.py:2740` |
+| F19 | MED | `swap` inherits the same wrong flag; latent only because its two callers are privileged screens | `export/views.py:2447` |
+| F20 | LOW | `cancel` + `assign` keep a role allowlist in the method body AND pass the `can_create` gate — two sources of truth that agree today | `export/views.py:621,2134` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
 | S2 | **needs owner call** | **July 2026 still belongs to no season.** Truck-allocation rows there deleted 2026-08-23; **4 ACTIVE contracts remain stranded** — deleting them is blocked by `PROTECT`ed sales tied to shipments 663/664 | live DB |
 
 ---
+
+## F18 / F19 / F20 — the rest of the F12 pattern (added 2026-09-01)
+
+Found by the review of the F12 fix. Same root cause as F12: `DynamicResourcePermission` maps
+**every** POST on `ShipmentViewSet` to `shipment.can_create`, and `get_permissions()` needs a
+branch per action that is a POST without being a creation. F12 fixed `transition`; these three
+are what the same sweep turned up.
+
+### F18 — HIGH: the comment composer is closed to the roles granted commenting
+
+`POST /api/v1/export/shipments/{id}/comment/`
+([views.py:2740](../backend/apps/export/views.py#L2740)) has no branch in `get_permissions()`, so
+it falls through to `shipment.can_create`. Live matrix: that flag is **0** for `document_team`,
+`transport`, `sales_rep`, `finansist` and `weight_master` — exactly the roles
+`seed_permissions.py` grants `shipment_comment.can_create = 1` **so that they can comment**. The
+endpoint checks the wrong resource's flag.
+
+Not theoretical: `CommentComposer.tsx`
+([:29](../frontend/src/components/CommentComposer.tsx#L29)) POSTs here, and it is the composer
+rendered on `ShipmentActivityLog`. A previous author already walked around this without naming
+it — `tests_comments.py:257` carries the comment *"is_superuser bypasses
+DynamicResourcePermission for this integration test"*, i.e. the test authenticates as a superuser
+precisely so it never exercises the broken gate.
+
+**Not affected:** the Sheet's own comment UI goes through `useCreateComment` →
+`/export/comments/`, whose `CommentViewSet` sets `resource_code = 'shipment_comment'` and is
+correctly gated.
+
+**Fix:** one branch, the same shape as F12 — gate `comment` on `shipment_comment.can_create`.
+
+### F19 — MEDIUM: `swap` has the same hole, currently masked
+
+`swap` ([views.py:2447](../backend/apps/export/views.py#L2447)) has no branch either. Its own
+docstring says authorization is per-field via `can_edit_sheet_field`, but the coarse
+`can_create` gate runs **first** and would 403 the five `_VE` roles before that logic is reached
+— defeating the endpoint's stated design. Latent today because the only frontend callers
+(`AssignmentBoard`, `DraftPool`, via `useDrafts.ts:430`) are export_manager/director/boss
+surfaces, and `tests_shipment_swap` uses `export_manager` throughout —
+`test_permission_denied_returns_403` patches `can_edit_sheet_field` to force its 403 rather than
+authenticating as a role that would hit the coarse gate, so the suite cannot see this.
+
+### F20 — LOW: `cancel` and `assign` carry two sources of truth
+
+Both check a role allowlist in the method body (`PRIVILEGED_ROLES`, plus `boss` for `assign`)
+**and** still pass through the class-level `can_create` gate. Every role in those allowlists holds
+`shipment.can_create = 1` today, so nothing breaks. The risk is drift: widen either allowlist to a
+`_VE` role and the coarse gate silently reintroduces F12 for it.
 
 ## F16 / F17 — the rest of the `/media/` bug's blast radius (added 2026-08-27)
 
