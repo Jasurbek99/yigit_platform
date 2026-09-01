@@ -111,15 +111,18 @@ TRANSITIONS: dict[Optional[str], list[tuple]] = {
 
 # When a shipment transitions TO this status, notify these roles to fill their fields.
 STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
-    # NOT fanned out (N1, deliberate): create_shipment() calls
-    # _notify_action_required(shipment, 'draft') on EVERY shipment creation, and
-    # the draft-step TASK_RULES assign the work to export_manager (destination),
-    # document_team (firm splits) and transport (driver) — 15 active accounts.
-    # Matching them here would turn one dead notification into 15 live ones per
-    # shipment, for work the Task engine already surfaces. Left pointing at
-    # warehouse_chief, whose sole account has never logged in, so this entry is
-    # currently a no-op by measurement. Needs an owner call — FINDINGS_BACKLOG N1.
-    'draft':           ['warehouse_chief'],
+    # N1: was ['warehouse_chief'], whose sole account has never logged in, so
+    # this fired on every shipment creation and reached nobody. The draft-step
+    # TASK_RULES put the blocking work on three roles — export_manager
+    # (country/customer/import_firm, which the two-row join guard requires),
+    # document_team (firm splits) and transport (driver) — and all of them gate
+    # the advance to gumruk_girish, so all three are told. Volume was the reason
+    # to hold this back: it is 15 active accounts, but measured on the live DB
+    # shipment creation runs ~1.4/day over 90 days, i.e. about one notification
+    # per person per day. Notifications carry read_at, so they are dismissible.
+    # Known wart: the creator is notified too, because _notify_action_required
+    # takes no actor. Harmless self-ping; not worth widening the signature.
+    'draft':           ['export_manager', 'document_team', 'transport'],
     'gumruk_girish':   ['document_team'],
     'gumruk_chykysh':  ['document_team'],
     # N1: was ['warehouse_chief'], whose sole account has never logged in — the

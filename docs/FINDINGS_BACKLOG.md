@@ -31,7 +31,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F14 | LOW | `tests_cancel` is order-dependent; 10+ failures when run alone | `export/tests_cancel.py` |
 | F5 | LOW | Transport module open to all — already tracked as an interim choice. **Partially narrowed 2026-08-23**: `live-positions/` now 403s `seller` via `CanViewFleetMap`; every other transport endpoint is unchanged, so this stays open | `transport/views.py` |
 | ~~P5~~ | ~~**needs owner call**~~ | **CLOSED 2026-09-01.** `loading_dept_head` + `loading_dept_head_deputy` added to the `gumruk_chykysh → yuklenme` edge; `warehouse_chief` kept, so this widens rather than re-assigns. Two residuals opened below: N1 (notifications) and N2 (should a test-only role keep an edge) | `services/shipment.py:73` |
-| ~~N1~~ | MED | **HALF CLOSED 2026-09-01.** `yuklenme` now notifies `loading_dept_head` + deputy. The **`draft`** half is deliberately NOT fanned out — doing so turns 1 dead notification into 15 live ones on every shipment creation; needs an owner call | `services/shipment.py` |
+| ~~N1~~ | ~~MED~~ | **CLOSED 2026-09-01.** `yuklenme` → `loading_dept_head` + deputy; `draft` → `export_manager`, `document_team`, `transport` (the three roles the draft-step TASK_RULES put blocking work on). The volume objection did not survive measurement — ~1.4 shipments/day | `services/shipment.py` |
 | ~~N2~~ | ~~LOW~~ | **CLOSED 2026-09-01.** `warehouse_chief` removed from `gumruk_chykysh → yuklenme`; its one account has never logged in. Keeps `PALLET_WRITE_ROLES` | `services/shipment.py` |
 | P1 | — | `yola_chykdy` owned by `document_team` in code, `transport` in the DB | `services/shipment.py:75` |
 | P2 | — | `ShipmentStatusType.step_order` contradicts the real graph | live DB |
@@ -269,16 +269,23 @@ warehouse_chief fallback entirely"*. Confirm with the owner before changing anyt
 > uses a plain `role__in` filter and does **not** expand `TASK_ROLE_EQUIVALENTS`).
 > Pinned by `test_reaching_yuklenme_notifies_the_loading_department`.
 >
-> **The `draft` half was deliberately left alone and still needs an owner call.**
-> `create_shipment()` calls `_notify_action_required(shipment, 'draft')` on **every**
-> shipment creation, and the draft-step `TASK_RULES` assign that work to
-> `export_manager` (destination), `document_team` (firm splits, 4 rules) and
-> `transport` (driver, 2 rules) — **15 active accounts**. Matching them here would
-> turn one dead notification into 15 live ones per shipment, for work the Task engine
-> already surfaces as Tasks. That is a user-visible volume change nobody asked for, so
-> it is a decision rather than a fix. Three options: (a) leave it dead, (b) drop the
-> `draft` key so the dead path stops pretending, (c) fan out to the three task-owning
-> roles and accept the volume.
+> **The `draft` half — CLOSED one commit later, option (c).** `draft` now notifies
+> `export_manager`, `document_team` and `transport`: the three roles the draft-step
+> `TASK_RULES` put work on, all of which **gate** the advance to `gumruk_girish`
+> (destination is enforced by the two-row join guard itself). Pinned by
+> `test_creating_a_draft_notifies_the_roles_that_owe_work_on_it`.
+>
+> **The volume objection did not survive measurement, and that is what decided it.**
+> "15 accounts per shipment" was quoted without a rate. Measured on the live DB:
+> shipment creation runs **~1.4/day over 90 days** (2.0/day in the last week), so the
+> fan-out is roughly **one notification per person per day** — which is what an
+> action-required ping is for, not a flood. For scale, `action_required` is 238 of the
+> 2 287 notification rows in the DB; `plan_late` + `plan_critical_late` are 2 009 of
+> them. `Notification.read_at` exists, so they are dismissible.
+>
+> **Known wart, not fixed:** the creator gets notified too, because
+> `_notify_action_required` takes no actor. A self-ping is harmless and excluding it
+> would mean widening a shared function's signature for a cosmetic gain.
 >
 > **N1 (MED) — the notification still goes to the seed account.** `STATUS_NOTIFY_ROLES`
 > ([shipment.py:103,106](../backend/apps/export/services/shipment.py#L103)) maps `draft` and

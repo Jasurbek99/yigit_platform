@@ -547,6 +547,38 @@ class LoadingDepartmentOwnsTheLoadingEdgeTests(LifecycleBase):
         self.assertEqual(notified, {'loading_dept_head', 'loading_dept_head_deputy'})
         self.assertNotIn('warehouse_chief', notified)
 
+    def test_creating_a_draft_notifies_the_roles_that_owe_work_on_it(self):
+        """N1, `draft` half -- it notified `warehouse_chief` alone.
+
+        `create_shipment()` calls `_notify_action_required(shipment, 'draft')` on
+        every creation, and the draft-step TASK_RULES put the blocking work on
+        three roles: export_manager (country/customer/import_firm -- literally
+        the two-row join guard), document_team (firm splits) and transport
+        (driver name/phone/plate). All four task groups gate the advance to
+        `gumruk_girish`, so all three must be told.
+
+        Volume was the reason this was held back one commit; measured on the
+        live DB it is ~1.4 shipments/day over 90 days, i.e. roughly one
+        notification per person per day -- which is what an action-required
+        ping is for.
+        """
+        from apps.export.models import Notification
+        from apps.export.services import create_shipment
+
+        shipment = create_shipment(
+            shipment_code='0111009/25',
+            date='2025-11-01',
+            user=self.users['export_manager'],
+            season=self.season,
+        )
+        notified = set(
+            Notification.objects
+            .filter(message=shipment.shipment_code, kind='action_required')
+            .values_list('user__role', flat=True)
+        )
+        self.assertEqual(notified, {'export_manager', 'document_team', 'transport'})
+        self.assertNotIn('warehouse_chief', notified)
+
     def test_a_role_outside_the_loading_department_is_still_refused(self):
         s = self.make_shipment('LC-LOADDENY')
         self.advance_to(s, 'gumruk_chykysh')
