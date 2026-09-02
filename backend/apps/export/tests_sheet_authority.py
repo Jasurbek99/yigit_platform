@@ -1018,6 +1018,127 @@ class TestPackingEndpointFollowsTheSheetRow(TestCase):
         self.assertNotEqual(response.status_code, 403, response.data)
 
 
+class TestPackingTemplateAndSwapRequireFirmSplitsAccess(TestCase):
+    """Whole-branch review Finding 1 (CRITICAL, 2026-09-02): `packing` alone
+    is a back door into firm composition and quota.
+
+    scope='template' and scope='swap' both call _set_firm_weights, which
+    deletes/rebuilds shipment.firm_splits and re-syncs draft quota usage —
+    that is firm-split authority, not packing. scope='firm' only updates one
+    ContractSale row and stays packing-only. Before this fix, a role ticked
+    for `packing` but never for `firm_splits` (warehouse_chief,
+    loading_dept_head, loading_dept_head_deputy all hold box_count /
+    pallet_count / weight_gross / packaging_kg / pallet_weight_kg, reverse-
+    delegated to `packing` — none holds shipment_firm_split at any level)
+    could rewrite firm splits and quota through this panel even though
+    POST /shipments/{id}/firm-splits/ correctly 403s the same role for the
+    same object. ShipmentPackingView.post() now additionally requires the
+    `firm_splits` Sheet row for scope in ('template', 'swap').
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.core.models import ExportFirm
+        from apps.export.models import SheetRowRoleTrigger
+
+        call_command('seed_permissions')
+        cls.packing_row = SheetRowSetting.objects.create(
+            field_key='packing', row_number=48, display_order=48 * 1024,
+        )
+        cls.firm_splits_row = SheetRowSetting.objects.create(
+            field_key='firm_splits', row_number=9, display_order=9 * 1024,
+        )
+        # Both roles below need `packing` to clear get_permissions(); only
+        # document_team also gets `firm_splits` — that is the split under test.
+        SheetRowRoleTrigger.objects.create(row=cls.packing_row, role='warehouse_chief')
+        SheetRowRoleTrigger.objects.create(row=cls.packing_row, role='document_team')
+        SheetRowRoleTrigger.objects.create(row=cls.firm_splits_row, role='document_team')
+
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
+        )
+        cls.status_loading, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={'name_tk': 'yuklenme', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
+        )
+        cls.firm_a, _ = ExportFirm.objects.get_or_create(
+            code='PKA', defaults={'name_tk': 'PKA', 'name_en': 'PKA'},
+        )
+        cls.firm_b, _ = ExportFirm.objects.get_or_create(
+            code='PKB', defaults={'name_tk': 'PKB', 'name_en': 'PKB'},
+        )
+
+    def setUp(self):
+        cache.clear()
+        from apps.export.models import PackingTemplate, PackingTemplateShare, ShipmentFirmSplit
+
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'PKS{id(self) % 100000}', date='2026-02-01',
+            season=self.season, status=self.status_loading,
+        )
+        ShipmentFirmSplit.objects.create(
+            shipment=self.shipment, export_firm=self.firm_a, weight_kg=9000, split_order=1,
+        )
+        ShipmentFirmSplit.objects.create(
+            shipment=self.shipment, export_firm=self.firm_b, weight_kg=9000, split_order=2,
+        )
+        self.template = PackingTemplate.objects.create(name=f'T{id(self)}', net_kg=18000)
+        PackingTemplateShare.objects.create(template=self.template, share_order=1, net_kg=9000)
+        PackingTemplateShare.objects.create(template=self.template, share_order=2, net_kg=9000)
+
+    def _post(self, user, payload):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client.post('/api/v1/contracts/shipment-packing/', payload, format='json')
+
+    def test_packing_without_firm_splits_is_refused_on_template(self):
+        wc = _make_user('pks_wc_tpl', 'warehouse_chief')
+        resp = self._post(wc, {
+            'shipment': self.shipment.id, 'scope': 'template', 'packing_template': self.template.id,
+        })
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+    def test_packing_without_firm_splits_is_refused_on_swap(self):
+        wc = _make_user('pks_wc_swap', 'warehouse_chief')
+        resp = self._post(wc, {
+            'shipment': self.shipment.id, 'scope': 'swap',
+            'export_firm_a': self.firm_a.id, 'export_firm_b': self.firm_b.id,
+        })
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+    def test_packing_without_firm_splits_still_allowed_on_firm_scope(self):
+        """Same user, same-shaped request, only `scope` differs from the two
+        tests above: proves get_permissions() actually admitted warehouse_chief
+        (via the `packing` trigger) — the 403s above come from the new
+        firm_splits guard on template/swap, not from the permission class
+        refusing this role outright."""
+        wc = _make_user('pks_wc_firm', 'warehouse_chief')
+        resp = self._post(wc, {
+            'shipment': self.shipment.id, 'scope': 'firm',
+            'export_firm': self.firm_a.id, 'gross_kg': 9500,
+        })
+        # No ContractSale linked for firm_a yet, so the view 400s inside the
+        # business logic ("link a contract first") — the point here is that
+        # it is NOT 403, unlike template/swap for the same role above.
+        self.assertNotEqual(resp.status_code, 403, resp.data)
+
+    def test_packing_and_firm_splits_together_allowed_on_template(self):
+        doc = _make_user('pks_doc_tpl', 'document_team')
+        resp = self._post(doc, {
+            'shipment': self.shipment.id, 'scope': 'template', 'packing_template': self.template.id,
+        })
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_packing_and_firm_splits_together_allowed_on_swap(self):
+        doc = _make_user('pks_doc_swap', 'document_team')
+        resp = self._post(doc, {
+            'shipment': self.shipment.id, 'scope': 'swap',
+            'export_firm_a': self.firm_a.id, 'export_firm_b': self.firm_b.id,
+        })
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+
 class TestJunctionFallbackDelegatesToItsOwnResource(TestCase):
     """Task 6 Fix 2: the no-config fallback in can_edit_sheet_fields must
     resolve firm_splits/block_sources to their OWN resource_code, not

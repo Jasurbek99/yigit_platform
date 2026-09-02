@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import (
-    DynamicResourcePermission, SeasonNotClosed, sheet_field_write_permission,
+    DynamicResourcePermission, SeasonNotClosed, can_edit_sheet_fields, sheet_field_write_permission,
 )
 from apps.core.idempotency import idempotent
 from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
@@ -926,6 +926,16 @@ class ShipmentPackingView(APIView):
     the `packing` Sheet row (AD-17) — box_count etc. reach the DB from here
     too, so this must ask the same gate PATCH /shipments/{id}/ asks, or a
     role ticked on Shipment Settings still 403s from this panel.
+
+    `packing` alone is not enough for scope='template'/'swap': both call
+    _set_firm_weights, which deletes and rebuilds shipment.firm_splits (and
+    syncs draft quota usage) — that's firm composition, not packing.
+    scope='firm' only touches one ContractSale row and stays packing-only.
+    post() additionally requires the `firm_splits` Sheet row for the first
+    two scopes, or a role ticked for `packing` alone (e.g. warehouse_chief,
+    loading_dept_head) can rewrite firm splits and quota through this panel
+    even though POST /shipments/{id}/firm-splits/ correctly refuses it —
+    same object, two answers, the exact defect AD-17 exists to remove.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1004,6 +1014,19 @@ class ShipmentPackingView(APIView):
         assert_season_open(shipment.season)
 
         scope = data.get('scope')
+
+        # 'template' and 'swap' both rewrite firm_splits (see class docstring);
+        # the `packing` trigger that already passed get_permissions is not
+        # enough for those two — 'firm' stays packing-only and skips this.
+        if scope in ('template', 'swap'):
+            if not can_edit_sheet_fields(request.user, ['firm_splits'])['firm_splits']:
+                return Response(
+                    {'error': (
+                        "You don't have permission to edit field 'firm_splits' "
+                        "on this shipment"
+                    )},
+                    status=403,
+                )
 
         if scope == 'template':
             template = (
