@@ -1,4 +1,4 @@
-"""Grant the new `sheet_row_setting` resource to admin / director / export_manager.
+"""Grant the new `sheet_row_setting` resource to admin / director / export_manager / boss.
 
 The Shipment Settings sheet-rows endpoint used to gate on `shipment.can_edit`,
 which five non-admin roles hold. Writing a Sheet row trigger is becoming an
@@ -14,11 +14,25 @@ export_manager currently soft-delete Sheet rows through this endpoint (DELETE
 view) via the 'shipment' resource's blanket CRUD grant. Task 1's stated goal is
 "changes no Sheet behaviour"; can_delete=False breaks 4 existing tests
 (test_delete_soft_deletes_row and siblings) with 403s. can_delete=True preserves
-parity with the resource this endpoint used to gate on. This also matches
-seed_permissions.RESOURCE_DEFAULTS, where admin/director/export_manager need no
-explicit 'sheet_row_setting' override at all — they inherit full CRUD from their
-existing `**{r: _VCRUD for r in _ALL_RESOURCES}` wildcard the moment the resource
-code is registered, same mechanism 'boss' relies on.
+parity with the resource this endpoint used to gate on.
+
+`boss` is in `ROLES`, fixed 2026-09-03: `boss` holds `admin.shipment_settings`
+page visibility from migration 0033's blanket grant, and pre-Task-1 held write
+access via the `shipment` resource's blanket CRUD, same as admin/director/
+export_manager. This migration originally omitted him on the reasoning that
+`seed_permissions.RESOURCE_DEFAULTS['boss']` also builds from
+`**{r: _VCRUD for r in _ALL_RESOURCES}` and would pick the resource up
+automatically — true for a *seeded* database, but production only runs
+`migrate`, never `seed_permissions`, so `boss` had a visible page and zero
+resource grant on the live/dev box: every write 403'd
+(`get_resource_perm` returns `None` for a role with no row, and `boss` carries
+no superuser bypass in `DynamicResourcePermission`). The test suite never
+caught it because every test calls `seed_permissions` first, which papers over
+exactly this gap. Precedent: migration 0035 (`packing_template`, the previous
+"new resource introduced" migration) explicitly lists
+`CRUD_ROLES = ['admin', 'director', 'export_manager', 'boss', 'document_team']`
+for the same reason — a migrated-only database needs every wildcard-CRUD role
+granted explicitly, seeding is not a substitute.
 
 Idempotent: update_or_create on the unique keys. Clears the permission cache so
 live workers pick the rows up without a restart. reverse_code (revoke) is fully
@@ -31,7 +45,7 @@ import os
 from django.db import migrations
 
 
-ROLES = ['admin', 'director', 'export_manager']
+ROLES = ['admin', 'director', 'export_manager', 'boss']
 RESOURCE = 'sheet_row_setting'
 PAGE = 'admin.shipment_settings'
 

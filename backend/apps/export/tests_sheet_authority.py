@@ -114,6 +114,45 @@ class TestSheetRowSettingMigrationReverse(TestCase):
             'revoke() left a ghost admin.shipment_settings page for export_manager',
         )
 
+    def test_grant_covers_every_wildcard_crud_role_including_boss(self):
+        """Pins the MIGRATION's own role list, not the seeded state.
+
+        `boss` holds `sheet_row_setting` in a *seeded* test DB only because
+        `seed_permissions.RESOURCE_DEFAULTS['boss']` independently builds from
+        the same `**{r: _VCRUD for r in _ALL_RESOURCES}` wildcard admin/
+        director/export_manager use — a test that calls `seed_permissions`
+        and then asserts `boss` can edit would pass whether or not `boss` is
+        in this migration's own `ROLES`, and would have passed even with the
+        2026-09-02 regression where `boss` was omitted from it (production
+        runs `migrate`, never `seed_permissions`, so only `ROLES` here matters
+        for a live box). This test calls `grant()` directly with no seeding,
+        so it can only pass if `boss` is actually in `ROLES`.
+        """
+        self.assertFalse(
+            RoleResourcePermission.objects.filter(
+                role='boss', resource_code='sheet_row_setting',
+            ).exists(),
+            'premise broken: boss already had a row before grant() ran',
+        )
+
+        with mock.patch.dict(os.environ, {'DJANGO_TESTING': 'false'}):
+            _MIGRATION.grant(django_apps, None)
+
+        boss_perm = RoleResourcePermission.objects.filter(
+            role='boss', resource_code='sheet_row_setting',
+        ).first()
+        self.assertIsNotNone(
+            boss_perm,
+            "grant() did not create a sheet_row_setting row for boss — "
+            "on a migrated-only (non-seeded) database boss would 403 on "
+            "every write despite seeing the admin.shipment_settings page "
+            "(migration 0033's blanket grant).",
+        )
+        self.assertTrue(boss_perm.can_view)
+        self.assertTrue(boss_perm.can_create)
+        self.assertTrue(boss_perm.can_edit)
+        self.assertTrue(boss_perm.can_delete)
+
 
 class TestReverseDelegateMap(TestCase):
     """Composite Sheet cells write real columns that have no field_key.
