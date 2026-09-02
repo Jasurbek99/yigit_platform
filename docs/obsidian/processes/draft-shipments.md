@@ -203,6 +203,26 @@ Registered in `backend/apps/core/permission_registry.py`:
 
 `warehouse_chief.shipment` resource permission bumped to `_VCE` (view + create + edit) so drafts can be created.
 
+**Draft create is gated TWICE, and only one gate is editable in the admin UI.**
+
+1. **Button visibility** — the Sheet's "+" renders on `shipment.can_create`
+   (`RoleResourcePermission` → `/auth/me/.resource_permissions` →
+   `canDoBackendGated(user, 'shipment', 'create')` in `SheetToolbar.tsx`).
+   Admin → Permissions → Resources sets this flag.
+2. **The API itself** — `ShipmentViewSet.create()` (`apps/export/views.py`) holds a
+   **hardcoded** `allowed_draft_roles` set that the permission matrix cannot reach:
+   `PRIVILEGED_ROLES` (admin / export_manager / director) plus `warehouse_chief`,
+   `loading_dept_head`, `loading_dept_head_deputy` and — since **2026-09-02** —
+   `document_team`.
+
+Granting `shipment.can_create` in the admin UI alone therefore shows a role the
+button and then 403s it. Adding a role to draft creation means editing **both**.
+
+`document_team` was added to gate 2 on 2026-09-02 for exactly that reason: the
+matrix flag had been switched on for them, the button appeared, and every click
+returned `403 "Only warehouse_chief, loading_dept_head, … can create draft
+shipments"`.
+
 ## Frontend Implementation
 
 ### Pages

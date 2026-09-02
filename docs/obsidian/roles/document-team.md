@@ -28,6 +28,7 @@ Steps 3-4 (they can trigger transitions):
 | [[shipment-lifecycle]] | View LOADING+CUSTOMS shipments via "My Work", transition steps 3-4 |
 | [[quality-documents]] | Toggle 4 certificate checkboxes on ShipmentDetail Document tab |
 | [[quota-management]] | Read-only access to "All Quotas" tab |
+| [[draft-shipments]] | Create empty draft columns from the Sheet "+" button (added 2026-09-02) |
 
 ## Pages They See
 
@@ -38,3 +39,4 @@ Dashboard, Shipment List, Kanban Board, Shipment Sheet, Quota Dashboard (read-on
 1. **Daily check**: Shipment List → My Work filter (sees LOADING + CUSTOMS phase) → review pending shipments
 2. **Quality check**: Open ShipmentDetail → Document tab → toggle certificate checkboxes
 3. **Customs clearance**: Review documents → transition to Customs Exit → transition to Departed
+4. **Open a draft row**: Shipment Sheet → "+" → an empty draft column is created (`POST /export/shipments/ {is_draft: true}`), then its cells are typed in. Requires BOTH `shipment.can_create` in the permission matrix AND membership of `allowed_draft_roles` in `ShipmentViewSet.create()` — see [[../processes/draft-shipments#Permissions|Draft Shipments]].

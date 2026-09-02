@@ -1905,7 +1905,8 @@ class ShipmentViewSet(ModelViewSet):
         - is_draft=False (default): creates at yuklenme (full path).
           Restricted to export_manager / director.
         - is_draft=True: creates a DRAFT (step 0) with one or more block sources.
-          Allowed for warehouse_chief, export_manager, and director.
+          Allowed for the loading department, document_team, export_manager and
+          director.
           country/customer may be omitted — they are filled at assignment time.
 
         Returns full shipment detail with HTTP 201 on success.
@@ -1919,11 +1920,20 @@ class ShipmentViewSet(ModelViewSet):
 
         # Role gate: drafts are accessible to warehouse_chief and loading_dept_head
         # (Soltanmyrat — two-column join flow); full creation needs privilege.
+        # document_team added 2026-09-02: the Sheet's "+" button renders on
+        # `shipment.can_create` from the permission matrix, so granting that flag
+        # in the admin UI showed them a button this list then 403'd. They own the
+        # customs/documents columns and now open their own draft rows.
         if is_draft:
-            allowed_draft_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'}
+            allowed_draft_roles = PRIVILEGED_ROLES | {
+                'warehouse_chief',
+                'loading_dept_head',
+                'loading_dept_head_deputy',
+                'document_team',
+            }
             if user_role not in allowed_draft_roles:
                 return Response(
-                    {'error': 'Only warehouse_chief, loading_dept_head, loading_dept_head_deputy, export_manager, or director can create draft shipments'},
+                    {'error': 'Only warehouse_chief, loading_dept_head, loading_dept_head_deputy, document_team, export_manager, or director can create draft shipments'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
