@@ -627,7 +627,14 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
             continue
         owning_row = _REVERSE_FIELD_DELEGATES.get(name, name)
         setting = settings_by_key.get(owning_row)
-        if setting is None or not _has_trigger_config(setting):
+        if setting is not None and setting.is_locked and not _has_trigger_config(setting):
+            # An explicit admin lock with nobody named is a deliberate
+            # "nobody" -- not an unconfigured row waiting to be set up. The
+            # singular gate (can_edit_sheet_field, Rule 6) denies here; the
+            # write gate must agree, or the same row gives two different
+            # answers depending on which write path asked.
+            result[name] = False
+        elif setting is None or not _has_trigger_config(setting):
             result[name] = can_edit_field(role, name)
         else:
             result[name] = edit_map.get(owning_row, False)

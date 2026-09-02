@@ -776,6 +776,31 @@ class TestBatchGateFallsBackWithNoSetting(TestCase):
         result = can_edit_sheet_fields(self.user, ['weight_gross'])
         self.assertFalse(result['weight_gross'])
 
+    def test_locked_zero_config_packing_row_denies_both_gates(self):
+        """A LOCKED packing row with zero trigger config is a deliberate
+        admin 'nobody' -- an explicit lock with nobody named, not an
+        unconfigured row waiting to be set up. The singular gate
+        (can_edit_sheet_field) already denies here (its Rule 6); the batch
+        write gate must agree, or the same row gives two different answers
+        depending on which write path asked. warehouse_chief holds the real
+        weight_gross RoleFieldPermission grant, so a bare can_edit_field
+        fallback would wrongly grant it -- this pins that both gates say No.
+        """
+        from apps.core.permissions import can_edit_sheet_field, can_edit_sheet_fields
+
+        row = SheetRowSetting.objects.create(
+            field_key='packing', row_number=48, display_order=48 * 1024,
+            is_locked=True,
+        )
+        cache.clear()
+
+        result = can_edit_sheet_fields(self.user, ['weight_gross'])
+        self.assertFalse(result['weight_gross'], 'batch gate must deny a locked, zero-config row')
+        self.assertFalse(
+            can_edit_sheet_field(self.user, 'packing'),
+            'singular gate must deny a locked, zero-config row',
+        )
+
 
 class TestPatchEndpointHonoursTheBatchGate(TestCase):
     """Drives the real PATCH endpoint so a regression in
