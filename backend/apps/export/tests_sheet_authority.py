@@ -130,6 +130,26 @@ class TestReverseDelegateMap(TestCase):
                 f'{real_field} maps to {owning_row}, which is not a Sheet row',
             )
 
+    def test_packing_column_delegates_stay_pinned(self):
+        """Direct, unambiguous kill for 'packaging_kg' / 'pallet_weight_kg'.
+
+        Every real role holding either of these two also holds box_count /
+        pallet_count (seed_permissions.py FIELD_DEFAULTS: loading_dept_head,
+        warehouse_chief, loading_dept_head_deputy) — both of which are
+        SEPARATE _REVERSE_FIELD_DELEGATES entries that route to 'packing' on
+        their own. Verified empirically (temporarily deleting just these two
+        keys and re-running the backfill integration test in
+        TestBackfillPreservesEveryRolesAccess): warehouse_chief and
+        loading_dept_head_deputy keep 'packing' access regardless, because
+        box_count/pallet_count carry them there independently. An
+        integration-level assertion on those two roles cannot, by itself,
+        prove these two dict entries exist — this direct pin is what does.
+        """
+        from apps.core.permissions import _REVERSE_FIELD_DELEGATES
+
+        self.assertEqual(_REVERSE_FIELD_DELEGATES['packaging_kg'], 'packing')
+        self.assertEqual(_REVERSE_FIELD_DELEGATES['pallet_weight_kg'], 'packing')
+
     def test_sheet_owned_fields_covers_rows_and_reverse_keys(self):
         from apps.core.permissions import _REVERSE_FIELD_DELEGATES, get_sheet_owned_fields
         from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
@@ -323,9 +343,21 @@ class TestVirtualRowUsesItsOwnTriggers(TestCase):
 class TestBackfillPreservesEveryRolesAccess(TestCase):
     """Nobody loses write access when the serializer switches to the sheet gate.
 
-    Snapshots the pre-migration verdict for every (role, sheet field) pair using
-    the OLD authority (RoleFieldPermission), runs the backfill, then asserts the
-    NEW authority (the sheet gate) says yes wherever the old one did.
+    `test_every_role_that_had_field_perm_access_keeps_it_after_backfill` below
+    snapshots the pre-backfill verdict for every (role, sheet field) pair using
+    the OLD authority (RoleFieldPermission, resolved through the junction/
+    virtual delegates the gate itself uses), runs the backfill, then asserts
+    the NEW authority (the sheet gate) says yes wherever the old one did — new
+    superset of old, never equality, since the backfill is allowed to widen.
+
+    That snapshot is structurally blind to `packing`: nobody has ever held a
+    RoleFieldPermission literally named 'packing', so its OLD verdict is
+    always False and the property holds trivially there regardless of
+    whether the reverse-delegate union is correct. The other methods below
+    pin the properties the snapshot can't reach: the wildcard-expansion
+    property (every row, not just the ones a role's real fields resolve to)
+    and `packing` specifically (real access the backfill *creates*, not
+    access it merely preserves).
     """
 
     @classmethod
@@ -363,19 +395,39 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
         denied = [key for key, allowed in edit_map.items() if not allowed]
         self.assertEqual(denied, [], f'boss lost access to: {denied}')
 
-    def test_every_owning_role_can_still_edit_its_row_with_settings_present(self):
-        """The settings-present twin of TestEveryRoleCanEditItsOwnSheetRow.
+    def test_every_role_that_had_field_perm_access_keeps_it_after_backfill(self):
+        """New authority is a superset of the old one, computed directly.
 
-        That sweep deletes every SheetRowSetting in its own setUp, so it only
-        ever exercises the `setting is None` fallback. Once this backfill seeds
-        triggers on every row, `has_any_config` is True everywhere in
-        production and that fallback becomes dead code — the old sweep would
-        keep passing while measuring a path production no longer takes. This
-        one provisions every row, runs the backfill, and then asserts the same
-        property the old sweep asserts, against the branch that now runs.
+        Every DEFAULT_SHEET_ROWS row is freshly provisioned with zero
+        triggers, so before backfill() runs, can_edit_sheet_field's
+        "no config" fallback IS the old authority:
+        can_edit_field(role, resolved_field, resource_code), with the
+        junction (_JUNCTION_FIELD_DELEGATES) and virtual
+        (_VIRTUAL_FIELD_DELEGATES) delegates resolved exactly the way the
+        gate itself resolves them. Snapshots that verdict for every role in
+        FIELD_DEFAULTS x every active row, runs backfill(), then asserts
+        can_edit_sheet_field is True wherever the snapshot was True.
+        Direction only (new >= old): the backfill is allowed to widen (e.g.
+        a wildcard role reaching a row it had no field grant naming), never
+        narrow.
+
+        Supersedes a WHO_TO_ROLE + `input_type == 'readonly'`-skip version of
+        this test: that approach only ever checked the one role
+        default_who_key names as owner, and only on rows with an inline
+        editor, which is how `warehouse_chief` and `loading_dept_head_deputy`
+        losing the `packing` popover almost shipped silently — neither is in
+        WHO_TO_ROLE, and `packing` is readonly. Asking RoleFieldPermission
+        directly needs neither table; `packing` itself is still outside its
+        reach (see the class docstring) and is covered by
+        test_reverse_delegate_backfills_packing_from_the_real_columns below.
         """
-        from apps.core.permissions import can_edit_sheet_field
-        from apps.export.management.commands.backfill_sheet_row_defaults import WHO_TO_ROLE
+        from apps.core.management.commands.seed_permissions import FIELD_DEFAULTS
+        from apps.core.permissions import (
+            _JUNCTION_FIELD_DELEGATES,
+            _VIRTUAL_FIELD_DELEGATES,
+            can_edit_field,
+            can_edit_sheet_field,
+        )
         from apps.export.management.commands.backfill_sheet_row_triggers import backfill
         from apps.export.models import SheetRowSetting
         from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
@@ -391,32 +443,36 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
             ],
             batch_size=500,
         )
+
+        def _resolve(field_key: str) -> tuple[str, str]:
+            if field_key in _JUNCTION_FIELD_DELEGATES:
+                return _JUNCTION_FIELD_DELEGATES[field_key]
+            return 'shipment', _VIRTUAL_FIELD_DELEGATES.get(field_key, field_key)
+
+        # Snapshot the OLD verdict for every (role, row) pair BEFORE backfill
+        # touches anything.
+        old_verdicts: dict[tuple[str, str], bool] = {}
+        for row in DEFAULT_SHEET_ROWS:
+            resource_code, field_name = _resolve(row['field_key'])
+            for role in FIELD_DEFAULTS:
+                old_verdicts[(role, row['field_key'])] = can_edit_field(
+                    role, field_name, resource_code=resource_code,
+                )
+
         backfill()
 
+        users_by_role: dict[str, 'User'] = {}
         failures = []
-        for row in DEFAULT_SHEET_ROWS:
-            # Mirrors the readonly skip in TestEveryRoleCanEditItsOwnSheetRow
-            # (tests_sheet_perms.py): readonly rows (e.g. shipment_code,
-            # has_doc_advance) show a "Who" label for information only — no
-            # RoleFieldPermission grant has ever existed for them, under
-            # either authority, so they are not part of the "still editable"
-            # property this sweep checks. `packing` is the one readonly row
-            # that IS write-gated (via the reverse-delegate columns written
-            # through its popover panel); it has its own dedicated test below.
-            if row['input_type'] == 'readonly':
+        for (role, field_key), was_true in old_verdicts.items():
+            if not was_true:
                 continue
-            who_key = row.get('default_who_key')
-            if not who_key:
-                continue
-            owner = who_key.rsplit('.', 1)[-1]
-            for role in WHO_TO_ROLE.get(owner, []):
-                cache.clear()
-                # row_number alone is not unique (e.g. R47 has both
-                # firm_contracts and is_gapy_satys) — key on field_key too so
-                # two rows sharing a row_number don't collide on username.
-                user = _make_user(f'sweep_{role}_{row["row_number"]}_{row["field_key"]}', role)
-                if not can_edit_sheet_field(user, row['field_key']):
-                    failures.append(f"{role} lost {row['field_key']} (R{row['row_number']})")
+            cache.clear()
+            user = users_by_role.get(role)
+            if user is None:
+                user = _make_user(f'oldnew_{role}', role)
+                users_by_role[role] = user
+            if not can_edit_sheet_field(user, field_key):
+                failures.append(f'{role} lost {field_key}')
 
         self.assertEqual(failures, [], '\n'.join(failures))
 
@@ -435,16 +491,26 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
         self.assertTrue(can_edit_sheet_field(doc, 'firm_splits'))
 
     def test_reverse_delegate_backfills_packing_from_the_real_columns(self):
-        """`packing` (R48) is the reverse-delegate row the four packing
-        columns (box_count, pallet_count, weight_gross, packaging_kg, ...)
+        """`packing` (R48) is the reverse-delegate row the packing columns
         write through their popover panel. It carries no field grant of its
-        own — RoleFieldPermission never lists 'packing' as a field name — and
-        its readonly input_type excludes it from the general ownership sweep
-        above, so this is its only coverage. document_team holds box_count /
-        pallet_count / weight_gross directly (seed_permissions.py
-        FIELD_DEFAULTS); without the reverse-delegate clause in backfill()
-        those grants never reach the 'packing' row's triggers and
-        document_team loses the popover the moment the sheet gate goes live.
+        own — RoleFieldPermission never lists 'packing' as a field name —
+        and its OLD verdict is always False (see the class docstring), so
+        neither the general sweep above nor RoleFieldPermission itself can
+        vouch for it; this is its only integration-level coverage.
+
+        document_team, warehouse_chief and loading_dept_head_deputy are each
+        asserted: all three reach 'packing' today (seed_permissions.py
+        FIELD_DEFAULTS), and dropping any one of them would be a real,
+        silent access loss for that role once Task 5 ships. None of these
+        three assertions individually proves the 'packaging_kg' /
+        'pallet_weight_kg' entries exist in _REVERSE_FIELD_DELEGATES,
+        though: every role holding either of those two columns also holds
+        box_count / pallet_count, separate entries in the same map that
+        route to 'packing' on their own — confirmed empirically by
+        temporarily deleting just the two 'packaging_kg'/'pallet_weight_kg'
+        entries and re-running this test, which still passed.
+        TestReverseDelegateMap.test_packing_column_delegates_stay_pinned is
+        the direct, unambiguous kill for those two entries specifically.
         """
         from apps.core.permissions import can_edit_sheet_field
         from apps.export.management.commands.backfill_sheet_row_triggers import backfill
@@ -458,3 +524,9 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
 
         doc = _make_user('backfill_packing_doc', 'document_team')
         self.assertTrue(can_edit_sheet_field(doc, 'packing'))
+
+        wc = _make_user('backfill_packing_wc', 'warehouse_chief')
+        self.assertTrue(can_edit_sheet_field(wc, 'packing'))
+
+        deputy = _make_user('backfill_packing_dep', 'loading_dept_head_deputy')
+        self.assertTrue(can_edit_sheet_field(deputy, 'packing'))
