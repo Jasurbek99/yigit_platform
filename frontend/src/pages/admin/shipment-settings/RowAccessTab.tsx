@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Alert, Button, Checkbox, Flex, Input, Typography } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { RoleSidebar } from '@/pages/admin/permissions/RoleSidebar';
 import { useSheetRowSettings, useSaveRoleAccess } from '@/hooks/useSheetRowSettings';
@@ -19,7 +20,7 @@ interface IRowAccessTabProps {
  */
 export default function RowAccessTab({ canWrite }: IRowAccessTabProps) {
   const { t } = useTranslation();
-  const { data: rows = [], isLoading } = useSheetRowSettings();
+  const { data: rows = [], isLoading, isError } = useSheetRowSettings();
   const save = useSaveRoleAccess();
 
   const roles = useMemo(() => ROLE_CHOICES.map((r) => r.value), []);
@@ -35,7 +36,7 @@ export default function RowAccessTab({ canWrite }: IRowAccessTabProps) {
   const isDirty = draft !== null;
 
   const visible = rows.filter(
-    (r) => !search || r.field_key.includes(search) || (r.label_en ?? '').toLowerCase().includes(search.toLowerCase()),
+    (r) => !search || r.field_key.toLowerCase().includes(search.toLowerCase()) || (r.label_en ?? '').toLowerCase().includes(search.toLowerCase()),
   );
 
   const handleToggle = (fieldKey: string, checked: boolean) => {
@@ -53,7 +54,10 @@ export default function RowAccessTab({ canWrite }: IRowAccessTabProps) {
   const handleSave = () => {
     save.mutate(
       { role, field_keys: [...current].sort() },
-      { onSuccess: () => setDraft(null) },
+      {
+        onSuccess: () => setDraft(null),
+        onError: () => toast.error(t('row_access.toast_save_error')),
+      },
     );
   };
 
@@ -63,6 +67,7 @@ export default function RowAccessTab({ canWrite }: IRowAccessTabProps) {
 
       <Flex vertical gap={12} style={{ flex: 1 }}>
         <Alert type="info" showIcon message={t('row_access.hint')} />
+        {isError && <Alert type="error" showIcon message={t('row_access.load_error')} />}
 
         <Flex gap={8} align="center">
           <Input.Search

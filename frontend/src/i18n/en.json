@@ -38,7 +38,9 @@
   },
   "row_access": {
     "hint": "Tick the rows this role may edit. This is the only place row access is granted.",
-    "search": "Search rows"
+    "search": "Search rows",
+    "toast_save_error": "Failed to save row access",
+    "load_error": "Failed to load Sheet rows"
   },
   "boss_mode": {
     "view": "View",

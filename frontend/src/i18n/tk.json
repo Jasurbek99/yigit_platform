@@ -38,7 +38,9 @@
   },
   "row_access": {
     "hint": "Bu rolyň redaktirläp biljek setirlerini belläň. Setir rugsady diňe şu ýerden berilýär.",
-    "search": "Setirleri gözle"
+    "search": "Setirleri gözle",
+    "toast_save_error": "Setir rugsadyny ýatda saklap bolmady",
+    "load_error": "Setirleri ýüklip bolmady"
   },
   "boss_mode": {
     "view": "Görmek",
