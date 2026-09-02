@@ -4,6 +4,8 @@ Covers the endpoint lock-down (Task 1), the trigger-only gate (Task 3), the
 reverse delegates (Task 2/5) and the write-path parity invariant (Task 5).
 """
 import os
+from datetime import date
+from decimal import Decimal
 from importlib import import_module
 from unittest import mock
 
@@ -14,8 +16,8 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.core.models import RolePagePermission, RoleResourcePermission
-from apps.export.models import SheetRowSetting
+from apps.core.models import RolePagePermission, RoleResourcePermission, Season, ShipmentStatusType
+from apps.export.models import Shipment, SheetRowSetting
 
 User = get_user_model()
 
@@ -640,7 +642,20 @@ class TestWritePathParity(TestCase):
                 )
 
     def test_multi_field_patch_loads_settings_once(self):
-        """A five-field PATCH must not cost five settings queries."""
+        """A five-field PATCH must not cost five settings queries.
+
+        The 4 queries (all fields here carry trigger config after backfill,
+        so none takes the no-config can_edit_field fallback added for
+        reverse delegates):
+          1. SheetRowSetting.objects.active().select_related('triggered_user')
+             -- the main settings load, loaded once by can_edit_sheet_fields
+             itself and handed to get_sheet_edit_map via settings_by_key.
+          2. role_triggers prefetch (SELECT ... WHERE row_id IN (...)).
+          3. user_permissions prefetch (SELECT ... WHERE row_id IN (...)).
+          4. get_all_field_permissions(role) inside get_sheet_edit_map --
+             one query (or a cache hit on a warm cache).
+        Proven non-scaling below with a 2-field list against the same count.
+        """
         from apps.core.permissions import can_edit_sheet_fields
 
         user = _make_user('qcount_probe', 'document_team')
@@ -648,6 +663,10 @@ class TestWritePathParity(TestCase):
         fields = ['country', 'import_firm', 'customer', 'city', 'documents_status']
         with self.assertNumQueries(4):
             can_edit_sheet_fields(user, fields)
+
+        cache.clear()
+        with self.assertNumQueries(4):
+            can_edit_sheet_fields(user, ['country', 'import_firm'])
 
 
 class TestHiddenRowStillWritable(TestCase):
@@ -678,3 +697,141 @@ class TestHiddenRowStillWritable(TestCase):
 
         self.assertFalse(get_sheet_edit_map(user)['country'])
         self.assertTrue(can_edit_sheet_fields(user, ['country'])['country'])
+
+
+class TestBatchGateFallsBackWithNoSetting(TestCase):
+    """Batch-gate analogue of tests_sheet_perms.TestNoSettingFallsBackToFieldPerm,
+    for a reverse-delegated field.
+
+    `weight_gross` and `box_count` delegate to the `packing` Sheet row (see
+    _REVERSE_FIELD_DELEGATES). `packing` is a composite Sheet key: no role
+    ever holds a literal RoleFieldPermission named 'packing', so asking the
+    owning row to answer for these fields fails closed whenever that row
+    carries no trigger config -- exactly the regression this class exists to
+    catch (warehouse_chief's PATCH of weight_gross came back 403 in
+    AuditRowCountTests.test_patch_writes_one_audit_row_per_changed_field
+    before this fix).
+
+    Deliberately does NOT provision DEFAULT_SHEET_ROWS or run backfill()
+    the way TestWritePathParity / TestHiddenRowStillWritable do -- those
+    only ever exercise the fully-configured state and cannot catch this.
+    """
+
+    def setUp(self):
+        cache.clear()
+        # Defensive, mirrors tests_sheet_perms.TestNoSettingFallsBackToFieldPerm:
+        # TestCase already rolls back per test, but guard against --keepdb
+        # leakage from an earlier interrupted run.
+        SheetRowSetting.objects.filter(field_key='packing').delete()
+        call_command('seed_permissions')
+        self.user = _make_user('nosettings_wh', 'warehouse_chief')
+        cache.clear()
+
+    def test_no_packing_row_at_all_falls_back_to_field_perm(self):
+        from apps.core.permissions import can_edit_sheet_fields
+
+        self.assertEqual(SheetRowSetting.objects.filter(field_key='packing').count(), 0)
+        result = can_edit_sheet_fields(self.user, ['weight_gross', 'box_count'])
+        self.assertTrue(
+            result['weight_gross'],
+            'weight_gross must fall back to RoleFieldPermission with no packing row',
+        )
+        self.assertTrue(
+            result['box_count'],
+            'box_count must fall back to RoleFieldPermission with no packing row',
+        )
+
+    def test_packing_row_with_zero_trigger_config_still_falls_back(self):
+        """A packing row EXISTS but nobody has configured a trigger on it yet
+        -- the fallback must still ask about the real submitted field
+        (weight_gross), not the literal 'packing' key, which no role ever
+        holds in RoleFieldPermission."""
+        from apps.core.permissions import can_edit_sheet_fields
+
+        SheetRowSetting.objects.create(
+            field_key='packing', row_number=48, display_order=48 * 1024,
+        )
+        cache.clear()
+
+        result = can_edit_sheet_fields(self.user, ['weight_gross'])
+        self.assertTrue(result['weight_gross'])
+
+    def test_configured_packing_row_still_denies_a_role_it_excludes(self):
+        """The third state must NOT be weakened by the fallback above: once
+        the packing row carries ANY trigger config, that config IS the
+        authority, even for a role (warehouse_chief) that separately holds
+        the plain weight_gross RoleFieldPermission grant. Proves the fix
+        isn't the tempting one-liner
+        `edit_map[owning_row] or can_edit_field(role, name)`, which would
+        resurrect access a configured row deliberately excludes."""
+        from apps.core.permissions import can_edit_sheet_fields
+        from apps.export.models import SheetRowRoleTrigger
+
+        row = SheetRowSetting.objects.create(
+            field_key='packing', row_number=48, display_order=48 * 1024,
+        )
+        SheetRowRoleTrigger.objects.create(row=row, role='transport')
+        cache.clear()
+
+        result = can_edit_sheet_fields(self.user, ['weight_gross'])
+        self.assertFalse(result['weight_gross'])
+
+
+class TestPatchEndpointHonoursTheBatchGate(TestCase):
+    """Drives the real PATCH endpoint so a regression in
+    ShipmentPatchSerializer.validate, or in can_edit_sheet_fields's
+    reverse-delegate fallback, fails this suite end-to-end.
+
+    TestWritePathParity's parity test cannot catch this class of bug: it
+    compares can_edit_sheet_fields against get_sheet_edit_map directly, and
+    for owned fields the former IS `edit_map.get(owning_row, False)` read
+    from that same function when the row has config -- it never constructs
+    the serializer and never touches the no-config fallback. No
+    SheetRowSetting rows exist here at all: the state most fields are
+    actually in until an admin visits Shipment Settings for them.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={
+                'name_tk': 'Ýüklenme', 'name_en': 'Loading',
+                'step_order': 1, 'phase': 'LOADING',
+            },
+        )
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={
+                'start_date': '2025-09-01', 'end_date': '2026-06-30',
+                'is_active': True,
+            },
+        )
+        cls.user = _make_user('endpoint_wh', 'warehouse_chief')
+
+    def setUp(self):
+        cache.clear()
+        SheetRowSetting.objects.filter(field_key='packing').delete()
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'AU{self.id()[-4:]}003/26',
+            date=date(2026, 2, 1),
+            season=self.season,
+            status=self.status,
+            weight_net=Decimal('18400.00'),
+            weight_gross=Decimal('19100.00'),
+        )
+
+    def test_warehouse_chief_can_patch_weight_gross_with_no_packing_row(self):
+        self.assertEqual(
+            SheetRowSetting.objects.filter(field_key='packing').count(), 0,
+            'precondition: no packing row should exist',
+        )
+        response = self.client.patch(
+            f'/api/v1/export/shipments/{self.shipment.id}/',
+            {'weight_gross': '19200.00'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)

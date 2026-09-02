@@ -330,6 +330,23 @@ def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -
     return _FirmWritePermission
 
 
+def _has_trigger_config(setting) -> bool:
+    """True if a SheetRowSetting carries ANY trigger config: a triggered
+    user, at least one role trigger, or an active extra-user grant.
+
+    Shared by can_edit_sheet_field, get_sheet_edit_map's _resolve, and
+    can_edit_sheet_fields's no-config fallback so the three copies of this
+    check can never drift (AD-17). Reads setting.role_triggers /
+    setting.user_permissions -- pass a setting with those prefetched to avoid
+    N+1 queries.
+    """
+    return bool(
+        setting.triggered_user_id
+        or setting.role_triggers.all()
+        or any(up.deleted_at is None for up in setting.user_permissions.all())
+    )
+
+
 def can_edit_sheet_field(user, field_key: str) -> bool:
     """Gate a shipment sheet cell edit against Shipment Settings trigger config.
 
@@ -404,12 +421,7 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     )
 
     has_any_trigger = matched_user or matched_role or matched_extra
-    # Determine if any trigger config exists on this setting
-    has_any_config = bool(
-        setting.triggered_user_id
-        or role_set
-        or any(up.deleted_at is None for up in setting.user_permissions.all())
-    )
+    has_any_config = _has_trigger_config(setting)
 
     # Rule 5/6 (AD-17, 2026-09-02): trigger config IS the permission.
     # Previously this AND-ed _can_edit_sheet_row_field, which meant a grant made
@@ -524,11 +536,7 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None,
         )
 
         has_any_trigger = matched_user or matched_role or matched_extra
-        has_any_config = bool(
-            setting.triggered_user_id
-            or role_set
-            or any(up.deleted_at is None for up in setting.user_permissions.all())
-        )
+        has_any_config = _has_trigger_config(setting)
 
         # Mirrors can_edit_sheet_field exactly — the two must never disagree.
         if has_any_config:
@@ -564,11 +572,22 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
     """Batch form of can_edit_sheet_field for a whole PATCH body.
 
     Loads the Sheet settings once and answers every field from that one load, so
-    a five-field PATCH costs one settings query instead of five. Resolves reverse
-    delegates (box_count → packing) before asking the map.
+    a five-field PATCH costs one settings query (plus its 2 prefetch SELECTs)
+    instead of one settings load per field.
 
     Reads the map with ignore_visibility=True (Decision A, AD-17): the write
     path must not lose a grant because someone hid the column on the Sheet.
+
+    Reverse delegates (box_count → packing) are resolved to their owning
+    row's verdict ONLY when that row carries trigger config of its own. A
+    composite Sheet key like `packing` is never held as a literal
+    RoleFieldPermission -- no role can hold a grant literally named
+    'packing' -- so a row with no config (or no row at all) cannot answer
+    for the real submitted field without failing closed. In that case this
+    asks can_edit_field about the REAL field name instead (e.g. `weight_gross`),
+    exactly what the pre-AD-17 gate did. A row an admin explicitly configured
+    to exclude a role keeps denying that role: that is genuine AD-17
+    authority and must not be weakened by this fallback.
 
     Args:
         user: The authenticated User instance.
@@ -580,16 +599,38 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
     if not field_names:
         return {}
 
-    edit_map = get_sheet_edit_map(user, ignore_visibility=True)
+    # Import lazily to avoid circular import (core must not import export at
+    # module scope).
+    from apps.export.models import SheetRowSetting
+
+    # One load, shared with get_sheet_edit_map via settings_by_key, so this
+    # stays a single settings load for the whole PATCH body.
+    settings_by_key = {
+        s.field_key: s
+        for s in SheetRowSetting.objects.active().select_related(
+            'triggered_user',
+        ).prefetch_related(
+            'role_triggers',
+            'user_permissions',
+        )
+    }
+    edit_map = get_sheet_edit_map(
+        user, settings_by_key=settings_by_key, ignore_visibility=True,
+    )
     owned = get_sheet_owned_fields()
+    role = getattr(user, 'role', None)
 
     result: dict[str, bool] = {}
     for name in field_names:
         if name not in owned:
-            result[name] = can_edit_field(getattr(user, 'role', None), name)
+            result[name] = can_edit_field(role, name)
             continue
         owning_row = _REVERSE_FIELD_DELEGATES.get(name, name)
-        result[name] = edit_map.get(owning_row, False)
+        setting = settings_by_key.get(owning_row)
+        if setting is None or not _has_trigger_config(setting):
+            result[name] = can_edit_field(role, name)
+        else:
+            result[name] = edit_map.get(owning_row, False)
     return result
 
 
