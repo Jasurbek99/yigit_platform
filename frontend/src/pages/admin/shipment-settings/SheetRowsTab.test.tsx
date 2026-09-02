@@ -136,5 +136,20 @@ describe('SheetRowsTab', () => {
     expect(screen.getAllByRole('switch')).toHaveLength(1);
     expect(screen.queryByText('Trigger Roles')).not.toBeInTheDocument();
     expect(screen.queryByText('Lock')).not.toBeInTheDocument();
+    // ROWS[0] (selected by default) has no triggers — the empty state shows.
+    expect(screen.getByText('No role can edit this row yet.')).toBeInTheDocument();
+  });
+
+  it('shows who may edit the row, read-only, and points at the Row access tab', () => {
+    vi.mocked(useSheetRowSettings).mockReturnValue({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: [makeRow({ id: 9, field_key: 'weight_net', triggered_roles: ['transport'] })],
+      isLoading: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    renderTab();
+
+    expect(screen.getByText('transport')).toBeInTheDocument();
+    expect(screen.getByText('Grant access on the Row access tab.')).toBeInTheDocument();
   });
 });
