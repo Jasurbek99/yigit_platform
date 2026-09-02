@@ -146,11 +146,14 @@ class TestReverseDelegateMap(TestCase):
         call_command('seed_permissions')
         cache.clear()
         user = _make_user('batch_probe', 'document_team')
-        # box_count is deliberately absent: the batch helper resolves it to the
-        # `packing` row, and `packing` is not a grantable RoleFieldPermission
-        # field name, so get_sheet_edit_map's surviving `AND _has_field_perm`
-        # pins it to False until Task 3 removes that AND. Parity for reverse
-        # delegates is asserted there, not here.
+        # box_count is deliberately absent: per AD-17, can_edit_sheet_fields
+        # resolves it to the `packing` row it delegates to, while
+        # can_edit_sheet_field(user, 'box_count') finds no row of its own and
+        # falls back to a plain field-perm lookup on the literal key
+        # 'box_count' — never granted, so the two permanently disagree on
+        # reverse-delegated keys by design (see ambiguity #2 in the Task 3
+        # brief). Parity is only asserted here for keys that are NOT reverse
+        # delegates.
         keys = ['documents_status', 'country', 'import_firm']
 
         batch = can_edit_sheet_fields(user, keys)

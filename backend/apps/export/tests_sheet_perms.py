@@ -441,10 +441,14 @@ class TestVirtualFieldDelegation(TestCase):
     """Virtual rows (transit_days_temp) must resolve identically in the inline
     gate (can_edit_sheet_field) and the batch map (get_sheet_edit_map).
 
-    Regression: the map field-perm-checked the virtual key 'transit_days_temp'
-    (which no role holds in RoleFieldPermission) instead of delegating to the
-    real 'transit_days' field, so transport saw the cell as read-only even
-    though a PATCH would succeed.
+    Historical regression (pre-AD-17): the map field-perm-checked the virtual
+    key 'transit_days_temp' (which no role holds in RoleFieldPermission)
+    instead of delegating to the real 'transit_days' field, so transport saw
+    the cell as read-only even though a PATCH would succeed. Since AD-17
+    (2026-09-02) the setting created below is keyed directly on the virtual
+    field_key, so both methods resolve it as the row's own trigger config —
+    they no longer take the delegate path at all (see
+    TestVirtualRowUsesItsOwnTriggers in tests_sheet_authority.py for that).
     """
 
     VIRTUAL = 'transit_days_temp'
@@ -471,8 +475,13 @@ class TestVirtualFieldDelegation(TestCase):
         )
         self.assertTrue(edit_map[self.VIRTUAL])
 
-    def test_role_without_real_field_perm_denied_both_ways(self):
-        """A role lacking the real field perm is denied consistently."""
+    def test_role_without_matching_trigger_denied_both_ways(self):
+        """AD-17: denial is trigger-driven now, not a fallback to the real
+        field's RoleFieldPermission. The row's role_triggers only name
+        'transport'; loading_dept_head never matches that trigger, so it is
+        denied on the mismatch itself — the row is found directly (it's keyed
+        on the virtual field_key), has_any_config is True, and transit_days'
+        own field grant (or lack of one) is never consulted."""
         other = _make_user('no_transit_perm', role='loading_dept_head')
         cache.clear()
         self.assertFalse(can_edit_sheet_field(other, self.VIRTUAL))
