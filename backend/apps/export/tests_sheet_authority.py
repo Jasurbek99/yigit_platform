@@ -1109,3 +1109,65 @@ class TestSheetFieldWritePermissionSuperuserBypass(TestCase):
             format='json',
         )
         self.assertEqual(response.status_code, 200, response.data)
+
+
+class TestRoleAccessBulkEndpoint(TestCase):
+    """One request sets a role's access across every Sheet row."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.mgr = _make_user('roleaccess_mgr', 'export_manager')
+        cls.doc = _make_user('roleaccess_doc', 'document_team')
+        for key, number in (('country', 11), ('import_firm', 14), ('city', 13)):
+            SheetRowSetting.objects.create(
+                field_key=key, row_number=number, display_order=number * 1024,
+            )
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+
+    def _post(self, user, payload):
+        self.client.force_authenticate(user=user)
+        return self.client.post(
+            '/api/v1/export/admin/sheet-rows/role-access/', payload, format='json',
+        )
+
+    def test_replaces_the_roles_triggers_across_all_rows(self):
+        from apps.export.models import SheetRowRoleTrigger
+
+        response = self._post(self.mgr, {
+            'role': 'document_team',
+            'field_keys': ['country', 'import_firm'],
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            set(
+                SheetRowRoleTrigger.objects
+                .filter(role='document_team')
+                .values_list('row__field_key', flat=True)
+            ),
+            {'country', 'import_firm'},
+        )
+
+        # A second call with a different set REPLACES, never merges.
+        self._post(self.mgr, {'role': 'document_team', 'field_keys': ['city']})
+        self.assertEqual(
+            set(
+                SheetRowRoleTrigger.objects
+                .filter(role='document_team')
+                .values_list('row__field_key', flat=True)
+            ),
+            {'city'},
+        )
+
+    def test_non_admin_role_is_refused(self):
+        response = self._post(self.doc, {'role': 'document_team', 'field_keys': []})
+        self.assertEqual(response.status_code, 403)
+
+    def test_unknown_field_key_is_rejected(self):
+        response = self._post(self.mgr, {
+            'role': 'document_team', 'field_keys': ['not_a_row'],
+        })
+        self.assertEqual(response.status_code, 400)
