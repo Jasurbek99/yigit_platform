@@ -2,8 +2,8 @@
 
 The Shipment Settings sheet-rows endpoint used to gate on `shipment.can_edit`,
 which five non-admin roles hold. Writing a Sheet row trigger is becoming an
-edit-permission grant (multi-task plan in progress, 2026-09-02; ADR entry to
-follow once it lands), so the endpoint moves to its own resource ahead of that
+edit-permission grant (multi-task plan in progress, 2026-09-02; AD-17 entry
+to follow once Task 11 lands), so the endpoint moves to its own resource ahead of that
 change. Also grants export_manager the Admin: Shipment Settings page so he can
 administer row access without an admin account.
 
@@ -21,7 +21,10 @@ existing `**{r: _VCRUD for r in _ALL_RESOURCES}` wildcard the moment the resourc
 code is registered, same mechanism 'boss' relies on.
 
 Idempotent: update_or_create on the unique keys. Clears the permission cache so
-live workers pick the rows up without a restart.
+live workers pick the rows up without a restart. reverse_code (revoke) is fully
+symmetric with grant() — it deletes both the resource grant and the page-visibility
+row, and clears the same cache keys, so `migrate core 0037` leaves no ghost
+admin.shipment_settings tab and no stale positive-permission cache entry.
 """
 import os
 
@@ -71,9 +74,26 @@ def grant(apps, schema_editor):
 
 def revoke(apps, schema_editor):
     RoleResourcePermission = apps.get_model('core', 'RoleResourcePermission')
+    RolePagePermission = apps.get_model('core', 'RolePagePermission')
+
     RoleResourcePermission.objects.filter(
         role__in=ROLES, resource_code=RESOURCE,
     ).delete()
+    # Symmetric with grant(): leaving this row behind would show export_manager
+    # an admin.shipment_settings tab with no sheet_row_setting grant backing
+    # it — the same class of ghost-page bug migration 0037 exists to close.
+    RolePagePermission.objects.filter(
+        role='export_manager', page_code=PAGE,
+    ).delete()
+
+    try:
+        from django.core.cache import cache
+        keys = [f'dynamic_perms:resource:{r}:{RESOURCE}' for r in ROLES]
+        keys += [f'dynamic_perms:resources:{r}' for r in ROLES]
+        keys.append('dynamic_perms:pages:export_manager')
+        cache.delete_many(keys)
+    except Exception:
+        pass
 
 
 class Migration(migrations.Migration):

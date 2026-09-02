@@ -100,7 +100,7 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # Admin-only resource-level CRUD for the Shipment Sheet's row config (labels,
     # visibility, lock state, permission triggers). Was gated on 'shipment' —
     # since Sheet row triggers are planned to become the edit permission
-    # itself (this multi-task plan; ADR entry pending), that would have
+    # itself (this multi-task plan; AD-17 entry pending — Task 11), that would have
     # let any role holding shipment.can_edit grant itself any cell.
     ('sheet_row_setting',     'Sheet Row Setting (Shipment Settings)'),
     ('quota_issuance',        'Quota Issuance'),
