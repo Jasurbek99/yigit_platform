@@ -331,27 +331,27 @@ def firm_write_permission(app_label: str, model_name: str, *bypass_roles: str) -
 
 
 def can_edit_sheet_field(user, field_key: str) -> bool:
-    """Gate a shipment sheet cell edit against role/user trigger config + field perm.
+    """Gate a shipment sheet cell edit against Shipment Settings trigger config.
 
-    Logic (Sheet Control v2 — ADR-0001, ADR-0010):
+    Logic (Sheet Control v2 — ADR-0001, ADR-0010; AD-17, 2026-09-02):
       1. superuser / admin / director → always True (bypass all gates; AD-15).
          Checked BEFORE visibility so admin can always fix misconfiguration.
-      2. Load SheetRowSetting via objects.active(). If None → fall back to
+      2. Load SheetRowSetting via objects.active(). If None → virtual rows
+         delegate to their real field, everything else falls back to
          can_edit_field (preserves TestNoSettingFallsBackToFieldPerm).
       3. If not row.is_visible → False.
       4. Compute match flags:
          - matched_user  = (user.id == row.triggered_user_id AND user is active)
          - matched_role  = user.role in {rt.role for rt in row.role_triggers.all()}
          - matched_extra = active user_permissions grant for this user
-      5. If row.is_locked:
+      5. If any trigger config exists on the row (user, role, or extra-user):
            return (matched_user OR matched_role OR matched_extra)
-                  AND can_edit_field(role, field_key)
-         (lock + extra_users exception per ADR-0001; role triggers are also exceptions)
-      6. Else (not locked):
-           if no trigger config exists → fall back to can_edit_field alone
-           else: return (matched_user OR matched_role OR matched_extra) AND field perm
-
-    The trigger gate is AND-composed with the RoleFieldPermission check, never OR.
+         The trigger IS the permission — no RoleFieldPermission AND. Applies
+         whether or not the row is locked; is_locked only changes what
+         happens with NO config (see 6).
+      6. Else (no config at all):
+           locked   → False (nothing to fall back to, and nobody is granted)
+           unlocked → can_edit_field(role, field_key) alone
 
     Args:
         user: The authenticated User instance.
@@ -368,12 +368,6 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
         return True
 
-    # Virtual sheet rows delegate to their real underlying field (module-level
-    # _VIRTUAL_FIELD_DELEGATES, shared with get_sheet_edit_map).
-    delegate_key = _VIRTUAL_FIELD_DELEGATES.get(field_key)
-    if delegate_key is not None:
-        return can_edit_sheet_field(user, delegate_key)
-
     # Import lazily to avoid circular import
     from apps.export.models import SheetRowSetting
 
@@ -381,8 +375,14 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
         'role_triggers', 'user_permissions',
     ).first()
 
-    # Rule 2: no active setting → standard field-perm fallback
+    # Rule 2: no active setting → virtual rows fall back to their real
+    # underlying field, everything else to the plain field perm. The delegate
+    # check MUST come after this lookup: the row's own triggers are the
+    # permission now, so testing the delegate first would make them unreachable.
     if setting is None:
+        delegate_key = _VIRTUAL_FIELD_DELEGATES.get(field_key)
+        if delegate_key is not None:
+            return can_edit_sheet_field(user, delegate_key)
         return _can_edit_sheet_row_field(role, field_key)
 
     # Rule 3: hidden rows → no edit for anyone
@@ -411,14 +411,18 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
         or any(up.deleted_at is None for up in setting.user_permissions.all())
     )
 
-    # Rule 5/6: apply lock or fallback
+    # Rule 5/6 (AD-17, 2026-09-02): trigger config IS the permission.
+    # Previously this AND-ed _can_edit_sheet_row_field, which meant a grant made
+    # in Shipment Settings did nothing until someone also ticked the field in the
+    # Permissions admin — two tables, no sync, three regressions in one month.
+    # A row with no trigger config at all still falls back to the field perm so
+    # rows nobody has configured keep working; a locked row with no config stays
+    # closed to everyone but the privileged bypass above.
+    if has_any_config:
+        return has_any_trigger
     if setting.is_locked:
-        return has_any_trigger and _can_edit_sheet_row_field(role, field_key)
-    else:
-        if not has_any_config:
-            # No triggers configured → fall back to field perm alone
-            return _can_edit_sheet_row_field(role, field_key)
-        return has_any_trigger and _can_edit_sheet_row_field(role, field_key)
+        return False
+    return _can_edit_sheet_row_field(role, field_key)
 
 
 def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, bool]:
@@ -477,15 +481,14 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
 
     def _resolve(fk: str) -> bool:
         """Evaluate trigger + field-perm for a single field_key."""
-        # Virtual rows delegate to their real underlying field, mirroring
-        # can_edit_sheet_field so the inline gate and this map never disagree.
-        delegate_key = _VIRTUAL_FIELD_DELEGATES.get(fk)
-        if delegate_key is not None:
-            return _resolve(delegate_key)
-
         setting = settings_by_key.get(fk)
 
+        # Delegate only when there is no row of our own — see the note in
+        # can_edit_sheet_field; the two orderings must stay identical.
         if setting is None:
+            delegate_key = _VIRTUAL_FIELD_DELEGATES.get(fk)
+            if delegate_key is not None:
+                return _resolve(delegate_key)
             return _has_field_perm(fk)
 
         if not setting.is_visible:
@@ -512,12 +515,12 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
             or any(up.deleted_at is None for up in setting.user_permissions.all())
         )
 
+        # Mirrors can_edit_sheet_field exactly — the two must never disagree.
+        if has_any_config:
+            return has_any_trigger
         if setting.is_locked:
-            return has_any_trigger and _has_field_perm(fk)
-        else:
-            if not has_any_config:
-                return _has_field_perm(fk)
-            return has_any_trigger and _has_field_perm(fk)
+            return False
+        return _has_field_perm(fk)
 
     return {row['field_key']: _resolve(row['field_key']) for row in DEFAULT_SHEET_ROWS}
 

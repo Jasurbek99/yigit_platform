@@ -188,3 +188,108 @@ class TestReverseDelegateMap(TestCase):
             can_edit_sheet_fields(user, ['box_count'])['box_count'],
             get_sheet_edit_map(user)['packing'],
         )
+
+
+class TestTriggersAreTheGrant(TestCase):
+    """A role named in triggered_roles may edit the cell with no field grant.
+
+    This is the reported bug: document_team was added to the country and
+    import_firm rows in Shipment Settings and still could not edit them,
+    because FIELD_DEFAULTS['document_team']['shipment'] does not list them.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.user = _make_user('trigger_doc', 'document_team')
+        cls.row = SheetRowSetting.objects.create(
+            field_key='country', row_number=11, display_order=11 * 1024,
+        )
+
+    def setUp(self):
+        cache.clear()
+
+    def test_no_trigger_and_no_field_grant_denies(self):
+        from apps.core.permissions import can_edit_sheet_field
+        self.assertFalse(can_edit_sheet_field(self.user, 'country'))
+
+    def test_trigger_alone_grants_without_a_field_permission(self):
+        from apps.core.models import RoleFieldPermission
+        from apps.core.permissions import can_edit_sheet_field
+        from apps.export.models import SheetRowRoleTrigger
+
+        self.assertFalse(
+            RoleFieldPermission.objects.filter(
+                role='document_team', resource_code='shipment', field_name='country',
+            ).exists(),
+            'precondition: document_team must NOT hold the country field grant',
+        )
+        SheetRowRoleTrigger.objects.create(row=self.row, role='document_team')
+        cache.clear()
+
+        self.assertTrue(can_edit_sheet_field(self.user, 'country'))
+
+    def test_edit_map_agrees_with_the_single_field_gate(self):
+        from apps.core.permissions import can_edit_sheet_field, get_sheet_edit_map
+        from apps.export.models import SheetRowRoleTrigger
+
+        SheetRowRoleTrigger.objects.create(row=self.row, role='document_team')
+        cache.clear()
+
+        self.assertEqual(
+            get_sheet_edit_map(self.user)['country'],
+            can_edit_sheet_field(self.user, 'country'),
+        )
+
+
+class TestVirtualRowUsesItsOwnTriggers(TestCase):
+    """A virtual row's own trigger config must gate it, not the delegate's.
+
+    `transit_days_temp` (R26) has no column of its own — it writes transit_days
+    and transport_temp_c. The delegate check used to run BEFORE the settings
+    lookup, so resolving the virtual key recursed straight into `transit_days`,
+    which has no SheetRowSetting, and fell through to RoleFieldPermission. The
+    row's triggers were unreachable: R26 would have stayed on the old authority
+    while every other row moved to Shipment Settings.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.row = SheetRowSetting.objects.create(
+            field_key='transit_days_temp', row_number=26, display_order=26 * 1024,
+        )
+
+    def setUp(self):
+        cache.clear()
+
+    def test_trigger_on_the_virtual_row_grants_without_a_field_permission(self):
+        from apps.core.models import RoleFieldPermission
+        from apps.core.permissions import can_edit_sheet_field, get_sheet_edit_map
+        from apps.export.models import SheetRowRoleTrigger
+
+        user = _make_user('virtual_probe', 'document_team')
+        self.assertFalse(
+            RoleFieldPermission.objects.filter(
+                role='document_team', resource_code='shipment',
+                field_name='transit_days',
+            ).exists(),
+            'precondition: document_team must NOT hold the transit_days grant',
+        )
+        SheetRowRoleTrigger.objects.create(row=self.row, role='document_team')
+        cache.clear()
+
+        self.assertTrue(can_edit_sheet_field(user, 'transit_days_temp'))
+        self.assertTrue(get_sheet_edit_map(user)['transit_days_temp'])
+
+    def test_virtual_row_without_settings_still_delegates(self):
+        """The old behaviour survives where there is no row to consult."""
+        from apps.core.permissions import can_edit_sheet_field
+
+        self.row.delete()
+        cache.clear()
+        transport = _make_user('virtual_transport', 'transport')
+
+        # transport holds the transit_days field grant, so the delegate path
+        # must still answer True once the virtual row is gone.
+        self.assertTrue(can_edit_sheet_field(transport, 'transit_days_temp'))

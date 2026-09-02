@@ -1,12 +1,14 @@
 """Tests for can_edit_sheet_field and get_sheet_edit_map permission helpers.
 
-Tests the trigger-gate logic (Sheet Control v2 — ADR-0001, ADR-0010):
+Tests the trigger-gate logic (Sheet Control v2 — ADR-0001, ADR-0010; AD-17,
+2026-09-02 — trigger config on a row IS the permission, no RoleFieldPermission
+AND):
   - Director and superuser bypass all gates.
   - No SheetRowSetting → falls back to RoleFieldPermission.
-  - role_triggers set: role match AND field perm required.
-  - triggered_user set: user match AND field perm required.
+  - role_triggers set: role match alone grants, regardless of field perm.
+  - triggered_user set: user match alone grants, regardless of field perm.
   - Inactive triggered_user → treated as no-trigger (only user-specific match fails).
-  - is_locked=True: only matching triggers AND field perm grants access.
+  - is_locked=True: only matching triggers grant; no config at all → deny.
   - extra_users (SheetRowUserPermission): can grant edit exception to lock.
   - Soft-deleted extra_user entry is ignored.
   - get_sheet_edit_map returns {field_key: bool} for every DEFAULT_SHEET_ROWS entry
@@ -152,23 +154,27 @@ class TestRoleTriggerMatchPassesFieldCheck(TestCase):
         self.assertTrue(result)
 
 
-class TestRoleTriggerMatchLacksFieldPerm(TestCase):
-    """role_triggers matches but RoleFieldPermission denies → False.
+class TestRoleTriggerMatchGrantsWithoutFieldPerm(TestCase):
+    """role_triggers matches, RoleFieldPermission has no grant at all → True.
 
-    The trigger gate is AND-composed with field perm — never OR.
+    AD-17 (2026-09-02): trigger config on the row IS the permission — the old
+    AND with RoleFieldPermission is gone. A grant made in Shipment Settings
+    used to do nothing until someone also ticked the field in the Permissions
+    admin; that two-table requirement is the bug this rule change removes.
     """
 
     def setUp(self):
         cache.clear()
         self.user = _make_user('transport_user2', role='transport')
         _make_setting(roles=['transport'])
-        # Deliberately no RoleFieldPermission for transport + _FIELD
+        # Deliberately no RoleFieldPermission for transport + _FIELD — the
+        # trigger alone must still grant access.
         RoleFieldPermission.objects.filter(role='transport', resource_code='shipment').delete()
         cache.clear()
 
-    def test_role_trigger_match_lacks_field_perm(self):
+    def test_role_trigger_match_grants_without_field_perm(self):
         result = can_edit_sheet_field(self.user, _FIELD)
-        self.assertFalse(result)
+        self.assertTrue(result)
 
 
 class TestRoleTriggerMismatch(TestCase):
