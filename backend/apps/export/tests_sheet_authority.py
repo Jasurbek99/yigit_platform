@@ -530,3 +530,128 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
 
         deputy = _make_user('backfill_packing_dep', 'loading_dept_head_deputy')
         self.assertTrue(can_edit_sheet_field(deputy, 'packing'))
+
+
+class TestWritePathParity(TestCase):
+    """The write gate and the display map must give the same answer.
+
+    Scoped to VISIBLE rows: hidden rows are expected to disagree by design
+    (the write gate ignores is_visible — visibility is presentation, not
+    permission), which TestHiddenRowStillWritable covers separately.
+
+    Delegated fields have no key of their own in the edit map (it iterates
+    DEFAULT_SHEET_ROWS), so the comparison pairs the real field against its
+    owning row: serializer('box_count') vs edit_map('packing').
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        from apps.export.models import SheetRowSetting
+        from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+
+        SheetRowSetting.objects.bulk_create(
+            [
+                SheetRowSetting(
+                    field_key=row['field_key'],
+                    row_number=row['row_number'],
+                    display_order=row['row_number'] * 1024,
+                )
+                for row in DEFAULT_SHEET_ROWS
+            ],
+            batch_size=500,
+        )
+        from apps.export.management.commands.backfill_sheet_row_triggers import backfill
+        backfill()
+
+    def setUp(self):
+        cache.clear()
+
+    def test_the_two_bypass_lists_still_agree(self):
+        """The serializer short-circuits on PRIVILEGED_ROLES; the sheet gate
+        bypasses on a literal tuple. They match today. If either is edited
+        without the other, the two gates split apart again — which is the exact
+        data/code drift AD-17 exists to kill. Fail loudly instead."""
+        from apps.core.roles import PRIVILEGED_ROLES
+        self.assertEqual(
+            set(PRIVILEGED_ROLES), {'admin', 'director', 'export_manager'},
+            'PRIVILEGED_ROLES changed — update can_edit_sheet_field and '
+            'get_sheet_edit_map bypass tuples to match, then update this test.',
+        )
+
+    def test_serializer_verdict_matches_edit_map_for_every_role_and_field(self):
+        from apps.core.permissions import (
+            _REVERSE_FIELD_DELEGATES,
+            can_edit_sheet_fields,
+            get_sheet_edit_map,
+        )
+        from apps.core.roles import PRIVILEGED_ROLES
+        from apps.export.models import SheetRowSetting
+
+        visible = set(
+            SheetRowSetting.objects.active()
+            .filter(is_visible=True)
+            .values_list('field_key', flat=True)
+        )
+        roles = ['document_team', 'transport', 'loading_dept_head', 'sales_rep',
+                 'finansist', 'weight_master', 'boss']
+
+        for role in roles:
+            if role in PRIVILEGED_ROLES:
+                continue
+            user = _make_user(f'parity_{role}', role)
+            cache.clear()
+            edit_map = get_sheet_edit_map(user)
+
+            probe = sorted(visible | set(_REVERSE_FIELD_DELEGATES))
+            verdicts = can_edit_sheet_fields(user, probe)
+
+            for field in probe:
+                owning_row = _REVERSE_FIELD_DELEGATES.get(field, field)
+                if owning_row not in visible:
+                    continue
+                self.assertEqual(
+                    verdicts[field], edit_map[owning_row],
+                    f'{role}: write gate and display map disagree on '
+                    f'{field} (row {owning_row})',
+                )
+
+    def test_multi_field_patch_loads_settings_once(self):
+        """A five-field PATCH must not cost five settings queries."""
+        from apps.core.permissions import can_edit_sheet_fields
+
+        user = _make_user('qcount_probe', 'document_team')
+        cache.clear()
+        fields = ['country', 'import_firm', 'customer', 'city', 'documents_status']
+        with self.assertNumQueries(4):
+            can_edit_sheet_fields(user, fields)
+
+
+class TestHiddenRowStillWritable(TestCase):
+    """Decision A: is_visible is presentation, not permission.
+
+    Hiding a Sheet row removes the column; it must not revoke edit rights on the
+    detail page or the edit drawer.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.row = SheetRowSetting.objects.create(
+            field_key='country', row_number=11, display_order=11 * 1024,
+            is_visible=False,
+        )
+
+    def setUp(self):
+        cache.clear()
+
+    def test_hidden_row_is_not_editable_on_the_sheet_but_is_writable(self):
+        from apps.core.permissions import can_edit_sheet_fields, get_sheet_edit_map
+        from apps.export.models import SheetRowRoleTrigger
+
+        SheetRowRoleTrigger.objects.create(row=self.row, role='document_team')
+        cache.clear()
+        user = _make_user('hidden_probe', 'document_team')
+
+        self.assertFalse(get_sheet_edit_map(user)['country'])
+        self.assertTrue(can_edit_sheet_fields(user, ['country'])['country'])

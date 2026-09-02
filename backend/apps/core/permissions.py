@@ -432,7 +432,8 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     return _can_edit_sheet_row_field(role, _VIRTUAL_FIELD_DELEGATES.get(field_key, field_key))
 
 
-def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, bool]:
+def get_sheet_edit_map(user, settings_by_key: dict | None = None,
+                        ignore_visibility: bool = False) -> dict[str, bool]:
     """Return {field_key: can_edit} for every row in DEFAULT_SHEET_ROWS.
 
     Sheet Control v2 implementation. Query budget:
@@ -450,6 +451,10 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
         settings_by_key: Optional pre-loaded {field_key: SheetRowSetting}.
             Must already have role_triggers and user_permissions prefetched.
             Pass from the /sheet/ view to avoid a duplicate settings query.
+        ignore_visibility: Decision A (AD-17) — skip the is_visible guard.
+            Used by can_edit_sheet_fields for the write path: hiding a Sheet
+            column is presentation, not permission, and must not revoke edit
+            rights on the detail page or the edit drawer.
 
     Returns:
         Dict mapping each DEFAULT_SHEET_ROWS field_key to a boolean.
@@ -498,7 +503,10 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
                 return _resolve(delegate_key)
             return _has_field_perm(fk)
 
-        if not setting.is_visible:
+        # Decision A (AD-17): visibility is presentation, not permission. The
+        # display map hides the column; the write path (serializer, drawer,
+        # detail page) must not lose the grant because a column was hidden.
+        if not setting.is_visible and not ignore_visibility:
             return False
 
         # Compute match flags using prefetched relations (no extra queries)
@@ -559,6 +567,9 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
     a five-field PATCH costs one settings query instead of five. Resolves reverse
     delegates (box_count → packing) before asking the map.
 
+    Reads the map with ignore_visibility=True (Decision A, AD-17): the write
+    path must not lose a grant because someone hid the column on the Sheet.
+
     Args:
         user: The authenticated User instance.
         field_names: Real field names as submitted in the PATCH body.
@@ -569,7 +580,7 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
     if not field_names:
         return {}
 
-    edit_map = get_sheet_edit_map(user)
+    edit_map = get_sheet_edit_map(user, ignore_visibility=True)
     owned = get_sheet_owned_fields()
 
     result: dict[str, bool] = {}
