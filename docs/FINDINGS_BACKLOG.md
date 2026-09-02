@@ -219,25 +219,37 @@ permissions/access task. Fix shape: mirror `SheetRowAccessSection`'s `roleLabel(
 (`ROLE_CHOICES.find(...).labelKey` → `t()`) inside `RoleSidebar`, with a fallback to the raw code
 for an unmapped role.
 
-## F22 — LOW: the Sheet Rows tab's frontend gate names the wrong resource (added 2026-09-03)
+## F22 — LOW: SheetRowsTab's frontend gate names the wrong resource (added 2026-09-03)
 
-`ShipmentSettingsPage.tsx` computes two different `canWrite`-shaped flags for the Shipment
-Settings tabs: `canWrite = canDo(user, 'shipment', 'edit')`, passed to `StatusesTab`,
-`BorderPointsTab`, `OptionListsTab` and `SheetRowsTab`; and `canEditRowAccess = canDo(user,
-'sheet_row_setting', 'edit')`, passed only to `RowAccessTab`. Since AD-17 Task 1 (migration
-`core/0038`), the backend endpoint those first four tabs write to for row config —
-`SheetRowSettingViewSet` at `/admin/sheet-rows/` — no longer gates on `shipment.can_edit` at all;
-it gates on `sheet_row_setting`. So `SheetRowsTab`'s frontend `canWrite` (the same flag correctly
-used by the three unrelated reference-data tabs, which really do write `shipment` resources) now
-names a permission the backend stopped checking for this one tab's actual writes.
+`ShipmentSettingsPage.tsx` computes `canWrite = canDo(user, 'shipment', 'edit')` and passes it to
+four tabs — `StatusesTab`, `BorderPointsTab`, `OptionListsTab` and `SheetRowsTab` — plus a
+separate `canEditRowAccess = canDo(user, 'sheet_row_setting', 'edit')` passed only to
+`RowAccessTab`. Of those four, only **`SheetRowsTab`** writes to `/admin/sheet-rows/`
+(`SheetRowSettingViewSet`), and since AD-17 Task 1 (migration `core/0038`) that endpoint no longer
+gates on `shipment.can_edit` at all — it gates on `sheet_row_setting`. So `SheetRowsTab`'s
+frontend `canWrite` now names a permission the backend stopped checking for its writes.
 
-**Currently inert, not exploitable.** `admin.shipment_settings` page visibility — the outer gate
-on reaching this page at all — is limited to `admin` and `export_manager` (same migration). Both
-roles hold `shipment.edit` and `sheet_row_setting.edit` together (full CRUD wildcard for `admin`/
-`director`/`export_manager`, per `permission_registry.py`), so the frontend flag and the backend's
-real gate never disagree for anyone who can open the page today. The gap is latent: a role granted
-`shipment.edit` without `sheet_row_setting.edit` (or the reverse) would see `SheetRowsTab` render
-as editable and then get 403'd on save, or vice versa.
+**The other three tabs are a separate, pre-existing, unrelated matter — not folded into this
+finding.** `StatusesTab`, `BorderPointsTab` and `OptionListsTab` write to `/core/status-types/`,
+`/core/border-points/` and `/core/shipment-options/` respectively (`ShipmentStatusTypeViewSet`,
+`BorderPointViewSet`, `ShipmentOptionTypeViewSet`, `backend/apps/core/views.py`, registered in
+`backend/apps/core/urls/core.py`), none of which touch `/admin/sheet-rows/` and none of which use
+`DynamicResourcePermission` at all — all three
+declare `permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]`, a
+**static role allowlist** (`REFERENCE_DATA_WRITE = frozenset({'admin', 'director',
+'export_manager'})`, `apps/core/roles.py:77`), unconnected to the `shipment` resource in
+`RESOURCE_REGISTRY` in any sense. Their frontend `canWrite` happening to read `shipment.edit`
+already didn't match their backend gate before AD-17 and is untouched by this branch — a
+different, older inconsistency, out of scope here.
+
+**Currently inert, not exploitable, for the actual finding (`SheetRowsTab` only).**
+`admin.shipment_settings` page visibility — the outer gate on reaching this page at all — is
+limited to `admin` and `export_manager` (same migration). Both roles hold `shipment.edit` and
+`sheet_row_setting.edit` together (full CRUD wildcard for `admin`/`director`/`export_manager`,
+`RESOURCE_DEFAULTS` in `backend/apps/core/management/commands/seed_permissions.py`), so the
+frontend flag and the backend's real gate never disagree for anyone who can open the page today.
+The gap is latent: a role granted `shipment.edit` without `sheet_row_setting.edit` (or the
+reverse) would see `SheetRowsTab` render as editable and then get 403'd on save, or vice versa.
 
 Fix shape: change `SheetRowsTab`'s `canWrite` prop to `canDo(user, 'sheet_row_setting', 'edit')`,
 matching what its own PATCH endpoint actually gates on — the same correction already applied when
