@@ -159,3 +159,32 @@ class TestReverseDelegateMap(TestCase):
                 batch[key], can_edit_sheet_field(user, key),
                 f'batch and single-field gate disagree on {key}',
             )
+
+    def test_batch_helper_resolves_a_delegated_field_to_its_owning_row(self):
+        """box_count has no Sheet row of its own -- the batch helper must answer
+        it from the `packing` row it delegates to, not from a plain lookup on
+        its own (non-existent) key.
+
+        Uses director, not document_team: for document_team, `packing`
+        resolves to False on both the correct path (edit_map['packing']) and
+        the broken path (edit_map.get('box_count', False), a missing key that
+        defaults to False) -- no SheetRowSetting row exists for `packing` in a
+        fresh DB and 'packing' is never itself a granted RoleFieldPermission
+        field name, so the two coincidentally agree regardless of whether the
+        reverse-map lookup runs. Verified this empirically before writing the
+        test (see fix report). Director's Rule-1 bypass makes every
+        DEFAULT_SHEET_ROWS field_key, including `packing`, resolve True, while
+        `box_count` -- not itself a field_key -- still defaults to False if the
+        `_REVERSE_FIELD_DELEGATES` lookup is skipped. Only the correct
+        resolution (box_count -> packing -> True) makes this pass.
+        """
+        from apps.core.permissions import can_edit_sheet_fields, get_sheet_edit_map
+
+        call_command('seed_permissions')
+        cache.clear()
+        user = _make_user('delegate_probe', 'director')
+
+        self.assertEqual(
+            can_edit_sheet_fields(user, ['box_count'])['box_count'],
+            get_sheet_edit_map(user)['packing'],
+        )
