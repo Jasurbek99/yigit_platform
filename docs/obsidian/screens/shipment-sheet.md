@@ -333,12 +333,17 @@ role codes (`export_manager`), not translated display names — unlike the Acces
 above, which were fixed the same day (`docs/FINDINGS_BACKLOG.md` F21); and `SheetRowsTab`'s own
 `canWrite` is computed from `shipment.edit` (see the gating list above), not `sheet_row_setting.edit`
 — the resource `/admin/sheet-rows/` itself has gated writes on since Task 1 (migration `core/0038`).
-Currently inert, not exploitable: `admin.shipment_settings` page visibility limits who reaches this
-page at all to `admin` and `export_manager`, and both hold `shipment.edit` and
-`sheet_row_setting.edit` together, so the two flags never disagree for anyone who can actually open
-the page today — but the frontend gate and the backend gate name different resources, and that
-would surface the day a role holds one without the other. Tracked as `docs/FINDINGS_BACKLOG.md`
-F22.
+Currently inert, not exploitable: three roles reach `admin.shipment_settings` — `admin`,
+`export_manager`, and `boss` (page visibility from migration `0033`'s blanket widening, unrelated
+to this branch) — and all three now hold both `shipment.edit` and `sheet_row_setting.edit`, so the
+two flags never disagree for anyone who can actually open the page today. (`director` holds
+`sheet_row_setting.edit` too but not the page, so there is nothing to observe for him.) That was
+briefly untrue for `boss` specifically — migration `core/0038`'s original role list omitted him,
+so a migrated (non-seeded) database left him the page with zero `sheet_row_setting` grant and every
+save 403'd — fixed in a follow-up commit; see `docs/FINDINGS_BACKLOG.md` F22 for the full story
+and the seeded-vs-migrated-database lesson it left behind. The frontend/backend resource-naming
+mismatch this paragraph is actually about still stands and would surface the day a role holds one
+flag without the other. Tracked as `docs/FINDINGS_BACKLOG.md` F22.
 
 ### Sheet Rows Admin endpoint
 

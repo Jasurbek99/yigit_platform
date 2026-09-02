@@ -44,7 +44,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | ~~F19~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `swap` gates on `shipment.can_edit` (`resource_edit_permission`), so the per-field `can_edit_sheet_field` loop finally runs; the Sheet's Swap button gained the matching `canDo(user,'shipment','edit')` gate | `export/views.py`, `SheetToolbar.tsx` |
 | F20 | LOW | **Shipment-Detail half CLOSED 2026-09-01** (`boss` sees the button; label named the wrong status; endpoint off `can_create`). The Assignment Board half is **parked** — owner: nobody uses `/export/assign`, it is kept "just in case" and will be deleted | `export/views.py`, `AssignmentBoard.tsx:35` |
 | F21 | LOW | Shared `RoleSidebar` (Permissions admin + the new Row access tab) renders raw role codes (`export_manager`) instead of a translated display name | `frontend/src/pages/admin/permissions/RoleSidebar.tsx` |
-| F22 | LOW | `SheetRowsTab`'s frontend `canWrite` gates on `shipment.edit`; the backend's own `/admin/sheet-rows/` endpoint gates on `sheet_row_setting.edit` since Task 1. Currently inert (both roles that reach the page hold both flags) | `frontend/src/pages/admin/ShipmentSettingsPage.tsx` |
+| F22 | LOW | `SheetRowsTab`'s frontend `canWrite` gates on `shipment.edit`; the backend's own `/admin/sheet-rows/` endpoint gates on `sheet_row_setting.edit` since Task 1. Currently inert (all three page-visible roles — admin, export_manager, boss — hold both flags) | `frontend/src/pages/admin/ShipmentSettingsPage.tsx` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
@@ -242,14 +242,37 @@ declare `permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA
 already didn't match their backend gate before AD-17 and is untouched by this branch — a
 different, older inconsistency, out of scope here.
 
-**Currently inert, not exploitable, for the actual finding (`SheetRowsTab` only).**
-`admin.shipment_settings` page visibility — the outer gate on reaching this page at all — is
-limited to `admin` and `export_manager` (same migration). Both roles hold `shipment.edit` and
-`sheet_row_setting.edit` together (full CRUD wildcard for `admin`/`director`/`export_manager`,
-`RESOURCE_DEFAULTS` in `backend/apps/core/management/commands/seed_permissions.py`), so the
+**Currently inert, not exploitable, for the actual finding (`SheetRowsTab` only).** Three roles
+can open `admin.shipment_settings`: `admin` (sees every `admin.*` page by default),
+`export_manager` (explicit page grant in migration `core/0038`), and `boss` (page visibility
+inherited from migration `core/0033`'s blanket widening, unrelated to this branch). `director`
+holds `sheet_row_setting.edit` (also from `core/0038`'s `ROLES` list) but not the page, so there
+is nothing to observe for him. All three page-visible roles hold both `shipment.edit` and
+`sheet_row_setting.edit` — via `RESOURCE_DEFAULTS`'s `**{r: _VCRUD for r in _ALL_RESOURCES}`
+wildcard for `admin`/`director`/`export_manager` and the equivalent boss-widening grant from
+migration `core/0033` (`backend/apps/core/management/commands/seed_permissions.py`) — so the
 frontend flag and the backend's real gate never disagree for anyone who can open the page today.
-The gap is latent: a role granted `shipment.edit` without `sheet_row_setting.edit` (or the
-reverse) would see `SheetRowsTab` render as editable and then get 403'd on save, or vice versa.
+
+**This was briefly false for `boss`, and is fixed, not still open.** `core/0038`'s original
+`ROLES` list omitted `boss`, so on a migrated (non-seeded) database he held the page (from
+`core/0033`) with zero `sheet_row_setting` grant — every save 403'd, a real regression this branch
+introduced (pre-Task-1 he wrote through `shipment`'s blanket CRUD like `admin`/`director`/
+`export_manager`). Corrected in a follow-up commit: `ROLES` now includes `boss`, the migration was
+re-applied, and all four roles were independently re-verified against the migrated database to
+hold the resource.
+
+**Why it was nearly missed, for whoever next claims "role X holds resource Y" in this codebase:**
+a seeded database and a migrated-only database can disagree about role permissions.
+`seed_permissions`'s own `RESOURCE_DEFAULTS['boss']` wildcard grants him every resource
+independently of what any single migration writes, and every test in this suite calls
+`seed_permissions` first — so the gap was invisible to the whole test run and only showed up
+against a migrate-only, production-shaped database. Check any future "who holds this resource"
+claim against a migrated database, not a seeded one or a test run.
+
+The gap this finding itself describes (`SheetRowsTab`'s frontend `canWrite` vs its backend's
+`sheet_row_setting` gate) is separate from the `boss` regression above and remains latent: a role
+granted `shipment.edit` without `sheet_row_setting.edit` (or the reverse) would see `SheetRowsTab`
+render as editable and then get 403'd on save, or vice versa.
 
 Fix shape: change `SheetRowsTab`'s `canWrite` prop to `canDo(user, 'sheet_row_setting', 'edit')`,
 matching what its own PATCH endpoint actually gates on — the same correction already applied when
