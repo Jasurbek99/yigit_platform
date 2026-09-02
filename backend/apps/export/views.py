@@ -30,10 +30,11 @@ from apps.core.permissions import (
     DynamicResourcePermission,
     SeasonNotClosed,
     can_edit_sheet_field,
+    can_edit_sheet_fields,
     get_sheet_edit_map,
-    junction_write_permission,
     resource_edit_permission,
     resource_write_permission,
+    sheet_field_write_permission,
     write_permission,
 )
 # ShipmentViewSet takes the resolved Season object (not just a filter) so it can
@@ -177,14 +178,16 @@ class ShipmentViewSet(ModelViewSet):
             # (PRIVILEGED_ROLES | {'sales_rep'}), so that is the sole authority.
             return [IsAuthenticated(), SeasonNotClosed()]
         if action == 'set_firm_splits':
-            # Same class of bug as set_sales_report above: this POST replaces
-            # the shipment_firm_split junction, not `shipment`, so it must gate
-            # on that resource's own can_edit — see junction_write_permission.
+            # AD-17: the firm_splits Sheet row is the authority now, not the
+            # shipment_firm_split resource flag (junction_write_permission).
+            # Two tables answering for the same field is the divergence AD-17
+            # removes — a role ticked on Shipment Settings must not still 403
+            # here.
             return [IsAuthenticated(), SeasonNotClosed(),
-                    junction_write_permission('shipment_firm_split')()]
+                    sheet_field_write_permission('firm_splits')()]
         if action == 'set_block_sources':
             return [IsAuthenticated(), SeasonNotClosed(),
-                    junction_write_permission('shipment_block_source')()]
+                    sheet_field_write_permission('block_sources')()]
         if action == 'assign':
             # Last copy of the F12 pattern (F20). `assign` sets country/customer
             # on a draft and fires transition_to(..., 'gumruk_girish') — an edit,
@@ -2536,7 +2539,7 @@ class ShipmentViewSet(ModelViewSet):
 
         Exchange the values of selected scalar / FK fields between two
         shipments.  Any two shipments of any status may be swapped; the
-        operation is gated per-field by can_edit_sheet_field on both sides.
+        operation is gated per-field by can_edit_sheet_fields on both sides.
 
         Request body:
             {
@@ -2557,7 +2560,6 @@ class ShipmentViewSet(ModelViewSet):
                  either shipment — includes the offending field name.
             404  either shipment not found (get_object raises 404 for A).
         """
-        from apps.core.permissions import can_edit_sheet_field
         from apps.export.swap_config import FK_SWAPPABLE_FIELDS, SWAPPABLE_FIELDS
         from apps.export.models import ShipmentStatusLog, Notification
 
@@ -2595,13 +2597,16 @@ class ShipmentViewSet(ModelViewSet):
         assert_season_open(shipment_b.season)
 
         # --- Whitelist + permission gate (cheap pre-checks on unlocked rows) ---
+        # One settings load for the whole swap — can_edit_sheet_field re-queries
+        # SheetRowSetting per call, and a swap can carry a dozen fields.
+        verdicts = can_edit_sheet_fields(request.user, list(requested_fields))
         for field in requested_fields:
             if field not in SWAPPABLE_FIELDS:
                 return Response(
                     {'error': f"Field '{field}' is not swappable"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if not can_edit_sheet_field(request.user, field):
+            if not verdicts.get(field, False):
                 return Response(
                     {
                         'error': (
@@ -2864,13 +2869,18 @@ class ShipmentViewSet(ModelViewSet):
         Body:
             { "field_key": "custom_<slug>", "value": "..." }
 
-        Reuses can_edit_sheet_field(user, field_key) so locks / role triggers /
+        Reuses can_edit_sheet_fields(user, [field_key]) so locks / role triggers /
         extra-user grants from the Phase 1 permission machinery still gate
         custom rows. Empty string is allowed and means "explicitly cleared
         by user" — the value row stays so updated_at + updated_by track the
         clearing.
+
+        AD-17 (Decision A): this is a WRITE, so it must ask the batch gate —
+        the visibility-honouring can_edit_sheet_field would 403 the PATCH of
+        a custom row an admin hid, while an equivalent shipment PATCH of a
+        hidden field still succeeds. Same field, two answers is exactly what
+        AD-17 removes.
         """
-        from apps.core.permissions import can_edit_sheet_field
         from apps.export.models import ShipmentCustomFieldValue
 
         shipment = self.get_object()
@@ -2894,7 +2904,7 @@ class ShipmentViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not can_edit_sheet_field(request.user, field_key):
+        if not can_edit_sheet_fields(request.user, [field_key])[field_key]:
             return Response(
                 {'error': f"Role '{getattr(request.user, 'role', None)}' "
                           f"cannot edit custom field '{field_key}'."},

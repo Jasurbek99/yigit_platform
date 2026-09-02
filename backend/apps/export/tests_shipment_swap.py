@@ -523,7 +523,7 @@ class SwapPermissionDeniedTests(SwapTestBase):
             {'other_id': self.ship_b.pk, 'fields': ['warehouse_note']},
             format='json',
         )
-        # can_edit_sheet_field falls back to can_edit_field when no SheetRowSetting
+        # can_edit_sheet_fields falls back to can_edit_field when no SheetRowSetting
         # exists.  For 'warehouse_note', the base role-field permission table
         # must deny sales_rep.  If the permission check allows it (e.g. because no
         # SheetRowSetting exists and can_edit_field returns True for sales_rep),
@@ -537,10 +537,19 @@ class SwapPermissionDeniedTests(SwapTestBase):
         # 'warehouse_note' with a field that sales_rep provably cannot touch.
         #
         # For the purpose of this test suite, we mock the permission helper.
+        # Patched where it's looked up (apps.export.views), not where it's
+        # defined (apps.core.permissions) -- the swap loop imports it at
+        # module load time, so patching the source module's attribute would
+        # leave the view's already-bound reference untouched. side_effect,
+        # not return_value: the loop does verdicts.get(field, False) on a
+        # dict, not a bool.
         from unittest.mock import patch
-        from apps.core import permissions as core_perms
+        from apps.export import views as export_views
 
-        with patch.object(core_perms, 'can_edit_sheet_field', return_value=False) as mock_perm:
+        with patch.object(
+            export_views, 'can_edit_sheet_fields',
+            side_effect=lambda user, fields: {f: False for f in fields},
+        ):
             resp = self.client.post(
                 _swap_url(self.ship_a.pk),
                 {'other_id': self.ship_b.pk, 'fields': ['warehouse_note']},
@@ -558,9 +567,12 @@ class SwapPermissionDeniedTests(SwapTestBase):
     def test_permission_denied_includes_field_name_in_error(self):
         """The 403 error message names the offending field."""
         from unittest.mock import patch
-        from apps.core import permissions as core_perms
+        from apps.export import views as export_views
 
-        with patch.object(core_perms, 'can_edit_sheet_field', return_value=False):
+        with patch.object(
+            export_views, 'can_edit_sheet_fields',
+            side_effect=lambda user, fields: {f: False for f in fields},
+        ):
             resp = self.client.post(
                 _swap_url(self.ship_a.pk),
                 {'other_id': self.ship_b.pk, 'fields': ['driver_name']},
@@ -615,8 +627,8 @@ class SwapReachabilityTests(SwapTestBase):
         request got past the resource gate rather than dying on it."""
         from unittest.mock import patch
 
-        from apps.core import permissions as core_perms
         from apps.core.models import RoleResourcePermission
+        from apps.export import views as export_views
 
         for role in self.EDITORS_WITHOUT_CREATE:
             with self.subTest(role=role):
@@ -626,7 +638,12 @@ class SwapReachabilityTests(SwapTestBase):
                 self.assertFalse(perm.can_create, role + ' unexpectedly has can_create')
                 self.assertTrue(perm.can_edit, role + ' unexpectedly lacks can_edit')
 
-                with patch.object(core_perms, 'can_edit_sheet_field', return_value=False):
+                # Patched where it's looked up (apps.export.views) -- see the
+                # note in SwapPermissionDeniedTests.
+                with patch.object(
+                    export_views, 'can_edit_sheet_fields',
+                    side_effect=lambda user, fields: {f: False for f in fields},
+                ):
                     resp = self._client_as(role).post(
                         _swap_url(self.ship_a.pk),
                         {'other_id': self.ship_b.pk, 'fields': ['driver_name']},
@@ -638,9 +655,12 @@ class SwapReachabilityTests(SwapTestBase):
     def test_an_editor_role_can_actually_swap_a_field_it_may_edit(self):
         from unittest.mock import patch
 
-        from apps.core import permissions as core_perms
+        from apps.export import views as export_views
 
-        with patch.object(core_perms, 'can_edit_sheet_field', return_value=True):
+        with patch.object(
+            export_views, 'can_edit_sheet_fields',
+            side_effect=lambda user, fields: {f: True for f in fields},
+        ):
             resp = self._client_as('document_team').post(
                 _swap_url(self.ship_a.pk),
                 {'other_id': self.ship_b.pk, 'fields': ['truck_plate']},

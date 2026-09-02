@@ -80,6 +80,28 @@ def _can_edit_sheet_row_field(role: str | None, field_key: str) -> bool:
     return can_edit_field(role, field_name, resource_code=resource_code)
 
 
+def _has_junction_resource_grant(role: str | None, field_key: str) -> bool:
+    """True if role holds RoleResourcePermission.can_edit on field_key's own
+    junction resource (see _JUNCTION_FIELD_DELEGATES). Always False for any
+    field_key outside that map.
+
+    This is the PRE-AD-17 authority for firm_splits / block_sources: before
+    Task 6, set_firm_splits/set_block_sources were gated by
+    junction_write_permission, which reads only RoleResourcePermission (e.g.
+    document_team's full CRUD on shipment_firm_split, "Sulgun manages firm
+    splits"). AD-17 makes the Sheet row's OWN trigger config the authority
+    once an admin configures one, but it does not retire this grant for rows
+    nobody has configured yet -- can_edit_sheet_fields' no-config fallback
+    ORs it in for junction fields only, so a role holding this resource grant
+    keeps working exactly as it did pre-Task-6.
+    """
+    if not role or field_key not in _JUNCTION_FIELD_DELEGATES:
+        return False
+    resource_code, _ = _JUNCTION_FIELD_DELEGATES[field_key]
+    perm = get_resource_perm(role, resource_code)
+    return bool(perm and perm['can_edit'])
+
+
 def get_editable_fields(role: str | None, resource_code: str = 'shipment') -> list[str]:
     """Return the list of fields editable by the given role for a resource.
 
@@ -584,10 +606,21 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
     RoleFieldPermission -- no role can hold a grant literally named
     'packing' -- so a row with no config (or no row at all) cannot answer
     for the real submitted field without failing closed. In that case this
-    asks can_edit_field about the REAL field name instead (e.g. `weight_gross`),
-    exactly what the pre-AD-17 gate did. A row an admin explicitly configured
-    to exclude a role keeps denying that role: that is genuine AD-17
-    authority and must not be weakened by this fallback.
+    asks _can_edit_sheet_row_field about the REAL field name instead (e.g.
+    `weight_gross`), exactly what the pre-AD-17 gate did -- including its
+    junction resolution, so `firm_splits` / `block_sources` are checked
+    against their own resource_code (`shipment_firm_split` /
+    `shipment_block_source`), not `shipment`. A row an admin explicitly
+    configured to exclude a role keeps denying that role: that is genuine
+    AD-17 authority and must not be weakened by this fallback.
+
+    For `firm_splits` / `block_sources` specifically, the no-config fallback
+    ALSO ORs in `_has_junction_resource_grant`: a role can hold full CRUD on
+    the junction resource (RoleResourcePermission) with no matching
+    RoleFieldPermission at all -- that was the ONLY authority
+    junction_write_permission ever read, pre-Task-6. AD-17 supersedes it once
+    a row is configured (the non-fallback branch below), but does not retire
+    it for a row nobody has configured yet.
 
     Args:
         user: The authenticated User instance.
@@ -635,7 +668,29 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
             # answers depending on which write path asked.
             result[name] = False
         elif setting is None or not _has_trigger_config(setting):
-            result[name] = can_edit_field(role, name)
+            # _can_edit_sheet_row_field, not can_edit_field: for every name
+            # outside _JUNCTION_FIELD_DELEGATES it resolves to the identical
+            # can_edit_field(role, name) call (default resource_code='shipment'),
+            # but firm_splits/block_sources are junction fields whose real
+            # RoleFieldPermission rows live under 'shipment_firm_split' /
+            # 'shipment_block_source' (see get_sheet_edit_map's _has_field_perm
+            # and can_edit_sheet_field's own fallback) -- document_team's
+            # 'shipment_firm_split': ['*'] grant is invisible under 'shipment',
+            # so the plain call denied a role that provably holds the field.
+            result[name] = _can_edit_sheet_row_field(role, name)
+            if not result[name]:
+                # OR in the junction's own RoleResourcePermission (no-op for
+                # any name outside _JUNCTION_FIELD_DELEGATES). This is the
+                # pre-AD-17 authority set_firm_splits/set_block_sources relied
+                # on via junction_write_permission before Task 6 -- a role can
+                # hold full CRUD on the junction resource with no matching
+                # RoleFieldPermission at all (transport granted
+                # shipment_block_source directly, no 'shipment_block_source'
+                # FIELD_DEFAULTS entry). Task 6 makes the Sheet row's own
+                # trigger config the authority once configured (the `else`
+                # branch below), it does not retire this grant for a row
+                # nobody has configured yet.
+                result[name] = _has_junction_resource_grant(role, name)
         else:
             result[name] = edit_map.get(owning_row, False)
     return result
@@ -813,3 +868,37 @@ def junction_write_permission(resource_code: str) -> type:
     # shipment's composition. Kept as its own name because callers read better
     # for it; one implementation, so the two can never drift.
     return resource_edit_permission(resource_code)
+
+
+def sheet_field_write_permission(field_key: str) -> type:
+    """DRF permission for an action that writes one Sheet row's data.
+
+    Since AD-17 the row's trigger config IS the edit permission, so an endpoint
+    that writes a Sheet-owned field must ask the same gate the Sheet asks —
+    otherwise the same field has two different answers depending on which UI
+    saved it, which is the divergence AD-17 exists to remove.
+
+    Usage in get_permissions():
+        if action == 'set_firm_splits':
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    sheet_field_write_permission('firm_splits')()]
+    """
+
+    class _SheetFieldWritePermission(BasePermission):
+        def has_permission(self, request, view) -> bool:
+            if not request.user or not request.user.is_authenticated:
+                return False
+            # Mirrors resource_edit_permission / write_permission: can_edit_field
+            # (which can_edit_sheet_fields falls back to when no row is
+            # configured) is a pure role-string lookup with no superuser
+            # semantics of its own, so the bypass belongs here.
+            if getattr(request.user, 'is_superuser', False):
+                return True
+            # can_edit_sheet_fields, not can_edit_sheet_field: this is a WRITE
+            # path, and Decision A says visibility is presentation, not
+            # permission. Using the visibility-honouring gate here would 403 a
+            # junction write on a hidden row while the equivalent shipment PATCH
+            # still succeeded — one field, two answers.
+            return can_edit_sheet_fields(request.user, [field_key])[field_key]
+
+    return _SheetFieldWritePermission

@@ -582,6 +582,14 @@ class SheetJunctionEndpointResourcePermissionTests(TestCase):
     delete — "Sulgun manages firm splits") but shipment.can_create=False by
     design (must not create new shipments), so every firm-split save 403'd
     for her despite the Sheet cell showing as editable.
+
+    Task 6 (AD-17) replaced the permission class these tests exercise
+    (junction_write_permission) with sheet_field_write_permission, which asks
+    can_edit_sheet_fields -- a FIELD-level (RoleFieldPermission) gate, not
+    this class's RESOURCE-level (RoleResourcePermission) one. can_edit_sheet_fields'
+    no-config fallback ORs both in for firm_splits/block_sources specifically
+    (_has_junction_resource_grant) so this class's premise still holds: either
+    grant is sufficient, and holding NEITHER still 403s.
     """
 
     @classmethod
@@ -632,10 +640,22 @@ class SheetJunctionEndpointResourcePermissionTests(TestCase):
 
     def test_role_without_junction_resource_grant_still_blocked(self):
         """A role with neither shipment.can_create nor a shipment_firm_split
-        grant must stay 403 — this isn't a blanket bypass."""
+        grant of EITHER kind must stay 403 — this isn't a blanket bypass.
+
+        Task 6 (AD-17): the write gate now ORs a junction's RoleResourcePermission
+        with its RoleFieldPermission (can_edit_sheet_fields' no-config fallback --
+        see _has_junction_resource_grant). document_team holds
+        'shipment_firm_split': ['*'] at the FIELD level by seed default, so
+        deleting only the RESOURCE row (the pre-Task-6 premise) is no longer
+        "no grant of any kind" -- it must strip both, or the field grant alone
+        still lets it through, which is correct new behaviour, not a leak.
+        """
         from django.core.cache import cache
-        from apps.core.models import RoleResourcePermission
+        from apps.core.models import RoleFieldPermission, RoleResourcePermission
         RoleResourcePermission.objects.filter(
+            role='document_team', resource_code='shipment_firm_split',
+        ).delete()
+        RoleFieldPermission.objects.filter(
             role='document_team', resource_code='shipment_firm_split',
         ).delete()
         cache.clear()

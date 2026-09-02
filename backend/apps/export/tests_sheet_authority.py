@@ -16,7 +16,9 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.core.models import RolePagePermission, RoleResourcePermission, Season, ShipmentStatusType
+from apps.core.models import (
+    GreenhouseBlock, RolePagePermission, RoleResourcePermission, Season, ShipmentStatusType,
+)
 from apps.export.models import Shipment, SheetRowSetting
 
 User = get_user_model()
@@ -904,3 +906,154 @@ class TestPatchEndpointHonoursTheBatchGate(TestCase):
             format='json',
         )
         self.assertEqual(response.status_code, 403, response.data)
+
+
+class TestPackingEndpointFollowsTheSheetRow(TestCase):
+    """Decision C: packing goes in whole, not half.
+
+    box_count reaches the DB two ways — PATCH /shipments/{id}/ and
+    POST /contracts/shipment-packing/. If only the first follows the packing
+    row, ticking `packing` for a role still 403s from ShipmentPackingPanel.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.row = SheetRowSetting.objects.create(
+            field_key='packing', row_number=48, display_order=48 * 1024,
+        )
+
+    def setUp(self):
+        cache.clear()
+
+    def test_role_without_the_packing_trigger_is_refused(self):
+        from apps.export.models import SheetRowRoleTrigger
+
+        SheetRowRoleTrigger.objects.create(row=self.row, role='transport')
+        cache.clear()
+        doc = _make_user('packing_doc', 'document_team')
+
+        client = APIClient()
+        client.force_authenticate(user=doc)
+        response = client.post(
+            '/api/v1/contracts/shipment-packing/',
+            {'shipment': 1, 'scope': 'template', 'packing_template': 1},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 403)
+
+
+class TestJunctionFallbackDelegatesToItsOwnResource(TestCase):
+    """Task 6 Fix 2: the no-config fallback in can_edit_sheet_fields must
+    resolve firm_splits/block_sources to their OWN resource_code, not
+    'shipment' -- mirroring _can_edit_sheet_row_field, which get_sheet_edit_map
+    and can_edit_sheet_field (singular) already use for this exact purpose.
+
+    warehouse_chief holds `'shipment_block_source': ['*']` (seed_permissions,
+    "R8: same junction grant as loading_dept_head") but has no literal
+    'block_sources' string in its 'shipment' field list. With no
+    SheetRowSetting row for 'block_sources' -- the default state, before an
+    admin ever visits Shipment Settings for this row -- routing set_block_sources
+    through sheet_field_write_permission('block_sources') must still honour
+    that grant. This is the business-visible half of AD-17: a role ticked
+    (here, granted by default) still 403ing from a write path the Sheet
+    itself would allow.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={
+                'name_tk': 'Ýüklenme', 'name_en': 'Loading',
+                'step_order': 1, 'phase': 'LOADING',
+            },
+        )
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={
+                'start_date': '2025-09-01', 'end_date': '2026-06-30',
+                'is_active': True,
+            },
+        )
+        cls.block = GreenhouseBlock.objects.create(code='JF', name='JF')
+        cls.wh = _make_user('junction_wh', 'warehouse_chief')
+
+    def setUp(self):
+        cache.clear()
+        SheetRowSetting.objects.filter(field_key='block_sources').delete()
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'AU{self.id()[-4:]}004/26',
+            date=date(2026, 2, 1),
+            season=self.season,
+            status=self.status,
+        )
+
+    def test_warehouse_chief_can_post_block_sources_with_no_sheet_row(self):
+        self.assertEqual(
+            SheetRowSetting.objects.filter(field_key='block_sources').count(), 0,
+            'precondition: no block_sources row should exist',
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.wh)
+        response = client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/block-sources/',
+            {'blocks': [{'block_id': self.block.id, 'weight_kg': '9000'}]},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+
+
+class TestSheetFieldWritePermissionSuperuserBypass(TestCase):
+    """Task 6 Fix 1: sheet_field_write_permission must bypass for
+    is_superuser, mirroring resource_edit_permission / write_permission --
+    can_edit_field (which the no-config fallback reduces to) is a pure
+    role-string lookup with no superuser semantics of its own.
+
+    'seller' holds no grant on 'shipment_block_source' or 'shipment' at all
+    (seed_permissions), so this only passes if the bypass fires before
+    can_edit_sheet_fields is asked anything.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme',
+            defaults={
+                'name_tk': 'Ýüklenme', 'name_en': 'Loading',
+                'step_order': 1, 'phase': 'LOADING',
+            },
+        )
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-2026',
+            defaults={
+                'start_date': '2025-09-01', 'end_date': '2026-06-30',
+                'is_active': True,
+            },
+        )
+        cls.block = GreenhouseBlock.objects.create(code='SU', name='SU')
+        cls.superuser = User.objects.create_superuser(
+            username='junction_super', password='pass', role='seller',
+        )
+
+    def setUp(self):
+        cache.clear()
+        SheetRowSetting.objects.filter(field_key='block_sources').delete()
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'AU{self.id()[-4:]}005/26',
+            date=date(2026, 2, 1),
+            season=self.season,
+            status=self.status,
+        )
+
+    def test_superuser_bypasses_the_junction_gate_with_no_sheet_row(self):
+        client = APIClient()
+        client.force_authenticate(user=self.superuser)
+        response = client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/block-sources/',
+            {'blocks': [{'block_id': self.block.id, 'weight_kg': '9000'}]},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
