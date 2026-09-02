@@ -243,15 +243,24 @@ already didn't match their backend gate before AD-17 and is untouched by this br
 different, older inconsistency, out of scope here.
 
 **Currently inert, not exploitable, for the actual finding (`SheetRowsTab` only).** Three roles
-can open `admin.shipment_settings`: `admin` (sees every `admin.*` page by default),
-`export_manager` (explicit page grant in migration `core/0038`), and `boss` (page visibility
-inherited from migration `core/0033`'s blanket widening, unrelated to this branch). `director`
-holds `sheet_row_setting.edit` (also from `core/0038`'s `ROLES` list) but not the page, so there
-is nothing to observe for him. All three page-visible roles hold both `shipment.edit` and
-`sheet_row_setting.edit` — via `RESOURCE_DEFAULTS`'s `**{r: _VCRUD for r in _ALL_RESOURCES}`
-wildcard for `admin`/`director`/`export_manager` and the equivalent boss-widening grant from
-migration `core/0033` (`backend/apps/core/management/commands/seed_permissions.py`) — so the
-frontend flag and the backend's real gate never disagree for anyone who can open the page today.
+can open `admin.shipment_settings`: `export_manager` (explicit `RolePagePermission` grant in
+migration `core/0038`), `boss` (page visibility inherited from migration
+`core/0033_boss_process_visibility_perms.py`'s blanket widening, unrelated to this branch), and
+`admin` — whose real accounts are conventionally Django superusers (`bootstrap_admin.py` promotes
+every `is_superuser` user to `role='admin'`), and `is_superuser` is what actually bypasses the
+gate: `get_page_permissions()` is a plain `RolePagePermission.objects.filter(role=role)` lookup
+with no `role == 'admin'` special case, `canSeePage()` bypasses only on `user.is_superuser`, and no
+migration writes an explicit `RolePagePermission` row for `role='admin'`. `director` holds
+`sheet_row_setting.edit` (also from `core/0038`'s `ROLES` list) but not the page, so there is
+nothing to observe for him. All three page-visible roles hold `sheet_row_setting.edit` because
+migration `core/0038`'s own `grant()` function writes a full-CRUD `RoleResourcePermission` row
+directly for every name in its `ROLES` list — `admin`, `director`, `export_manager`, and (since the
+fix below) `boss` — independent of whether `seed_permissions` has ever run. `shipment.edit` is a
+separate, older resource: `boss`'s copy comes from `core/0033`'s `apply_boss_permissions()`, which
+looped over every resource in `RESOURCE_REGISTRY` **as it existed on 2026-08-05** — `shipment` was
+already registered then, `sheet_row_setting` was not (`core/0038` added it a month later) — so
+`boss` could never have inherited `sheet_row_setting` from `0033` regardless of how the wildcard is
+read; he needed his own line in `0038`'s own `ROLES`, which is exactly what was missing.
 
 **This was briefly false for `boss`, and is fixed, not still open.** `core/0038`'s original
 `ROLES` list omitted `boss`, so on a migrated (non-seeded) database he held the page (from
