@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useShipmentSheet } from '@/hooks/useShipmentSheet';
 import { usePresenceSheet } from '@/hooks/usePresenceSheet';
+import { useSheetLiveSync } from '@/hooks/useSheetLiveSync';
 import { useSheetStore, SHEET_ZOOM_MIN, SHEET_ZOOM_MAX } from '@/stores/sheetStore';
 import { useUndoStore } from '@/stores/undoStore';
 import {
@@ -26,6 +27,9 @@ export default function ShipmentSheet() {
   // Joins the presence.sheet room on mount, leaves on unmount.
   // The roster is rendered by PresenceAvatars inside SheetToolbar.
   usePresenceSheet();
+  // Refetch when someone ELSE writes. Skips your own pokes and holds off
+  // while you're mid-edit or mid-save — see the hook for why both matter.
+  useSheetLiveSync();
   const { data, isLoading } = useShipmentSheet();
   const shipments = data?.shipments;
   const commentCounts = data?.comment_counts ?? {};

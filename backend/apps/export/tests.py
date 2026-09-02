@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -770,3 +772,192 @@ class ExpenseCategoryViewSetTest(TestCase):
         self.assertIn('error', resp.data)
         # Category must still exist in the DB.
         self.assertTrue(ExpenseCategory.objects.filter(id=cat.id).exists())
+
+
+class SheetPokeTests(TestCase):
+    """Every successful write must tell open Sheet tabs which rows moved.
+
+    Patches `broadcast_sheet_change` (the boundary that talks to the channel
+    layer) rather than the consumer, so these tests stay HTTP-level and need no
+    WebSocket. Delivery from that boundary to the browser is pinned separately
+    by apps.core.tests.test_app_consumer.
+    """
+
+    PATCH_TARGET = 'apps.core.services.sheet_events.broadcast_sheet_change'
+
+    def setUp(self):
+        call_command('seed_permissions')
+        self.season = Season.objects.create(
+            name='2025-2026', start_date='2025-09-01', end_date='2026-06-30'
+        )
+        _create_all_statuses()
+        self.draft_status = ShipmentStatusType.objects.get(code='draft')
+        self.country = Country.objects.create(
+            name_tk='KZ', name_en='KZ', name_ru='KZ', code='KZ'
+        )
+        self.customer = Customer.objects.create(name='PokeCustomer')
+        self.block = GreenhouseBlock.objects.create(code='P-A1', name='Poke block')
+        self.user = User.objects.create_user(
+            username='poke_admin', password='pass', role='export_manager',
+            is_superuser=True, is_staff=True,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.shipment = self._make_shipment('POKE-001')
+
+    def _make_shipment(self, code: str) -> Shipment:
+        shipment = Shipment.objects.create(
+            shipment_code=code,
+            date='2025-11-01',
+            season=self.season,
+            status=self.draft_status,
+            country=self.country,
+            customer=self.customer,
+            has_peregruz=False,
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=shipment, block=self.block, weight_kg=10000,
+        )
+        return shipment
+
+    # -- ShipmentViewSet -------------------------------------------------
+
+    def test_patch_pokes_with_url_pk(self):
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.patch(
+                f'/api/v1/export/shipments/{self.shipment.id}/',
+                {'weight_net': '19500.00'}, format='json',
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        broadcast.assert_called_once_with([self.shipment.id], self.user.id)
+
+    def test_transition_pokes_with_url_pk(self):
+        """The pk path is not partial_update-specific -- detail actions use it too."""
+        doc_user = User.objects.create_user(
+            username='poke_doc', password='pass', role='document_team'
+        )
+        self.client.force_authenticate(user=doc_user)
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.post(
+                f'/api/v1/export/shipments/{self.shipment.id}/transition/',
+                {'new_status': 'gumruk_girish'}, format='json',
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        broadcast.assert_called_once_with([self.shipment.id], doc_user.id)
+
+    def test_set_cell_color_pokes_even_though_response_has_no_id(self):
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.post(
+                f'/api/v1/export/shipments/{self.shipment.id}/set-cell-color/',
+                {'field_key': 'export_manager_note', 'color': '#ff0000'}, format='json',
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        broadcast.assert_called_once_with([self.shipment.id], self.user.id)
+
+    def test_bulk_delete_pokes_all_target_ids_after_rows_are_gone(self):
+        extra = [self._make_shipment('POKE-002'), self._make_shipment('POKE-003')]
+        ids = [self.shipment.id] + [s.id for s in extra]
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.post(
+                '/api/v1/export/shipments/bulk-delete/', {'ids': ids}, format='json',
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(Shipment.objects.filter(id__in=ids).exists())
+        broadcast.assert_called_once()
+        self.assertEqual(sorted(broadcast.call_args[0][0]), sorted(ids))
+
+    def test_sheet_order_pokes_only_repositioned_ids(self):
+        other = self._make_shipment('POKE-004')
+        unknown_id = 9999999
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.post(
+                '/api/v1/export/shipments/sheet-order/',
+                {'shipment_ids': [other.id, unknown_id, self.shipment.id]},
+                format='json',
+            )
+        self.assertEqual(response.status_code, 200, response.data)
+        broadcast.assert_called_once()
+        poked = sorted(broadcast.call_args[0][0])
+        self.assertEqual(poked, sorted([other.id, self.shipment.id]))
+        self.assertNotIn(unknown_id, poked)
+
+    def test_validation_failure_does_not_poke(self):
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.patch(
+                f'/api/v1/export/shipments/{self.shipment.id}/',
+                {'weight_net': 'not-a-number'}, format='json',
+            )
+        self.assertEqual(response.status_code, 400, response.data)
+        broadcast.assert_not_called()
+
+    def test_get_sheet_does_not_poke(self):
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.get('/api/v1/export/shipments/sheet/')
+        self.assertEqual(response.status_code, 200)
+        broadcast.assert_not_called()
+
+    # -- CommentViewSet -- the Sheet badge counts ------------------------
+
+    def test_comment_create_pokes_with_shipment_id(self):
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.post(
+                '/api/v1/export/comments/',
+                {'shipment': self.shipment.id, 'content': 'poke me'}, format='json',
+            )
+        self.assertEqual(response.status_code, 201, response.data)
+        broadcast.assert_called_once_with([self.shipment.id], self.user.id)
+
+    def test_comment_delete_pokes_with_shipment_id(self):
+        created = self.client.post(
+            '/api/v1/export/comments/',
+            {'shipment': self.shipment.id, 'content': 'to be removed'}, format='json',
+        )
+        comment_id = created.data['id']
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.delete(f'/api/v1/export/comments/{comment_id}/')
+        self.assertIn(response.status_code, (200, 204))
+        broadcast.assert_called_once_with([self.shipment.id], self.user.id)
+
+    def test_comment_list_does_not_poke(self):
+        with patch(self.PATCH_TARGET) as broadcast:
+            self.client.get(f'/api/v1/export/comments/?shipment={self.shipment.id}')
+        broadcast.assert_not_called()
+
+    # -- TaskViewSet -- state changes move the Sheet task badges -----------
+
+    def _make_task(self, shipment, **overrides):
+        from apps.export.models import Task, TaskKind, TaskState
+        kwargs = dict(
+            shipment=shipment,
+            kind=TaskKind.SHIPMENT if hasattr(TaskKind, 'SHIPMENT') else 'shipment',
+            step='draft',
+            title_key='task.test',
+            assignee_role='export_manager',
+            assignee_user=self.user,
+            state=TaskState.OPEN,
+        )
+        kwargs.update(overrides)
+        return Task.objects.create(**kwargs)
+
+    def test_task_start_pokes_with_shipment_id(self):
+        """TaskViewSet is read-only; its state changes are detail actions that
+        go through get_object(), which is where the id is captured."""
+        task = self._make_task(self.shipment)
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.post(f'/api/v1/export/tasks/{task.id}/start/')
+        self.assertEqual(response.status_code, 200, response.data)
+        broadcast.assert_called_once_with([self.shipment.id], self.user.id)
+
+    def test_task_without_a_shipment_carries_no_usable_id(self):
+        """Task.shipment is nullable (weekly_plan tasks) -- the empty-ids guard
+        must turn that into a silent no-op, not a crash or a bogus poke."""
+        task = self._make_task(None, step='weekly_plan')
+        with patch(self.PATCH_TARGET) as broadcast:
+            response = self.client.post(f'/api/v1/export/tasks/{task.id}/start/')
+        self.assertEqual(response.status_code, 200, response.data)
+        broadcast.assert_called_once_with([None], self.user.id)
+
+    def test_task_list_does_not_poke(self):
+        with patch(self.PATCH_TARGET) as broadcast:
+            self.client.get('/api/v1/export/tasks/')
+        broadcast.assert_not_called()

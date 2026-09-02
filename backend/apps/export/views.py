@@ -23,6 +23,7 @@ from rest_framework import viewsets
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.idempotency import idempotent
+from apps.core.services import sheet_events
 from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
 from apps.core.permissions import (
     PRIVILEGED_ROLES,
@@ -132,6 +133,10 @@ class ShipmentViewSet(ModelViewSet):
 
     resource_code = 'shipment'
     permission_classes = [IsAuthenticated, DynamicResourcePermission, SeasonNotClosed]
+    # Set by the bulk actions whose response body carries no shipment id.
+    # None, not [] — a mutable class-level default would leak across requests
+    # the moment someone reaches for .append() instead of assignment.
+    _sheet_poke_ids: list[int] | None = None
     http_method_names = ['get', 'post', 'patch', 'head', 'options']  # no PUT/DELETE via API
 
     # Sheet-level convenience actions (column tint, soft-delete, restore) are
@@ -231,6 +236,36 @@ class ShipmentViewSet(ModelViewSet):
             return [IsAuthenticated(), SeasonNotClosed(),
                     resource_edit_permission('shipment')()]
         return super().get_permissions()
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        """Tell open Sheet tabs that this write happened.
+
+        Every non-GET route on this ViewSet changes something the Sheet renders
+        — even set-cell-color and sheet-order — so there is no exclusion list
+        and no per-action wiring to keep in sync. poke_sheet() drops anything
+        that is not a successful write.
+
+        Runs post-commit: ATOMIC_REQUESTS is False on this project and each
+        action's `with transaction.atomic()` has already exited by the time
+        dispatch() gets here, so transaction.on_commit would be a no-op in
+        production and would silently mute these pokes under TestCase.
+        """
+        response = super().finalize_response(request, response, *args, **kwargs)
+        sheet_events.poke_sheet(request, response, self._poke_ids(response))
+        return response
+
+    def _poke_ids(self, response) -> list[int]:
+        """Which shipments this request touched, cheapest source first."""
+        if self._sheet_poke_ids is not None:
+            return self._sheet_poke_ids
+        pk = self.kwargs.get('pk')
+        if pk is not None:
+            # DRF pulls pk off the URL regex as a string.
+            return [int(pk)] if str(pk).isdigit() else []
+        data = getattr(response, 'data', None)
+        if isinstance(data, dict) and data.get('id') is not None:
+            return [data['id']]  # create()
+        return []
 
     queryset = Shipment.objects.select_related(
         'status', 'country', 'city', 'customer', 'season',
@@ -796,6 +831,8 @@ class ShipmentViewSet(ModelViewSet):
                 {'deleted': 0, 'approved_quota_to_reconcile': []},
             )
 
+        # Captured before the delete — the response carries counts, not ids.
+        self._sheet_poke_ids = [t['id'] for t in targets]
         return Response(self._hard_delete_targets(request.user, targets))
 
     @staticmethod
@@ -900,6 +937,8 @@ class ShipmentViewSet(ModelViewSet):
             )
 
         targets = [{'id': shipment.id, 'shipment_code': shipment.shipment_code}]
+        # Captured before the delete — the response carries counts, not ids.
+        self._sheet_poke_ids = [t['id'] for t in targets]
         return Response(self._hard_delete_targets(request.user, targets))
 
     # Soft-delete (deactivate) — "trash" flag distinct from cancel. Cancel
@@ -1821,6 +1860,7 @@ class ShipmentViewSet(ModelViewSet):
             if to_update:
                 Shipment.objects.bulk_update(to_update, ['sheet_position'], batch_size=500)
 
+        self._sheet_poke_ids = [s.id for s in to_update]
         logger.info(
             'sheet-order saved by %s: %d shipments repositioned',
             request.user.username,
@@ -2287,6 +2327,8 @@ class ShipmentViewSet(ModelViewSet):
         source_id = join_serializer.validated_data['source_id']
 
         target = self.get_object()  # raises 404 if not found
+        # Source is hard-deleted by the merge, so its id survives only here.
+        self._sheet_poke_ids = [target.pk, source_id]
 
         try:
             source = Shipment.objects.select_related('status', 'created_by').get(pk=source_id)
@@ -2583,6 +2625,7 @@ class ShipmentViewSet(ModelViewSet):
 
         updated_a.refresh_from_db()
         updated_b.refresh_from_db()
+        self._sheet_poke_ids = [updated_a.pk, updated_b.pk]
 
         serializer_a = ShipmentDetailSerializer(updated_a, context={'request': request})
         serializer_b = ShipmentDetailSerializer(updated_b, context={'request': request})
@@ -3667,6 +3710,21 @@ class CommentViewSet(SeasonScopedMixin, ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     season_field = 'shipment__season'
 
+    # The Sheet renders comment/task badges from the same /sheet/ payload, so a
+    # write here has to poke too. The shipment id is captured on the way in —
+    # by the time finalize_response runs the row may be soft-deleted.
+    _poke_shipment_id: int | None = None
+
+    def get_object(self):
+        obj = super().get_object()
+        self._poke_shipment_id = getattr(obj, 'shipment_id', None)
+        return obj
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        sheet_events.poke_sheet(request, response, [self._poke_shipment_id])
+        return response
+
     def get_queryset(self) -> QuerySet:
         from django.db.models import Prefetch
 
@@ -3788,6 +3846,7 @@ class CommentViewSet(SeasonScopedMixin, ModelViewSet):
         # to a Season).
         assert_season_open(freeze_season_of(serializer.validated_data['shipment']))
         serializer.save()
+        self._poke_shipment_id = serializer.instance.shipment_id
 
     def partial_update(self, request, *args, **kwargs):
         """PATCH — edit content only. Own comments (or privileged role)."""
@@ -3912,6 +3971,21 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
     filterset_fields = ['assignee_role', 'assignee_user', 'state', 'shipment', 'step']
     season_field = 'shipment__season'
     include_null_link = True
+
+    # The Sheet renders comment/task badges from the same /sheet/ payload, so a
+    # write here has to poke too. The shipment id is captured on the way in —
+    # by the time finalize_response runs the row may be soft-deleted.
+    _poke_shipment_id: int | None = None
+
+    def get_object(self):
+        obj = super().get_object()
+        self._poke_shipment_id = getattr(obj, 'shipment_id', None)
+        return obj
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        sheet_events.poke_sheet(request, response, [self._poke_shipment_id])
+        return response
 
     def get_queryset(self):
         from apps.export.models import Task, TaskState

@@ -58,6 +58,20 @@ For tests, an in-process dict mirrors the same API — see `_memory_roster` in [
 
 Group name is the literal `presence.sheet`. Only one season is active at a time and the Sheet shows that season; filtering presence by season filter or column-set would split rooms artificially ("why don't I see Bahar when she's right there?"). One room, period.
 
+### Sheet change pokes (2026-09-02)
+
+The same room carries a second, server-only frame: `{channel: 'sheet', type: 'changed', payload: {shipment_ids, by_user_id}}`. It is a **poke, not data** — ids and an author, never row content. Each client refetches through its own `GET /shipments/sheet/`, so per-role field filtering stays in the endpoint where it already lives and a broadcast can never leak a field the viewer may not see.
+
+Emitted from `finalize_response` on **three** ViewSets — `ShipmentViewSet`, `CommentViewSet`, `TaskViewSet` — rather than from ~24 individual actions. Every non-GET route on `ShipmentViewSet` changes something the Sheet renders (even `set-cell-color` and `sheet-order`), so there is no exclusion list to maintain and a future `@action` is covered the day it is added. Comments and tasks are included because `comment_counts` / `task_counts` are keys of the same `/sheet/` payload.
+
+Four actions carry no shipment id in their response and set `self._sheet_poke_ids` inline instead: `bulk-delete` and `hard-delete` (captured *before* the rows disappear), `sheet-order` (only the ids actually repositioned), `join` (the deleted source id exists only in the request body), `swap` (two rows). Everything else falls back to `self.kwargs['pk']`, then to `response.data['id']` for `create`.
+
+Timing needs no `transaction.on_commit`: `ATOMIC_REQUESTS` is `False` and each action's `with transaction.atomic()` has exited by the time `dispatch` reaches `finalize_response`. Adding `on_commit` would be a no-op in production **and** would silently mute every poke under `TestCase`, whose outer atomic never commits.
+
+`broadcast_sheet_change` is the only place in the backend that reaches the channel layer from synchronous code (`async_to_sync`). It swallows every exception on purpose — the write it announces has already committed and a 200 is on its way, so a Redis outage must not turn a successful save into a 500. Worst case the other tabs stay stale until their next refetch.
+
+Client side, [`useSheetLiveSync`](../../../frontend/src/hooks/useSheetLiveSync.ts) is mounted on the Sheet page only — see [[../screens/shipment-sheet#Live sync — other users' edits]] for the guards.
+
 ## Code Map
 
 | Concern | File |
@@ -67,11 +81,16 @@ Group name is the literal `presence.sheet`. Only one season is active at a time 
 | Cookie-JWT WS auth | [`backend/apps/core/channels_auth.py`](../../../backend/apps/core/channels_auth.py) |
 | AppConsumer (multiplex) | [`backend/apps/core/consumers.py`](../../../backend/apps/core/consumers.py) |
 | Presence service | [`backend/apps/core/services/presence.py`](../../../backend/apps/core/services/presence.py) |
+| Sheet-poke service | [`backend/apps/core/services/sheet_events.py`](../../../backend/apps/core/services/sheet_events.py) |
+| Poke emitters (`finalize_response`) | [`backend/apps/export/views.py`](../../../backend/apps/export/views.py) — `ShipmentViewSet`, `CommentViewSet`, `TaskViewSet` |
 | Integration tests | [`backend/apps/core/tests/test_app_consumer.py`](../../../backend/apps/core/tests/test_app_consumer.py) |
+| Poke unit tests | [`backend/apps/core/tests/test_sheet_events.py`](../../../backend/apps/core/tests/test_sheet_events.py) |
+| Poke HTTP tests | [`backend/apps/export/tests.py`](../../../backend/apps/export/tests.py) — `SheetPokeTests` |
 | WS client singleton | [`frontend/src/services/realtime.ts`](../../../frontend/src/services/realtime.ts) |
 | Realtime store | [`frontend/src/stores/realtimeStore.ts`](../../../frontend/src/stores/realtimeStore.ts) |
 | `useRealtime` (mount) | [`frontend/src/hooks/useRealtime.ts`](../../../frontend/src/hooks/useRealtime.ts) |
 | `usePresenceSheet` | [`frontend/src/hooks/usePresenceSheet.ts`](../../../frontend/src/hooks/usePresenceSheet.ts) |
+| `useSheetLiveSync` | [`frontend/src/hooks/useSheetLiveSync.ts`](../../../frontend/src/hooks/useSheetLiveSync.ts) |
 | Avatar group UI | [`frontend/src/components/PresenceAvatars.tsx`](../../../frontend/src/components/PresenceAvatars.tsx) |
 | Connection dot (WS-aware) | [`frontend/src/components/ConnectionStatus.tsx`](../../../frontend/src/components/ConnectionStatus.tsx) |
 
@@ -98,20 +117,28 @@ End-to-end checks for Phase 2:
 
 ## Backend Tests
 
-[`backend/apps/core/tests/test_app_consumer.py`](../../../backend/apps/core/tests/test_app_consumer.py) — 5 cases:
+[`backend/apps/core/tests/test_app_consumer.py`](../../../backend/apps/core/tests/test_app_consumer.py) — 7 cases:
 
 1. Anonymous handshake → 4401.
 2. Cookie-JWT handshake → `system.connected` frame.
 3. `system.ping` → `system.pong`.
 4. Two clients join → both receive a roster including both users.
 5. One client disconnects → the other receives a shrunken roster.
+6. A `sheet.changed` broadcast reaches **every** client that joined — pins both the `sheet.changed` → `sheet_changed` dot/underscore dispatch and the browser envelope.
+7. A client that never sent `join` receives **nothing** — pins the audience.
+
+[`test_sheet_events.py`](../../../backend/apps/core/tests/test_sheet_events.py) — 10 unit cases: envelope shape, id dedupe/sort/coercion, empty-id no-op, channel-layer failure swallowed, layer-is-None no-op, the `poke_sheet` gate (GET ignored, non-2xx ignored, actor forwarded), and a guard that the success path logs no exception. That last one exists because `group_send` must be an `AsyncMock`: a plain `MagicMock` is not awaitable, so `async_to_sync` raised `TypeError`, `broadcast_sheet_change` swallowed it by design, and the "happy path" tests went green while exercising the failure path.
+
+`apps.export.tests.SheetPokeTests` — 13 HTTP-level cases: pk-derived pokes (PATCH, `transition`, `set-cell-color`), `bulk-delete` asserted *after* the rows are gone, `sheet-order` skipping unknown ids, comment create/delete, task `start/` (proving the `ReadOnlyModelViewSet` actions do route through `get_object()`), a shipment-less task carrying no usable id, and the negatives (400, GET sheet, comment list, task list).
 
 ```bash
-python manage.py test apps.core.tests.test_app_consumer
+python manage.py test apps.core.tests.test_app_consumer apps.core.tests.test_sheet_events
+python manage.py test apps.export.tests.SheetPokeTests
 ```
 
 ## Future Work (Tracked)
 
 - **Phase 3 — work-time logging.** Reuses the same WS; adds `worklog.heartbeat` channel and a `core.work_sessions` table. Decisions already locked in: every user can see everyone's hours, "tab open at all" counts as working, reaper runs as a cron-driven management command.
 - **Cell-cursor sharing.** Show "user B is editing `weight_net` on row 47" as a coloured ring around the cell. Same WS, new channel `presence.sheet.cursor`.
+- **Per-row sheet delta instead of a full refetch.** `sheet.changed` currently triggers a whole-season refetch. The endpoint already supports `?shipment=<id>`; switch when `/sheet/` p95 passes ~1.5 s or a client sustains >20 sheet GETs/min.
 - **Push notifications.** Retire the 60 s `useNotifications` poll once the WS is proven in production.

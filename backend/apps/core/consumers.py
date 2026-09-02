@@ -4,6 +4,8 @@
 an envelope `{channel, type, payload}`. Channels implemented:
   - `system`           : connected / ping-pong / disconnect
   - `presence.sheet`   : join / leave / roster broadcast (Phase 2)
+  - `sheet`            : server → client only; `changed` poke telling open
+                         Sheet tabs to refetch (see services/sheet_events.py)
   - `worklog.heartbeat`: start / tick (Phase 3)
 
 A WorkSession row is opened automatically on accept and closed on disconnect,
@@ -147,13 +149,29 @@ class AppConsumer(AsyncJsonWebsocketConsumer):
         else:
             logger.info('worklog.heartbeat: unknown type=%s', msg_type)
 
-    # ── group event handler — presence broadcast ────────────────────────
+    # ── group event handlers — server-initiated broadcasts ──────────────
 
     async def presence_sheet_roster(self, event) -> None:
         await self.send_json({
             'channel': 'presence.sheet',
             'type': 'roster',
             'payload': {'users': event.get('roster', [])},
+        })
+
+    async def sheet_changed(self, event) -> None:
+        """Someone wrote to a shipment — tell this tab to refetch.
+
+        Carries ids only, never row data: the client refetches through its own
+        `/shipments/sheet/` call, so role-based field filtering stays server-side.
+        `by_user_id` lets the client skip pokes it caused itself.
+        """
+        await self.send_json({
+            'channel': 'sheet',
+            'type': 'changed',
+            'payload': {
+                'shipment_ids': event.get('shipment_ids', []),
+                'by_user_id': event.get('by_user_id'),
+            },
         })
 
     # ── helpers ─────────────────────────────────────────────────────────

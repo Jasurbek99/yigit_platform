@@ -7,6 +7,8 @@ Covers:
     4. Two clients join `presence.sheet` → both see each other in the roster
        broadcast.
     5. One client disconnects → the other receives a shrunk roster.
+    6. A `sheet.changed` broadcast reaches every client that joined.
+    7. A client that never joined receives nothing.
 
 Uses Channels' in-memory channel layer (auto-selected under DJANGO_TESTING).
 
@@ -22,6 +24,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.core.models import User
 from apps.core.services import presence
+from apps.core.services.sheet_events import broadcast_sheet_change
 from config.asgi import application
 
 
@@ -155,5 +158,65 @@ class AppConsumerTests(TransactionTestCase):
             self.assertEqual([u['username'] for u in roster_a['payload']['users']], ['alice'])
 
             await a.disconnect()
+
+        asyncio.run(run())
+
+    def test_sheet_changed_reaches_every_joined_client(self) -> None:
+        """Pins both the `sheet.changed` → `sheet_changed` dispatch and the envelope."""
+        async def run() -> None:
+            alice = await _make_user('alice')
+            bob = await _make_user('bob', role='export_manager')
+            a = await _connect(await _token_for(alice))
+            b = await _connect(await _token_for(bob))
+            await a.connect()
+            await b.connect()
+            await a.receive_json_from()
+            await b.receive_json_from()
+
+            await a.send_json_to({'channel': 'presence.sheet', 'type': 'join'})
+            await a.receive_json_from()
+            await b.send_json_to({'channel': 'presence.sheet', 'type': 'join'})
+            await a.receive_json_from()
+            await b.receive_json_from()
+
+            await database_sync_to_async(broadcast_sheet_change)([9, 7], alice.id)
+
+            expected = {
+                'channel': 'sheet',
+                'type': 'changed',
+                'payload': {'shipment_ids': [7, 9], 'by_user_id': alice.id},
+            }
+            self.assertEqual(await a.receive_json_from(), expected)
+            self.assertEqual(await b.receive_json_from(), expected)
+
+            await a.disconnect()
+            await b.disconnect()
+
+        asyncio.run(run())
+
+    def test_sheet_changed_skips_client_that_never_joined(self) -> None:
+        """Audience is the presence group, not every open socket."""
+        async def run() -> None:
+            alice = await _make_user('alice')
+            bob = await _make_user('bob', role='export_manager')
+            a = await _connect(await _token_for(alice))
+            b = await _connect(await _token_for(bob))
+            await a.connect()
+            await b.connect()
+            await a.receive_json_from()
+            await b.receive_json_from()
+
+            # Only Alice opens the Sheet. Bob is logged in but elsewhere.
+            await a.send_json_to({'channel': 'presence.sheet', 'type': 'join'})
+            await a.receive_json_from()
+
+            await database_sync_to_async(broadcast_sheet_change)([7], bob.id)
+
+            frame = await a.receive_json_from()
+            self.assertEqual(frame['channel'], 'sheet')
+            self.assertTrue(await b.receive_nothing())
+
+            await a.disconnect()
+            await b.disconnect()
 
         asyncio.run(run())

@@ -25,3 +25,9 @@ export interface IRealtimeFrame<TPayload = unknown> {
 export interface IPresenceRosterPayload {
   users: IPresenceUser[];
 }
+
+/** Server -> client: `sheet.changed` poke. Ids only, never row data. */
+export interface ISheetChangedPayload {
+  shipment_ids: number[];
+  by_user_id: number | null;
+}
