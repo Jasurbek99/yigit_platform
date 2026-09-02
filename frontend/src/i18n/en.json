@@ -1159,7 +1159,6 @@
     "section_display": "Display in the Sheet",
     "access_role_group_note": "“Role block” under Display is visual grouping in the Sheet only — it grants no access.",
     "visible_label": "Visible in the Sheet",
-    "locked_label": "Lock",
     "badge_hidden": "Hidden in the Sheet",
     "badge_locked": "Locked",
     "badge_triggers": "Access triggers: {{count}}",
@@ -1168,10 +1167,9 @@
     "unsaved_title": "Unsaved changes",
     "unsaved_body": "This row has unsaved changes. Switch rows and lose them?",
     "unsaved_discard": "Switch without saving",
-    "access_desc_open": "No lock, no triggers: anyone whose role has permission on this field can edit the row.",
-    "access_desc_triggered": "Only the roles selected below can edit this row — and only if the role also has permission on this field. Admin, director and export manager always can.",
-    "access_desc_locked_empty": "Locked with no role selected: no one can edit this row except admin, director and export manager.",
-    "access_lock_note": "The lock only matters while no role is selected below. As soon as one role is selected, locked and unlocked behave identically."
+    "access_readonly_label": "Who may edit this row",
+    "access_none": "No role can edit this row yet.",
+    "access_edit_hint": "Grant access on the Row access tab."
   },
   "truck_split": {
     "col_num_firms": "# Firms",

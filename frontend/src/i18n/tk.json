@@ -1159,7 +1159,6 @@
     "section_display": "Sahypada görkeziliş",
     "access_role_group_note": "«Görkeziliş» bölümindaki «Rol topary» diňe Sahypadaky wizual toparlama — hukuk bermeýär.",
     "visible_label": "Sahypada görünýär",
-    "locked_label": "Gulp",
     "badge_hidden": "Sahypada gizlenen",
     "badge_locked": "Gulplanan",
     "badge_triggers": "Elýeterlik triggerleri: {{count}}",
@@ -1168,10 +1167,9 @@
     "unsaved_title": "Ýatda saklanmadyk üýtgeşmeler",
     "unsaved_body": "Bu hataryň üýtgeşmeleri ýatda saklanmady. Başga hatara geçip, olary ýitirmelimi?",
     "unsaved_discard": "Saklamazdan geçmek",
-    "access_desc_open": "Gulp öçük, trigger yok: bu meydana rolunyň hukugy bolan islendik adam hatary üýtgedip bilýär.",
-    "access_desc_triggered": "Hatary diňe aşakda saýlanan rollar üýtgedip bilýär — hem-de diňe rolunyň şu meydana hukugy bar bolsa. Admin, direktor we eksport-menejer hemişe üýtgedip bilýär.",
-    "access_desc_locked_empty": "Gulp açyk, ýöne rol saýlanmadyk: hatary admin, direktor we eksport-menejerden başga hiç kim üýtgedip bilmeýär.",
-    "access_lock_note": "Gulp diňe aşakda hiç bir rol saýlanmadyk wagty täsir edýär. Bir rol saýlanan badyna açyk we ýapyk gulp deň işleýär."
+    "access_readonly_label": "Bu setiri kim redaktirläp bilýär",
+    "access_none": "Häzirlikçe hiç bir rol bu setiri redaktirläp bilmeýär.",
+    "access_edit_hint": "Rugsat «Setir rugsady» goşmaça sahypasynda berilýär."
   },
   "truck_split": {
     "col_num_firms": "Firma sany",

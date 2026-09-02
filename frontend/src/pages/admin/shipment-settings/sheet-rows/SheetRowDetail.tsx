@@ -104,13 +104,7 @@ export default function SheetRowDetail({
         ))}
 
         <SectionTitle>{t('sheet_rows.section_access')}</SectionTitle>
-        <SheetRowAccessSection
-          isLocked={draft.is_locked}
-          triggeredRoles={draft.triggered_roles}
-          roleOptions={roleOptions}
-          disabled={disabled}
-          onChange={(patch) => patchDraft(patch as Partial<ISheetRowDraft>)}
-        />
+        <SheetRowAccessSection triggeredRoles={record.triggered_roles} />
 
         <SectionTitle>{t('sheet_rows.section_display')}</SectionTitle>
         <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>
