@@ -397,14 +397,22 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
     the NEW authority (the sheet gate) says yes wherever the old one did — new
     superset of old, never equality, since the backfill is allowed to widen.
 
-    That snapshot is structurally blind to `packing`: nobody has ever held a
-    RoleFieldPermission literally named 'packing', so its OLD verdict is
-    always False and the property holds trivially there regardless of
-    whether the reverse-delegate union is correct. The other methods below
-    pin the properties the snapshot can't reach: the wildcard-expansion
-    property (every row, not just the ones a role's real fields resolve to)
-    and `packing` specifically (real access the backfill *creates*, not
-    access it merely preserves).
+    That snapshot is structurally blind to `packing` for any role WITHOUT a
+    `shipment: ['*']` wildcard: nobody holds a RoleFieldPermission literally
+    named 'packing', so a non-wildcard role's OLD verdict there is False and
+    the property holds trivially, regardless of whether the reverse-delegate
+    union is correct. It is NOT blind to it for `boss`: `can_edit_field`
+    checks `'*' in allowed or field in allowed`, so `boss`'s
+    `shipment: ['*']` (seed_permissions.FIELD_DEFAULTS) makes its OLD
+    verdict for 'packing' True like every other field, and the general sweep
+    below does cover `boss` keeping `packing` after backfill (via the
+    wildcard-expansion clause in backfill_sheet_row_triggers). The other
+    methods below pin the properties the snapshot genuinely can't reach for
+    a NON-wildcard role: the wildcard-expansion property itself (every row,
+    not just the ones a role's real fields resolve to) and `packing` for the
+    three non-wildcard roles that reach it only through the reverse-delegate
+    union (real access the backfill *creates* for them, not access it merely
+    preserves).
     """
 
     @classmethod
@@ -541,9 +549,12 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
         """`packing` (R48) is the reverse-delegate row the packing columns
         write through their popover panel. It carries no field grant of its
         own — RoleFieldPermission never lists 'packing' as a field name —
-        and its OLD verdict is always False (see the class docstring), so
-        neither the general sweep above nor RoleFieldPermission itself can
-        vouch for it; this is its only integration-level coverage.
+        and for a role with no `shipment: ['*']` wildcard its OLD verdict is
+        always False (see the class docstring; `boss` is the one exception,
+        via the wildcard, and IS covered by the general sweep). For the
+        three non-wildcard roles asserted below, neither the general sweep
+        above nor RoleFieldPermission itself can vouch for `packing`; this
+        is their only integration-level coverage.
 
         document_team, warehouse_chief and loading_dept_head_deputy are each
         asserted: all three reach 'packing' today (seed_permissions.py

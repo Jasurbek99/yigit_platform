@@ -115,7 +115,9 @@ flowchart LR
 **RESOURCE_REGISTRY**:
 - `shipment`, `shipment_firm_split`, `shipment_block_source`, `shipment_assign`, `quality_document`, `sales_report`, `shipment_comment`, `sheet_row_setting`, `quota_issuance`, `quota_usage`, `local_sell_plan`, `weekly_plan`, `price_entry`, `advance`, `truck_allocation`, `domestic_sale`, `export_firm`, `import_firm`, `season`, `closed_season`, `greenhouse_block`, `truck_split_default`, `pallet`, `manifest_close`
 - `contract`, `sale` — P4 module, all-or-nothing (no `RESOURCE_FIELDS` entry). `ContractViewSet` / `ContractSaleViewSet` gate on these via `DynamicResourcePermission` (replaced the old hardcoded `_CONTRACT_WRITE_ROLES`). Defaults: full CRUD for `admin` / `director` / `export_manager` on `contract`; on `sale` the same three create/edit but **delete is `admin`-only** (`director` / `export_manager` get view+create+edit); `boss` gets full CRUD on `contract` and view+create+edit on `sale` since the 2026-08-05 widening (was view-only on both) — his `sale` delete was removed to match `director`/`export_manager`; all other roles no access. Matches the management-only page visibility of `contracts.list` / `contracts.sales`.
-- `sheet_row_setting` (added 2026-09-02, core migration 0038) — admin-only, all-or-nothing (no `RESOURCE_FIELDS` entry: `RESOURCE_FIELDS['sheet_row_setting'] = []`). Gates `SheetRowSettingViewSet` (`/admin/sheet-rows/`), which used to declare `resource_code = 'shipment'` — that let `document_team`, `transport`, `sales_rep`, `finansist` and `weight_master` write Sheet row config (labels, lock state, permission triggers) because `shipment.can_edit` is broad, with only the hidden admin page keeping them off it. `admin` / `director` / `export_manager` get full CRUD (including delete — Sheet rows are soft-deleted through the row's own `is_visible`/`deleted_at` fields, not a separate resource-level flag) purely from the `**{r: _VCRUD for r in _ALL_RESOURCES}` wildcard those three roles already had — no explicit `RESOURCE_DEFAULTS` override was added, same as `boss` (which inherits it too, unavoidably, from the same wildcard — see [[roles-matrix]] footnote 8). `export_manager` was also granted the `admin.shipment_settings` **page** so he can reach the tab without an `admin` account. See `docs/ADR.md` for the entry once the multi-task plan that motivated this (Sheet triggers becoming the edit permission) lands.
+- `sheet_row_setting` (added 2026-09-02, core migration 0038) — admin-only, all-or-nothing (no `RESOURCE_FIELDS` entry: `RESOURCE_FIELDS['sheet_row_setting'] = []`). Gates `SheetRowSettingViewSet` (`/admin/sheet-rows/`), which used to declare `resource_code = 'shipment'` — that let `document_team`, `transport`, `sales_rep`, `finansist` and `weight_master` write Sheet row config (labels, lock state, permission triggers) because `shipment.can_edit` is broad, with only the hidden admin page keeping them off it. `admin` / `director` / `export_manager` get full CRUD (including delete — Sheet rows are soft-deleted through the row's own `is_visible`/`deleted_at` fields, not a separate resource-level flag) purely from the `**{r: _VCRUD for r in _ALL_RESOURCES}` wildcard those three roles already had — no explicit `RESOURCE_DEFAULTS` override was added, same as `boss` (which inherits it too, unavoidably, from the same wildcard — see [[../roles/roles-matrix]] footnote 8). `export_manager` was also granted the `admin.shipment_settings` **page** so he can reach the tab without an `admin` account. **The `sheet_row_setting` resource gates who may TOUCH row config (labels, style, `is_locked`, triggers); AD-17 (`docs/ADR.md`) is the separate decision that a row's trigger config, once touched, IS the edit permission for that Sheet-owned field** — see [[../screens/shipment-sheet#Permissions]] for the full gate and [[../screens/shipment-sheet#Row access tab (2026-09-02, AD-17)]] for where roles are actually granted. `RoleFieldPermission` stays the sole authority for the handful of shipment fields with no Sheet row (`notes`, `loading_location`, `peregruz_city`, `price_per_kg`, `total_amount_usd`, `product_type`, `shelf_life_days`, `variety_confidence`) and for every other resource in this registry — the Permissions admin (`/admin/permissions`) is unchanged for those.
+
+> **Deploying AD-17 needs the backfill migration before the write-gate switch, not just the resource grant above.** `export/0065_backfill_sheet_row_triggers` mirrors every current `RoleFieldPermission` grant into `SheetRowRoleTrigger` — same shape as the AD-15/AD-16 precedent above ("deploying the widening needs the migration, not the seed command"). Run `python manage.py migrate`, then verify the backfill actually landed rather than trusting the "applied" line: a second `python manage.py backfill_sheet_row_triggers` run must report `Added 0 role triggers` (idempotent — a nonzero count means the first run didn't finish or the migration was skipped). If `seed_permissions --reset` is ever run afterwards, it deletes and recreates every `RoleFieldPermission` row while leaving `SheetRowRoleTrigger` untouched, so the two can drift apart again — re-run `backfill_sheet_row_triggers` to reconcile. Out of order (write-gate code deployed before `0065` runs), a role that edits a Sheet-owned field today purely through a `RoleFieldPermission` grant loses write access the moment `ShipmentPatchSerializer` starts asking the Sheet gate instead of `RoleFieldPermission`.
 
 **RESOURCE_FIELDS** (granular editable fields):
 - `shipment`: box_count, pallet_count, weight_net, weight_gross, price_per_kg, total_amount_usd, notes, vehicle_condition, vehicle_condition_note, route_note
@@ -147,14 +149,17 @@ own branch in `ShipmentViewSet.get_permissions()`. Current exemptions:
 | `soft_delete`, `restore`, `set_column_color`, `set_cell_color` | `IsAuthenticated` | UI decoration / recoverable, open to every Sheet viewer |
 | `pallets` POST, `manifest_close`, `import_weightmaster` | in-body `PALLET_WRITE_ROLES` | weight_master + warehouse_chief own the manifest, hold no `shipment.can_create` |
 | `set_sales_report` | in-body role gate | writes the `sales_report` resource, not `shipment` |
-| `set_firm_splits`, `set_block_sources` | `junction_write_permission(<junction>)` | writes a junction resource's own `can_edit` |
+| `set_firm_splits`, `set_block_sources` | `sheet_field_write_permission(<field_key>)` | **AD-17 (2026-09-02):** the row's own trigger config is the authority now, not a junction resource flag. Replaced `junction_write_permission`, which read only `RoleResourcePermission` on the junction's resource — a role ticked on Shipment Settings would otherwise still 403 here. `sheet_field_write_permission()` asks `can_edit_sheet_fields()`, the same batch gate the shipment PATCH uses |
 | `transition` | `resource_edit_permission('shipment')` | a transition **edits** a shipment; `transition_to()` keeps the per-edge role gate (added 2026-09-01, ROLE_ACCESS_AUDIT F12) |
 | `comment` | `resource_write_permission('shipment_comment')` | the POST creates a comment, not a shipment — same flag `CommentViewSet` checks (added 2026-09-01, FINDINGS_BACKLOG F18) |
-| `swap` | `resource_edit_permission('shipment')` | a swap **edits** two shipments; the per-field `can_edit_sheet_field` loop in the body is the real authority and could never run (added 2026-09-01, FINDINGS_BACKLOG F19) |
+| `swap` | `resource_edit_permission('shipment')` | a swap **edits** two shipments; the per-field `can_edit_sheet_fields()` batch call in the body is the real authority and could never run without this (added 2026-09-01, FINDINGS_BACKLOG F19) |
 
-`resource_edit_permission(code)` and `junction_write_permission(code)` are the same
+`resource_edit_permission(code)` and `junction_write_permission(code)` are still the same
 check — POST → `can_edit` on `code`, fail-closed, superuser bypass — under two names
-that read correctly at their call sites; one implementation, so they cannot drift.
+that read correctly at their call sites; one implementation, so they cannot drift. `junction_write_permission`
+itself has no current caller since AD-17 moved `set_firm_splits`/`set_block_sources` onto
+`sheet_field_write_permission()` (table above) — it remains for any future junction resource
+whose write permission genuinely lives on `RoleResourcePermission` rather than a Sheet row.
 
 ### Seed Permissions Command
 
@@ -292,6 +297,18 @@ These read from the `ICurrentUser` object returned by `/api/v1/auth/me/`:
 **Tab 3 — Field Permissions**: Expandable rows per resource, sub-rows per field, columns = roles, cells = checkbox (can_edit)
 
 **Access**: Admin only (backend gate is `_AdminOnlyPermission`).
+
+**Since AD-17 (2026-09-02), Tab 3's `shipment` field rows no longer govern a Sheet-owned field.**
+Sheet-row access — every field with a row in `DEFAULT_SHEET_ROWS` or its reverse-delegate map, see
+[[../screens/shipment-sheet#Permissions]] — is granted in exactly one place, **Shipment Settings →
+Row access** (`admin.shipment_settings`, gated on the `sheet_row_setting` resource, reachable by
+`admin` / `director` / `export_manager` without visiting this page at all). Ticking a `shipment`
+field here for a role that also has no matching Sheet-row trigger changes nothing for that role on
+the Sheet, the Shipment Detail page, or the Edit Drawer — the checkbox still saves, it is simply
+no longer consulted for that field. This page's Tab 3 remains the sole authority only for the
+handful of shipment fields with no Sheet row (`notes`, `loading_location`, `peregruz_city`,
+`price_per_kg`, `total_amount_usd`, `product_type`, `shelf_life_days`, `variety_confidence`) and
+for every field on every other resource in the registry.
 
 ### Route Protection
 

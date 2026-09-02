@@ -142,7 +142,7 @@ Grouping the remaining 40 rows by role yields **6 blocks**, ordered by first app
 
 `SheetRowSetting.role_group` (migration `0063_sheet_row_role_group`, `ROLE_CHOICES`, blank = no override) lets an admin set or change which block a row belongs to from Shipment Settings → Sheet Rows, no code change required — the gap the previous section's design left ("a newly hired person needs a one-line addition to a hardcoded file"). Exposed read/write on the admin serializer and read-only in the `/sheet/` payload as `IRowConfig.role_group`; `sheetRoleBlocks.ts` checks it before `WHO_KEY_ROLE`.
 
-The column sits next to **Trigger Roles** in the admin table and is easy to confuse with it — they are unrelated. `role_group` decides which *visual band* a row renders in on the Sheet. `triggered_roles` (`SheetRowRoleTrigger`) decides who may *edit* a row once `is_locked` is on. A row can have a `role_group` of `finansist` and a trigger role of `document_team` at the same time; neither implies the other. The column header carries a tooltip (`sheet_rows.role_group_header_hint`) stating this.
+The column sits next to **Trigger Roles** in the admin table and is easy to confuse with it — they are unrelated. `role_group` decides which *visual band* a row renders in on the Sheet. `triggered_roles` (`SheetRowRoleTrigger`) decides who may *edit* a row — since AD-17 (2026-09-02, `docs/ADR.md`) that holds **regardless of `is_locked`**; the lock only changes anything when the row carries no trigger config at all. A row can have a `role_group` of `finansist` and a trigger role of `document_team` at the same time; neither implies the other. The column header carries a tooltip (`sheet_rows.role_group_header_hint`) stating this.
 
 Setting `role_group` on an otherwise-`sheet.who.custom` row is the one safe way to put a specific admin-added row into a real block — normally custom rows are excluded from grouping entirely (see below) because their shared generic who-key would re-break the sheet-wide contiguity gate; a per-row `role_group` override does not have that problem, since it is scoped to the one row, not shared.
 
@@ -207,11 +207,10 @@ Each row can be assigned **one or more formal roles** AND/OR **a specific user**
 | `export_sheet_row_role_trigger` | Child rows: one per `(setting, role)`. Replaces the old single `triggered_role` column. |
 | `export_sheet_row_user_permission` | Child rows: one per `(setting, user)`. Extra users who can edit regardless of `is_locked`. Soft-deleted with `deleted_at`. |
 
-**Trigger + Lock semantics (ADR-0008 / ADR-0009 / ADR-0010):**
-- If `is_locked=False` (default): `triggered_roles[]` acts as the "Who" label. Editing falls back to `RoleFieldPermission` for all roles — the trigger is display-only.
-- If `is_locked=True`: only users whose role is in `triggered_roles[]` **OR** who appear in `extra_user_ids[]` (non-deleted `SheetRowUserPermission`) can edit the cell. All other roles get the fallback "no setting → field-perm" path denied.
-- If both `triggered_roles[]` and `triggered_user` are empty (`is_locked=False`), only `RoleFieldPermission` governs access.
-- `admin`, `director`, and `is_superuser` always bypass the lock.
+**Trigger + Lock semantics (AD-17, 2026-09-02 — supersedes the AND-with-`RoleFieldPermission` rule ADR-0008/0009/0010 originally described here):**
+- The row's trigger config **is** the edit permission. If the row carries any config at all — a `triggered_roles[]` entry, a `triggered_user`, or an active `extra_user_ids[]` grant (`SheetRowUserPermission`) — editing is `matched_user OR matched_role OR matched_extra`, full stop. No `RoleFieldPermission` AND. This holds **whether or not `is_locked` is set** — locked and unlocked evaluate identically once a row has config.
+- If the row has **no** config at all: `is_locked=True` denies everyone (except the bypass roles below); `is_locked=False` falls back to `RoleFieldPermission` alone, exactly as before.
+- `admin`, `director`, `export_manager`, and `is_superuser` always bypass every branch (AD-15 + the AD-17 write-gate update — `export_manager` is Gadam, the operational owner of the shipment lifecycle).
 
 **"Who" column label:**
 1. `triggered_user.username` if a specific user is set (warning chip if `is_active=False`).
@@ -222,7 +221,7 @@ Each row can be assigned **one or more formal roles** AND/OR **a specific user**
 
 **Admin endpoint**: `GET/POST/PATCH/DELETE /api/v1/export/admin/sheet-rows/{id}/` — see the Sheet Rows Admin section below.
 
-**Visibility toggle**: `is_visible=False` rows are excluded entirely from the `row_settings` map in the `/sheet/` response. Hidden rows are always denied edit access.
+**Visibility toggle**: `is_visible=False` rows are excluded entirely from the `row_settings` map in the `/sheet/` response, and the display map reports `can_current_user_edit: false` for them — so the Sheet shows the column as read-only. **This is presentation, not permission (AD-17, Decision A).** The write path — `ShipmentPatchSerializer`, the junction/swap/packing/custom-field endpoints — asks `can_edit_sheet_fields()` with `ignore_visibility=True` and does not consult `is_visible` at all, so hiding a row from the Sheet does **not** revoke edit rights on the Shipment Detail page or the Edit Drawer.
 
 ### Per-row cell styling (Style popover)
 
@@ -271,37 +270,62 @@ user action would send a stale `version` and 409. Switching rows with unsaved ed
 
 **Extra users were removed from the UI (2026-08-27, owner call).** The panel used to carry a
 per-user grant list (`SheetRowUserPermission` via `permissions/bulk/`) beside the trigger roles.
-Since the trigger gate is AND-composed with the field permission, a per-user grant can only ever
-narrow *within* a role that already holds the field permission — it cannot hand access to someone
-whose role lacks it. With roughly one person per role in this org that is a distinction without a
-difference, so the control, the `useBulkPermissions` hook and their strings are gone. **The backend
-is untouched:** the model, the `permissions/bulk/` endpoint and `matched_extra` in
-`can_edit_sheet_field` / `get_sheet_edit_map` all still work, and any `SheetRowUserPermission` rows
-already in a database keep granting edit access — they are simply no longer visible or editable
-from this screen (dev DB at removal time: 2 active rows, both for `admin`, who bypasses every gate
-anyway).
+At the time the trigger gate was still AND-composed with the field permission, so a per-user grant
+could only ever narrow *within* a role that already held the field permission — a distinction
+without a difference with roughly one person per role, so the control, the `useBulkPermissions`
+hook and their strings were dropped from the UI. **The backend was untouched then and still is:**
+the model, the `permissions/bulk/` endpoint and `matched_extra` in `can_edit_sheet_field` /
+`get_sheet_edit_map` all still work, and any `SheetRowUserPermission` rows in the database keep
+granting edit access. Per-user exceptions were **not** moved into the Row access tab either
+(below) — they remain reachable only through the raw `permissions/bulk/` endpoint, with no admin
+screen naming them (deliberate scope boundary, `docs/ADR.md` AD-17 Consequences — a follow-up
+plan territory, not an oversight).
 
-**The Access section is the comprehension fix.** `is_locked` and `triggered_roles` used to sit in
-separate columns with nothing saying how they combine. The section now states the rule the backend
-actually applies (`can_edit_sheet_field` / `get_sheet_edit_map`), in three states:
-
-| Lock | Triggers | Who can edit |
-|------|----------|--------------|
-| off | none | anyone whose role has the field permission |
-| off or **on** | any role set | only those roles, **and** they still need the field permission |
-| on | none | nobody (admin / director / export_manager bypass every branch) |
-
-Two things the old UI actively mis-taught and the panel now says out loud: the trigger gate is
-**AND-composed with the field permission, never OR** — a trigger role does not let someone edit a
-field their role has no permission on; and **the lock only matters while no role is selected** —
-once one is, locked and unlocked evaluate identically. `role_group` is called
-out as visual grouping that grants no access.
+**The Access section is read-only since AD-17 (2026-09-02, `docs/ADR.md`).** It used to be the
+editor for `is_locked` + `triggered_roles`; both are now display-only here — role access is
+granted in exactly one place, the **Row access** tab (below), and a second editable copy on this
+tab was the two-places-disagree bug AD-17 exists to remove. The lock switch is gone from the UI
+entirely (`is_locked` still shows as a read-only badge in the row list) because with any trigger
+config present the outcome is identical locked or not, so the control never changed anything once
+a row was actually configured. The section (`SheetRowAccessSection.tsx`) renders the row's current
+`triggered_roles[]` as translated role-name chips (fixed 2026-09-02 — it briefly rendered the raw
+role code, e.g. `export_manager`, before `roleLabel()` was added) and states the AD-17 rule in
+words: the trigger config *is* the permission, not an AND with a field grant.
 
 Files: `pages/admin/shipment-settings/SheetRowsTab.tsx` (container) + `sheet-rows/` (list, item,
 detail, header, access section, localized field group, draft helpers, save hook, custom-row
-modal). Tests: `SheetRowsTab.test.tsx` (batched PATCH, lock sentence, dirty gate, switch guard).
+modal). Tests: `SheetRowsTab.test.tsx` (batched PATCH, dirty gate, switch guard).
 The old `SheetRowStylePopover` / `SheetRowTooltipPopover` / `InlineSavedInput` were deleted —
 `components/sheet/SheetRowStyleControls` (shared with the Sheet gear popover) stayed.
+
+### Row access tab (2026-09-02, AD-17)
+
+**Shipment Settings → Row access** is the one place a role's Sheet edit access is granted.
+Component: `RowAccessTab.tsx`. Layout mirrors the Permissions admin's role-first editor:
+
+- **Role sidebar** — `RoleSidebar` (`pages/admin/permissions/RoleSidebar.tsx`), the **same
+  component** the Permissions admin page uses; picking a role loads that role's current
+  `triggered_roles` membership across every row as a local draft.
+- **Checkbox list** — one row per active `SheetRowSetting`, `R{row_number} · {label} field_key`,
+  searchable by field_key/label. Ticking a row adds it to the draft; nothing writes until Save.
+- **Save — replace semantics.** `useSaveRoleAccess` POSTs `{role, field_keys}` to
+  `POST /api/v1/export/admin/sheet-rows/role-access/`, which sets that role's trigger membership
+  across **every** active row in one transaction: rows in `field_keys` gain the role's trigger,
+  rows absent from it lose it if they had it. Not additive — unticking a previously-ticked row and
+  saving removes that role's access to it. One `AuditLog` row per changed row, same shape
+  (`field_name='triggered_roles'`, full before/after role sets) as the old per-row PATCH wrote, so
+  an auditor reading the log cannot tell which endpoint made a given change.
+- **Gated on `sheet_row_setting.edit`** (`canWrite` prop) — the same resource the rest of Shipment
+  Settings' write surface uses; a viewer without it sees the checkboxes disabled.
+
+Soft-deleted rows are out of scope: the endpoint only touches `SheetRowSetting.objects.active()`,
+so a role's trigger on a row that gets soft-deleted afterward is left alone and reappears if the
+row is restored — restore is meant to bring back the row's prior configuration.
+
+**Not moved here:** per-user exceptions (`triggered_user`, `SheetRowUserPermission`) — see the
+Extra-users note above. **Known gap, not fixed by this task:** the role sidebar renders raw role
+codes (`export_manager`), not translated display names — unlike the Access section chips above,
+which were fixed the same day. Tracked as `docs/FINDINGS_BACKLOG.md` F21.
 
 ### Sheet Rows Admin endpoint
 
@@ -317,6 +341,7 @@ The old `SheetRowStylePopover` / `SheetRowTooltipPopover` / `InlineSavedInput` w
 | POST | `/sheet-rows/{id}/restore/` | Restore a soft-deleted row. Returns 400 if already active. |
 | POST | `/sheet-rows/reorder/` | Accepts `[{"id": N, "display_order": N}]`. Uses sparse ADR-0007 spacing (`(idx+1)*1024`). Writes one `AuditLog` row for every order change. |
 | POST | `/sheet-rows/{id}/permissions/bulk/` | Bulk grant/revoke `SheetRowUserPermission`. Body: `{"grant": [uid, ...], "revoke": [uid, ...]}`. Idempotent. |
+| POST | `/sheet-rows/role-access/` | Set one role's `triggered_roles` membership across every active row. Body: `{"role": "document_team", "field_keys": [...]}`. **Replace semantics** — rows absent from `field_keys` lose the role's trigger. The Row access tab's only writer (see above). |
 
 **Optimistic locking (ADR-0006):** Every PATCH must include `version` matching the current DB value. The server increments `version` on save. Concurrent edits are detected and return 409 with `{"error": "Version conflict. Reload and retry.", "current_version": N}`.
 
@@ -456,7 +481,41 @@ Hidden cells (`gapy_hidden && is_gapy_satys` — the `—` placeholder rows) are
 
 ## Permissions
 
-The sheet now reads from the **dynamic permission registry** (no hardcoded role matrix):
+**The real authority, for every Sheet cell, is `can_edit_sheet_field` / `get_sheet_edit_map` /
+`can_edit_sheet_fields` in `apps/core/permissions.py` (AD-17, 2026-09-02, `docs/ADR.md`) — not
+the frontend helpers below.** For a field owned by a Sheet row (any `field_key` in
+`DEFAULT_SHEET_ROWS`, or a real column that reverse-delegates to one — see next paragraph), the
+row's `SheetRowRoleTrigger` / `triggered_user` / `SheetRowUserPermission` config **is** the
+permission — it is no longer AND-composed with `RoleFieldPermission`. Grant a role a row in
+Shipment Settings → Row access and every write path honours it the same PATCH: the shipment PATCH
+(`ShipmentPatchSerializer`), `set_firm_splits`, `set_block_sources`, `swap`,
+`POST /contracts/shipment-packing/`, and the custom-fields PATCH all resolve through the same
+batch gate, `can_edit_sheet_fields()`. A row with no trigger config at all still falls back to
+`RoleFieldPermission` (unlocked) or denies everyone but the privileged bypass (locked) — the
+pre-AD-17 behaviour, unchanged for an unconfigured row. Fields with **no** Sheet row of their own
+— `notes`, `loading_location`, `peregruz_city`, `price_per_kg`, `total_amount_usd`,
+`product_type`, `shelf_life_days`, `variety_confidence` — keep `RoleFieldPermission` as their sole
+authority; there is nothing to configure for them in Shipment Settings.
+
+**Reverse delegates.** Several cells write real `Shipment` columns that carry no `field_key` of
+their own — a composite editor (the truck/driver pickers, the R26 combined cell, the packing
+popover) posts the real column names, and `_REVERSE_FIELD_DELEGATES`
+(`apps/core/permissions.py`) routes each one back to the Sheet row that owns it, so the write gate
+asks the same row the Sheet cell displays:
+
+| Real column(s) | Owning row |
+|---|---|
+| `transit_days`, `transport_temp_c` | `transit_days_temp` (R26) |
+| `driver_id` | `driver_name` |
+| `truck_head_id`, `trailer_id` | `truck_plate` |
+| `vehicle_condition_note` | `vehicle_condition` |
+| `box_count`, `pallet_count`, `weight_gross`, `packaging_kg`, `pallet_weight_kg`, `packing_template` | `packing` |
+
+Without this map those columns would keep answering to `RoleFieldPermission` after the switch —
+the exact bug AD-17 exists to remove, since none of them is reachable through a Sheet cell of its
+own.
+
+**The frontend still reads from a dynamic permission registry as a fallback layer, unrelated to the sheet gate above:**
 
 - Direct shipment fields → `canEditField(user, 'shipment', fieldKey)` — gated by `RoleFieldPermission`
 - Junction tables → `canDo(user, 'shipment_firm_split' | 'shipment_block_source', 'edit')`
@@ -466,15 +525,15 @@ Directors manage these matrices at `/admin/permissions`. The seed defaults are p
 
 This frontend fallback is only reached when the backend's Sheet Control v2 gate (§ Per-row
 trigger configuration above) sends `row_settings[fk].can_current_user_edit = null` — which it
-never does (it always emits `true`/`false`). So the real authority for `firm_splits` /
-`block_sources` is `can_edit_sheet_field` / `get_sheet_edit_map`
-(`apps/core/permissions.py`), and it now mirrors the row above: junction field_keys resolve
-against their own resource_code (`shipment_firm_split`/`shipment_block_source`) via
-`_JUNCTION_FIELD_DELEGATES`, not `'shipment'`. Before this fix (2026-08-24), `firm_splits` and
-`block_sources` field-perm-checked resource `'shipment'`, where those keys can never appear
-(`RESOURCE_FIELDS['shipment']` doesn't list them) — so every non-bypass role (everyone except
-`admin`/`director`/`export_manager`) saw the cell as read-only in the Sheet even when granted
-`shipment_firm_split`/`shipment_block_source` field or resource permissions (e.g.
+never does (it always emits `true`/`false`). The backend map is therefore always the operative
+answer; the frontend helpers above are effectively dead code kept for the `null` case. Junction
+field_keys resolve against their own resource_code (`shipment_firm_split`/`shipment_block_source`)
+via `_JUNCTION_FIELD_DELEGATES`, not `'shipment'`, for the same reason the reverse-delegate map
+exists above — a role's grant on the junction's own resource must not be invisible because the
+check asked `'shipment'` instead. Before a 2026-08-24 fix, `firm_splits` and `block_sources`
+field-perm-checked resource `'shipment'`, where those keys can never appear
+(`RESOURCE_FIELDS['shipment']` doesn't list them) — so every non-bypass role saw the cell as
+read-only even when granted `shipment_firm_split`/`shipment_block_source` permissions (e.g.
 `document_team`'s `shipment_firm_split: ['*']`).
 
 ### Customer-based row scoping (sales_rep)

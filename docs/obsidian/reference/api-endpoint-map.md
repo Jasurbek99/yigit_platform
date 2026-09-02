@@ -199,6 +199,7 @@ See [[screens/main-dashboard]] for the full response contract.
 | POST | `/api/v1/export/admin/sheet-rows/{id}/restore/` | SheetRowSettingViewSet.restore | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
 | POST | `/api/v1/export/admin/sheet-rows/reorder/` | SheetRowSettingViewSet.reorder | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
 | POST | `/api/v1/export/admin/sheet-rows/{id}/permissions/bulk/` | SheetRowSettingViewSet.permissions_bulk | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
+| POST | `/api/v1/export/admin/sheet-rows/role-access/` | SheetRowSettingViewSet.role_access | `useSaveRoleAccess` | ShipmentSettings (Row access tab) |
 | GET / PATCH | `/api/v1/export/admin/process-node-links/` (+ `{id}/`) | ProcessNodeLinkViewSet | `useProcessNodeLinks` / `useUpdateProcessNodeLink` | ProcessNodeLinksPage (`/admin/process-links`) — list + edit only (no create/delete), `node_id` read-only, admin-only via inline gate not the resource matrix — see [[../processes/permissions-system#Process node links — inline admin gate, not the resource matrix (2026-08-06)]] |
 
 ### Per-user Sheet Preferences (Phase 2a)

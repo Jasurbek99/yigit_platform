@@ -43,6 +43,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | ~~F18~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `comment` now gates on `shipment_comment.can_create` via `resource_write_permission`, agreeing with `CommentViewSet` instead of contradicting it | `export/views.py:183-194` |
 | ~~F19~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `swap` gates on `shipment.can_edit` (`resource_edit_permission`), so the per-field `can_edit_sheet_field` loop finally runs; the Sheet's Swap button gained the matching `canDo(user,'shipment','edit')` gate | `export/views.py`, `SheetToolbar.tsx` |
 | F20 | LOW | **Shipment-Detail half CLOSED 2026-09-01** (`boss` sees the button; label named the wrong status; endpoint off `can_create`). The Assignment Board half is **parked** — owner: nobody uses `/export/assign`, it is kept "just in case" and will be deleted | `export/views.py`, `AssignmentBoard.tsx:35` |
+| F21 | LOW | Shared `RoleSidebar` (Permissions admin + the new Row access tab) renders raw role codes (`export_manager`) instead of a translated display name | `frontend/src/pages/admin/permissions/RoleSidebar.tsx` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
@@ -201,6 +202,21 @@ Both check a role allowlist in the method body (`PRIVILEGED_ROLES`, plus `boss` 
 **and** still pass through the class-level `can_create` gate. Every role in those allowlists holds
 `shipment.can_create = 1` today, so nothing breaks. The risk is drift: widen either allowlist to a
 `_VE` role and the coarse gate silently reintroduces F12 for it.
+
+## F21 — LOW: the role picker shows raw codes, not names (added 2026-09-02)
+
+`RoleSidebar` (`frontend/src/pages/admin/permissions/RoleSidebar.tsx`) renders each role as a
+`<Tag>{code}</Tag>` — e.g. `export_manager`, `loading_dept_head_deputy` — with the human name only
+in a hover tooltip. It backs two screens now: the Permissions admin page it was built for, and the
+new Shipment Settings → **Row access** tab added by the Sheet-Settings-permission-authority plan
+(AD-17, `docs/ADR.md`), which reuses it unchanged. The row's own read-only access chips
+(`SheetRowAccessSection.tsx`, Shipment Settings → Sheet Rows) were fixed the same day to translate
+via `ROLE_CHOICES`/`t()`, on the reasoning that a screen whose whole purpose is naming who may edit
+something should show a name, not a code — the same reasoning applies to the sidebar that picks
+the role in the first place, and was left open rather than fixed opportunistically inside a
+permissions/access task. Fix shape: mirror `SheetRowAccessSection`'s `roleLabel()` lookup
+(`ROLE_CHOICES.find(...).labelKey` → `t()`) inside `RoleSidebar`, with a fallback to the raw code
+for an unmapped role.
 
 ## F16 / F17 — the rest of the `/media/` bug's blast radius (added 2026-08-27)
 
