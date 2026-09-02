@@ -215,3 +215,63 @@ class CustomRowDeleteTests(TestCase):
         self.assertEqual(del_resp.status_code, 204, del_resp.data)
         SheetRowSetting.objects.get(pk=row_id).refresh_from_db()
         self.assertIsNotNone(SheetRowSetting.objects.get(pk=row_id).deleted_at)
+
+
+class CustomFieldTriggerNonWildcardRoleTests(TestCase):
+    """Task 6 fix round 1 (Critical): a custom row's OWN trigger config must
+    gate its PATCH, even for a role that holds no 'shipment': ['*'] wildcard.
+
+    CustomFieldValueTests only ever authenticates as 'director', who holds
+    the wildcard and would pass this endpoint whether or not custom rows are
+    correctly wired into can_edit_sheet_fields's three-state logic -- it
+    can't distinguish the fix from the bug it fixes. 'transport' holds an
+    explicit (non-wildcard) field list with no 'custom_*' entry, so it can
+    only pass here via the row's own SheetRowRoleTrigger, exactly as AD-17
+    promises for a Sheet-owned row.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.season, _ = Season.objects.get_or_create(
+            name='2025-CTR',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30', 'is_active': True},
+        )
+        cls.status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yuklenme_custrig',
+            defaults={'name_tk': 'y', 'name_en': 'Loading', 'step_order': 1, 'phase': 'LOADING'},
+        )
+        cls.shipment = Shipment.objects.create(
+            shipment_code='CUSTRIG-001', date='2026-02-01',
+            season=cls.season, status=cls.status,
+        )
+
+    def setUp(self):
+        from django.core.cache import cache
+        from apps.export.models import SheetRowRoleTrigger
+
+        self.director = _create_user(f'custrig_dir_{id(self)}', 'director')
+        director_client = APIClient()
+        director_client.force_authenticate(user=self.director)
+        resp = director_client.post(_BASE, {
+            'field_key': 'custom_transport_note',
+            'label_en': 'Transport Note',
+        }, format='json')
+        assert resp.status_code == 201, resp.data
+        self.row = SheetRowSetting.objects.get(pk=resp.data['id'])
+        SheetRowRoleTrigger.objects.create(row=self.row, role='transport')
+        cache.clear()
+
+        self.transport_user = _create_user(f'custrig_transport_{id(self)}', 'transport')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.transport_user)
+
+    def test_role_triggered_custom_row_is_editable_by_a_non_wildcard_role(self):
+        resp = self.client.patch(
+            f'/api/v1/export/shipments/{self.shipment.id}/custom-fields/',
+            {'field_key': 'custom_transport_note', 'value': 'picked up'},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        cv = ShipmentCustomFieldValue.objects.get(shipment=self.shipment, row=self.row)
+        self.assertEqual(cv.value_text, 'picked up')

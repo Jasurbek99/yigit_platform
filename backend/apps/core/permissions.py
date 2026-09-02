@@ -369,6 +369,42 @@ def _has_trigger_config(setting) -> bool:
     )
 
 
+def _trigger_matches(user, setting) -> bool:
+    """True if `user` matches a trigger on `setting` (triggered_user, a
+    role_trigger, or an active extra-user grant), OR the privileged bypass
+    (superuser / admin / director / export_manager, AD-15).
+
+    Computes the same matched_user/matched_role/matched_extra flags as
+    can_edit_sheet_field's Rule 4 and get_sheet_edit_map's _resolve -- the
+    three must never disagree. Used by can_edit_sheet_fields's has-config
+    branch, which -- unlike those two callers -- can be asked about a row
+    outside DEFAULT_SHEET_ROWS (a custom row): it cannot borrow
+    get_sheet_edit_map's early privileged-bypass return for that case (that
+    function's returned map is only ever keyed by DEFAULT_SHEET_ROWS field
+    keys), so this carries its own copy of the bypass rather than assuming
+    the caller already checked it.
+
+    Pass a setting with role_triggers / user_permissions prefetched to avoid
+    N+1 queries.
+    """
+    role = getattr(user, 'role', None)
+    if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
+        return True
+    triggered_user = setting.triggered_user if setting.triggered_user_id else None
+    matched_user = (
+        triggered_user is not None
+        and triggered_user.is_active
+        and user.id == setting.triggered_user_id
+    )
+    role_set = {rt.role for rt in setting.role_triggers.all()}
+    matched_role = bool(role and role in role_set)
+    matched_extra = any(
+        up.user_id == user.id and up.can_edit and up.deleted_at is None
+        for up in setting.user_permissions.all()
+    )
+    return matched_user or matched_role or matched_extra
+
+
 def can_edit_sheet_field(user, field_key: str) -> bool:
     """Gate a shipment sheet cell edit against Shipment Settings trigger config.
 
@@ -655,11 +691,27 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
 
     result: dict[str, bool] = {}
     for name in field_names:
-        if name not in owned:
-            result[name] = can_edit_field(role, name)
-            continue
+        # owning_row/setting are computed BEFORE the owned check (not after,
+        # like the old code): a custom row (custom_<slug>) is never in the
+        # static owned set -- get_sheet_owned_fields() is DEFAULT_SHEET_ROWS
+        # keys + the reverse-delegate map, and a custom row key exists only
+        # in the DB -- so the old ordering always took the un-owned fallthrough
+        # for it and asked can_edit_field(role, 'custom_<slug>'), which no
+        # role can ever hold literally. A key with its OWN active
+        # SheetRowSetting must run the same three-state logic as an owned key
+        # even when the static set doesn't know about it.
         owning_row = _REVERSE_FIELD_DELEGATES.get(name, name)
         setting = settings_by_key.get(owning_row)
+        if name not in owned and setting is None:
+            # Truly unowned: no static Sheet row AND no ad-hoc row either.
+            # Behaviour-neutral for real unowned fields that happen to carry
+            # a zero-config row today (notes, has_sales_report, the comment
+            # counts) -- they fall through to the elif below instead of here,
+            # which resolves to this exact same can_edit_field(role, name)
+            # call (see _can_edit_sheet_row_field: identical for any name
+            # outside _JUNCTION_FIELD_DELEGATES).
+            result[name] = can_edit_field(role, name)
+            continue
         if setting is not None and setting.is_locked and not _has_trigger_config(setting):
             # An explicit admin lock with nobody named is a deliberate
             # "nobody" -- not an unconfigured row waiting to be set up. The
@@ -692,7 +744,21 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
                 # nobody has configured yet.
                 result[name] = _has_junction_resource_grant(role, name)
         else:
-            result[name] = edit_map.get(owning_row, False)
+            # edit_map.get(owning_row, False) alone is correct for static
+            # rows (get_sheet_edit_map iterates DEFAULT_SHEET_ROWS and
+            # includes the same privileged bypass _trigger_matches carries),
+            # but edit_map is NEVER keyed by a custom row's field_key --
+            # get_sheet_edit_map only ever computes verdicts for
+            # DEFAULT_SHEET_ROWS entries, so a custom row with real trigger
+            # config (the exact scenario this branch exists for) silently
+            # missed the dict and fell back to False. _trigger_matches
+            # computes the verdict directly from `setting` -- correct for
+            # both static and custom rows -- so it is the fallback here, not
+            # edit_map: short-circuits (never even called) whenever edit_map
+            # already has the answer, so this changes neither behaviour nor
+            # query count for the static-row path that test_multi_field_patch_loads_settings_once
+            # pins.
+            result[name] = edit_map.get(owning_row, False) or _trigger_matches(user, setting)
     return result
 
 
@@ -859,10 +925,19 @@ def junction_write_permission(resource_code: str) -> type:
     Sheet's own UI gate already treats this field (RoleFieldPermission /
     ``can_edit_sheet_field``), not a REST "create a new thing".
 
-    Usage in ``get_permissions()``:
-        if action == 'set_firm_splits':
+    No longer wired into ``set_firm_splits`` / ``set_block_sources`` -- AD-17
+    (Task 6) moved both onto ``sheet_field_write_permission``, which asks the
+    Sheet row's own trigger config first and falls back to this same
+    ``RoleResourcePermission`` check (see ``_has_junction_resource_grant``)
+    only when no row is configured yet. Left in place, not deleted, as the
+    still-correct general factory for any future POST that replaces a
+    junction table's rows outside the Sheet -- ``resource_edit_permission``
+    under a name that reads better at a junction call site.
+
+    Usage in ``get_permissions()`` (illustrative -- no current caller):
+        if action == 'set_some_other_junction':
             return [IsAuthenticated(), SeasonNotClosed(),
-                    junction_write_permission('shipment_firm_split')()]
+                    junction_write_permission('some_other_junction_resource')()]
     """
     # Same check as resource_edit_permission — a junction POST is an edit of the
     # shipment's composition. Kept as its own name because callers read better
@@ -888,10 +963,16 @@ def sheet_field_write_permission(field_key: str) -> type:
         def has_permission(self, request, view) -> bool:
             if not request.user or not request.user.is_authenticated:
                 return False
-            # Mirrors resource_edit_permission / write_permission: can_edit_field
-            # (which can_edit_sheet_fields falls back to when no row is
-            # configured) is a pure role-string lookup with no superuser
-            # semantics of its own, so the bypass belongs here.
+            # Mirrors resource_edit_permission's bypass (the permission class
+            # this factory replaces set_firm_splits/set_block_sources onto --
+            # it checked is_superuser before ever consulting
+            # RoleResourcePermission). can_edit_sheet_fields' no-config
+            # fallback -- the common state, before an admin has visited
+            # Shipment Settings for a row -- resolves to can_edit_field /
+            # _has_junction_resource_grant, neither of which knows what
+            # is_superuser is; only its has-config branch does (via
+            # get_sheet_edit_map / _trigger_matches). The bypass belongs in
+            # THIS class so it covers every branch, not just the configured one.
             if getattr(request.user, 'is_superuser', False):
                 return True
             # can_edit_sheet_fields, not can_edit_sheet_field: this is a WRITE

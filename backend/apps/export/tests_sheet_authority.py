@@ -942,6 +942,31 @@ class TestPackingEndpointFollowsTheSheetRow(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_role_with_the_packing_trigger_passes_the_permission_layer(self):
+        """The positive half of the test above -- a gate hardcoded to
+        `return False` would still pass the negative test but never this one.
+
+        Asserts the permission outcome only (not 200): shipment id=1 does not
+        exist in this test's DB, so a 404 from the view body is the expected,
+        correct result once the permission layer lets the request through --
+        the same shape the RED-evidence run in the Task 6 report used to
+        prove the OLD gate was letting requests through.
+        """
+        from apps.export.models import SheetRowRoleTrigger
+
+        SheetRowRoleTrigger.objects.create(row=self.row, role='transport')
+        cache.clear()
+        transport = _make_user('packing_transport', 'transport')
+
+        client = APIClient()
+        client.force_authenticate(user=transport)
+        response = client.post(
+            '/api/v1/contracts/shipment-packing/',
+            {'shipment': 1, 'scope': 'template', 'packing_template': 1},
+            format='json',
+        )
+        self.assertNotEqual(response.status_code, 403, response.data)
+
 
 class TestJunctionFallbackDelegatesToItsOwnResource(TestCase):
     """Task 6 Fix 2: the no-config fallback in can_edit_sheet_fields must
@@ -1003,6 +1028,33 @@ class TestJunctionFallbackDelegatesToItsOwnResource(TestCase):
             format='json',
         )
         self.assertEqual(response.status_code, 200, response.data)
+
+    def test_role_with_a_configured_block_sources_trigger_passes_the_permission_layer(self):
+        """Coverage for the OTHER state a production DB is actually in: an
+        admin HAS visited Shipment Settings for this row (unlike the no-row
+        state the sibling test above covers). The prior version of this test
+        deleted the row in setUp, so the configured-row branch of
+        can_edit_sheet_fields (the `else`: edit_map.get(...) or
+        _trigger_matches(...)) had no coverage under this permission class at
+        all -- only the no-config fallback did.
+        """
+        from apps.export.models import SheetRowRoleTrigger
+
+        row = SheetRowSetting.objects.create(
+            field_key='block_sources', row_number=91, display_order=91 * 1024,
+        )
+        SheetRowRoleTrigger.objects.create(row=row, role='transport')
+        cache.clear()
+        transport = _make_user('block_sources_transport', 'transport')
+
+        client = APIClient()
+        client.force_authenticate(user=transport)
+        response = client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/block-sources/',
+            {'blocks': [{'block_id': self.block.id, 'weight_kg': '9000'}]},
+            format='json',
+        )
+        self.assertNotEqual(response.status_code, 403, response.data)
 
 
 class TestSheetFieldWritePermissionSuperuserBypass(TestCase):
