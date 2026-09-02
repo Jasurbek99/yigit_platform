@@ -29,4 +29,23 @@ describe('useSaveRoleAccess', () => {
       { role: 'document_team', field_keys: ['country', 'import_firm'] },
     ));
   });
+
+  it('invalidates the admin sheet-rows query on success', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      data: { role: 'document_team', added: 2, removed: 0 },
+    });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+    const localWrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useSaveRoleAccess(), { wrapper: localWrapper });
+    result.current.mutate({ role: 'document_team', field_keys: ['country', 'import_firm'] });
+
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ['admin', 'sheet-rows'],
+    }));
+  });
 });
