@@ -1,5 +1,6 @@
 import { Alert, Flex, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { ROLE_CHOICES } from '@/constants/roles';
 import { ROLE_COLOR } from '@/pages/admin/permissions/roleColors';
 
 const { Text } = Typography;
@@ -19,6 +20,12 @@ interface ISheetRowAccessSectionProps {
  */
 export function SheetRowAccessSection({ triggeredRoles }: ISheetRowAccessSectionProps) {
   const { t } = useTranslation();
+  // Same lookup the roles Select this replaced used to build its options —
+  // an admin reading "who may edit this row" should see a name, not a code.
+  const roleLabel = (role: string): string => {
+    const choice = ROLE_CHOICES.find((r) => r.value === role);
+    return choice ? t(choice.labelKey) : role;
+  };
 
   return (
     <Flex vertical gap={8}>
@@ -32,7 +39,7 @@ export function SheetRowAccessSection({ triggeredRoles }: ISheetRowAccessSection
         <Flex wrap gap={4}>
           {triggeredRoles.map((role) => (
             <Tag key={role} color={ROLE_COLOR[role] ?? 'default'} style={{ fontSize: 11 }}>
-              {role}
+              {roleLabel(role)}
             </Tag>
           ))}
         </Flex>

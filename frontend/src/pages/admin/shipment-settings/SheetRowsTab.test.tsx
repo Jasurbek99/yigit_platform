@@ -149,7 +149,9 @@ describe('SheetRowsTab', () => {
     } as any);
     renderTab();
 
-    expect(screen.getByText('transport')).toBeInTheDocument();
+    // 'transport' is the API role code; the chip shows the translated label
+    // (mirrors the Select this section replaced, which used the same lookup).
+    expect(screen.getByText('Transport')).toBeInTheDocument();
     expect(screen.getByText('Grant access on the Row access tab.')).toBeInTheDocument();
   });
 });
