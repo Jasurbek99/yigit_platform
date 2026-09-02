@@ -148,12 +148,15 @@ class TestReverseDelegateMap(TestCase):
         user = _make_user('batch_probe', 'document_team')
         # box_count is deliberately absent: per AD-17, can_edit_sheet_fields
         # resolves it to the `packing` row it delegates to, while
-        # can_edit_sheet_field(user, 'box_count') finds no row of its own and
-        # falls back to a plain field-perm lookup on the literal key
-        # 'box_count' — never granted, so the two permanently disagree on
-        # reverse-delegated keys by design (see ambiguity #2 in the Task 3
-        # brief). Parity is only asserted here for keys that are NOT reverse
-        # delegates.
+        # can_edit_sheet_field(user, 'box_count') finds no Sheet row for the
+        # literal key and falls back to a plain field-perm lookup on
+        # 'box_count' itself — which document_team DOES hold
+        # (seed_permissions.py FIELD_DEFAULTS), so that call returns True.
+        # 'packing' is never itself a granted field name, so the batch
+        # helper's delegated answer is False: on reverse-delegated keys the
+        # batch helper is the STRICTER of the two, and they permanently
+        # disagree by design (see ambiguity #2 in the Task 3 brief). Parity
+        # is only asserted here for keys that are NOT reverse delegates.
         keys = ['documents_status', 'country', 'import_firm']
 
         batch = can_edit_sheet_fields(user, keys)
@@ -296,3 +299,22 @@ class TestVirtualRowUsesItsOwnTriggers(TestCase):
         # transport holds the transit_days field grant, so the delegate path
         # must still answer True once the virtual row is gone.
         self.assertTrue(can_edit_sheet_field(transport, 'transit_days_temp'))
+
+    def test_row_present_with_zero_triggers_still_delegates(self):
+        """Row exists (e.g. auto-provisioned by _provision_missing_rows) but
+        nobody has configured a trigger on it yet — the unlocked no-config
+        fallback must still resolve the virtual key through
+        _VIRTUAL_FIELD_DELEGATES, not field-perm-check the literal virtual
+        key, which no role ever holds in RoleFieldPermission (that's the
+        entire premise of the delegate map). Before this fix, Step 4b's
+        lookup-before-delegate inversion meant a zero-config virtual row
+        denied every role, including the one that legitimately owns the real
+        underlying field.
+        """
+        from apps.core.permissions import can_edit_sheet_field, get_sheet_edit_map
+
+        transport = _make_user('virtual_zero_config', 'transport')
+        # self.row (from setUpTestData) carries no role_triggers, no
+        # triggered_user, no user_permissions — has_any_config is False.
+        self.assertTrue(can_edit_sheet_field(transport, 'transit_days_temp'))
+        self.assertTrue(get_sheet_edit_map(transport)['transit_days_temp'])

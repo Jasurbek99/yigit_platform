@@ -422,7 +422,14 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
         return has_any_trigger
     if setting.is_locked:
         return False
-    return _can_edit_sheet_row_field(role, field_key)
+    # The delegate is resolved here, not in the Rule-2 lookup above: a
+    # zero-config virtual row (e.g. one _provision_missing_rows just created)
+    # is still found by field_key, so it never reaches that branch. No role
+    # holds the literal virtual key in RoleFieldPermission — that's the whole
+    # premise of _VIRTUAL_FIELD_DELEGATES — so the no-config fallback must
+    # resolve to the real field here or every zero-config virtual row denies
+    # everyone.
+    return _can_edit_sheet_row_field(role, _VIRTUAL_FIELD_DELEGATES.get(field_key, field_key))
 
 
 def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, bool]:
@@ -520,7 +527,11 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
             return has_any_trigger
         if setting.is_locked:
             return False
-        return _has_field_perm(fk)
+        # See the matching note in can_edit_sheet_field: a zero-config
+        # virtual row is found by fk above and never reaches the Rule-2
+        # delegate branch, so the no-config fallback must resolve the
+        # delegate itself or every zero-config virtual row denies everyone.
+        return _has_field_perm(_VIRTUAL_FIELD_DELEGATES.get(fk, fk))
 
     return {row['field_key']: _resolve(row['field_key']) for row in DEFAULT_SHEET_ROWS}
 
