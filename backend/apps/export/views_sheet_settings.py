@@ -699,7 +699,18 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
 
         Replaces — the role's triggers on rows absent from field_keys are
         removed. Writes one AuditLog row per changed Sheet row, matching the
-        `triggered_roles` shape written by _perform_update_with_audit.
+        `triggered_roles` shape written by _perform_update_with_audit exactly:
+        object_repr is str(row), old_value/new_value are the row's full sorted
+        role set before/after (not a single-role delta), so a reader filtering
+        field_name='triggered_roles' for one row cannot tell which endpoint
+        wrote a given row.
+
+        Scope is active rows only (SheetRowSetting.objects.active()) — a
+        role's trigger on a row that is later soft-deleted is left untouched
+        by this endpoint and reappears if the row is restored via
+        POST .../{id}/restore/. This is intentional: restore is meant to
+        bring back the row's prior configuration, and stripping the trigger
+        here would make restore lossy in the other direction.
 
         Returns:
             { "role": str, "added": int, "removed": int }
@@ -739,8 +750,38 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
         )
         to_add = wanted - existing
         to_remove = existing - wanted
+        changed_ids = to_add | to_remove
 
-        id_to_key = {r.id: r.field_key for r in rows_by_key.values()}
+        id_to_row = {r.id: r for r in rows_by_key.values()}
+
+        # Full role set per changed row, BEFORE this call's mutation — needed
+        # to write old_value/new_value as complete role sets (matching
+        # _perform_update_with_audit), not a single-role delta.
+        prior_roles: dict[int, set[str]] = {rid: set() for rid in changed_ids}
+        for row_id, existing_role in (
+            SheetRowRoleTrigger.objects
+            .filter(row_id__in=changed_ids)
+            .values_list('row_id', 'role')
+        ):
+            prior_roles[row_id].add(existing_role)
+
+        audit_rows = []
+        for rid in changed_ids:
+            old_roles = prior_roles[rid]
+            new_roles = (old_roles | {role}) if rid in to_add else (old_roles - {role})
+            old_value = ','.join(sorted(old_roles))
+            new_value = ','.join(sorted(new_roles))
+            audit_rows.append(AuditLog(
+                user=request.user,
+                action='update',
+                model_name='SheetRowSetting',
+                object_id=rid,
+                object_repr=str(id_to_row[rid]),
+                field_name='triggered_roles',
+                old_value=old_value,
+                new_value=new_value,
+                detail=f"triggered_roles: '{old_value}' → '{new_value}'",
+            ))
 
         with transaction.atomic():
             SheetRowRoleTrigger.objects.filter(
@@ -750,26 +791,7 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
                 [SheetRowRoleTrigger(row_id=rid, role=role) for rid in to_add],
                 batch_size=500,
             )
-            AuditLog.objects.bulk_create(
-                [
-                    AuditLog(
-                        user=request.user,
-                        action='update',
-                        model_name='SheetRowSetting',
-                        object_id=rid,
-                        object_repr=id_to_key[rid],
-                        field_name='triggered_roles',
-                        old_value='' if rid in to_add else role,
-                        new_value=role if rid in to_add else '',
-                        detail=(
-                            f"role-access: {'+' if rid in to_add else '-'}{role} "
-                            f"on {id_to_key[rid]}"
-                        ),
-                    )
-                    for rid in (to_add | to_remove)
-                ],
-                batch_size=500,
-            )
+            AuditLog.objects.bulk_create(audit_rows, batch_size=500)
 
         # Trigger rows are read live, but the role's resource/page caches are not.
         cache.delete(f'{PERM_CACHE_PREFIX}:all_fields:{role}')

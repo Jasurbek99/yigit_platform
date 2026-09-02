@@ -1119,6 +1119,13 @@ class TestRoleAccessBulkEndpoint(TestCase):
         call_command('seed_permissions')
         cls.mgr = _make_user('roleaccess_mgr', 'export_manager')
         cls.doc = _make_user('roleaccess_doc', 'document_team')
+        # warehouse_chief holds shipment.can_create=True (seed_permissions'
+        # _VCE) but no sheet_row_setting grant at all -- the discriminating
+        # actor for test_shipment_create_role_without_sheet_row_setting_is_refused
+        # below. document_team has neither can_create on 'shipment' (_VE) nor
+        # sheet_row_setting, so a regression reverting the gate's resource_code
+        # back to 'shipment' would NOT be caught by a document_team actor.
+        cls.wh_chief = _make_user('roleaccess_wh', 'warehouse_chief')
         for key, number in (('country', 11), ('import_firm', 14), ('city', 13)):
             SheetRowSetting.objects.create(
                 field_key=key, row_number=number, display_order=number * 1024,
@@ -1171,3 +1178,75 @@ class TestRoleAccessBulkEndpoint(TestCase):
             'role': 'document_team', 'field_keys': ['not_a_row'],
         })
         self.assertEqual(response.status_code, 400)
+
+    def test_unknown_role_is_rejected(self):
+        response = self._post(self.mgr, {
+            'role': 'not_a_real_role', 'field_keys': [],
+        })
+        self.assertEqual(response.status_code, 400)
+
+    def test_shipment_create_role_without_sheet_row_setting_is_refused(self):
+        """warehouse_chief holds shipment.can_create=True but no grant at all
+        on sheet_row_setting. Unlike document_team (used by the sibling test
+        above), this actor DOES discriminate: if a regression reverted the
+        ViewSet's resource_code from 'sheet_row_setting' back to its pre-Task-1
+        value of 'shipment', this call would flip from 403 to 200 because
+        POST maps to can_create and warehouse_chief holds it on 'shipment'.
+        """
+        response = self._post(self.wh_chief, {'role': 'document_team', 'field_keys': []})
+        self.assertEqual(response.status_code, 403)
+
+    def test_empty_field_keys_clears_all_of_the_roles_triggers(self):
+        """field_keys=[] is the most destructive call this endpoint accepts --
+        it must remove every trigger the role holds, and log each removal.
+        """
+        from apps.export.models import AuditLog, SheetRowRoleTrigger
+
+        country_row = SheetRowSetting.objects.get(field_key='country')
+        import_firm_row = SheetRowSetting.objects.get(field_key='import_firm')
+        SheetRowRoleTrigger.objects.create(row=country_row, role='transport')
+        SheetRowRoleTrigger.objects.create(row=import_firm_row, role='transport')
+
+        response = self._post(self.mgr, {'role': 'transport', 'field_keys': []})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, {'role': 'transport', 'added': 0, 'removed': 2})
+        self.assertFalse(
+            SheetRowRoleTrigger.objects.filter(role='transport').exists()
+        )
+
+        removal_logs = AuditLog.objects.filter(
+            model_name='SheetRowSetting', field_name='triggered_roles',
+            object_id__in=[country_row.id, import_firm_row.id],
+        )
+        self.assertEqual(removal_logs.count(), 2)
+        for log in removal_logs:
+            self.assertEqual(log.old_value, 'transport')
+            self.assertEqual(log.new_value, '')
+
+    def test_audit_rows_record_the_full_role_set_not_a_single_role_delta(self):
+        """The bug fix 1 (coordinator review) closes: adding document_team to
+        a row that already has transport must log old='transport',
+        new='document_team,transport' -- the row's full role set before and
+        after -- not old='', new='document_team'. A reader filtering
+        field_name='triggered_roles' for one row must not be able to tell
+        whether a given row was written by this endpoint or by the per-row
+        PATCH path (_perform_update_with_audit), which always logs full sets.
+        """
+        from apps.export.models import AuditLog, SheetRowRoleTrigger
+
+        country_row = SheetRowSetting.objects.get(field_key='country')
+        SheetRowRoleTrigger.objects.create(row=country_row, role='transport')
+
+        response = self._post(self.mgr, {
+            'role': 'document_team', 'field_keys': ['country'],
+        })
+        self.assertEqual(response.status_code, 200)
+
+        log = AuditLog.objects.get(
+            model_name='SheetRowSetting', object_id=country_row.id,
+            field_name='triggered_roles',
+        )
+        self.assertEqual(log.old_value, 'transport')
+        self.assertEqual(log.new_value, 'document_team,transport')
+        self.assertEqual(log.object_repr, str(country_row))
