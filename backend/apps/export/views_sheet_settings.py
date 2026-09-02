@@ -708,8 +708,7 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
             400 if role is missing/unknown or any field_key has no active row.
         """
         role = (request.data.get('role') or '').strip()
-        valid_roles = {choice[0] for choice in ROLE_CHOICES}
-        if role not in valid_roles:
+        if role not in _ROLE_SET:
             return Response(
                 {'error': f"Unknown role '{role}'."},
                 status=status.HTTP_400_BAD_REQUEST,
