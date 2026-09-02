@@ -216,28 +216,48 @@ class TestReverseDelegateMap(TestCase):
         it from the `packing` row it delegates to, not from a plain lookup on
         its own (non-existent) key.
 
-        Uses director, not document_team: for document_team, `packing`
-        resolves to False on both the correct path (edit_map['packing']) and
-        the broken path (edit_map.get('box_count', False), a missing key that
-        defaults to False) -- no SheetRowSetting row exists for `packing` in a
-        fresh DB and 'packing' is never itself a granted RoleFieldPermission
-        field name, so the two coincidentally agree regardless of whether the
-        reverse-map lookup runs. Verified this empirically before writing the
-        test (see fix report). Director's Rule-1 bypass makes every
-        DEFAULT_SHEET_ROWS field_key, including `packing`, resolve True, while
-        `box_count` -- not itself a field_key -- still defaults to False if the
-        `_REVERSE_FIELD_DELEGATES` lookup is skipped. Only the correct
-        resolution (box_count -> packing -> True) makes this pass.
+        No longer uses director (round-1 note below is now stale, kept as a
+        record of why the switch happened). Round 1 added a 3-branch
+        fallback to can_edit_sheet_fields: when the owning row has no trigger
+        config, it asks can_edit_field(role, name) about the REAL field
+        instead of the row key. director holds a shipment '*' wildcard
+        RoleFieldPermission, so can_edit_field('director', 'box_count') is
+        True regardless of whether the row lookup ran at all -- and
+        get_sheet_edit_map(director) is all-True via its own Rule-1 bypass
+        independently of any row's config. Both sides of the comparison were
+        True unconditionally, so this test kept passing even with the
+        `_REVERSE_FIELD_DELEGATES` lookup deleted outright (owning_row = name
+        instead of the map lookup) -- confirmed empirically (see fix report,
+        round 3).
+
+        warehouse_chief is not privileged and holds the real box_count grant
+        (seed_permissions.py FIELD_DEFAULTS), so can_edit_field('warehouse_chief',
+        'box_count') is True -- but the packing row's trigger below excludes
+        warehouse_chief, so the correctly-resolved edit_map['packing'] is
+        False. The two values genuinely disagree unless the reverse-map
+        lookup (box_count -> packing) actually runs; deleting it makes the
+        batch helper answer from the wrong (True) branch and this test dies.
+        Reconfirmed empirically (see fix report, round 3).
         """
         from apps.core.permissions import can_edit_sheet_fields, get_sheet_edit_map
+        from apps.export.models import SheetRowRoleTrigger
 
         call_command('seed_permissions')
+        packing_row = SheetRowSetting.objects.create(
+            field_key='packing', row_number=48, display_order=48 * 1024,
+        )
+        SheetRowRoleTrigger.objects.create(row=packing_row, role='transport')
         cache.clear()
-        user = _make_user('delegate_probe', 'director')
+        user = _make_user('delegate_probe', 'warehouse_chief')
 
         self.assertEqual(
             can_edit_sheet_fields(user, ['box_count'])['box_count'],
             get_sheet_edit_map(user)['packing'],
+        )
+        self.assertFalse(
+            get_sheet_edit_map(user)['packing'],
+            'precondition: the packing row must exclude warehouse_chief for '
+            'this comparison to be non-vacuous',
         )
 
 
@@ -860,3 +880,27 @@ class TestPatchEndpointHonoursTheBatchGate(TestCase):
             format='json',
         )
         self.assertEqual(response.status_code, 200, response.data)
+
+    def test_patch_is_denied_when_the_packing_row_excludes_the_role(self):
+        """Pins that ShipmentPatchSerializer routes through the BATCH gate.
+
+        warehouse_chief holds the literal shipment.weight_gross grant, so the
+        old can_edit_field path would allow this PATCH. Only the batch gate --
+        which resolves weight_gross to the `packing` row, finds trigger config
+        that omits warehouse_chief, and denies -- produces a 403 here. Revert
+        validate() to can_edit_field and this test returns 200 and fails.
+        """
+        from apps.export.models import SheetRowRoleTrigger
+
+        packing_row = SheetRowSetting.objects.create(
+            field_key='packing', row_number=48, display_order=48 * 1024,
+        )
+        SheetRowRoleTrigger.objects.create(row=packing_row, role='transport')
+        cache.clear()
+
+        response = self.client.patch(
+            f'/api/v1/export/shipments/{self.shipment.id}/',
+            {'weight_gross': '19200.00'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 403, response.data)
