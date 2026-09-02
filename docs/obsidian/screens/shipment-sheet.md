@@ -221,7 +221,7 @@ Each row can be assigned **one or more formal roles** AND/OR **a specific user**
 
 **Admin endpoint**: `GET/POST/PATCH/DELETE /api/v1/export/admin/sheet-rows/{id}/` — see the Sheet Rows Admin section below.
 
-**Visibility toggle**: `is_visible=False` rows are excluded entirely from the `row_settings` map in the `/sheet/` response, and the display map reports `can_current_user_edit: false` for them — so the Sheet shows the column as read-only. **This is presentation, not permission (AD-17, Decision A).** The write path — `ShipmentPatchSerializer`, the junction/swap/packing/custom-field endpoints — asks `can_edit_sheet_fields()` with `ignore_visibility=True` and does not consult `is_visible` at all, so hiding a row from the Sheet does **not** revoke edit rights on the Shipment Detail page or the Edit Drawer.
+**Visibility toggle**: `is_visible=False` rows are excluded entirely from both the `row_settings` **and** `rows` maps in the `/sheet/` response — the field_key is **absent**, not present with `can_current_user_edit: false` (`ShipmentViewSet.sheet()`: `_row_candidates` skips a row with `not setting.is_visible` before `row_settings` is ever populated, and the `rows` list is then built by iterating `row_settings.keys()`, so a hidden row never reaches either key). There is no read-only display state for it — the Sheet does not render that row/column at all for anyone. **This is presentation, not permission (AD-17, Decision A).** The write path — `ShipmentPatchSerializer`, the junction/swap/packing/custom-field endpoints — asks `can_edit_sheet_fields()` with `ignore_visibility=True` and does not consult `is_visible` at all, so hiding a row from the Sheet does **not** revoke edit rights on the Shipment Detail page or the Edit Drawer, which reach the same underlying field through a different path than the Sheet's `row_settings` map.
 
 ### Per-row cell styling (Style popover)
 
@@ -315,17 +315,30 @@ Component: `RowAccessTab.tsx`. Layout mirrors the Permissions admin's role-first
   saving removes that role's access to it. One `AuditLog` row per changed row, same shape
   (`field_name='triggered_roles'`, full before/after role sets) as the old per-row PATCH wrote, so
   an auditor reading the log cannot tell which endpoint made a given change.
-- **Gated on `sheet_row_setting.edit`** (`canWrite` prop) — the same resource the rest of Shipment
-  Settings' write surface uses; a viewer without it sees the checkboxes disabled.
+- **Gated on `sheet_row_setting.edit`** (`ShipmentSettingsPage.tsx`'s `canEditRowAccess`, passed
+  down as the `canWrite` prop) — and this tab is the **only** one on Shipment Settings gated this
+  way. Every other tab there gates on a different resource: `StatusesTab`, `BorderPointsTab`,
+  `OptionListsTab` and `SheetRowsTab` all use `canDo(user, 'shipment', 'edit')`; `TruckSplitsTab`
+  uses `truck_split_default.edit`. Row access is also the only tab that is **absent from the tab
+  list entirely** when the flag is false, not merely disabled — `ShipmentSettingsPage.tsx` only
+  pushes it into the `tabs` array when `canEditRowAccess` is true.
 
 Soft-deleted rows are out of scope: the endpoint only touches `SheetRowSetting.objects.active()`,
 so a role's trigger on a row that gets soft-deleted afterward is left alone and reappears if the
 row is restored — restore is meant to bring back the row's prior configuration.
 
 **Not moved here:** per-user exceptions (`triggered_user`, `SheetRowUserPermission`) — see the
-Extra-users note above. **Known gap, not fixed by this task:** the role sidebar renders raw role
-codes (`export_manager`), not translated display names — unlike the Access section chips above,
-which were fixed the same day. Tracked as `docs/FINDINGS_BACKLOG.md` F21.
+Extra-users note above. **Two known gaps, not fixed by this task:** the role sidebar renders raw
+role codes (`export_manager`), not translated display names — unlike the Access section chips
+above, which were fixed the same day (`docs/FINDINGS_BACKLOG.md` F21); and `SheetRowsTab`'s own
+`canWrite` is computed from `shipment.edit` (see the gating list above), not `sheet_row_setting.edit`
+— the resource `/admin/sheet-rows/` itself has gated writes on since Task 1 (migration `core/0038`).
+Currently inert, not exploitable: `admin.shipment_settings` page visibility limits who reaches this
+page at all to `admin` and `export_manager`, and both hold `shipment.edit` and
+`sheet_row_setting.edit` together, so the two flags never disagree for anyone who can actually open
+the page today — but the frontend gate and the backend gate name different resources, and that
+would surface the day a role holds one without the other. Tracked as `docs/FINDINGS_BACKLOG.md`
+F22.
 
 ### Sheet Rows Admin endpoint
 

@@ -44,6 +44,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | ~~F19~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `swap` gates on `shipment.can_edit` (`resource_edit_permission`), so the per-field `can_edit_sheet_field` loop finally runs; the Sheet's Swap button gained the matching `canDo(user,'shipment','edit')` gate | `export/views.py`, `SheetToolbar.tsx` |
 | F20 | LOW | **Shipment-Detail half CLOSED 2026-09-01** (`boss` sees the button; label named the wrong status; endpoint off `can_create`). The Assignment Board half is **parked** — owner: nobody uses `/export/assign`, it is kept "just in case" and will be deleted | `export/views.py`, `AssignmentBoard.tsx:35` |
 | F21 | LOW | Shared `RoleSidebar` (Permissions admin + the new Row access tab) renders raw role codes (`export_manager`) instead of a translated display name | `frontend/src/pages/admin/permissions/RoleSidebar.tsx` |
+| F22 | LOW | `SheetRowsTab`'s frontend `canWrite` gates on `shipment.edit`; the backend's own `/admin/sheet-rows/` endpoint gates on `sheet_row_setting.edit` since Task 1. Currently inert (both roles that reach the page hold both flags) | `frontend/src/pages/admin/ShipmentSettingsPage.tsx` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
@@ -217,6 +218,30 @@ the role in the first place, and was left open rather than fixed opportunistical
 permissions/access task. Fix shape: mirror `SheetRowAccessSection`'s `roleLabel()` lookup
 (`ROLE_CHOICES.find(...).labelKey` → `t()`) inside `RoleSidebar`, with a fallback to the raw code
 for an unmapped role.
+
+## F22 — LOW: the Sheet Rows tab's frontend gate names the wrong resource (added 2026-09-03)
+
+`ShipmentSettingsPage.tsx` computes two different `canWrite`-shaped flags for the Shipment
+Settings tabs: `canWrite = canDo(user, 'shipment', 'edit')`, passed to `StatusesTab`,
+`BorderPointsTab`, `OptionListsTab` and `SheetRowsTab`; and `canEditRowAccess = canDo(user,
+'sheet_row_setting', 'edit')`, passed only to `RowAccessTab`. Since AD-17 Task 1 (migration
+`core/0038`), the backend endpoint those first four tabs write to for row config —
+`SheetRowSettingViewSet` at `/admin/sheet-rows/` — no longer gates on `shipment.can_edit` at all;
+it gates on `sheet_row_setting`. So `SheetRowsTab`'s frontend `canWrite` (the same flag correctly
+used by the three unrelated reference-data tabs, which really do write `shipment` resources) now
+names a permission the backend stopped checking for this one tab's actual writes.
+
+**Currently inert, not exploitable.** `admin.shipment_settings` page visibility — the outer gate
+on reaching this page at all — is limited to `admin` and `export_manager` (same migration). Both
+roles hold `shipment.edit` and `sheet_row_setting.edit` together (full CRUD wildcard for `admin`/
+`director`/`export_manager`, per `permission_registry.py`), so the frontend flag and the backend's
+real gate never disagree for anyone who can open the page today. The gap is latent: a role granted
+`shipment.edit` without `sheet_row_setting.edit` (or the reverse) would see `SheetRowsTab` render
+as editable and then get 403'd on save, or vice versa.
+
+Fix shape: change `SheetRowsTab`'s `canWrite` prop to `canDo(user, 'sheet_row_setting', 'edit')`,
+matching what its own PATCH endpoint actually gates on — the same correction already applied when
+`RowAccessTab` was built.
 
 ## F16 / F17 — the rest of the `/media/` bug's blast radius (added 2026-08-27)
 
