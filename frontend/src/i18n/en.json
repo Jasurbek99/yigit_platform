@@ -36,6 +36,10 @@
     "loading_dept_head_deputy": "Loading Dept Deputy",
     "boss": "Boss"
   },
+  "row_access": {
+    "hint": "Tick the rows this role may edit. This is the only place row access is granted.",
+    "search": "Search rows"
+  },
   "boss_mode": {
     "view": "View",
     "edit": "Edit",
@@ -1010,6 +1014,7 @@
     "tab_options": "Option Lists",
     "tab_truck_splits": "Truck Split Defaults",
     "tab_sheet_rows": "Sheet Row Triggers",
+    "tab_row_access": "Row access",
     "tab_cell_colors": "Cell Colors",
     "tab_countries": "Countries",
     "tab_cities": "Cities",

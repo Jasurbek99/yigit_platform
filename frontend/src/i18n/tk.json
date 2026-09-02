@@ -36,6 +36,10 @@
     "loading_dept_head_deputy": "Ýükleme gaplama bölüminiň orunbassary",
     "boss": "Başlyk"
   },
+  "row_access": {
+    "hint": "Bu rolyň redaktirläp biljek setirlerini belläň. Setir rugsady diňe şu ýerden berilýär.",
+    "search": "Setirleri gözle"
+  },
   "boss_mode": {
     "view": "Görmek",
     "edit": "Üýtgetmek",
@@ -1010,6 +1014,7 @@
     "tab_options": "Saýlaw Sanawy",
     "tab_truck_splits": "Firma paýlanyşygy",
     "tab_sheet_rows": "Setir Triggerleri",
+    "tab_row_access": "Setir rugsady",
     "tab_cell_colors": "Öýjük reňkleri",
     "tab_countries": "Ýurtlar",
     "tab_cities": "Şäherler",
