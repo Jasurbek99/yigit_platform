@@ -1224,6 +1224,37 @@ class TestPackingTemplateAndSwapRequireFirmSplitsAccess(TestCase):
         })
         self.assertEqual(resp.status_code, 200, resp.data)
 
+    def test_superuser_bypasses_the_new_firm_splits_guard(self):
+        """The guard must go through sheet_field_write_permission, not a raw
+        can_edit_sheet_fields call, or it drops the is_superuser bypass that
+        class carries (permissions.py, sheet_field_write_permission's own
+        comment: "the bypass belongs in THIS class so it covers every
+        branch, not just the configured one").
+
+        Reproduces the exact hole: `firm_splits` provisioned with ZERO
+        trigger config (can_edit_sheet_fields' no-config branch, where
+        neither _can_edit_sheet_row_field nor _has_junction_resource_grant
+        knows what is_superuser is), and a superuser whose ROLE
+        (warehouse_chief) holds neither a RoleFieldPermission nor a
+        RoleResourcePermission grant on shipment_firm_split at all -- so a
+        raw can_edit_sheet_fields(user, ['firm_splits']) call returns False
+        for this user despite is_superuser=True. A superuser must never be
+        refused by this guard, regardless of role or row config.
+        """
+        from apps.export.models import SheetRowRoleTrigger
+
+        SheetRowRoleTrigger.objects.filter(row=self.firm_splits_row).delete()
+        cache.clear()
+
+        su = User.objects.create_user(
+            username='pks_su_zero_config', password='pass',
+            role='warehouse_chief', is_superuser=True,
+        )
+        resp = self._post(su, {
+            'shipment': self.shipment.id, 'scope': 'template', 'packing_template': self.template.id,
+        })
+        self.assertEqual(resp.status_code, 200, resp.data)
+
 
 class TestJunctionFallbackDelegatesToItsOwnResource(TestCase):
     """Task 6 Fix 2: the no-config fallback in can_edit_sheet_fields must

@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import (
-    DynamicResourcePermission, SeasonNotClosed, can_edit_sheet_fields, sheet_field_write_permission,
+    DynamicResourcePermission, SeasonNotClosed, sheet_field_write_permission,
 )
 from apps.core.idempotency import idempotent
 from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
@@ -1018,8 +1018,17 @@ class ShipmentPackingView(APIView):
         # 'template' and 'swap' both rewrite firm_splits (see class docstring);
         # the `packing` trigger that already passed get_permissions is not
         # enough for those two — 'firm' stays packing-only and skips this.
+        # Goes through the permission CLASS, not a raw can_edit_sheet_fields
+        # call: the class carries the is_superuser bypass (permissions.py,
+        # sheet_field_write_permission's own comment — "the bypass belongs
+        # in THIS class so it covers every branch, not just the configured
+        # one"). Calling can_edit_sheet_fields directly here would drop that
+        # bypass on a DB where `firm_splits` carries zero trigger config,
+        # reintroducing in mirror image the exact hole that comment exists
+        # to close. Also keeps this DRY with set_firm_splits
+        # (apps/export/views.py), the parity AD-17 exists to enforce.
         if scope in ('template', 'swap'):
-            if not can_edit_sheet_fields(request.user, ['firm_splits'])['firm_splits']:
+            if not sheet_field_write_permission('firm_splits')().has_permission(request, self):
                 return Response(
                     {'error': (
                         "You don't have permission to edit field 'firm_splits' "
