@@ -40,6 +40,38 @@ _JUNCTION_FIELD_DELEGATES: dict[str, tuple[str, str]] = {
     'block_sources': ('shipment_block_source', 'block'),
 }
 
+# Reverse delegates: real Shipment columns that a composite Sheet cell writes
+# but that have no field_key of their own. _VIRTUAL_FIELD_DELEGATES maps a sheet
+# key to a real field (for the display gate); this maps a real field back to the
+# Sheet row that owns it (for the write gate). Without it those columns keep
+# answering to RoleFieldPermission after AD-17 and Shipment Settings is not the
+# authority for them — the exact bug this change exists to remove.
+#
+# Each entry is confirmed against the frontend editor's onCommit payload, not
+# guessed from the name:
+#   transit_days / transport_temp_c  ← SheetCellEditor, transit_days_temp cell
+#   driver_id                        ← SheetDriverSelectEditor, driver_name cell
+#   truck_head_id / trailer_id       ← SheetTruckSelectEditor, truck_plate cell
+#   vehicle_condition_note           ← SheetCellEditor, vehicle_condition cell
+#   packing columns                  ← ShipmentPackingPanel, packing cell
+_REVERSE_FIELD_DELEGATES: dict[str, str] = {
+    'transit_days': 'transit_days_temp',
+    'transport_temp_c': 'transit_days_temp',
+    'driver_id': 'driver_name',
+    'truck_head_id': 'truck_plate',
+    'trailer_id': 'truck_plate',
+    'vehicle_condition_note': 'vehicle_condition',
+    'box_count': 'packing',
+    'pallet_count': 'packing',
+    'weight_gross': 'packing',
+    'packaging_kg': 'packing',
+    'pallet_weight_kg': 'packing',
+    'packing_template': 'packing',
+}
+
+# Memoisation cache for get_sheet_owned_fields(). None until first call.
+_SHEET_OWNED_FIELDS_CACHE: frozenset[str] | None = None
+
 
 def _can_edit_sheet_row_field(role: str | None, field_key: str) -> bool:
     """Field-perm check for a Sheet row, resolving junction rows to their real
@@ -488,6 +520,52 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None) -> dict[str, b
             return has_any_trigger and _has_field_perm(fk)
 
     return {row['field_key']: _resolve(row['field_key']) for row in DEFAULT_SHEET_ROWS}
+
+
+def get_sheet_owned_fields() -> frozenset[str]:
+    """Every field whose edit permission is owned by a Sheet row.
+
+    Lazily built and memoised: apps.core must not import apps.export at module
+    import time (dependency direction core ← export).
+    """
+    global _SHEET_OWNED_FIELDS_CACHE
+    if _SHEET_OWNED_FIELDS_CACHE is None:
+        from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+        _SHEET_OWNED_FIELDS_CACHE = frozenset(
+            {row['field_key'] for row in DEFAULT_SHEET_ROWS}
+            | set(_REVERSE_FIELD_DELEGATES)
+        )
+    return _SHEET_OWNED_FIELDS_CACHE
+
+
+def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
+    """Batch form of can_edit_sheet_field for a whole PATCH body.
+
+    Loads the Sheet settings once and answers every field from that one load, so
+    a five-field PATCH costs one settings query instead of five. Resolves reverse
+    delegates (box_count → packing) before asking the map.
+
+    Args:
+        user: The authenticated User instance.
+        field_names: Real field names as submitted in the PATCH body.
+
+    Returns:
+        {field_name: bool} keyed exactly as passed in.
+    """
+    if not field_names:
+        return {}
+
+    edit_map = get_sheet_edit_map(user)
+    owned = get_sheet_owned_fields()
+
+    result: dict[str, bool] = {}
+    for name in field_names:
+        if name not in owned:
+            result[name] = can_edit_field(getattr(user, 'role', None), name)
+            continue
+        owning_row = _REVERSE_FIELD_DELEGATES.get(name, name)
+        result[name] = edit_map.get(owning_row, False)
+    return result
 
 
 # TODO: Rename to IsBossDirectorOrAdmin in a follow-up refactor.

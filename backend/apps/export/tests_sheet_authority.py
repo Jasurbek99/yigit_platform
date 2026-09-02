@@ -109,3 +109,53 @@ class TestSheetRowSettingMigrationReverse(TestCase):
             ).exists(),
             'revoke() left a ghost admin.shipment_settings page for export_manager',
         )
+
+
+class TestReverseDelegateMap(TestCase):
+    """Composite Sheet cells write real columns that have no field_key.
+
+    box_count is written by the packing cell, truck_head_id by the truck_plate
+    cell, and so on. Those real fields must resolve to the owning Sheet row or
+    they silently keep answering to RoleFieldPermission.
+    """
+
+    def test_every_reverse_target_is_a_real_sheet_row(self):
+        from apps.core.permissions import _REVERSE_FIELD_DELEGATES
+        from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+
+        row_keys = {row['field_key'] for row in DEFAULT_SHEET_ROWS}
+        for real_field, owning_row in _REVERSE_FIELD_DELEGATES.items():
+            self.assertIn(
+                owning_row, row_keys,
+                f'{real_field} maps to {owning_row}, which is not a Sheet row',
+            )
+
+    def test_sheet_owned_fields_covers_rows_and_reverse_keys(self):
+        from apps.core.permissions import _REVERSE_FIELD_DELEGATES, get_sheet_owned_fields
+        from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+
+        owned = get_sheet_owned_fields()
+        for row in DEFAULT_SHEET_ROWS:
+            self.assertIn(row['field_key'], owned)
+        for real_field in _REVERSE_FIELD_DELEGATES:
+            self.assertIn(real_field, owned)
+
+    def test_batch_helper_agrees_with_the_single_field_gate(self):
+        from apps.core.permissions import can_edit_sheet_field, can_edit_sheet_fields
+
+        call_command('seed_permissions')
+        cache.clear()
+        user = _make_user('batch_probe', 'document_team')
+        # box_count is deliberately absent: the batch helper resolves it to the
+        # `packing` row, and `packing` is not a grantable RoleFieldPermission
+        # field name, so get_sheet_edit_map's surviving `AND _has_field_perm`
+        # pins it to False until Task 3 removes that AND. Parity for reverse
+        # delegates is asserted there, not here.
+        keys = ['documents_status', 'country', 'import_firm']
+
+        batch = can_edit_sheet_fields(user, keys)
+        for key in keys:
+            self.assertEqual(
+                batch[key], can_edit_sheet_field(user, key),
+                f'batch and single-field gate disagree on {key}',
+            )
