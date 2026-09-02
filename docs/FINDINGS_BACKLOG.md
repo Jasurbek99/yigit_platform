@@ -45,6 +45,7 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | F20 | LOW | **Shipment-Detail half CLOSED 2026-09-01** (`boss` sees the button; label named the wrong status; endpoint off `can_create`). The Assignment Board half is **parked** — owner: nobody uses `/export/assign`, it is kept "just in case" and will be deleted | `export/views.py`, `AssignmentBoard.tsx:35` |
 | F21 | LOW | Shared `RoleSidebar` (Permissions admin + the new Row access tab) renders raw role codes (`export_manager`) instead of a translated display name | `frontend/src/pages/admin/permissions/RoleSidebar.tsx` |
 | F22 | LOW | `SheetRowsTab`'s frontend `canWrite` gates on `shipment.edit`; the backend's own `/admin/sheet-rows/` endpoint gates on `sheet_row_setting.edit` since Task 1. Currently inert (all three page-visible roles — admin, export_manager, boss — hold both flags) | `frontend/src/pages/admin/ShipmentSettingsPage.tsx` |
+| F23 | LOW | `SheetCell.tsx`'s packing popover renders with no `canEdit` gate; a `packing`-only role (no `firm_splits`) sees the icon, opens `ShipmentPackingPanel`, and only discovers the refusal as a 403 on `scope='template'`/`'swap'` save, since the AD-17 fix wave closed that gap on the backend | `frontend/src/components/sheet/SheetCell.tsx:372-387` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
@@ -286,6 +287,30 @@ render as editable and then get 403'd on save, or vice versa.
 Fix shape: change `SheetRowsTab`'s `canWrite` prop to `canDo(user, 'sheet_row_setting', 'edit')`,
 matching what its own PATCH endpoint actually gates on — the same correction already applied when
 `RowAccessTab` was built.
+
+## F23 — LOW: the packing popover is offered to roles the backend will now refuse (added 2026-09-03)
+
+Whole-branch review of the Sheet-Settings-permission-authority plan (AD-17) found and closed a
+backend hole: `POST /contracts/shipment-packing/` gated on the `packing` Sheet row alone, but two
+of its three scopes (`'template'`, `'swap'`) rewrite `shipment.firm_splits` and quota via
+`_set_firm_weights` — firm-composition authority, not packing. `ShipmentPackingView.post()` now
+additionally requires the `firm_splits` Sheet row for those two scopes (`backend/apps/contracts/
+views.py`).
+
+The frontend was never part of that fix and remains as it was: `SheetCell.tsx:372-387` renders the
+packing popover unconditionally — no `canEdit` check gates whether the icon appears — and
+`ShipmentPackingPanel.tsx` has no `disabled` wiring tied to the `firm_splits` row either. A role
+holding `packing` but not `firm_splits` (`warehouse_chief`, `loading_dept_head`,
+`loading_dept_head_deputy` today) still sees the icon, opens the panel, picks a template or
+attempts a swap, and only learns it is refused when the save call comes back 403. Before the
+backend fix this same click silently succeeded and rewrote firm splits; after it, the click is
+safe but the UX is a wasted round trip and a confusing error for those three roles specifically.
+
+Not a security gap — the backend now refuses correctly regardless of what the frontend renders.
+Fix shape: gate the popover trigger (and/or pass `disabled`) on `canEdit('firm_splits')` for
+`scope='template'`/`'swap'` the same way other Sheet cells already condition their editors on the
+row's own `canEdit` map, leaving `scope='firm'` (packing-only) keyed to `canEdit('packing')` as
+today.
 
 ## F16 / F17 — the rest of the `/media/` bug's blast radius (added 2026-08-27)
 
