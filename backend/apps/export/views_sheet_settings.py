@@ -268,10 +268,17 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
 
     Disabled: POST (create) — rows are seeded from DEFAULT_SHEET_ROWS only.
 
-    Permission: IsAuthenticated + DynamicResourcePermission (resource_code='shipment').
+    Permission: IsAuthenticated + DynamicResourcePermission (resource_code='sheet_row_setting').
     """
 
-    resource_code = 'shipment'
+    # Was 'shipment' — that flag is held by document_team, transport, sales_rep,
+    # finansist and weight_master, so the only thing keeping them out of this
+    # endpoint was frontend page visibility. Sheet row triggers are becoming
+    # the edit permission itself (multi-task plan in progress, 2026-09-02;
+    # ADR entry to follow once the plan lands), so writing here will mean
+    # granting permissions — it needs its own admin-only resource ahead of
+    # that change.
+    resource_code = 'sheet_row_setting'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = SheetRowSettingSerializer
     lookup_field = 'id'

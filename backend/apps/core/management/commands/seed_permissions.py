@@ -94,9 +94,11 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # export.sales_rep_coverage (assign reps to customers) is a non-admin export
     # page, so export_manager inherits it from _ALL_PAGES automatically — no
     # admin.* exception needed (keeps AD-15 clean).
+    # admin.shipment_settings is added back in explicitly (2026-09-02) — Gadam
+    # owns the Sheet, so he must be able to grant a row without an admin.
     'export_manager': (
         _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'}
-    ),
+    ) | {'admin.shipment_settings'},
     'weight_master': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         'export.pallet_manifest', _BOARD,
@@ -189,6 +191,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'admin': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
         'closed_season': _VIEW,
+        # sheet_row_setting: no override needed — full CRUD via the blanket
+        # _VCRUD wildcard above, same as every other resource admin manages.
     },
     'director': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
@@ -197,6 +201,9 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'sale': _VCE,
         # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
         'closed_season': _VIEW,
+        # sheet_row_setting: no override needed — full CRUD via the blanket
+        # _VCRUD wildcard above (matches prior behaviour under the 'shipment'
+        # resource this endpoint used to gate on, including soft-delete).
     },
     'export_manager': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
@@ -209,6 +216,10 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'sale': _VCE,
         # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
         'closed_season': _VIEW,
+        # sheet_row_setting: no override needed — full CRUD via the blanket
+        # _VCRUD wildcard above. Gadam owns the Sheet (2026-09-02), so
+        # export_manager administers row access, including soft-delete,
+        # without needing an admin account.
     },
     'weight_master': {
         'shipment': _VIEW,                              # can view but not edit shipment proper

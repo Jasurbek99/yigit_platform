@@ -280,15 +280,25 @@ class LastAdminGuardTests(TestCase):
 
     def test_director_em_have_no_admin_pages_visible_after_seed(self):
         # Mirror check: ensure director/EM do NOT have any admin.* pages visible.
+        #
+        # export_manager's one documented exception: admin.shipment_settings
+        # (2026-09-02, core migration 0038). Gadam owns the Sheet, so
+        # export_manager administers Sheet row access — including the new
+        # admin-only 'sheet_row_setting' resource — without needing an admin
+        # account. director gets no such carve-out; AD-15 still applies to him.
         from apps.core.models import RolePagePermission
 
+        allowed_admin_pages = {'export_manager': {'admin.shipment_settings'}}
         for role in ('director', 'export_manager'):
-            visible_admin = RolePagePermission.objects.filter(
-                role=role, page_code__startswith='admin.', is_visible=True,
-            ).values_list('page_code', flat=True)
+            visible_admin = set(
+                RolePagePermission.objects.filter(
+                    role=role, page_code__startswith='admin.', is_visible=True,
+                ).values_list('page_code', flat=True)
+            )
+            unexpected = visible_admin - allowed_admin_pages.get(role, set())
             self.assertEqual(
-                list(visible_admin), [],
-                msg=f'{role} unexpectedly has admin pages visible: {list(visible_admin)}',
+                unexpected, set(),
+                msg=f'{role} unexpectedly has admin pages visible: {sorted(unexpected)}',
             )
 
     def test_admin_has_all_admin_pages_visible_after_seed(self):
