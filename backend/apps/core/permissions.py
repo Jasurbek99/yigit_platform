@@ -736,12 +736,25 @@ def can_edit_sheet_fields(user, field_names: list[str]) -> dict[str, bool]:
                 # pre-AD-17 authority set_firm_splits/set_block_sources relied
                 # on via junction_write_permission before Task 6 -- a role can
                 # hold full CRUD on the junction resource with no matching
-                # RoleFieldPermission at all (transport granted
-                # shipment_block_source directly, no 'shipment_block_source'
-                # FIELD_DEFAULTS entry). Task 6 makes the Sheet row's own
-                # trigger config the authority once configured (the `else`
-                # branch below), it does not retire this grant for a row
-                # nobody has configured yet.
+                # RoleFieldPermission at all (a live-DB check found
+                # document_team holding shipment_block_source directly, with
+                # no 'shipment_block_source' FIELD_DEFAULTS entry -- see
+                # backfill_sheet_row_triggers.py's module docstring). Task 6
+                # makes the Sheet row's own trigger config the authority once
+                # configured (the `else` branch below), it does not retire
+                # this grant for a row nobody has configured yet.
+                #
+                # NOTE this whole branch (and therefore this OR) is reachable
+                # ONLY while the row carries zero trigger config at all --
+                # `elif setting is None or not _has_trigger_config(setting)`
+                # above. The moment backfill_sheet_row_triggers gives ANY role
+                # a trigger on this row, has_any_config flips true for every
+                # asker and the `else` branch below answers instead, which
+                # never calls _has_junction_resource_grant. That command must
+                # therefore mirror RoleResourcePermission itself (which it
+                # does, as of AD-17's fix wave) or a resource-only grant is
+                # silently dropped the instant the row gets its first trigger
+                # -- this OR does not save it after that point.
                 result[name] = _has_junction_resource_grant(role, name)
         else:
             # edit_map.get(owning_row, False) alone is correct for static

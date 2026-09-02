@@ -629,6 +629,92 @@ class TestBackfillPreservesEveryRolesAccess(TestCase):
         self.assertTrue(can_edit_sheet_field(deputy, 'packing'))
 
 
+class TestBackfillMirrorsJunctionResourceGrants(TestCase):
+    """Whole-branch review Finding 2 (HIGH, 2026-09-02): the backfill must
+    also carry forward a role's RoleResourcePermission.can_edit on a
+    junction's OWN resource (shipment_firm_split / shipment_block_source),
+    not just RoleFieldPermission.
+
+    Before AD-17, set_firm_splits/set_block_sources were gated by
+    junction_write_permission, which reads ONLY RoleResourcePermission. A
+    role can hold that grant with no matching RoleFieldPermission row at
+    all -- a live-DB check found `document_team` holding
+    `shipment_block_source` exactly this way (resource-level can_edit, no
+    field grant). can_edit_sheet_fields' no-config fallback ORs
+    `_has_junction_resource_grant` in for this case, but that fallback only
+    fires while the row carries ZERO trigger config -- and a real deployment
+    provisions + backfills every active row, which always puts at least one
+    trigger on it. `SheetJunctionEndpointResourcePermissionTests`
+    (tests_shipment_sheet.py) runs with zero `SheetRowSetting` rows, so it
+    only ever exercises that no-config fallback -- a path production never
+    takes once migration 0065 has run. This test provisions every row (like
+    a real deployment), grants document_team ONLY the resource permission
+    (no field grant, matching the live-DB finding), runs backfill(), and
+    asserts the trigger -- not the fallback -- is what carries the access
+    afterwards.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+
+    def setUp(self):
+        cache.clear()
+
+    def test_document_team_retains_block_sources_after_backfill(self):
+        from apps.core.models import RoleFieldPermission, RoleResourcePermission
+        from apps.core.permissions import can_edit_sheet_field
+        from apps.export.management.commands.backfill_sheet_row_triggers import backfill
+        from apps.export.models import SheetRowSetting
+        from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+
+        # document_team holds shipment_block_source at the RESOURCE level
+        # only (matches the live-DB finding) -- seed_permissions.py's
+        # RESOURCE_DEFAULTS/FIELD_DEFAULTS for document_team grant neither by
+        # default, so both are set explicitly here, the same way
+        # test_block_sources_also_gates_on_its_own_junction_resource
+        # (tests_shipment_sheet.py) sets a resource-only grant for
+        # `transport`.
+        RoleResourcePermission.objects.update_or_create(
+            role='document_team', resource_code='shipment_block_source',
+            defaults={
+                'can_view': True, 'can_create': True, 'can_edit': True, 'can_delete': False,
+            },
+        )
+        RoleFieldPermission.objects.filter(
+            role='document_team', resource_code='shipment_block_source',
+        ).delete()
+
+        # Every active row provisioned, not just the one under test -- this
+        # is what flips has_any_config True for every asker on every row once
+        # backfill runs, the exact condition that silences
+        # _has_junction_resource_grant's no-config fallback.
+        SheetRowSetting.objects.bulk_create(
+            [
+                SheetRowSetting(
+                    field_key=row['field_key'],
+                    row_number=row['row_number'],
+                    display_order=row['row_number'] * 1024,
+                )
+                for row in DEFAULT_SHEET_ROWS
+            ],
+            batch_size=500,
+        )
+
+        backfill()
+        cache.clear()
+
+        row = SheetRowSetting.objects.active().get(field_key='block_sources')
+        self.assertIn(
+            'document_team',
+            set(row.role_triggers.values_list('role', flat=True)),
+            'backfill did not mirror the resource-level grant into a trigger',
+        )
+
+        doc = _make_user('backfill_doc_blocks', 'document_team')
+        self.assertTrue(can_edit_sheet_field(doc, 'block_sources'))
+
+
 class TestWritePathParity(TestCase):
     """The write gate and the display map must give the same answer.
 

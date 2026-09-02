@@ -1,16 +1,36 @@
-"""Copy today's RoleFieldPermission grants into SheetRowSetting.role_triggers.
+"""Copy today's RoleFieldPermission + RoleResourcePermission grants into
+SheetRowSetting.role_triggers.
 
 Sheet row triggers became the edit permission on 2026-09-02 (AD-17). Any role
 that could edit a cell only through RoleFieldPermission would lose write access
 once ShipmentPatchSerializer switches to the sheet gate, so every such grant is
 mirrored into triggered_roles first.
 
-Two rules that are easy to get wrong:
+For the two junction rows (firm_splits / block_sources), a role can ALSO hold
+write access purely via RoleResourcePermission.can_edit on the junction's own
+resource (shipment_firm_split / shipment_block_source) — that was the ONLY
+authority `junction_write_permission` ever read, pre-AD-17, so a role can carry
+it with no matching RoleFieldPermission row at all. can_edit_sheet_fields' own
+no-config fallback ORs `_has_junction_resource_grant` in for exactly this
+reason, but that fallback stops firing the moment ANY role gets a trigger on
+the row (has_any_config flips true for every asker, not just the triggered
+role) — and the backfill itself is what puts the first trigger on the row, so
+skipping the resource grant here silently drops it in production. This is not
+hypothetical: a live-DB check found `document_team` holding
+`shipment_block_source` at the resource level with no field grant, so it would
+lose `set_block_sources` the moment this migration runs without this.
+
+Three rules that are easy to get wrong:
   - A '*' field grant expands to EVERY sheet row for that role. has_any_config
     is per row, so a wildcard role absent from one row's triggers is denied on
     that row as soon as any other role is added to it.
   - Junction rows read their own resource_code (shipment_firm_split /
-    shipment_block_source), never 'shipment'.
+    shipment_block_source), never 'shipment' — for BOTH the field-grant lookup
+    and the resource-grant lookup below.
+  - RoleResourcePermission only matters for junction rows: a plain
+    'shipment'.can_edit=True does not imply write access to every Sheet-owned
+    field on `shipment` (that would be the AD-15 privileged bypass's job, not
+    this command's), so this is not unioned in for non-junction rows.
 
 Idempotent: get_or_create on (row, role). Safe to re-run.
 """
@@ -19,8 +39,11 @@ from django.db import transaction
 
 
 def backfill() -> int:
-    """Mirror field grants into row triggers. Returns the number of rows added."""
-    from apps.core.models import RoleFieldPermission
+    """Mirror field + junction resource grants into row triggers.
+
+    Returns the number of rows added.
+    """
+    from apps.core.models import RoleFieldPermission, RoleResourcePermission
     from apps.core.permissions import _JUNCTION_FIELD_DELEGATES, _REVERSE_FIELD_DELEGATES
     from apps.export.models import SheetRowRoleTrigger, SheetRowSetting
 
@@ -39,6 +62,14 @@ def backfill() -> int:
     ):
         grants.setdefault(f'{resource_code}:{field_name}', set()).add(role)
 
+    # resource_code → roles holding can_edit=True on it — the pre-AD-17
+    # authority for the two junction resources (see module docstring).
+    resource_edit_roles: dict[str, set[str]] = {}
+    for role, resource_code in RoleResourcePermission.objects.filter(
+        can_edit=True,
+    ).values_list('role', 'resource_code'):
+        resource_edit_roles.setdefault(resource_code, set()).add(role)
+
     wildcard_roles = grants.get('shipment:*', set())
 
     added = 0
@@ -50,6 +81,7 @@ def backfill() -> int:
                 resource_code, field_name = junction_lookup[field_key]
                 roles |= grants.get(f'{resource_code}:{field_name}', set())
                 roles |= grants.get(f'{resource_code}:*', set())
+                roles |= resource_edit_roles.get(resource_code, set())
             else:
                 roles |= grants.get(f'shipment:{field_key}', set())
 
