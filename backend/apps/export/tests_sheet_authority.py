@@ -130,6 +130,29 @@ class TestReverseDelegateMap(TestCase):
                 f'{real_field} maps to {owning_row}, which is not a Sheet row',
             )
 
+    def test_no_reverse_delegate_key_is_also_its_own_sheet_row(self):
+        """can_edit_sheet_fields resolves a reverse-delegated real field
+        straight to its owning row (see the method's docstring):
+        `owning_row = _REVERSE_FIELD_DELEGATES.get(name, name)`. That lookup
+        wins unconditionally, unlike can_edit_sheet_field (the singular
+        gate), where Task 3 deliberately ordered a row's OWN settings ahead
+        of the delegate fallback. If a real field in _REVERSE_FIELD_DELEGATES
+        ever became a DEFAULT_SHEET_ROWS field_key in its own right, the
+        batch write gate would keep answering from the delegate's row and
+        silently ignore that field's own Shipment Settings row — reintroducing
+        the AD-17 bug for that one field. Today's map is empty; this pins it.
+        """
+        from apps.core.permissions import _REVERSE_FIELD_DELEGATES
+        from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+
+        row_keys = {row['field_key'] for row in DEFAULT_SHEET_ROWS}
+        shadowed = set(_REVERSE_FIELD_DELEGATES) & row_keys
+        self.assertEqual(
+            shadowed, set(),
+            f'{shadowed} are both reverse-delegate keys AND real Sheet rows — '
+            'can_edit_sheet_fields will shadow their own row with the delegate.',
+        )
+
     def test_packing_column_delegates_stay_pinned(self):
         """Direct, unambiguous kill for 'packaging_kg' / 'pallet_weight_kg'.
 
