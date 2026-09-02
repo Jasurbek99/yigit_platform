@@ -7,6 +7,14 @@ import type { ISaveSheetRowPayload } from '@/hooks/useSheetRowSettings';
  * saves it in ONE PATCH — `useSaveSheetRowSetting` invalidates the list on
  * success, so two mutations fired from a single user action would send a stale
  * `version` and 409.
+ *
+ * `is_locked` and `triggered_roles` are deliberately absent (AD-17). Row
+ * access is granted on the Row access tab, which writes `SheetRowRoleTrigger`
+ * directly and does not bump `SheetRowSetting.version` — so a draft opened
+ * before that write can go stale without the panel's version-based re-seed
+ * ever catching it. Keeping these fields out of the draft means this tab can
+ * never reconstruct a stale value into a PATCH, no matter how out of date the
+ * open draft is.
  */
 export interface ISheetRowDraft {
   label_tk: string;
@@ -19,7 +27,6 @@ export interface ISheetRowDraft {
   description_ru: string;
   description_en: string;
   is_visible: boolean;
-  is_locked: boolean;
   role_group: string;
   style_color: string | null;
   style_font_color: string | null;
@@ -27,7 +34,6 @@ export interface ISheetRowDraft {
   style_font_style: 'normal' | 'italic' | '';
   style_font_family: 'dm_sans' | 'inter' | 'mono' | 'serif' | '';
   style_font_size: number | null;
-  triggered_roles: string[];
 }
 
 /** Fields sent in the PATCH. */
@@ -35,7 +41,7 @@ const PATCH_KEYS = [
   'label_tk', 'label_ru', 'label_en',
   'who_tk', 'who_ru', 'who_en',
   'description_tk', 'description_ru', 'description_en',
-  'is_visible', 'is_locked', 'role_group',
+  'is_visible', 'role_group',
   'style_color', 'style_font_color', 'style_font_weight',
   'style_font_style', 'style_font_family', 'style_font_size',
 ] as const;
@@ -46,12 +52,8 @@ export function buildDraft(record: ISheetRowSetting): ISheetRowDraft {
     // Every PATCH_KEY exists on ISheetRowSetting with the same name and type.
     (draft as unknown as Record<string, unknown>)[key] = record[key];
   }
-  draft.triggered_roles = [...record.triggered_roles];
   return draft;
 }
-
-const sameRoles = (a: string[], b: string[]) =>
-  a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|');
 
 /** Only the fields the admin actually changed — keeps the PATCH minimal. */
 export function draftPatch(
@@ -61,9 +63,6 @@ export function draftPatch(
   const patch: Record<string, unknown> = {};
   for (const key of PATCH_KEYS) {
     if (draft[key] !== record[key]) patch[key] = draft[key];
-  }
-  if (!sameRoles(draft.triggered_roles, record.triggered_roles)) {
-    patch.triggered_roles = draft.triggered_roles;
   }
   return patch as Partial<ISaveSheetRowPayload>;
 }
