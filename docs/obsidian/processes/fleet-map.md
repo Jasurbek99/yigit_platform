@@ -346,14 +346,66 @@ the endpoint all read that one row, and it is a checkbox on `/admin/permissions`
 sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck is a
 `CircleMarker` colour-coded by state:
 
-| Colour | Meaning |
-|---|---|
-| Grey | `is_stale` (no recent fix, regardless of online/offline) |
-| Green | `is_online` and not stale |
-| Amber | known but offline, not stale |
+| Pin | State | Rule |
+|---|---|---|
+| Blue truck | moving | `is_online`, not stale, `speed > 0` |
+| Green truck | idle / parked | `is_online`, not stale, `speed == 0` (a **null** speed reads as parked — the old legend showed such a device green too) |
+| Red truck | stopped / no signal | `is_stale` **or** not `is_online` |
+
+The sidebar dot uses the same three colours (`STATE_COLOR`), so the list and the map can
+never disagree.
+
+> **Legend changed 2026-09-03 (owner's call), when the dots became truck artwork.** It was
+> grey = stale / green = online & fresh / amber = offline & fresh — a legend that could not
+> tell a rolling truck from one parked at the border. The new one splits those (`speed`
+> becomes load-bearing for display) at the cost of merging *offline* and *stale* into one red
+> pin; the popup still names which of the two it is. `truckState()` in `FleetMap.tsx` is the
+> single place this is decided.
+
+### Pin artwork
+
+Three PNGs in `frontend/public/truck-map-icons/` (`pin-moving`, `pin-idle`, `pin-stopped`),
+served as static files at `/truck-map-icons/*.png` — **not** imported through the bundler.
+96 px wide, i.e. 2x the largest on-screen size, ~22 KB each; the 240 px originals they were
+downscaled from (and the 14 other variants from the same set) live in
+`docs/assets/truck-map-icons/`, tracked but not shipped. They were first uploaded to
+`frontend/dist/` — Vite's **build output**, which `npm run build` wipes — hence the move.
+
+`L.icon()` needs an explicit anchor: the teardrop's point sits at **49% across, 81.6% down**
+the artwork (the remainder is the soft glow beneath it), so a centred anchor would draw every
+truck north of where it actually is. `PIN_TIP_X` / `PIN_TIP_Y` in `FleetMap.tsx` hold those
+ratios, measured on the **shipped 96 px** files rather than the 240 px originals — LANCZOS
+downscaling spreads the glow's alpha and moves the ratios by ~0.01. Re-measure them if the
+artwork is ever re-exported. The six possible icons (3 states
+x selected) are built once into a module-level cache; a fresh `L.Icon` per marker per render
+would make Leaflet tear down and rebuild all ~93 `<img>` nodes on every 30-second refetch.
 
 Each marker's popup carries plate, address, speed, online/stale state and **Last fix** —
 the row's own `fix_time`, i.e. when that truck's GPS reported.
+
+### Picking a truck
+
+Clicking a sidebar row (or its pin) selects that truck: the map flies to it at zoom
+`max(current, 12)` — never zooming *out* if the operator is already closer in — the row takes
+a blue background, and its pin grows from 34 px to 48 px wide and is lifted above the others
+(`zIndexOffset`). Clicking the same row again clears the selection. Selection reads as
+**size, not colour** — colour is spoken for by the state above, so a picked truck still shows
+whether it is moving, parked or lost.
+
+Two deliberate details:
+
+- The fly effect is keyed on the selected **device id**, not on its coordinates. The
+  30-second refetch produces a fresh position object every tick, and re-flying on that would
+  yank the map back the moment an operator panned away from a still-selected truck. The
+  consequence is that the map does **not** follow a moving selected truck: clear the
+  selection and pick it again to re-centre. Clicking the row once only *clears* it (the
+  handler toggles), and clicking the already-selected pin does nothing at all — it sets the
+  same id, so React bails out and the effect never re-runs.
+- The selection resolves against the **unfiltered** response, so typing in the search box
+  narrows the list without dropping the selected truck off the map.
+
+Implementation: `FlyToSelected` in `FleetMap.tsx`, a null-rendering child of `<MapContainer>`
+— `useMap()` is only available to components rendered inside it.
 
 ### "Last sync" stamp
 
