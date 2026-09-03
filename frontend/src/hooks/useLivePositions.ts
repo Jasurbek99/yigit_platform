@@ -12,6 +12,9 @@ export interface ILivePosition {
   course: number | null;
   address: string | null;
   fix_time: string | null;
+  /** When our poller last wrote this row — max() across rows is the page's
+   *  "last sync" stamp. Distinct from `fix_time` (when the GPS reported). */
+  updated_at: string;
   is_online: boolean;
   is_stale: boolean;
 }

@@ -323,10 +323,13 @@ page for any role also 403s this endpoint. Every other row in this table is stil
 bounded to one row per device. Reads only `DevicePosition.objects.filter(valid=True)` from
 our own DB (`select_related('device', 'device__truck')`); never calls Traccar in the
 request path. One row per device:
-`{device_id, plate, fleet_no, status, lat, lon, speed, course, address, fix_time, is_online, is_stale}`
+`{device_id, plate, fleet_no, status, lat, lon, speed, course, address, fix_time, updated_at,
+is_online, is_stale}`
 — `plate`/`fleet_no` are `null` when the device isn't matched to a `Truck`; `is_online`
 mirrors Traccar's own `device.status`; `is_stale` is `now - fix_time > TRACCAR_STALE_MINUTES`
-(setting, default 15 min). Positions are kept fresh by Celery beat polling every 120s
+(setting, default 15 min). The two timestamps differ: `fix_time` is when the truck's GPS
+reported, `updated_at` is when our poller last wrote the row — the Fleet Map shows
+`max(updated_at)` across rows as its "Last sync" stamp. Positions are kept fresh by Celery beat polling every 120s
 (`apps.transport.tasks.poll_traccar`), not by this endpoint. Full model/service/page detail:
 `processes/fleet-map.md`.
 

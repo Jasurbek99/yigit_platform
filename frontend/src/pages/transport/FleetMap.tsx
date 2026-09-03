@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { Input, List, Badge, Spin, Alert, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
+import dayjs, { type Dayjs } from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import 'leaflet/dist/leaflet.css';
 import { useLivePositions, type ILivePosition } from '@/hooks/useLivePositions';
 
@@ -10,6 +13,13 @@ const TILE_URL =
 // Turkmenistan-centred default view (Ashgabat area), matching the Traccar server.
 const DEFAULT_CENTER: [number, number] = [37.95, 58.39];
 const DEFAULT_ZOOM = 5;
+// Dispatchers read the sync stamp to decide whether the pins are trustworthy, so
+// it must render in Ashgabat time regardless of the workstation clock — the same
+// reason SelfBoard pins its day boundary (KZ/RU-joined machines often run UTC).
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const TM_TZ = 'Asia/Ashgabat';
+const STAMP_FORMAT = 'DD.MM.YYYY HH:mm';
 
 function pinColor(p: ILivePosition): string {
   if (p.is_stale) return '#9ca3af'; // grey
@@ -21,6 +31,21 @@ export default function FleetMap() {
   const { t } = useTranslation();
   const { data, isLoading, isError } = useLivePositions();
   const [search, setSearch] = useState('');
+
+  // Newest write across ALL rows, not the filtered `rows` — the stamp describes
+  // the poller, not the search box. Devices Traccar stopped reporting keep their
+  // old `updated_at`, so the max is the last poll that wrote anything; it goes
+  // stale on its own once the poller dies.
+  const lastSync = useMemo(() => {
+    let newest: Dayjs | null = null;
+    for (const p of data ?? []) {
+      if (!p.updated_at) continue;
+      const stamp = dayjs(p.updated_at);
+      if (!stamp.isValid()) continue;
+      if (newest === null || stamp.isAfter(newest)) newest = stamp;
+    }
+    return newest;
+  }, [data]);
 
   const rows = useMemo(() => {
     const items = data ?? [];
@@ -40,6 +65,10 @@ export default function FleetMap() {
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 120px)', gap: 12 }}>
       <div style={{ width: 320, overflowY: 'auto' }}>
+        <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+          {t('fleet_map.last_sync')}:{' '}
+          {lastSync ? lastSync.tz(TM_TZ).format(STAMP_FORMAT) : t('fleet_map.never')}
+        </Typography.Text>
         <Input.Search
           placeholder={t('fleet_map.search_placeholder')}
           allowClear
@@ -82,6 +111,9 @@ export default function FleetMap() {
                 <br />
                 {p.speed ?? 0} km/h · {p.is_online ? 'online' : 'offline'}
                 {p.is_stale ? ' · stale' : ''}
+                <br />
+                {t('fleet_map.last_fix')}:{' '}
+                {p.fix_time ? dayjs(p.fix_time).tz(TM_TZ).format(STAMP_FORMAT) : '—'}
               </Popup>
             </CircleMarker>
           ))}

@@ -2268,6 +2268,9 @@
     "col_status": "Ýagdaýy"
   },
   "fleet_map": {
+    "last_sync": "Soňky sinhronizasiýa",
+    "never": "entek maglumat ýok",
+    "last_fix": "Soňky signal",
     "search_placeholder": "Belgi / flot / ýer boýunça gözle",
     "load_error": "Ulaglaryň ýerleşişini ýüklemek başa barmady",
     "shipment_card_title": "Ulagyň ýerleşişi",

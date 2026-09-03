@@ -308,6 +308,7 @@ Response item shape (`LivePositionSerializer`, DB columns → API field names pe
   "course": 184.0,       // float or null
   "address": "…",        // string or null
   "fix_time": "2026-07-30T09:14:00Z",
+  "updated_at": "2026-07-30T09:14:31Z", // when the poller last wrote this row
   "is_online": true,     // status == 'online'
   "is_stale": false      // now - fix_time > TRACCAR_STALE_MINUTES
 }
@@ -350,6 +351,31 @@ sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck
 | Grey | `is_stale` (no recent fix, regardless of online/offline) |
 | Green | `is_online` and not stale |
 | Amber | known but offline, not stale |
+
+Each marker's popup carries plate, address, speed, online/stale state and **Last fix** —
+the row's own `fix_time`, i.e. when that truck's GPS reported.
+
+### "Last sync" stamp
+
+Above the sidebar search box, formatted `DD.MM.YYYY HH:mm` in **Asia/Ashgabat**
+(`dayjs.tz`, pinned so a workstation running UTC — common on KZ/RU-joined Windows
+machines — doesn't render a 5-hour-old sync). It is `max(updated_at)` across the whole
+response, not the filtered list: the stamp describes the poller, not the search box.
+Falls back to `fleet_map.never` ("no data yet") when the response is empty.
+
+Read it as **"data as of"**, not "last contact with Traccar" — two known gaps:
+
+- It is the last poll that **wrote a position row**. A poll that reaches Traccar but
+  writes nothing (empty response, or every position skipped for an unknown `deviceId` /
+  missing latitude — both paths log a warning in `sync_positions`) leaves the stamp
+  untouched.
+- The endpoint filters `valid=True`, so the max is over that subset.
+
+Both make the stamp *older* than reality, never newer — it fails in the safe direction,
+which is what matters for a "are these pins trustworthy?" read. A per-device write time
+is available in the same field on each row (devices Traccar stopped reporting keep their
+old `updated_at`, so the spread across rows is wide: as of 2026-09-03 the live DB held
+rows last written 2026-08-10 alongside rows written seconds ago).
 
 ## Shipment ↔ Truck link
 

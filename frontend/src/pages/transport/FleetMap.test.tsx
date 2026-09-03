@@ -40,6 +40,22 @@ function renderFleetMap() {
   );
 }
 
+const basePosition = {
+  device_id: 74,
+  plate: '2189AHF',
+  fleet_no: 'TR038',
+  status: 'online',
+  lat: 37.97,
+  lon: 58.49,
+  speed: 40,
+  course: 298,
+  address: 'Artyk',
+  fix_time: '2026-07-30T05:26:28Z',
+  updated_at: '2026-07-30T05:30:00Z',
+  is_online: true,
+  is_stale: false,
+};
+
 describe('FleetMap', () => {
   beforeAll(async () => {
     await i18n.changeLanguage('en');
@@ -59,6 +75,7 @@ describe('FleetMap', () => {
           course: 298,
           address: 'Artyk',
           fix_time: '2026-07-30T05:26:28Z',
+          updated_at: '2026-07-30T05:30:00Z',
           is_online: true,
           is_stale: false,
         },
@@ -75,6 +92,38 @@ describe('FleetMap', () => {
     // Plate renders twice — once in the sidebar list, once in the mocked popup.
     expect(screen.getAllByText('2189AHF').length).toBeGreaterThan(0);
     expect(screen.getByPlaceholderText('Search plate / fleet / place')).toBeInTheDocument();
+  });
+
+  it('stamps the sidebar with the newest updated_at, in Ashgabat time', () => {
+    // Two devices, different write times: the header must show the NEWEST, and
+    // in +05 — a browser on UTC would otherwise render 05:30 and read as a
+    // 5-hour-old sync.
+    vi.mocked(useLivePositions).mockReturnValue({
+      data: [
+        { ...basePosition, device_id: 1, updated_at: '2026-07-30T05:30:00Z' },
+        { ...basePosition, device_id: 2, updated_at: '2026-07-30T06:15:00Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderFleetMap();
+
+    expect(screen.getByText('Last sync: 30.07.2026 11:15')).toBeInTheDocument();
+  });
+
+  it('falls back to the no-data label when no positions have been synced', () => {
+    vi.mocked(useLivePositions).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderFleetMap();
+
+    expect(screen.getByText('Last sync: no data yet')).toBeInTheDocument();
   });
 
   it('shows the load-error alert when the query fails', () => {

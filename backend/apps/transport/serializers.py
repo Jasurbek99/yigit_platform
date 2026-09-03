@@ -7,7 +7,13 @@ from apps.transport.services.matching import device_for_plate
 
 
 class LivePositionSerializer(serializers.ModelSerializer):
-    """DB columns -> API field names (per api-contract)."""
+    """DB columns -> API field names (per api-contract).
+
+    Two timestamps, deliberately both exposed: `fix_time` is when the truck's
+    GPS reported, `updated_at` is when our poller last wrote the row. The Fleet
+    Map takes max(`updated_at`) across rows as its "data as of" stamp, so a
+    dead poller is visible instead of silently serving month-old pins.
+    """
 
     device_id = serializers.IntegerField(source='device.traccar_id')
     plate = serializers.CharField(source='device.truck.plate', default=None)
@@ -25,7 +31,7 @@ class LivePositionSerializer(serializers.ModelSerializer):
         fields = [
             'device_id', 'plate', 'fleet_no', 'status',
             'lat', 'lon', 'speed', 'course', 'address',
-            'fix_time', 'is_online', 'is_stale',
+            'fix_time', 'updated_at', 'is_online', 'is_stale',
         ]
 
     def get_is_online(self, obj: DevicePosition) -> bool:
