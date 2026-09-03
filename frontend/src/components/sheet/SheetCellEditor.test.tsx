@@ -53,8 +53,9 @@ vi.mock('@/hooks/useFleet', () => ({
 // Shared spy so the test can assert on the same mock instance the component
 // calls (each fresh arrow-fn-per-render would otherwise be a different mock).
 const patchMultiMutate = vi.fn();
+const patchMutate = vi.fn();
 vi.mock('@/hooks/useShipmentPatch', () => ({
-  useShipmentPatch: () => ({ mutate: vi.fn(), isPending: false }),
+  useShipmentPatch: () => ({ mutate: patchMutate, isPending: false }),
   useShipmentPatchMulti: () => ({ mutate: patchMultiMutate, isPending: false }),
   extractPatchError: (_err: unknown, fallback: string) => fallback,
 }));
@@ -65,16 +66,21 @@ const mockFirms: { id: number; code: string; name_tk: string; name_en: string | 
   { id: 2, code: 'OY', name_tk: 'Oguz Yoly', name_en: null, is_active: true },
 ];
 
+// Captures the payload the customer create modal submits, and lets a test drive
+// the mutation's onSuccess as the real hook would.
+const createCustomerMutate = vi.fn();
 vi.mock('@/hooks/useAdmin', () => ({
   useCountries: () => ({ data: [] }),
   useCities: () => ({ data: [] }),
   useCustomers: () => ({ data: [] }),
   useAdminFirms: () => ({ data: mockFirms }),
   useAdminImportFirms: () => ({ data: [] }),
+  useAdminUsers: () => ({ data: [] }),
   useGreenhouseBlocks: () => ({ data: [] }),
   useTomatoVarieties: () => ({ data: [] }),
   useBorderPoints: () => ({ data: [] }),
   useShipmentOptions: () => ({ data: [] }),
+  useCreateCustomer: () => ({ mutate: createCustomerMutate, isPending: false }),
 }));
 
 // Mutable per test: undefined = still loading (no warnings, no link).
@@ -85,7 +91,7 @@ vi.mock('@/hooks/useQuotaDashboard', () => ({
 
 // Drives the quota-page link's permission gate. Also keeps useAuth's internal
 // useNavigate out of these tests (they render without a Router).
-let mockUser: { is_superuser: boolean; page_permissions: Record<string, boolean> } | null = null;
+let mockUser: { is_superuser: boolean; role?: string; page_permissions: Record<string, boolean> } | null = null;
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: mockUser, isLoading: false, isError: false }),
 }));
@@ -101,7 +107,7 @@ vi.mock('@/hooks/undoCapture', () => ({
   cascadeFrom: vi.fn(() => undefined),
 }));
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 const TRUCK_PLATE_ROW: IRowConfig = {
   row_number: 23,
@@ -362,5 +368,85 @@ describe('parseNumberInput', () => {
     expect(parseNumberInput('abc')).toBeNull();
     expect(parseNumberInput('12abc')).toBeNull();
     expect(parseNumberInput('NaN')).toBeNull();
+  });
+});
+
+// ─── Customer cell (R11) — inline create ────────────────────────────────────
+
+const CUSTOMER_ROW: IRowConfig = {
+  row_number: 11,
+  field_key: 'customer',
+  default_who_key: 'sheet.who.gadam',
+  label_key: 'sheet.row.customer',
+  input_type: 'dropdown',
+  style: 'base',
+  options_source: 'customers',
+};
+
+describe('SheetCellEditor — customer cell create button', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    patchMutate.mockClear();
+    createCustomerMutate.mockClear();
+    useSheetStore.getState().setEditingCell({ shipmentId: MOCK_SHEET_DATA[0].id, rowKey: 'customer' });
+  });
+
+  it('hides the create button from roles the backend would 403', () => {
+    mockUser = { is_superuser: false, role: 'logist', page_permissions: {} };
+    wrap(MOCK_SHEET_DATA[0], CUSTOMER_ROW);
+
+    expect(screen.queryByRole('button', { name: /add customer/i })).not.toBeInTheDocument();
+  });
+
+  it('shows it for a role inside REFERENCE_DATA_WRITE', () => {
+    mockUser = { is_superuser: false, role: 'export_manager', page_permissions: {} };
+    wrap(MOCK_SHEET_DATA[0], CUSTOMER_ROW);
+
+    expect(screen.getByRole('button', { name: /add customer/i })).toBeInTheDocument();
+  });
+
+  it('leaves the create button off every other dropdown cell', () => {
+    mockUser = { is_superuser: true, role: 'admin', page_permissions: {} };
+    const countryRow: IRowConfig = { ...CUSTOMER_ROW, field_key: 'country', options_source: 'countries' };
+    wrap(MOCK_SHEET_DATA[0], countryRow);
+
+    expect(screen.queryByRole('button', { name: /add customer/i })).not.toBeInTheDocument();
+  });
+
+  it('opening the modal does NOT close the editor', async () => {
+    mockUser = { is_superuser: true, role: 'admin', page_permissions: {} };
+    wrap(MOCK_SHEET_DATA[0], CUSTOMER_ROW);
+
+    await userEvent.click(screen.getByRole('button', { name: /add customer/i }));
+
+    // The modal is up...
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    // ...and the Select's blur did not clear the editing cell out from under it.
+    expect(useSheetStore.getState().editingCell).not.toBeNull();
+  });
+
+  it('a created customer is PATCHed into the cell', async () => {
+    mockUser = { is_superuser: true, role: 'admin', page_permissions: {} };
+    // Stand in for the real mutation: resolve straight to the created customer.
+    createCustomerMutate.mockImplementation((_payload, opts) =>
+      opts?.onSuccess?.({ data: { id: 77, name: 'Aybek Trading' } }),
+    );
+    wrap(MOCK_SHEET_DATA[0], CUSTOMER_ROW);
+
+    await userEvent.click(screen.getByRole('button', { name: /add customer/i }));
+    await userEvent.type(await screen.findByRole('textbox', { name: /name/i }), 'Aybek Trading');
+    await userEvent.click(screen.getByRole('button', { name: /^ok$/i }));
+
+    expect(createCustomerMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Aybek Trading' }),
+      expect.anything(),
+    );
+    // Payload only — recordCellEntry is mocked to -1, so save() passes no options.
+    expect(patchMutate.mock.calls[0][0]).toEqual({
+      id: MOCK_SHEET_DATA[0].id, field: 'customer', value: 77,
+    });
   });
 });

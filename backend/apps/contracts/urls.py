@@ -9,6 +9,7 @@ from apps.contracts.views import (
     DocumentLayoutListView,
     DocumentPacketListView,
     ShipmentCmrView,
+    ShipmentContractStatusView,
     ShipmentFirmContractsView,
     ShipmentPacketZipView,
     ShipmentPackingView,
@@ -23,6 +24,11 @@ urlpatterns = [
         'shipment-firm-contracts/',
         ShipmentFirmContractsView.as_view(),
         name='shipment-firm-contracts',
+    ),
+    path(
+        'shipment-contract-status/',
+        ShipmentContractStatusView.as_view(),
+        name='shipment-contract-status',
     ),
     path(
         'shipment-packing/',

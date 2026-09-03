@@ -14,6 +14,14 @@ interface IContractAgreementButtonProps {
   // The buyer firm's saved director name — pre-fills the modal's director field
   // (editable). Empty when the firm has none.
   readonly defaultDirector?: string;
+  /**
+   * Fires when the generator modal opens/closes. Call sites that render this
+   * button inside a dismiss-on-outside-click container (the Sheet's contracts
+   * cell Popover) use it to hold that container open — the modal is a portal on
+   * document.body, so clicking it reads as an outside click and would otherwise
+   * unmount the button and its modal together.
+   */
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -32,10 +40,12 @@ export function ContractAgreementButton({
   disabled = false,
   size = 'middle',
   defaultDirector = '',
+  onOpenChange,
 }: IContractAgreementButtonProps) {
   const { t } = useTranslation();
 
   const [open, setOpen] = useState(false);
+
   const [buyerDirector, setBuyerDirector] = useState('');
   const [deadline, setDeadline] = useState<Dayjs | null>(null);
   const [fmt, setFmt] = useState<'docx' | 'pdf'>('docx');
@@ -43,13 +53,20 @@ export function ContractAgreementButton({
   const [highlight, setHighlight] = useState(true);
   const { isGenerating, download } = useDocumentDownload();
 
+  // Single write path for the modal's open state, so `onOpenChange` can never
+  // drift out of sync with it (three call sites close the modal).
+  const setModalOpen = (next: boolean): void => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
+
   const handleOpen = (): void => {
     setBuyerDirector(defaultDirector);  // pre-fill from the firm's saved director
     setDeadline(null);
     setFmt('docx');
     setWithStamps(false);
     setHighlight(true);
-    setOpen(true);
+    setModalOpen(true);
   };
 
   const handleConfirm = async (): Promise<void> => {
@@ -64,7 +81,7 @@ export function ContractAgreementButton({
     const ok = await download(
       `/contracts/contracts/${contractId}/agreement/?${params.toString()}`,
     );
-    if (ok) setOpen(false);
+    if (ok) setModalOpen(false);
   };
 
   return (
@@ -82,7 +99,7 @@ export function ContractAgreementButton({
           </span>
         }
         onOk={handleConfirm}
-        onCancel={() => setOpen(false)}
+        onCancel={() => setModalOpen(false)}
         okText={t('documents.download')}
         confirmLoading={isGenerating}
         maskClosable={!isGenerating}

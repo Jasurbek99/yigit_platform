@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IShipmentFirmContracts } from '@/types/contract';
+
+/** shipment id (as a string key) → number of its firms with a live contract. */
+export type IShipmentContractStatus = Record<string, number>;
+
+export const CONTRACT_STATUS_KEY = ['shipment-contract-status'] as const;
 
 /** GET per-firm contract state for a shipment (framework options + linked). */
 export function useShipmentFirmContracts(shipmentId: number | null, enabled = true) {
@@ -11,6 +17,29 @@ export function useShipmentFirmContracts(shipmentId: number | null, enabled = tr
       const { data } = await api.get<IShipmentFirmContracts>(
         '/contracts/shipment-firm-contracts/',
         { params: { shipment: shipmentId } },
+      );
+      return data;
+    },
+  });
+}
+
+/**
+ * Season-wide map of linked-contract counts, for the Sheet's contracts cell
+ * icon. One request for the whole sheet; the row's own `firm_splits.length` is
+ * the denominator. Gated by the `sale` resource on the backend — pass
+ * `enabled=false` for roles without it rather than eating a 403 per sheet load.
+ */
+export function useShipmentContractStatus(enabled = true) {
+  const { seasonId, isReady } = useSelectedSeason();
+  return useQuery({
+    queryKey: [...CONTRACT_STATUS_KEY, seasonId] as const,
+    enabled: enabled && isReady,
+    staleTime: 30_000,
+    retry: false,
+    queryFn: async (): Promise<IShipmentContractStatus> => {
+      const { data } = await api.get<IShipmentContractStatus>(
+        '/contracts/shipment-contract-status/',
+        seasonId != null ? { params: { season: seasonId } } : undefined,
       );
       return data;
     },
@@ -46,6 +75,8 @@ export function useLinkFirmContract() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ['shipment-firm-contracts', vars.shipment] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // Repaints the Sheet's contracts-cell icon (grey → amber → green).
+      queryClient.invalidateQueries({ queryKey: CONTRACT_STATUS_KEY });
       // Linking creates the bridge ContractSale → the Documents page packet gains
       // the firm's sale_id, so its invoice/letter buttons appear.
       queryClient.invalidateQueries({ queryKey: ['document-packets'] });

@@ -1763,7 +1763,9 @@
       "bank": "≥ $10K — bank",
       "cash": "< $10K — nagt",
       "toast_linked": "{{number}} şertnamasy baglanyşdyryldy",
-      "toast_error": "Şertnamany baglanyşdyryp bolmady"
+      "toast_error": "Şertnamany baglanyşdyryp bolmady",
+      "cell_status": "Şertnamalar: {{total}} firmadan {{linked}}",
+      "open_contract": "Şertnamany aç"
     },
     "packing": {
       "title": "Gaplama (brut-net)",
@@ -1783,7 +1785,9 @@
       "pallets": "Palet",
       "pallet_wt": "Palet agr.",
       "reset": "Hasaplanana dolan",
-      "toast_error": "Gaplamany ýatda saklap bolmady"
+      "toast_error": "Gaplamany ýatda saklap bolmady",
+      "cell_set": "Gaplama saýlandy: {{name}}",
+      "cell_empty": "Gaplama entek saýlanmady"
     },
     "who": {
       "logist": "Logist",
@@ -3134,8 +3138,8 @@
       "placeholder": "Şertnama saýlaň"
     },
     "generate": {
-      "button": "Şertnama döret",
-      "title": "Şertnama döret",
+      "button": "Şertnamany ýükle",
+      "title": "Şertnamany ýükle",
       "buyer_director": "Alyjynyň direktory",
       "buyer_director_ph": "Giriş böleginde we golda ýazyljak F.A.A.",
       "delivery_deadline": "Ibermegiň möhleti",

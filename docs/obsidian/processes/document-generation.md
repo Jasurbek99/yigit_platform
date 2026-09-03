@@ -13,9 +13,9 @@ letters, and the truck-level **CMR** (RU/EN). Most documents download as `.docx`
 only, no prices), matching the `InvoiceRU` / `InvoiceEN` sheets. Documents are
 produced from the **Documents page** (`/documents`), a
 truck-indexed workspace for the document team. Plus the **export contract** itself
-(bilingual TK/RU agreement) — generated from the **Contract detail page**, not the
-Documents page (its scope is a `Contract`, not a truck). See
-[[#Export contract (bilingual TK/RU agreement)]].
+(bilingual TK/RU agreement) — generated from the **Contract detail page** or from the
+Sheet's contracts cell, not the Documents page (its scope is a `Contract`, not a truck).
+See [[#Export contract (bilingual TK/RU agreement)]].
 
 ## How it works (end to end)
 
@@ -91,6 +91,19 @@ GET /api/v1/contracts/document-packets/?date=&date_from=&date_to=&status=&firm=
   packing do NOT hide the truck — they surface as `is_ready=false` + `missing_setup[]` so the
   team sees what to fill. Defaults to the active season. Returns `packing_complete` +
   `missing_packing[]`, `is_ready` + `missing_setup[]`, and `firms[]` (each with `sale_id`).
+
+**Contract-link status** — how many of each truck's firms already have a live contract:
+```
+GET /api/v1/contracts/shipment-contract-status/?season=
+```
+- Returns `{"<shipment_id>": <linked_firm_count>}`; a truck with no live link is **absent**
+  (absent = 0). Only the numerator travels — the caller (the Sheet) already holds each row's
+  `firm_splits`, so the denominator has one source of truth.
+- Excludes `status='void'` sales, matching `rollup_contract_totals()` — a cancelled firm share
+  is not a contract. Season-scoped like every other list; `{}` during the close→open gap (D7).
+- Exists because `export` may not import `contracts`: the Sheet's `firm_contracts` cell needs
+  this to colour its icon and cannot annotate it onto its own payload. See
+  [[shipment-sheet#Synthetic cells — `packing` and `firm_contracts` (icon states)]].
 
 Response (files): `Content-Disposition: attachment`, e.g. `Invoice_93-26-DM-EXP_118_RU.docx`,
 `CMR_0201045-25_RU.docx`.
@@ -531,10 +544,25 @@ reads the bytes and turns it into a docxtpl `InlineImage` (an unreadable/missing
 degrades to blank, never breaks the doc). Placeholders `{{ seller_seal }}` /
 `{{ seller_signature }}` / `{{ buyer_seal }}` / `{{ buyer_signature }}`.
 
-Frontend: a **"Generate contract"** button (`components/ContractAgreementButton.tsx`)
-in the Contract detail header opens a modal for the director + deadline + format + a
-**"With stamps"** checkbox (off by default), then downloads via `downloadFile()`.
-Labels `contracts.generate.*` (tk/ru/en). The template's placeholder schema is
+Frontend: a **"Download contract"** button (`components/ContractAgreementButton.tsx`)
+opens a modal for the director + deadline + format + a **"With stamps"** checkbox (off by
+default), then downloads via `downloadFile()`. Labels `contracts.generate.*` (tk/ru/en).
+
+Renamed from **"Generate contract"** on 2026-09-03. The `Contract` row already exists by the
+time this button renders — it is created from the Sheet's contracts cell — and the tk label
+read literally as "create contract" (`Şertnama döret`), contradicting that cell's green
+"every firm has a contract" icon. Producing the .docx is a **stateless download**: nothing
+records that it happened, so no icon can key off it (see
+[[shipment-sheet#Synthetic cells — `packing` and `firm_contracts` (icon states)]]).
+
+Two entry points, one component:
+- the **Contract detail** header (`contract_template_supported` / `import_firm_director`
+  come from `ContractDetailSerializer`);
+- the **Sheet's contracts cell**, per resolved firm split, alongside a link to the contract
+  page — see [[shipment-sheet]]. `ShipmentFirmContractsView` GET carries the same two
+  buyer-level fields for it. Because that call site sits inside a dismiss-on-outside-click
+  popover, the button reports its modal state through an optional `onOpenChange` prop so the
+  popover can hold itself open; the contract page passes nothing and is unaffected. The template's placeholder schema is
 documented in the standalone template under `data/contract_documents/` (the reusable
 `{{placeholder}}` version).
 

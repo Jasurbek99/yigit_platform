@@ -1,13 +1,19 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { Dropdown, Modal, Popover, Tag, ColorPicker, Button } from 'antd';
 import type { Color } from 'antd/es/color-picker';
-import { HistoryOutlined, FileTextOutlined, BgColorsOutlined } from '@ant-design/icons';
+import {
+  HistoryOutlined, FileTextOutlined, FileAddOutlined, FileDoneOutlined, FileSyncOutlined,
+  BgColorsOutlined,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser, IShipmentOptionType } from '@/types';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
 import { useSetCellColor } from '@/hooks/useShipmentSheet';
+import { useShipmentContractStatus } from '@/hooks/useShipmentFirmContracts';
+import { useAuth } from '@/hooks/useAuth';
+import { canDo } from '@/utils/permissions';
 import { SHEET_PRESET_COLORS } from '@/constants/sheetOptions';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { useSheetCellWrite, isClearableField } from '@/hooks/useSheetCellWrite';
@@ -79,6 +85,44 @@ function getCellAutoColor(
   return match?.color ?? null;
 }
 
+// Document-prep cell states (packing + contracts): grey "add" = nothing set,
+// amber "sync" = partly done, green "done" = complete. The cells used to render
+// one static blue icon in every state, so an operator could not tell a picked
+// template / linked contract from an untouched cell without opening the panel.
+const EMPTY_COLOR = '#bbb';
+const PARTIAL_COLOR = '#fa8c16';
+const DONE_COLOR = '#52c41a';
+
+/**
+ * Icon for the Sheet's contracts cell — how many of this truck's firms already
+ * have a live contract (linked framework or created one-time; both count).
+ *
+ * Its own component so the season-wide count query mounts only on the contracts
+ * row — one shared request for the whole sheet — instead of on every cell.
+ */
+function FirmContractsIcon({ shipment }: { shipment: IShipmentSheetItem }) {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  // The endpoint is gated by `sale`, like the panel this cell opens. Roles
+  // without it get no counts, and the icon stays neutral rather than claiming
+  // "no contract" it cannot verify.
+  const { data } = useShipmentContractStatus(canDo(user, 'sale', 'view'));
+
+  if (!data) return <FileTextOutlined style={{ color: '#1677ff' }} />;
+
+  const total = shipment.firm_splits.length;
+  const linked = data[String(shipment.id)] ?? 0;
+  const title = t('sheet.firm_contracts.cell_status', { linked, total });
+
+  if (linked === 0) {
+    return <span title={title}><FileAddOutlined style={{ color: EMPTY_COLOR }} /></span>;
+  }
+  if (linked < total) {
+    return <span title={title}><FileSyncOutlined style={{ color: PARTIAL_COLOR }} /></span>;
+  }
+  return <span title={title}><FileDoneOutlined style={{ color: DONE_COLOR }} /></span>;
+}
+
 interface ISheetCellProps {
   shipment: IShipmentSheetItem;
   rowConfig: IRowConfig;
@@ -116,6 +160,16 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // AuditLog rows (user / timestamp / old → new). Lazy: the modal is only
   // mounted when opened, and FieldHistoryContent only fetches when `open`.
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Contracts cell (R47) popover. Controlled rather than uncontrolled because
+  // the panel's contract generator opens an antd Modal, which portals onto
+  // document.body — clicking it reads as an outside click and would dismiss the
+  // popover, unmounting the modal mid-download. `contractsModalOpen` holds the
+  // popover open for as long as that modal is up. A ref, not state: it's only
+  // read inside onOpenChange, and a re-render per modal toggle would be waste
+  // in a grid that renders hundreds of these cells.
+  const [contractsOpen, setContractsOpen] = useState(false);
+  const contractsModalOpen = useRef(false);
 
   // Right-click → "Cell color" opens a small picker modal. A modal (rather
   // than a picker nested inside the context menu) keeps the antd Dropdown from
@@ -356,9 +410,23 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
             trigger="click"
             placement="bottomLeft"
             destroyTooltipOnHide
-            content={<ShipmentFirmContractsPanel shipmentId={shipment.id} />}
+            open={contractsOpen}
+            onOpenChange={(next) => {
+              // Never close while the generator modal is up — that click is
+              // "outside" the popover only because the modal is a portal.
+              if (!next && contractsModalOpen.current) return;
+              setContractsOpen(next);
+            }}
+            content={
+              <ShipmentFirmContractsPanel
+                shipmentId={shipment.id}
+                onModalOpenChange={(open) => { contractsModalOpen.current = open; }}
+              />
+            }
           >
-            <FileTextOutlined style={{ cursor: 'pointer', color: '#1677ff' }} />
+            <span style={{ cursor: 'pointer' }}>
+              <FirmContractsIcon shipment={shipment} />
+            </span>
           </Popover>
         ) : (
           <span style={{ color: '#bbb' }}>—</span>
@@ -381,7 +449,20 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
           destroyTooltipOnHide
           content={<ShipmentPackingPanel shipmentId={shipment.id} />}
         >
-          <FileTextOutlined style={{ cursor: 'pointer', color: '#1677ff' }} />
+          <span
+            style={{ cursor: 'pointer' }}
+            title={
+              shipment.packing_template != null
+                ? t('sheet.packing.cell_set', { name: shipment.packing_template_name ?? '' })
+                : t('sheet.packing.cell_empty')
+            }
+          >
+            {shipment.packing_template != null ? (
+              <FileDoneOutlined style={{ color: DONE_COLOR }} />
+            ) : (
+              <FileAddOutlined style={{ color: EMPTY_COLOR }} />
+            )}
+          </span>
         </Popover>
       </div>
     );

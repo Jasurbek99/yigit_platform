@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.core.models import ExportFirm, ImportFirm, Season, ShipmentStatusType, User
+from apps.core.models import Country, ExportFirm, ImportFirm, Season, ShipmentStatusType, User
 from apps.export.models import Shipment, ShipmentFirmSplit
 from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.shipment_firm_contracts import (
@@ -181,3 +181,90 @@ class EndpointSmokeTest(TestCase):
 
         r2 = self.client.get(f'/api/v1/contracts/shipment-firm-contracts/?shipment={self.shipment.id}')
         self.assertIsNotNone(r2.json()['rows'][0]['linked'])
+
+
+class ContractStatusEndpointTest(TestCase):
+    """The Sheet's contracts-cell icon reads this map — one entry per truck."""
+
+    def setUp(self) -> None:
+        self.buyer = _ifirm('B1')
+        self.ygt = _efirm('YGT')
+        self.hj = _efirm('HJ')
+        self.shipment = _shipment(self.buyer)
+        _split(self.shipment, self.ygt)
+        _split(self.shipment, self.hj)
+        self.admin = User.objects.create(username='admin2', role='admin', is_superuser=True)
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+        self.user = self.admin
+
+    def _get(self) -> dict:
+        r = self.client.get('/api/v1/contracts/shipment-contract-status/')
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def test_absent_until_a_firm_is_linked_then_counts_up(self) -> None:
+        self.assertNotIn(str(self.shipment.id), self._get())
+
+        link_split_to_contract(shipment=self.shipment, export_firm_id=self.ygt.id,
+                               mode='one_time', contract_id=None, user=self.user)
+        self.assertEqual(self._get()[str(self.shipment.id)], 1)
+
+        link_split_to_contract(shipment=self.shipment, export_firm_id=self.hj.id,
+                               mode='one_time', contract_id=None, user=self.user)
+        self.assertEqual(self._get()[str(self.shipment.id)], 2)
+
+    def test_void_sale_does_not_count(self) -> None:
+        sale = link_split_to_contract(shipment=self.shipment, export_firm_id=self.ygt.id,
+                                      mode='one_time', contract_id=None, user=self.user)
+        sale.status = ContractSale.STATUS_VOID
+        sale.save()
+        self.assertNotIn(str(self.shipment.id), self._get())
+
+
+class BuyerGeneratorFieldsTest(TestCase):
+    """The Sheet contracts cell renders the contract generator inline, so the
+    payload carries the two buyer-level facts that button needs: whether the
+    template supports the destination country, and the director name to pre-fill.
+    Both are shipment-level — every firm split of a truck shares one buyer."""
+
+    def setUp(self) -> None:
+        self.ygt = _efirm('YGT')
+        self.admin = User.objects.create(username='admin3', role='admin', is_superuser=True)
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    def _get(self, shipment) -> dict:
+        r = self.client.get(f'/api/v1/contracts/shipment-firm-contracts/?shipment={shipment.id}')
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def test_supported_country_reports_true_and_the_saved_director(self) -> None:
+        kz = Country.objects.create(code='KZ', name_tk='Gazagystan', name_ru='Казахстан')
+        buyer = ImportFirm.objects.create(
+            code='B-KZ', name_company='Import KZ', country=kz, contact_person='Иванов И.И.',
+        )
+        shipment = _shipment(buyer, code='0101010/25')
+        _split(shipment, self.ygt)
+
+        body = self._get(shipment)
+        self.assertTrue(body['contract_template_supported'])
+        self.assertEqual(body['import_firm_director'], 'Иванов И.И.')
+
+    def test_unsupported_country_reports_false(self) -> None:
+        tr = Country.objects.create(code='TR', name_tk='Turkiye', name_ru='Турция')
+        buyer = ImportFirm.objects.create(code='B-TR', name_company='Import TR', country=tr)
+        shipment = _shipment(buyer, code='0101011/25')
+        _split(shipment, self.ygt)
+
+        body = self._get(shipment)
+        self.assertFalse(body['contract_template_supported'])
+        self.assertIsNone(body['import_firm_director'])
+
+    def test_shipment_without_a_buyer_reports_false_and_null(self) -> None:
+        shipment = _shipment(None, code='0101012/25')
+        _split(shipment, self.ygt)
+
+        body = self._get(shipment)
+        self.assertFalse(body['contract_template_supported'])
+        self.assertIsNone(body['import_firm_director'])

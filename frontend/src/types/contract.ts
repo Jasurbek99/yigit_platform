@@ -141,5 +141,12 @@ export interface IShipmentFirmContracts {
   shipment: number;
   import_firm: number | null;
   import_firm_name: string | null;
+  // Whether the backend can generate the contract .docx for this buyer's country.
+  // Server-owned (same flag ContractDetail reads) — the §4 clauses name the
+  // destination country's authorities in the genitive case, so only countries with
+  // a verified form qualify. Buyer-level: every firm split shares one buyer.
+  contract_template_supported: boolean;
+  // The buyer firm's director name — the generator modal pre-fills from this.
+  import_firm_director: string | null;
   rows: IShipmentFirmContractRow[];
 }

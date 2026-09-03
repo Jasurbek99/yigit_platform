@@ -469,6 +469,104 @@ Still out of scope (deliberately): **range selection / multi-cell fill** (select
 | `readonly` | None | Display-only; never editable |
 | `comment_count` | None | Display count + icon; click navigates to ShipmentDetail's Changes tab |
 
+### Inline customer create — R11 `customer` (2026-09-03)
+
+The `customer` dropdown carries a **`＋ Add Customer`** footer button (`dropdownRender`) that opens
+`CustomerCreateModal` — the same field set as Admin › Customers (name*, phone, default country/city,
+import firms, sales rep), minus `is_active`. On save the new customer is PATCHed straight into the
+cell, so an operator meeting a new buyer no longer has to leave the Sheet, create the record in
+admin, and come back to the row.
+
+Gated by `canWriteReferenceData(user)` — customers are reference data with **no permission-matrix
+resource**, so `canDo` cannot express their gate; `REFERENCE_DATA_WRITE` (`admin`, `director`,
+`export_manager`, plus superusers) is what the POST actually enforces. Roles outside it never see
+the button. The footer is scoped to this one dropdown; no other `options_source` gets it.
+
+**Why the editor doesn't vanish when the modal opens.** The modal steals focus, which closes the
+`Select`'s dropdown and fires `onOpenChange(false)` — the editor's normal "user clicked away, stop
+editing" signal. Acting on it would clear `editingCell`, unmounting the editor *and* the modal it
+had just opened. A `customerModalOpenRef` guard makes that handler a no-op while the modal is up.
+Cancelling closes the editor (the cell is unchanged either way); creating saves and closes it.
+
+## Synthetic cells — `packing` and `firm_contracts` (icon states)
+
+Two Sheet rows hold no value of their own: they render a single icon that opens a popover
+panel. `packing` opens `ShipmentPackingPanel` (the gross-net template + per-firm shares →
+CMR/Invoice); `firm_contracts` opens `ShipmentFirmContractsPanel` (link a framework contract
+or create a one-time one, per firm). `getCellValue` returns `''` for both — nothing to copy.
+
+**The icon carries the state** (2026-09-03). Both cells used to render the same blue
+`FileTextOutlined` whether or not the work behind them was done, so an operator who had just
+picked a template or created a contract saw no change and had to reopen the panel to check:
+
+| Cell | State | Icon |
+|---|---|---|
+| `packing` | no template picked | grey `FileAddOutlined` |
+| `packing` | `packing_template` set | green `FileDoneOutlined` (tooltip = template name) |
+| `firm_contracts` | no firm split | `—` (unchanged — nothing to link yet) |
+| `firm_contracts` | 0 firms linked | grey `FileAddOutlined` |
+| `firm_contracts` | some firms linked | amber `FileSyncOutlined` |
+| `firm_contracts` | every firm linked | green `FileDoneOutlined` |
+
+Linking framework-vs-one-time is **not** encoded in the icon — both are "done"; the panel
+shows which. The native `title` tooltip reads `n of m firms`.
+
+Where the state comes from:
+- **packing** — `shipment.packing_template` is already on the `/sheet/` payload, so this half
+  is frontend-only. Both `useSetShipmentPacking` and `useLinkFirmContract` already invalidate
+  `['shipments','sheet']`, so the icon repaints as soon as the panel's mutation lands.
+- **contracts** — the link lives in `contracts.ContractSale`, and `export` may not import
+  `contracts`, so the Sheet payload cannot annotate it. `FirmContractsIcon` reads
+  `GET /contracts/shipment-contract-status/` (see [[document-generation]]) — one season-wide
+  request shared by every contracts cell, mounted only on that row. The row's own
+  `firm_splits.length` is the denominator, so there is a single source of truth for it.
+  The endpoint is gated by `sale` like the panel it summarises; for a role without that grant
+  the query is not fired at all (`canDo(user,'sale','view')`) and the cell falls back to the
+  old neutral blue icon rather than claiming "no contract" it cannot verify.
+
+Known edge: a **voided** `ContractSale` does not count toward the icon (matching
+`rollup_contract_totals()`), but `ShipmentFirmContractsView` GET still shows it as `linked` in
+the panel — so a truck whose only sale was voided shows a grey icon and a "linked" tag inside.
+Rare; left as-is rather than reviving void sales through `update_or_create`.
+
+### The panel's linked row — open + generate (2026-09-03)
+
+A firm split whose contract is resolved shows three things instead of the bare number it used
+to: the type tag, the **contract number as a link to `/contracts/{contract_id}`**, and the
+**contract generator** (`ContractAgreementButton` — the same docx/PDF + stamps + delivery-deadline
+modal the contract page carries). Operators were reading a contract number off the Sheet and then
+hunting for it in the contracts list to pull the document.
+
+**Two gates, not one** — the two affordances pass through two independently-toggleable guards,
+so collapsing them would either hide a working button or hand someone a link straight to
+Unauthorized:
+
+| Affordance | Guard | Frontend check |
+|---|---|---|
+| Contract number → `/contracts/{id}` | `contracts.list` **page code** (`<ProtectedRoute pageCode=...>`) | `canSeePage(user, 'contracts.list')` |
+| Download contract | `contract` **resource** view (the `agreement` action's own gate) | `canDo(user, 'contract', 'view')` |
+
+They align in the seeded defaults, but an admin can toggle either alone at runtime. A role with
+neither keeps the plain, unlinked number this panel has always shown. The generator is
+additionally disabled, with the `contracts.generate.country_unsupported` tooltip, when the buyer's
+destination country has no verified genitive form — same rule, same flag, as [[document-generation]].
+
+`ShipmentFirmContractsView` GET grew two **buyer-level** fields to feed it (every firm split of a
+truck shares one buyer, so they are not per-row):
+
+| Field | Source |
+|---|---|
+| `contract_template_supported` | `country_template_supported(import_firm.country.code)` — the same server-owned flag `ContractDetailSerializer` exposes |
+| `import_firm_director` | `ImportFirm.contact_person` ("Director's Full Name"), pre-fills the modal's editable director field |
+
+**Why the popover is controlled now.** The generator's modal is an Ant `Modal`, which portals onto
+`document.body` — to the popover that renders this panel, the first click inside the modal is an
+*outside* click, so it dismissed the popover and unmounted the modal mid-download. `SheetCell` now
+holds the contracts popover's `open` state and refuses to close it while the panel reports a modal
+is up (`ShipmentFirmContractsPanel`'s `onModalOpenChange` → `ContractAgreementButton`'s
+`onOpenChange`). The `packing` cell's popover keeps its uncontrolled behaviour — nothing inside it
+opens a modal.
+
 ## Right-click context menu
 
 Every non-hidden cell is wrapped in an Ant `Dropdown` (`trigger={['contextMenu']}`) so right-click always opens a Sheet-owned menu instead of the browser's native one. Two items: **Show edit history** (clock icon) above a divider, then **Clear cell**.

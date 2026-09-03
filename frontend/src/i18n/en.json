@@ -1763,7 +1763,9 @@
       "bank": "≥ $10K — bank",
       "cash": "< $10K — cash",
       "toast_linked": "Contract {{number}} linked",
-      "toast_error": "Failed to link contract"
+      "toast_error": "Failed to link contract",
+      "cell_status": "Contracts: {{linked}} of {{total}} firms",
+      "open_contract": "Open contract"
     },
     "packing": {
       "title": "Packing (gross-net)",
@@ -1783,7 +1785,9 @@
       "pallets": "Pallets",
       "pallet_wt": "Pallet wt",
       "reset": "Reset to derived",
-      "toast_error": "Failed to save packing"
+      "toast_error": "Failed to save packing",
+      "cell_set": "Packing set: {{name}}",
+      "cell_empty": "Packing not set yet"
     },
     "who": {
       "logist": "Logist",
@@ -3130,8 +3134,8 @@
       "placeholder": "Select contract"
     },
     "generate": {
-      "button": "Generate contract",
-      "title": "Generate contract",
+      "button": "Download contract",
+      "title": "Download contract",
       "buyer_director": "Buyer's director",
       "buyer_director_ph": "Full name printed in the preamble and signature",
       "delivery_deadline": "Delivery deadline",

@@ -2,7 +2,7 @@
 import logging
 from decimal import Decimal
 
-from django.db.models import Exists, OuterRef
+from django.db.models import Count, Exists, OuterRef
 from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import action
 from rest_framework.generics import ListAPIView
@@ -727,7 +727,7 @@ class ShipmentFirmContractsView(APIView):
             return Response({'error': 'shipment query param is required.'}, status=400)
         shipment = (
             Shipment.objects.filter(pk=shipment_id)
-            .select_related('import_firm')
+            .select_related('import_firm', 'import_firm__country')
             .prefetch_related('firm_splits__export_firm', 'sales__contract')
             .first()
         )
@@ -770,6 +770,11 @@ class ShipmentFirmContractsView(APIView):
                 'linked': linked,
             })
 
+        # The Sheet's contracts cell renders the contract generator inline, so the
+        # two buyer-level facts that button needs travel with this payload. Both are
+        # shipment-level, not per-row: every firm split of a truck shares one buyer.
+        buyer_country = getattr(shipment.import_firm, 'country', None)
+
         return Response({
             'shipment': shipment.id,
             'import_firm': import_firm_id,
@@ -777,6 +782,13 @@ class ShipmentFirmContractsView(APIView):
                 shipment.import_firm.name_short or shipment.import_firm.name_company
                 if shipment.import_firm_id else None
             ),
+            # Server-owned: the template's §4 clauses name the destination country's
+            # authorities in the genitive case, so only verified countries qualify.
+            'contract_template_supported': country_template_supported(
+                getattr(buyer_country, 'code', None)
+            ),
+            # "Director's Full Name" — pre-fills the generator modal (editable).
+            'import_firm_director': getattr(shipment.import_firm, 'contact_person', None) or None,
             'rows': rows,
         })
 
@@ -902,6 +914,39 @@ def sync_split_weight_from_sale(sale, user) -> bool:
     weights[sale.export_firm_id] = sale.quantity_kg
     _set_firm_weights(sale.shipment, weights, user)
     return True
+
+
+class ShipmentContractStatusView(APIView):
+    """How many of each truck's firms already have a live contract (Sheet icon).
+
+    ``GET /api/v1/contracts/shipment-contract-status/?season=<id>`` →
+    ``{"<shipment_id>": <linked_firm_count>}``. Shipments with no live link are
+    omitted (absent = 0); the Sheet holds each row's ``firm_splits`` already, so
+    only the numerator travels — one denominator, one source of truth.
+
+    Why a separate endpoint: ``export`` may not import ``contracts``, so the
+    Sheet payload cannot annotate this itself. Void sales are excluded, matching
+    ``rollup_contract_totals()`` — a cancelled firm share is not a contract.
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'sale'
+
+    def get(self, request):
+        season = resolve_season(request)
+        if season is None:
+            return Response({})  # D7 fail-closed — no active season, no counts.
+
+        rows = (
+            ContractSale.objects.filter(shipment__season=season)
+            .exclude(status=ContractSale.STATUS_VOID)
+            # Strip Meta.ordering before the GROUP BY: ordering columns join the
+            # grouping, which would split a truck into one row per contract.
+            .order_by()
+            .values('shipment')
+            .annotate(linked=Count('pk'))
+        )
+        return Response({str(row['shipment']): row['linked'] for row in rows})
 
 
 class ShipmentPackingView(APIView):

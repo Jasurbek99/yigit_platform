@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, DatePicker, Input, InputNumber, Select } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -33,6 +34,9 @@ import {
 import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
 import { firmHasNoQuota as isFirmBlocked } from '@/utils/quotaFirms';
 import { QuotaPageLink } from '@/components/QuotaPageLink';
+import { useAuth } from '@/hooks/useAuth';
+import { canWriteReferenceData } from '@/utils/permissions';
+import { CustomerCreateModal } from './CustomerCreateModal';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 import SheetTruckSelectEditor from './SheetTruckSelectEditor';
@@ -74,6 +78,15 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
   // Guards against a double save when the "Done" button blurs the Select and
   // also triggers the click-outside (onOpenChange) commit path.
   const multiCommittedRef = useRef(false);
+
+  // Customer cell (R11) — "＋ New customer" in the dropdown opens a create modal
+  // without leaving the cell. `customerModalOpen` is state (the modal renders off
+  // it) AND a ref, because the Select's onOpenChange fires on the blur the modal
+  // causes: without the ref that handler would close the editor, unmounting the
+  // modal it just opened.
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const customerModalOpenRef = useRef(false);
+  const { user } = useAuth();
 
   // Reference data hooks
   const { data: countries } = useCountries();
@@ -488,6 +501,19 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
     [editSeed, close, rowConfig.field_key, rowConfig.input_type, save, saveTransitTemp, setPendingNav],
   );
 
+  const openCustomerModal = useCallback(() => {
+    customerModalOpenRef.current = true;
+    setCustomerModalOpen(true);
+  }, []);
+
+  // Cancelling leaves the cell as it was — close the editor rather than trying to
+  // reopen the dropdown, which would need focus back on an already-blurred Select.
+  const closeCustomerModal = useCallback(() => {
+    customerModalOpenRef.current = false;
+    setCustomerModalOpen(false);
+    close();
+  }, [close]);
+
   const renderEditor = () => {
     // Virtual combined cell: truck_plate picks a fleet head + trailer for
     // non-Gapy-Satys shipments (auto-GPS). Gapy shipments have no fleet
@@ -574,13 +600,24 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
         const isBoolDropdown =
           rowConfig.options_source === 'peregruz' ||
           rowConfig.options_source === 'gornushi';
+        // Customers are reference data: creating one is gated server-side by
+        // REFERENCE_DATA_WRITE alone (no permission-matrix resource), so this
+        // mirrors that gate rather than calling canDo.
+        const showCustomerCreate =
+          (rowConfig.options_source ?? rowConfig.field_key) === 'customers'
+          && canWriteReferenceData(user);
         return (
           <Select
             size="small"
             defaultValue={isBoolDropdown ? (currentValue ? 1 : 0) : ((currentValue as number | string | null) ?? undefined)}
             options={options}
             onChange={(val) => save(isBoolDropdown ? Boolean(val) : val)}
-            onOpenChange={(open) => { if (!open) close(); }}
+            onOpenChange={(open) => {
+              // The create modal steals focus and closes the dropdown; closing
+              // the editor here would unmount that modal with it.
+              if (!open && customerModalOpenRef.current) return;
+              if (!open) close();
+            }}
             style={{ width: '100%' }}
             showSearch
             filterOption={(input, option) =>
@@ -591,6 +628,31 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
             defaultOpen
             popupMatchSelectWidth={false}
             popupStyle={{ minWidth: 200 }}
+            dropdownRender={
+              showCustomerCreate
+                ? (menu) => (
+                    <>
+                      {menu}
+                      <div
+                        style={{ borderTop: '1px solid #f0f0f0', padding: '4px 8px' }}
+                        // Prevent the mousedown from blurring the Select before
+                        // our click handler has set the modal-open guard.
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<PlusOutlined />}
+                          style={{ width: '100%', textAlign: 'left' }}
+                          onClick={openCustomerModal}
+                        >
+                          {t('customers_admin.add')}
+                        </Button>
+                      </div>
+                    </>
+                  )
+                : undefined
+            }
           />
         );
       }
@@ -834,6 +896,17 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
       onKeyDown={handleKeyDown}
     >
       {renderEditor()}
+      {customerModalOpen && (
+        <CustomerCreateModal
+          open
+          onCancel={closeCustomerModal}
+          onCreated={(customer) => {
+            customerModalOpenRef.current = false;
+            setCustomerModalOpen(false);
+            save(customer.id);  // PATCHes the cell and closes the editor
+          }}
+        />
+      )}
     </div>
   );
 }
