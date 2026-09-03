@@ -25,6 +25,7 @@ from rest_framework.viewsets import ModelViewSet
 from apps.core.idempotency import idempotent
 from apps.core.services import sheet_events
 from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
+from apps.core.roles import JOIN_ROLES
 from apps.core.permissions import (
     PRIVILEGED_ROLES,
     DynamicResourcePermission,
@@ -223,6 +224,15 @@ class ShipmentViewSet(ModelViewSet):
             # now agrees with it instead of contradicting it.
             return [IsAuthenticated(), SeasonNotClosed(),
                     resource_write_permission('shipment_comment')()]
+        if action == 'join':
+            # Same class of bug as `transition`/`swap` (F12/F19): a join MERGES two
+            # existing drafts — it creates no Shipment — but the class-level
+            # DynamicResourcePermission maps POST to shipment.can_create, which is 0
+            # for document_team in the seed. Every role the in-body JOIN_ROLES
+            # allowlist admits holds can_edit, so this coarse gate now agrees with
+            # the fine one instead of 403ing document_team before the body runs.
+            return [IsAuthenticated(), SeasonNotClosed(),
+                    resource_edit_permission('shipment')()]
         if action == 'transition':
             # A transition EDITS a shipment; it does not create one. The
             # class-level DynamicResourcePermission maps POST to
@@ -2316,11 +2326,16 @@ class ShipmentViewSet(ModelViewSet):
         """
         # --- Permission gate ---
         # 'boss' widened at the call site (not in core PRIVILEGED_ROLES) so he can
-        # merge drafts from his own login, same as /assign. Superusers bypass, as in /cancel.
+        # merge drafts from his own login, same as /assign. 'document_team' widened
+        # the same way (2026-09-03): Şirin/Sulgun pair the supply and destination
+        # halves while preparing the CMR packet, so they join drafts from the Sheet
+        # and the Shipments list themselves instead of queueing behind a manager.
+        # Superusers bypass, as in /cancel.
         is_super = getattr(request.user, 'is_superuser', False)
-        if not is_super and getattr(request.user, 'role', None) not in PRIVILEGED_ROLES | {'boss'}:
+        if not is_super and getattr(request.user, 'role', None) not in JOIN_ROLES:
             return Response(
-                {'error': 'Only admin, export_manager, director or boss can join draft shipments'},
+                {'error': 'Only admin, export_manager, director, boss or document_team '
+                          'can join draft shipments'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

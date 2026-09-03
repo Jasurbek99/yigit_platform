@@ -558,8 +558,8 @@ class JoinSourceNoBlocksTests(TestCase):
 # ---------------------------------------------------------------------------
 
 class JoinPermissionTests(TestCase):
-    """Join endpoint allows admin/export_manager/director/boss (+ superuser);
-    warehouse_chief/loading_dept_head/sales_rep/document_team stay forbidden."""
+    """Join endpoint allows admin/export_manager/director/boss/document_team
+    (+ superuser); warehouse_chief/loading_dept_head/sales_rep stay forbidden."""
 
     @classmethod
     def setUpTestData(cls):
@@ -605,8 +605,33 @@ class JoinPermissionTests(TestCase):
     def test_sales_rep_cannot_join(self):
         self._assert_join_forbidden('sales_rep')
 
-    def test_document_team_cannot_join(self):
-        self._assert_join_forbidden('document_team')
+    def test_document_team_can_join(self):
+        """document_team is widened at the call site (2026-09-03) and may join.
+
+        Asserts the MERGE landed, not just that the role gate let the request in:
+        document_team's seeded shipment grant is _VE (no can_create), so the POST
+        also has to clear the coarse DynamicResourcePermission gate the `join`
+        branch of get_permissions() remaps to shipment.can_edit.
+        """
+        clerk = _make_user('sirin_perm_jn', 'document_team')
+        _auth(self.client, clerk)
+        resp = self.client.post(
+            self._join_url(self.target.pk),
+            {'source_id': self.source.pk},
+            format='json',
+        )
+        self.assertEqual(
+            resp.status_code, 200,
+            f'document_team should be allowed; got {resp.status_code}: {resp.data}',
+        )
+        self.assertEqual(
+            ShipmentBlockSource.objects.filter(shipment=self.target).count(), 1,
+            'source block_sources must be re-pointed to the target',
+        )
+        self.assertFalse(
+            Shipment.objects.filter(pk=self.source.pk).exists(),
+            'source draft must be hard-deleted by the merge',
+        )
 
     def test_export_manager_can_join(self):
         """export_manager IS in PRIVILEGED_ROLES and may join."""

@@ -157,7 +157,7 @@ export function SheetToolbar({
   const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
 
   // Join flow: gate mirrors the backend join endpoint via the shared JOIN_ROLES
-  // helper (admin / export_manager / director / boss + superuser). This list
+  // helper (admin / export_manager / director / boss / document_team + superuser). This list
   // used to be a local ['export_manager','director'] literal, which hid the
   // Sheet's Join button from admin and boss even though the API accepts them.
   // (canCreateSupply removed when the "Ýük goş" button was commented out — the

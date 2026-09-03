@@ -161,6 +161,7 @@ own branch in `ShipmentViewSet.get_permissions()`. Current exemptions:
 | `transition` | `resource_edit_permission('shipment')` | a transition **edits** a shipment; `transition_to()` keeps the per-edge role gate (added 2026-09-01, ROLE_ACCESS_AUDIT F12) |
 | `comment` | `resource_write_permission('shipment_comment')` | the POST creates a comment, not a shipment — same flag `CommentViewSet` checks (added 2026-09-01, FINDINGS_BACKLOG F18) |
 | `swap` | `resource_edit_permission('shipment')` | a swap **edits** two shipments; the per-field `can_edit_sheet_fields()` batch call in the body is the real authority and could never run without this (added 2026-09-01, FINDINGS_BACKLOG F19) |
+| `join` | `resource_edit_permission('shipment')` | a join **merges** two existing drafts and creates no Shipment; needed the moment `document_team` (seeded `shipment` = view+edit, no create) was added to `JOIN_ROLES` (added 2026-09-03) |
 
 `resource_edit_permission(code)` and `junction_write_permission(code)` are still the same
 check — POST → `can_edit` on `code`, fail-closed, superuser bypass — under two names

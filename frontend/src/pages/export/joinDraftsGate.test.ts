@@ -9,8 +9,11 @@ const nonDraft = (id: number): IShipmentListItem => ({ id, status_code: 'yuklenm
 const mgr: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'export_manager', is_superuser: false };
 const admin: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'admin', is_superuser: false };
 const boss: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'boss', is_superuser: false };
-const superuser: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'document_team', is_superuser: true };
-const clerk: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'document_team', is_superuser: false };
+const superuser: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'warehouse_chief', is_superuser: true };
+// document_team was widened into JOIN_ROLES on 2026-09-03, so it is no longer a
+// valid negative case — warehouse_chief creates supply drafts but cannot join.
+const docTeam: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'document_team', is_superuser: false };
+const nonJoinRole: Pick<ICurrentUser, 'role' | 'is_superuser'> = { role: 'warehouse_chief', is_superuser: false };
 
 describe('canJoinDrafts', () => {
   it('true for exactly two drafts + a privileged role (incl. boss) when writable', () => {
@@ -18,9 +21,10 @@ describe('canJoinDrafts', () => {
     expect(canJoinDrafts([draft(1), draft(2)], admin, false)).toBe(true);
     expect(canJoinDrafts([draft(1), draft(2)], boss, false)).toBe(true);
     expect(canJoinDrafts([draft(1), draft(2)], superuser, false)).toBe(true);
+    expect(canJoinDrafts([draft(1), draft(2)], docTeam, false)).toBe(true);
   });
   it('false for a non-privileged role', () => {
-    expect(canJoinDrafts([draft(1), draft(2)], clerk, false)).toBe(false);
+    expect(canJoinDrafts([draft(1), draft(2)], nonJoinRole, false)).toBe(false);
   });
   it('false when the season is read-only', () => {
     expect(canJoinDrafts([draft(1), draft(2)], mgr, true)).toBe(false);

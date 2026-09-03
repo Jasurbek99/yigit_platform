@@ -1,10 +1,13 @@
 // ─── Who may join two drafts ──────────────────────────────────────
-// Mirrors the join endpoint's gate: PRIVILEGED_ROLES {admin, export_manager,
-// director} widened with 'boss' at the call site, plus a superuser bypass.
-// The Sheet toolbar and the Shipment-list bulk bar MUST use this same list —
-// they diverged once and the Sheet's Join button silently vanished for
-// admin/boss.
-export const JOIN_ROLES: ReadonlyArray<string> = ['admin', 'export_manager', 'director', 'boss'];
+// Mirrors the join endpoint's gate (apps.core.roles.JOIN_ROLES): PRIVILEGED_ROLES
+// {admin, export_manager, director} widened with 'boss' and 'document_team' at the
+// call site, plus a superuser bypass.
+// The Sheet toolbar, the Shipment-list bulk bar and the Detail hero's "Join supply"
+// button MUST use this same list — they diverged once and the Sheet's Join button
+// silently vanished for admin/boss.
+export const JOIN_ROLES: ReadonlyArray<string> = [
+  'admin', 'export_manager', 'director', 'boss', 'document_team',
+];
 
 export function canUserJoin(user: { role?: string | null; is_superuser?: boolean } | null): boolean {
   if (!user) return false;

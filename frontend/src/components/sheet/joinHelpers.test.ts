@@ -49,7 +49,7 @@ describe('detectJoinDirection', () => {
 });
 
 describe('canUserJoin mirrors the backend gate', () => {
-  it.each(['admin', 'export_manager', 'director', 'boss'])('allows %s', (role) => {
+  it.each(['admin', 'export_manager', 'director', 'boss', 'document_team'])('allows %s', (role) => {
     expect(canUserJoin({ role, is_superuser: false })).toBe(true);
   });
   it('allows a superuser whatever the role', () => {
