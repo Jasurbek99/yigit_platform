@@ -88,36 +88,14 @@ describe('SheetRowsTab', () => {
   it('sends every edited field in ONE PATCH — a second call would carry a stale version', async () => {
     renderTab();
     fireEvent.change(screen.getByLabelText('label_en'), { target: { value: 'Harvest block' } });
-    // Switch order: [0] visibility (header), [1] lock (access section).
-    fireEvent.click(screen.getAllByRole('switch')[1]);
+    // Only switch left is the header's visibility toggle (AD-17 retired the lock switch).
+    fireEvent.click(screen.getAllByRole('switch')[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(saveMutateAsync).toHaveBeenCalledTimes(1));
     expect(saveMutateAsync).toHaveBeenCalledWith({
-      id: 1, version: 7, label_en: 'Harvest block', is_locked: true,
+      id: 1, version: 7, label_en: 'Harvest block', is_visible: false,
     });
-  });
-
-  it('states the access rule the backend actually applies, and follows the lock', () => {
-    renderTab();
-    // No lock, no triggers → the field permission alone decides.
-    expect(screen.getByText(/^No lock, no triggers:/)).toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('switch')[1]);
-    expect(screen.getByText(/^Locked with no role selected:/)).toBeInTheDocument();
-  });
-
-  it('says the roles decide — and that the lock stops mattering — once one is set', () => {
-    vi.mocked(useSheetRowSettings).mockReturnValue({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: [makeRow({ id: 9, field_key: 'weight_net', triggered_roles: ['transport'] })],
-      isLoading: false,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
-    renderTab();
-    expect(screen.getByText(/^Only the roles selected below/)).toBeInTheDocument();
-    // Same sentence with the lock on — locked and unlocked agree once a role is set.
-    fireEvent.click(screen.getAllByRole('switch')[1]);
-    expect(screen.getByText(/^Only the roles selected below/)).toBeInTheDocument();
   });
 
   it('keeps Save disabled until something actually changes', () => {
@@ -147,5 +125,33 @@ describe('SheetRowsTab', () => {
     fireEvent.click(screen.getByText('Customer'));
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not offer any control that writes row access (AD-17)', () => {
+    renderTab();
+
+    // Row access is granted on the Row access tab only. A select or switch here
+    // would be a second writer for the same SheetRowRoleTrigger rows.
+    // Only the header's visibility switch remains — the lock switch is retired.
+    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    expect(screen.queryByText('Trigger Roles')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lock')).not.toBeInTheDocument();
+    // ROWS[0] (selected by default) has no triggers — the empty state shows.
+    expect(screen.getByText('No role can edit this row yet.')).toBeInTheDocument();
+  });
+
+  it('shows who may edit the row, read-only, and points at the Row access tab', () => {
+    vi.mocked(useSheetRowSettings).mockReturnValue({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: [makeRow({ id: 9, field_key: 'weight_net', triggered_roles: ['transport'] })],
+      isLoading: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    renderTab();
+
+    // 'transport' is the API role code; the chip shows the translated label
+    // (mirrors the Select this section replaced, which used the same lookup).
+    expect(screen.getByText('Transport')).toBeInTheDocument();
+    expect(screen.getByText('Grant access on the Row access tab.')).toBeInTheDocument();
   });
 });

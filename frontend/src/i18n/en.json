@@ -36,6 +36,12 @@
     "loading_dept_head_deputy": "Loading Dept Deputy",
     "boss": "Boss"
   },
+  "row_access": {
+    "hint": "Tick the rows this role may edit. This is the only place row access is granted.",
+    "search": "Search rows",
+    "toast_save_error": "Failed to save row access",
+    "load_error": "Failed to load Sheet rows"
+  },
   "boss_mode": {
     "view": "View",
     "edit": "Edit",
@@ -1010,6 +1016,7 @@
     "tab_options": "Option Lists",
     "tab_truck_splits": "Truck Split Defaults",
     "tab_sheet_rows": "Sheet Row Triggers",
+    "tab_row_access": "Row access",
     "tab_cell_colors": "Cell Colors",
     "tab_countries": "Countries",
     "tab_cities": "Cities",
@@ -1068,7 +1075,6 @@
     "col_default_who": "Default Who",
     "col_trigger_role": "Trigger Role",
     "col_trigger_user": "Trigger User",
-    "trigger_none": "— none —",
     "toast_saved": "Row trigger saved",
     "user_inactive_warning": "User inactive",
     "tooltip_user_picker": "For duties shared by multiple people, assign by role instead.",
@@ -1083,7 +1089,6 @@
     "col_visible": "Visible",
     "col_locked": "Lock",
     "col_style": "Style",
-    "col_trigger_roles": "Trigger Roles",
     "col_updated": "Updated",
     "move_up": "Move up",
     "move_down": "Move down",
@@ -1150,9 +1155,7 @@
     "section_tooltip": "Hover tooltip (TK / RU / EN)",
     "section_access": "Edit access",
     "section_display": "Display in the Sheet",
-    "access_role_group_note": "“Role block” under Display is visual grouping in the Sheet only — it grants no access.",
     "visible_label": "Visible in the Sheet",
-    "locked_label": "Lock",
     "badge_hidden": "Hidden in the Sheet",
     "badge_locked": "Locked",
     "badge_triggers": "Access triggers: {{count}}",
@@ -1161,10 +1164,9 @@
     "unsaved_title": "Unsaved changes",
     "unsaved_body": "This row has unsaved changes. Switch rows and lose them?",
     "unsaved_discard": "Switch without saving",
-    "access_desc_open": "No lock, no triggers: anyone whose role has permission on this field can edit the row.",
-    "access_desc_triggered": "Only the roles selected below can edit this row — and only if the role also has permission on this field. Admin, director and export manager always can.",
-    "access_desc_locked_empty": "Locked with no role selected: no one can edit this row except admin, director and export manager.",
-    "access_lock_note": "The lock only matters while no role is selected below. As soon as one role is selected, locked and unlocked behave identically."
+    "access_readonly_label": "Who may edit this row",
+    "access_none": "No role can edit this row yet.",
+    "access_edit_hint": "Grant access on the Row access tab."
   },
   "truck_split": {
     "col_num_firms": "# Firms",

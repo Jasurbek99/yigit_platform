@@ -9,6 +9,7 @@ Endpoints (ADR-0007, ADR-0008, ADR-0009, ADR-0010):
   POST   /api/v1/export/admin/sheet-rows/{id}/restore/ — restore soft-deleted row
   POST   /api/v1/export/admin/sheet-rows/reorder/      — sparse display_order update
   POST   /api/v1/export/admin/sheet-rows/permissions/bulk/ — grant/revoke user exceptions
+  POST   /api/v1/export/admin/sheet-rows/role-access/   — replace a role's triggers across all rows
 
 Security note: export_manager currently has shipment.edit permission (D5 parity) and
 can therefore access PATCH. A future ticket should tighten writes to director-only.
@@ -17,6 +18,7 @@ For Phase 1 this matches the existing admin-tab permission model.
 import logging
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers, status, viewsets
@@ -25,7 +27,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.core.models.user import ROLE_CHOICES
-from apps.core.permissions import DynamicResourcePermission
+from apps.core.permissions import PERM_CACHE_PREFIX, DynamicResourcePermission
 from apps.export.models import AuditLog, SheetRowSetting, SheetRowRoleTrigger, SheetRowUserPermission
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 
@@ -268,10 +270,17 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
 
     Disabled: POST (create) — rows are seeded from DEFAULT_SHEET_ROWS only.
 
-    Permission: IsAuthenticated + DynamicResourcePermission (resource_code='shipment').
+    Permission: IsAuthenticated + DynamicResourcePermission (resource_code='sheet_row_setting').
     """
 
-    resource_code = 'shipment'
+    # Was 'shipment' — that flag is held by document_team, transport, sales_rep,
+    # finansist and weight_master, so the only thing keeping them out of this
+    # endpoint was frontend page visibility. Sheet row triggers are becoming
+    # the edit permission itself (multi-task plan in progress, 2026-09-02;
+    # AD-17 entry to follow once Task 11 lands), so writing here will mean
+    # granting permissions — it needs its own admin-only resource ahead of
+    # that change.
+    resource_code = 'sheet_row_setting'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = SheetRowSettingSerializer
     lookup_field = 'id'
@@ -677,6 +686,121 @@ class SheetRowSettingViewSet(viewsets.ModelViewSet):
                     )
 
         return Response({'granted': len(grants), 'revoked': len(revokes)})
+
+    @action(detail=False, methods=['post'], url_path='role-access')
+    def role_access(self, request):
+        """POST /api/v1/export/admin/sheet-rows/role-access/
+
+        Set one role's edit access across every Sheet row in one transaction.
+        The Row access tab in Shipment Settings is the only writer.
+
+        Body:
+            { "role": "document_team", "field_keys": ["country", "import_firm"] }
+
+        Replaces — the role's triggers on rows absent from field_keys are
+        removed. Writes one AuditLog row per changed Sheet row, matching the
+        `triggered_roles` shape written by _perform_update_with_audit exactly:
+        object_repr is str(row), old_value/new_value are the row's full sorted
+        role set before/after (not a single-role delta), so a reader filtering
+        field_name='triggered_roles' for one row cannot tell which endpoint
+        wrote a given row.
+
+        Scope is active rows only (SheetRowSetting.objects.active()) — a
+        role's trigger on a row that is later soft-deleted is left untouched
+        by this endpoint and reappears if the row is restored via
+        POST .../{id}/restore/. This is intentional: restore is meant to
+        bring back the row's prior configuration, and stripping the trigger
+        here would make restore lossy in the other direction.
+
+        Returns:
+            { "role": str, "added": int, "removed": int }
+
+        Errors:
+            400 if role is missing/unknown or any field_key has no active row.
+        """
+        role = (request.data.get('role') or '').strip()
+        if role not in _ROLE_SET:
+            return Response(
+                {'error': f"Unknown role '{role}'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        field_keys = request.data.get('field_keys')
+        if not isinstance(field_keys, list):
+            return Response(
+                {'error': 'field_keys must be a list.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rows_by_key = {
+            r.field_key: r for r in SheetRowSetting.objects.active()
+        }
+        unknown = [k for k in field_keys if k not in rows_by_key]
+        if unknown:
+            return Response(
+                {'error': f"Unknown field_keys: {', '.join(sorted(unknown))}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        wanted = {rows_by_key[k].id for k in field_keys}
+        existing = set(
+            SheetRowRoleTrigger.objects
+            .filter(role=role, row__in=rows_by_key.values())
+            .values_list('row_id', flat=True)
+        )
+        to_add = wanted - existing
+        to_remove = existing - wanted
+        changed_ids = to_add | to_remove
+
+        id_to_row = {r.id: r for r in rows_by_key.values()}
+
+        # Full role set per changed row, BEFORE this call's mutation — needed
+        # to write old_value/new_value as complete role sets (matching
+        # _perform_update_with_audit), not a single-role delta.
+        prior_roles: dict[int, set[str]] = {rid: set() for rid in changed_ids}
+        for row_id, existing_role in (
+            SheetRowRoleTrigger.objects
+            .filter(row_id__in=changed_ids)
+            .values_list('row_id', 'role')
+        ):
+            prior_roles[row_id].add(existing_role)
+
+        audit_rows = []
+        for rid in changed_ids:
+            old_roles = prior_roles[rid]
+            new_roles = (old_roles | {role}) if rid in to_add else (old_roles - {role})
+            old_value = ','.join(sorted(old_roles))
+            new_value = ','.join(sorted(new_roles))
+            audit_rows.append(AuditLog(
+                user=request.user,
+                action='update',
+                model_name='SheetRowSetting',
+                object_id=rid,
+                object_repr=str(id_to_row[rid]),
+                field_name='triggered_roles',
+                old_value=old_value,
+                new_value=new_value,
+                detail=f"triggered_roles: '{old_value}' → '{new_value}'",
+            ))
+
+        with transaction.atomic():
+            SheetRowRoleTrigger.objects.filter(
+                role=role, row_id__in=to_remove,
+            ).delete()
+            SheetRowRoleTrigger.objects.bulk_create(
+                [SheetRowRoleTrigger(row_id=rid, role=role) for rid in to_add],
+                batch_size=500,
+            )
+            AuditLog.objects.bulk_create(audit_rows, batch_size=500)
+
+        # Trigger rows are read live, but the role's resource/page caches are not.
+        cache.delete(f'{PERM_CACHE_PREFIX}:all_fields:{role}')
+
+        return Response({
+            'role': role,
+            'added': len(to_add),
+            'removed': len(to_remove),
+        })
 
     # ── Private helpers ────────────────────────────────────────────────────
 

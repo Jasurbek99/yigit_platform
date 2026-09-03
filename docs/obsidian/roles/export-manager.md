@@ -36,7 +36,7 @@ Export managers are in the `PRIVILEGED_ROLES` set — they can trigger **any** s
 
 ## Pages They See
 
-All operational pages: Dashboard, Shipment List, Kanban, Sheet, Shipment Dashboard, Overdue Reports, Quota Dashboard, Weekly Plan, Price Panel, Advances, Truck Forecast, Block Summary, Domestic Sales. **Admin pages are no longer visible to export managers** since AD-15 — Users, Permissions, Firms, Seasons, Blocks, Customers, Truck Destinations, and Shipment Settings now require the `admin` role.
+All operational pages: Dashboard, Shipment List, Kanban, Sheet, Shipment Dashboard, Overdue Reports, Quota Dashboard, Weekly Plan, Price Panel, Advances, Truck Forecast, Block Summary, Domestic Sales. **Most admin pages are no longer visible to export managers** since AD-15 — Users, Permissions, Firms, Seasons, Blocks, Customers, and Truck Destinations require the `admin` role. **Shipment Settings is the one exception (AD-17, 2026-09-02):** `export_manager` was explicitly granted the `admin.shipment_settings` page and the `sheet_row_setting` resource so he can administer the Sheet's Row access tab — who may edit which Sheet cell — without an `admin` account. See [[../screens/shipment-sheet#Row access tab (2026-09-02, AD-17)]] and `docs/ADR.md` AD-17.
 
 ## Key Workflows
 

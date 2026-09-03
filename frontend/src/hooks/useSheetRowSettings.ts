@@ -201,3 +201,34 @@ export function useCreateCustomSheetRow() {
     },
   });
 }
+
+// ─── Role-first access (AD-17) ────────────────────────────────────────────────
+
+export interface ISaveRoleAccessPayload {
+  role: string;
+  /** Full replacement set — rows absent here lose this role's trigger. */
+  field_keys: string[];
+}
+
+export interface IRoleAccessResult {
+  role: string;
+  added: number;
+  removed: number;
+}
+
+/** Set one role's edit access across every Sheet row in one request. */
+export function useSaveRoleAccess() {
+  const queryClient = useQueryClient();
+  return useMutation<IRoleAccessResult, AxiosError<{ error: string }>, ISaveRoleAccessPayload>({
+    mutationFn: async (payload): Promise<IRoleAccessResult> => {
+      const { data } = await api.post<IRoleAccessResult>(
+        '/export/admin/sheet-rows/role-access/',
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+    },
+  });
+}

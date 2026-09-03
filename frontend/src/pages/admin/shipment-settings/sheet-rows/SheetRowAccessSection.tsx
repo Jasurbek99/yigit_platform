@@ -1,87 +1,53 @@
-import { Alert, Select, Switch } from 'antd';
+import { Alert, Flex, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { COLORS } from '@/constants/styles';
+import { ROLE_CHOICES } from '@/constants/roles';
+import { ROLE_COLOR } from '@/pages/admin/permissions/roleColors';
 
-interface IOption {
-  value: string;
-  label: string;
-}
+const { Text } = Typography;
 
 interface ISheetRowAccessSectionProps {
-  isLocked: boolean;
   triggeredRoles: string[];
-  roleOptions: IOption[];
-  disabled: boolean;
-  onChange: (patch: { is_locked?: boolean; triggered_roles?: string[] }) => void;
 }
 
 /**
- * The one place that explains what a lock, a trigger role and an extra user
- * actually do together. The wording mirrors `can_edit_sheet_field` /
- * `get_sheet_edit_map` exactly:
- *   - no lock, no triggers  → the field permission alone decides;
- *   - any trigger set       → only those roles/users, AND they still need the
- *                             field permission (the gate is AND, never OR) —
- *                             the lock makes NO difference in this case;
- *   - lock, no triggers     → nobody (admin / director / export_manager bypass
- *                             every branch).
+ * Read-only since AD-17 (2026-09-02). Row access is granted on the Row access
+ * tab and nowhere else — a select here would be a second writer for the same
+ * SheetRowRoleTrigger rows, which is what the two-places bug was.
+ *
+ * The lock switch is gone too: with trigger config present the answer is
+ * has_any_trigger whether or not the row is locked, so the control no longer
+ * changed any outcome.
  */
-export function SheetRowAccessSection({
-  isLocked,
-  triggeredRoles,
-  roleOptions,
-  disabled,
-  onChange,
-}: ISheetRowAccessSectionProps) {
+export function SheetRowAccessSection({ triggeredRoles }: ISheetRowAccessSectionProps) {
   const { t } = useTranslation();
-  const hasTriggers = triggeredRoles.length > 0;
-  const accessDescKey = hasTriggers
-    ? 'sheet_rows.access_desc_triggered'
-    : isLocked
-      ? 'sheet_rows.access_desc_locked_empty'
-      : 'sheet_rows.access_desc_open';
+  // Same lookup the roles Select this replaced used to build its options —
+  // an admin reading "who may edit this row" should see a name, not a code.
+  const roleLabel = (role: string): string => {
+    const choice = ROLE_CHOICES.find((r) => r.value === role);
+    return choice ? t(choice.labelKey) : role;
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Switch
-          checked={isLocked}
-          disabled={disabled}
-          onChange={(val) => onChange({ is_locked: val })}
-        />
-        <span>{t('sheet_rows.locked_label')}</span>
-      </div>
+    <Flex vertical gap={8}>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {t('sheet_rows.access_readonly_label')}
+      </Text>
 
-      <div style={{ fontSize: 12, color: COLORS.textSecondary }}>
-        {t('sheet_rows.access_lock_note')}
-      </div>
+      {triggeredRoles.length === 0 ? (
+        <Alert type="warning" showIcon message={t('sheet_rows.access_none')} />
+      ) : (
+        <Flex wrap gap={4}>
+          {triggeredRoles.map((role) => (
+            <Tag key={role} color={ROLE_COLOR[role] ?? 'default'} style={{ fontSize: 11 }}>
+              {roleLabel(role)}
+            </Tag>
+          ))}
+        </Flex>
+      )}
 
-      <Alert
-        type={hasTriggers || !isLocked ? 'info' : 'warning'}
-        showIcon
-        message={t(accessDescKey)}
-      />
-
-      <div>
-        <div style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>
-          {t('sheet_rows.col_trigger_roles')}
-        </div>
-        <Select
-          mode="multiple"
-          value={triggeredRoles}
-          options={roleOptions}
-          disabled={disabled}
-          onChange={(val: string[]) => onChange({ triggered_roles: val })}
-          style={{ width: '100%' }}
-          placeholder={t('sheet_rows.trigger_none')}
-          showSearch
-          optionFilterProp="label"
-        />
-      </div>
-
-      <div style={{ fontSize: 12, color: COLORS.textSecondary }}>
-        {t('sheet_rows.access_role_group_note')}
-      </div>
-    </div>
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        {t('sheet_rows.access_edit_hint')}
+      </Text>
+    </Flex>
   );
 }

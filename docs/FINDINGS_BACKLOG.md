@@ -43,6 +43,9 @@ Detail lives in [ROLE_ACCESS_AUDIT.md](ROLE_ACCESS_AUDIT.md) and
 | ~~F18~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `comment` now gates on `shipment_comment.can_create` via `resource_write_permission`, agreeing with `CommentViewSet` instead of contradicting it | `export/views.py:183-194` |
 | ~~F19~~ | ~~**HIGH**~~ | **CLOSED 2026-09-01.** `swap` gates on `shipment.can_edit` (`resource_edit_permission`), so the per-field `can_edit_sheet_field` loop finally runs; the Sheet's Swap button gained the matching `canDo(user,'shipment','edit')` gate | `export/views.py`, `SheetToolbar.tsx` |
 | F20 | LOW | **Shipment-Detail half CLOSED 2026-09-01** (`boss` sees the button; label named the wrong status; endpoint off `can_create`). The Assignment Board half is **parked** — owner: nobody uses `/export/assign`, it is kept "just in case" and will be deleted | `export/views.py`, `AssignmentBoard.tsx:35` |
+| F21 | LOW | Shared `RoleSidebar` (Permissions admin + the new Row access tab) renders raw role codes (`export_manager`) instead of a translated display name | `frontend/src/pages/admin/permissions/RoleSidebar.tsx` |
+| F22 | LOW | `SheetRowsTab`'s frontend `canWrite` gates on `shipment.edit`; the backend's own `/admin/sheet-rows/` endpoint gates on `sheet_row_setting.edit` since Task 1. Currently inert (all three page-visible roles — admin, export_manager, boss — hold both flags) | `frontend/src/pages/admin/ShipmentSettingsPage.tsx` |
+| F23 | LOW | `SheetCell.tsx`'s packing popover renders with no `canEdit` gate; a `packing`-only role (no `firm_splits`) sees the icon, opens `ShipmentPackingPanel`, and only discovers the refusal as a 403 on `scope='template'`/`'swap'` save, since the AD-17 fix wave closed that gap on the backend | `frontend/src/components/sheet/SheetCell.tsx:372-387` |
 | T1 | — | `document_team` account carries role `export_manager` | live DB |
 | T2 | — | `export_manager`/`em123` and `document_team`/`dt123` passwords do not work | live DB |
 | ~~S1~~ | — | **CLOSED 2026-08-23.** The `QuotaIssuance` half closed via `fix_quota_issuance_seasons`; the one mismatched issuance had already been deleted by the owner. The remaining 6 `WeeklyTruckAllocation` rows (W35/2026) were **deleted** by owner instruction, with their 18 splits | live DB |
@@ -201,6 +204,113 @@ Both check a role allowlist in the method body (`PRIVILEGED_ROLES`, plus `boss` 
 **and** still pass through the class-level `can_create` gate. Every role in those allowlists holds
 `shipment.can_create = 1` today, so nothing breaks. The risk is drift: widen either allowlist to a
 `_VE` role and the coarse gate silently reintroduces F12 for it.
+
+## F21 — LOW: the role picker shows raw codes, not names (added 2026-09-02)
+
+`RoleSidebar` (`frontend/src/pages/admin/permissions/RoleSidebar.tsx`) renders each role as a
+`<Tag>{code}</Tag>` — e.g. `export_manager`, `loading_dept_head_deputy` — with the human name only
+in a hover tooltip. It backs two screens now: the Permissions admin page it was built for, and the
+new Shipment Settings → **Row access** tab added by the Sheet-Settings-permission-authority plan
+(AD-17, `docs/ADR.md`), which reuses it unchanged. The row's own read-only access chips
+(`SheetRowAccessSection.tsx`, Shipment Settings → Sheet Rows) were fixed the same day to translate
+via `ROLE_CHOICES`/`t()`, on the reasoning that a screen whose whole purpose is naming who may edit
+something should show a name, not a code — the same reasoning applies to the sidebar that picks
+the role in the first place, and was left open rather than fixed opportunistically inside a
+permissions/access task. Fix shape: mirror `SheetRowAccessSection`'s `roleLabel()` lookup
+(`ROLE_CHOICES.find(...).labelKey` → `t()`) inside `RoleSidebar`, with a fallback to the raw code
+for an unmapped role.
+
+## F22 — LOW: SheetRowsTab's frontend gate names the wrong resource (added 2026-09-03)
+
+`ShipmentSettingsPage.tsx` computes `canWrite = canDo(user, 'shipment', 'edit')` and passes it to
+four tabs — `StatusesTab`, `BorderPointsTab`, `OptionListsTab` and `SheetRowsTab` — plus a
+separate `canEditRowAccess = canDo(user, 'sheet_row_setting', 'edit')` passed only to
+`RowAccessTab`. Of those four, only **`SheetRowsTab`** writes to `/admin/sheet-rows/`
+(`SheetRowSettingViewSet`), and since AD-17 Task 1 (migration `core/0038`) that endpoint no longer
+gates on `shipment.can_edit` at all — it gates on `sheet_row_setting`. So `SheetRowsTab`'s
+frontend `canWrite` now names a permission the backend stopped checking for its writes.
+
+**The other three tabs are a separate, pre-existing, unrelated matter — not folded into this
+finding.** `StatusesTab`, `BorderPointsTab` and `OptionListsTab` write to `/core/status-types/`,
+`/core/border-points/` and `/core/shipment-options/` respectively (`ShipmentStatusTypeViewSet`,
+`BorderPointViewSet`, `ShipmentOptionTypeViewSet`, `backend/apps/core/views.py`, registered in
+`backend/apps/core/urls/core.py`), none of which touch `/admin/sheet-rows/` and none of which use
+`DynamicResourcePermission` at all — all three
+declare `permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]`, a
+**static role allowlist** (`REFERENCE_DATA_WRITE = frozenset({'admin', 'director',
+'export_manager'})`, `apps/core/roles.py:77`), unconnected to the `shipment` resource in
+`RESOURCE_REGISTRY` in any sense. Their frontend `canWrite` happening to read `shipment.edit`
+already didn't match their backend gate before AD-17 and is untouched by this branch — a
+different, older inconsistency, out of scope here.
+
+**Currently inert, not exploitable, for the actual finding (`SheetRowsTab` only).** Three roles
+can open `admin.shipment_settings`: `export_manager` (explicit `RolePagePermission` grant in
+migration `core/0038`), `boss` (page visibility inherited from migration
+`core/0033_boss_process_visibility_perms.py`'s blanket widening, unrelated to this branch), and
+`admin` — whose real accounts are conventionally Django superusers (`bootstrap_admin.py` promotes
+every `is_superuser` user to `role='admin'`), and `is_superuser` is what actually bypasses the
+gate: `get_page_permissions()` is a plain `RolePagePermission.objects.filter(role=role)` lookup
+with no `role == 'admin'` special case, `canSeePage()` bypasses only on `user.is_superuser`, and no
+migration writes an explicit `RolePagePermission` row for `role='admin'`. `director` holds
+`sheet_row_setting.edit` (also from `core/0038`'s `ROLES` list) but not the page, so there is
+nothing to observe for him. All three page-visible roles hold `sheet_row_setting.edit` because
+migration `core/0038`'s own `grant()` function writes a full-CRUD `RoleResourcePermission` row
+directly for every name in its `ROLES` list — `admin`, `director`, `export_manager`, and (since the
+fix below) `boss` — independent of whether `seed_permissions` has ever run. `shipment.edit` is a
+separate, older resource: `boss`'s copy comes from `core/0033`'s `apply_boss_permissions()`, which
+looped over every resource in `RESOURCE_REGISTRY` **as it existed on 2026-08-05** — `shipment` was
+already registered then, `sheet_row_setting` was not (`core/0038` added it a month later) — so
+`boss` could never have inherited `sheet_row_setting` from `0033` regardless of how the wildcard is
+read; he needed his own line in `0038`'s own `ROLES`, which is exactly what was missing.
+
+**This was briefly false for `boss`, and is fixed, not still open.** `core/0038`'s original
+`ROLES` list omitted `boss`, so on a migrated (non-seeded) database he held the page (from
+`core/0033`) with zero `sheet_row_setting` grant — every save 403'd, a real regression this branch
+introduced (pre-Task-1 he wrote through `shipment`'s blanket CRUD like `admin`/`director`/
+`export_manager`). Corrected in a follow-up commit: `ROLES` now includes `boss`, the migration was
+re-applied, and all four roles were independently re-verified against the migrated database to
+hold the resource.
+
+**Why it was nearly missed, for whoever next claims "role X holds resource Y" in this codebase:**
+a seeded database and a migrated-only database can disagree about role permissions.
+`seed_permissions`'s own `RESOURCE_DEFAULTS['boss']` wildcard grants him every resource
+independently of what any single migration writes, and every test in this suite calls
+`seed_permissions` first — so the gap was invisible to the whole test run and only showed up
+against a migrate-only, production-shaped database. Check any future "who holds this resource"
+claim against a migrated database, not a seeded one or a test run.
+
+The gap this finding itself describes (`SheetRowsTab`'s frontend `canWrite` vs its backend's
+`sheet_row_setting` gate) is separate from the `boss` regression above and remains latent: a role
+granted `shipment.edit` without `sheet_row_setting.edit` (or the reverse) would see `SheetRowsTab`
+render as editable and then get 403'd on save, or vice versa.
+
+Fix shape: change `SheetRowsTab`'s `canWrite` prop to `canDo(user, 'sheet_row_setting', 'edit')`,
+matching what its own PATCH endpoint actually gates on — the same correction already applied when
+`RowAccessTab` was built.
+
+## F23 — LOW: the packing popover is offered to roles the backend will now refuse (added 2026-09-03)
+
+Whole-branch review of the Sheet-Settings-permission-authority plan (AD-17) found and closed a
+backend hole: `POST /contracts/shipment-packing/` gated on the `packing` Sheet row alone, but two
+of its three scopes (`'template'`, `'swap'`) rewrite `shipment.firm_splits` and quota via
+`_set_firm_weights` — firm-composition authority, not packing. `ShipmentPackingView.post()` now
+additionally requires the `firm_splits` Sheet row for those two scopes (`backend/apps/contracts/
+views.py`).
+
+The frontend was never part of that fix and remains as it was: `SheetCell.tsx:372-387` renders the
+packing popover unconditionally — no `canEdit` check gates whether the icon appears — and
+`ShipmentPackingPanel.tsx` has no `disabled` wiring tied to the `firm_splits` row either. A role
+holding `packing` but not `firm_splits` (`warehouse_chief`, `loading_dept_head`,
+`loading_dept_head_deputy` today) still sees the icon, opens the panel, picks a template or
+attempts a swap, and only learns it is refused when the save call comes back 403. Before the
+backend fix this same click silently succeeded and rewrote firm splits; after it, the click is
+safe but the UX is a wasted round trip and a confusing error for those three roles specifically.
+
+Not a security gap — the backend now refuses correctly regardless of what the frontend renders.
+Fix shape: gate the popover trigger (and/or pass `disabled`) on `canEdit('firm_splits')` for
+`scope='template'`/`'swap'` the same way other Sheet cells already condition their editors on the
+row's own `canEdit` map, leaving `scope='firm'` (packing-only) keyed to `canEdit('packing')` as
+today.
 
 ## F16 / F17 — the rest of the `/media/` bug's blast radius (added 2026-08-27)
 

@@ -7,13 +7,13 @@ from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import action
 from rest_framework.generics import ListAPIView
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import (
-    DynamicResourcePermission, SeasonNotClosed, write_permission,
+    DynamicResourcePermission, SeasonNotClosed, sheet_field_write_permission,
 )
 from apps.core.idempotency import idempotent
 from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
@@ -923,13 +923,27 @@ class ShipmentPackingView(APIView):
          firms' weight + packing.
 
     Lives in contracts (may read/write export). Reads open; writes gated to
-    document-preparing roles.
+    the `packing` Sheet row (AD-17) — box_count etc. reach the DB from here
+    too, so this must ask the same gate PATCH /shipments/{id}/ asks, or a
+    role ticked on Shipment Settings still 403s from this panel.
+
+    `packing` alone is not enough for scope='template'/'swap': both call
+    _set_firm_weights, which deletes and rebuilds shipment.firm_splits (and
+    syncs draft quota usage) — that's firm composition, not packing.
+    scope='firm' only touches one ContractSale row and stays packing-only.
+    post() additionally requires the `firm_splits` Sheet row for the first
+    two scopes, or a role ticked for `packing` alone (e.g. warehouse_chief,
+    loading_dept_head) can rewrite firm splits and quota through this panel
+    even though POST /shipments/{id}/firm-splits/ correctly refuses it —
+    same object, two answers, the exact defect AD-17 exists to remove.
     """
 
-    permission_classes = [
-        IsAuthenticated,
-        write_permission('admin', 'director', 'export_manager', 'document_team'),
-    ]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), sheet_field_write_permission('packing')()]
 
     def get(self, request):
         from apps.export.models import Shipment
@@ -1000,6 +1014,28 @@ class ShipmentPackingView(APIView):
         assert_season_open(shipment.season)
 
         scope = data.get('scope')
+
+        # 'template' and 'swap' both rewrite firm_splits (see class docstring);
+        # the `packing` trigger that already passed get_permissions is not
+        # enough for those two — 'firm' stays packing-only and skips this.
+        # Goes through the permission CLASS, not a raw can_edit_sheet_fields
+        # call: the class carries the is_superuser bypass (permissions.py,
+        # sheet_field_write_permission's own comment — "the bypass belongs
+        # in THIS class so it covers every branch, not just the configured
+        # one"). Calling can_edit_sheet_fields directly here would drop that
+        # bypass on a DB where `firm_splits` carries zero trigger config,
+        # reintroducing in mirror image the exact hole that comment exists
+        # to close. Also keeps this DRY with set_firm_splits
+        # (apps/export/views.py), the parity AD-17 exists to enforce.
+        if scope in ('template', 'swap'):
+            if not sheet_field_write_permission('firm_splits')().has_permission(request, self):
+                return Response(
+                    {'error': (
+                        "You don't have permission to edit field 'firm_splits' "
+                        "on this shipment"
+                    )},
+                    status=403,
+                )
 
         if scope == 'template':
             template = (

@@ -4,7 +4,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from apps.core.models import City, Country, Customer, ExportFirm, ImportFirm, Season, GreenhouseBlock, TomatoVariety
-from apps.core.permissions import can_edit_field, PRIVILEGED_ROLES
+from apps.core.permissions import can_edit_field, can_edit_sheet_fields, PRIVILEGED_ROLES
 from apps.export.services import TRANSITIONS, _edge_to
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_export_code  # noqa: F401  (kept for downstream importers)
@@ -1542,12 +1542,24 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         role = self.context.get('role')
         if role in PRIVILEGED_ROLES:
             return attrs
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+
         # column_color is a UI tint, not domain data — open to every Sheet
         # viewer regardless of their per-field grants on shipment.
-        forbidden = [
-            f for f in attrs
-            if f != 'column_color' and not can_edit_field(role, f)
-        ]
+        candidates = [f for f in attrs if f != 'column_color']
+
+        # AD-17: for Sheet-owned fields the row's trigger config is the
+        # permission, so the write gate and the Sheet's own edit map are the
+        # same function. Fields with no Sheet row still answer to
+        # RoleFieldPermission. One settings load covers the whole body.
+        if user is not None:
+            verdicts = can_edit_sheet_fields(user, candidates)
+        else:
+            verdicts = {f: can_edit_field(role, f) for f in candidates}
+
+        forbidden = [f for f in candidates if not verdicts.get(f, False)]
         if forbidden:
             raise serializers.ValidationError(
                 {f: f"Role '{role}' cannot edit this field." for f in forbidden}

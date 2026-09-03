@@ -97,6 +97,12 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     ('quality_document',      'Quality Document'),
     ('sales_report',          'Sales Report'),
     ('shipment_comment',      'Shipment Comment'),
+    # Admin-only resource-level CRUD for the Shipment Sheet's row config (labels,
+    # visibility, lock state, permission triggers). Was gated on 'shipment' —
+    # since Sheet row triggers are planned to become the edit permission
+    # itself (this multi-task plan; AD-17 entry pending — Task 11), that would have
+    # let any role holding shipment.can_edit grant itself any cell.
+    ('sheet_row_setting',     'Sheet Row Setting (Shipment Settings)'),
     ('quota_issuance',        'Quota Issuance'),
     ('quota_usage',           'Quota Usage'),
     ('local_sell_plan',       'Local Sell Plan'),
@@ -193,6 +199,8 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         # Sheet column tint — admin + export_manager via wildcard grants
         'column_color',
     ],
+    # Resource-level CRUD only — no per-field grants for Sheet row config.
+    'sheet_row_setting': [],
     'shipment_firm_split': [
         'export_firm', 'weight_kg', 'amount_usd', 'invoice_number', 'split_order',
     ],

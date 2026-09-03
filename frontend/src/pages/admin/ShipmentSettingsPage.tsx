@@ -7,6 +7,7 @@ import BorderPointsTab from './shipment-settings/BorderPointsTab';
 import OptionListsTab from './shipment-settings/OptionListsTab';
 import TruckSplitsTab from './shipment-settings/TruckSplitsTab';
 import SheetRowsTab from './shipment-settings/SheetRowsTab';
+import RowAccessTab from './shipment-settings/RowAccessTab';
 
 const { Title, Text } = Typography;
 
@@ -15,6 +16,7 @@ export default function ShipmentSettingsPage() {
   const { user } = useAuth();
   const canWrite = canDo(user, 'shipment', 'edit');
   const canEditTruckSplits = canDo(user, 'truck_split_default', 'edit');
+  const canEditRowAccess = canDo(user, 'sheet_row_setting', 'edit');
 
   const tabs = [
     {
@@ -42,6 +44,13 @@ export default function ShipmentSettingsPage() {
       label: t('shipment_settings.tab_sheet_rows'),
       children: <SheetRowsTab canWrite={canWrite} />,
     },
+    ...(canEditRowAccess
+      ? [{
+          key: 'row_access',
+          label: t('shipment_settings.tab_row_access'),
+          children: <RowAccessTab canWrite={canEditRowAccess} />,
+        }]
+      : []),
   ];
 
   return (
