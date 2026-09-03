@@ -8,7 +8,7 @@ from apps.export.models import Shipment
 from apps.transport.models import (
     DevicePosition, Driver, TraccarDevice, ShipmentDeviceLink, Trailer, TruckHead,
 )
-from apps.transport.permissions import CanEditShipment, CanViewFleetMap
+from apps.transport.permissions import CanEditFleet, CanEditShipment, CanViewFleetMap
 from apps.transport.serializers import (
     DriverSerializer, LivePositionSerializer, TrailerSerializer, TransportDeviceSerializer,
     TruckHeadSerializer,
@@ -98,7 +98,7 @@ class TruckHeadViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update'):
-            return [IsAuthenticated(), CanEditShipment()]
+            return [IsAuthenticated(), CanEditFleet()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
@@ -125,7 +125,7 @@ class DriverViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update'):
-            return [IsAuthenticated(), CanEditShipment()]
+            return [IsAuthenticated(), CanEditFleet()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
@@ -147,7 +147,7 @@ class TrailerViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
 
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update'):
-            return [IsAuthenticated(), CanEditShipment()]
+            return [IsAuthenticated(), CanEditFleet()]
         return [IsAuthenticated()]
 
     def get_queryset(self):

@@ -1497,7 +1497,8 @@
       "feedback": "Feedback",
       "analytics": "Analytics",
       "me": "Personal",
-      "director": "Director"
+      "director": "Director",
+      "transport": "Transport"
     }
   },
   "months": {
@@ -2263,6 +2264,9 @@
     "col_status": "Status"
   },
   "fleet_map": {
+    "last_sync": "Last sync",
+    "never": "no data yet",
+    "last_fix": "Last fix",
     "search_placeholder": "Search plate / fleet / place",
     "load_error": "Could not load truck positions",
     "shipment_card_title": "Truck location",

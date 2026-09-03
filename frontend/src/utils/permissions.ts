@@ -79,6 +79,8 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/sales-rep-coverage':  'export.sales_rep_coverage',
   '/admin/expense-template':    'export.expense_template',
   '/admin/packing-templates':   'export.packing_presets',
+  '/transport/map':             'transport.map',
+  '/admin/fleet':               'transport.fleet',
 };
 
 /** Mirrors REFERENCE_DATA_WRITE in backend/apps/core/roles.py. */

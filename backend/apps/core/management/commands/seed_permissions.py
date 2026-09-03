@@ -174,6 +174,28 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
 PAGE_DEFAULTS['loading_dept_head_deputy'] = set(PAGE_DEFAULTS['loading_dept_head'])
 
 
+# ── Fleet pages (registered 2026-09-03) ─────────────────────────────────
+# Both defaults reproduce the hardcoded gates they replace exactly, so seeding
+# a fresh database changes nobody's access. What changes is WHO decides: these
+# are matrix rows now, so an admin flips them without a deploy.
+
+# Fleet Map — every role except `seller` (owner request 2026-08-23: the seller
+# works one screen, the sell plan, and has no trucks to watch). This replaces
+# FLEET_MAP_DENIED_ROLES in apps/transport/permissions.py, so the exclusion is
+# written once, here, instead of in a deny-list plus a 14-role nav array.
+# admin / director / export_manager / boss already hold it via _ALL_PAGES.
+for _role in PAGE_DEFAULTS:
+    if _role != 'seller':
+        PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | {'transport.map'}
+
+# Fleet Management (truck-head / trailer / driver CRUD) — mirrors the old
+# SHIPMENT_EDITOR_ROLES set in apps/transport/permissions.py: management
+# (admin / director / export_manager / boss, via _ALL_PAGES) plus the warehouse
+# and loading heads listed here.
+for _role in ('warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'):
+    PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | {'transport.fleet'}
+
+
 # ── Resource permission defaults ─────────────────────────────────────────
 # Derived from roles.py constants.
 # Format: {role: {resource_code: (can_view, can_create, can_edit, can_delete)}}
@@ -191,6 +213,9 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'admin': {
         **{r: _VCRUD for r in _ALL_RESOURCES},
         'closed_season': _VIEW,
+        # fleet: no delete — the three fleet ViewSets have no `destroy` action
+        # at all (rows are deactivated), so a ticked delete box would be a lie.
+        'fleet': _VCE,
         # sheet_row_setting: no override needed — full CRUD via the blanket
         # _VCRUD wildcard above, same as every other resource admin manages.
     },
@@ -201,6 +226,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'sale': _VCE,
         # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
         'closed_season': _VIEW,
+        # fleet: no delete — no `destroy` action exists on the fleet ViewSets.
+        'fleet': _VCE,
         # sheet_row_setting: no override needed — full CRUD via the blanket
         # _VCRUD wildcard above (matches prior behaviour under the 'shipment'
         # resource this endpoint used to gate on, including soft-delete).
@@ -216,6 +243,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'sale': _VCE,
         # closed_season: read-only by design (D1) — overrides the blanket _VCRUD.
         'closed_season': _VIEW,
+        # fleet: no delete — no `destroy` action exists on the fleet ViewSets.
+        'fleet': _VCE,
         # sheet_row_setting: no override needed — full CRUD via the blanket
         # _VCRUD wildcard above. Gadam owns the Sheet (2026-09-02), so
         # export_manager administers row access, including soft-delete,
@@ -237,6 +266,10 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'domestic_sale': _VCE,
         'pallet': _VE,
         'manifest_close': _VE,
+        # fleet: the loading department registers new trucks / trailers / drivers
+        # as they arrive. Mirrors the old hardcoded SHIPMENT_EDITOR_ROLES set the
+        # fleet ViewSets used before the `fleet` resource existed (2026-09-03).
+        'fleet': _VCE,
     },
     'warehouse_chief': {
         # _VCE: warehouse_chief can now create draft shipments (Finding #2)
@@ -246,6 +279,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'domestic_sale': _VCE,
         'pallet': _VE,                   # view + edit; can override but not create
         'manifest_close': _VE,           # view + trigger close
+        # fleet: same as loading_dept_head — registers trucks / trailers / drivers.
+        'fleet': _VCE,
     },
     'document_team': {
         'shipment': _VE,
@@ -315,6 +350,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # director and export_manager too, and deleting a ContractSale re-rolls
         # the parent Contract's totals.
         'sale': _VCE,
+        # fleet: no delete — no `destroy` action exists on the fleet ViewSets.
+        'fleet': _VCE,
     },
 }
 

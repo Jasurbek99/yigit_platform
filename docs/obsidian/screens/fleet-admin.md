@@ -15,25 +15,51 @@ ongoing edit surface.
 
 ## Access
 
-**No `admin.fleet` page_code is registered.** The route is instead role-gated via
-`<ProtectedRoute roles={[...]}>` in `App.tsx` to the fleet-editor set — `admin`, `director`,
-`export_manager`, **`boss`**, `warehouse_chief`, `loading_dept_head`,
-`loading_dept_head_deputy` — a literal mirror of the backend `SHIPMENT_EDITOR_ROLES`
-(`apps/transport/permissions.py` `CanEditShipment`), the same set that gates the write
-endpoints. The `AppLayout` nav item (`nav.admin_fleet`) is role-filtered with the same list, so
-users outside it never see the link. Write endpoints are independently enforced server-side.
+Two matrix entries, the standard page/resource split — both on `/admin/permissions`:
+
+| What | Entry | Gates |
+|---|---|---|
+| Sees the screen | **page** `transport.fleet` (Pages tab, *Transport* group) | nav item (`canSeePage`) + route (`<ProtectedRoute pageCode="transport.fleet">`) |
+| May write | **resource** `fleet` (Resources tab) | `CanEditFleet` = `resource_write_permission('fleet')` on `TruckHeadViewSet` / `TrailerViewSet` / `DriverViewSet` — `can_create` for POST, `can_edit` for PATCH |
+
+Page code is `transport.fleet`, not `admin.fleet` — AD-15 reserves the `admin.` prefix for
+admin-only pages, and `director` / `export_manager` have every `admin.*` code subtracted from
+their defaults, while warehouse and loading heads hold this one. The resource carries **no
+delete**: none of the three ViewSets expose `destroy` (rows are deactivated), so `can_delete`
+is seeded `False` for every role. Reads are ungated on purpose — the truck / trailer / driver
+pickers on the Sheet and the shipment drawer list the same catalog.
+
+Registering the code also puts it inside `/admin/staff-access`'s reach: `ManagedPagePermissionsView._grantable_pages`
+delegates every non-`admin.` code a manager's own role can see, so a department head who holds
+`transport.fleet` can now grant it to a role they manage — i.e. hand out fleet **write** access. That
+is self-bounded (a manager can never delegate a page they do not hold) and is the same rule that
+already applies to every other non-`admin.` page, including `export.harvest_board`, which likewise
+gates writes. Called out because before 2026-09-03 no delegation of this page was possible at all.
+
+Seeded defaults for both entries reproduce the old hardcoded `SHIPMENT_EDITOR_ROLES` set
+exactly — `admin`, `director`, `export_manager`, **`boss`**, `warehouse_chief`,
+`loading_dept_head`, `loading_dept_head_deputy` — so nobody's access changed on the 2026-09-03
+deploy. Core migration `0039_fleet_page_perms` writes the page rows (plus an
+`is_visible=False` row for every other role, so each has a checkbox) and `0040_fleet_resource`
+writes the resource rows (view+create+edit for those seven; other roles get no row, which
+reads as no writes). `boss` needs an explicit resource row for the same reason
+`sheet_row_setting` did — the `_ALL_RESOURCES` wildcard only fires under `seed_permissions`,
+which production never runs.
 
 > **`boss` was added to all three gates on 2026-08-20.** `/admin/fleet` had been in
 > `BOSS_MENU_GROUPS` since the composition split, but the item's inline `roles` list omitted
 > `boss`, so the link never rendered for a real boss account — and `CanEditShipment` would have
 > 403'd every write even if it had. Same shape as the weekly-plan and `/join` widenings: `boss`
 > holds `['*']` in the permission matrix, but these hardcoded sets never consult it.
-> `SHIPMENT_EDITOR_ROLES` gates **only** `apps/transport/views.py` — the GPS device-link
-> override plus TruckHead/Trailer/Driver CRUD — so the widening reaches nothing else.
+> `SHIPMENT_EDITOR_ROLES` gated **only** `apps/transport/views.py` — the GPS device-link
+> override plus TruckHead/Trailer/Driver CRUD — so the widening reached nothing else. Since
+> 2026-09-03 it gates only the device-link override; the fleet CRUD moved to `CanEditFleet`
+> and the matrix, where `boss` holds `transport.fleet` through the every-page grant.
 >
 > `AppLayout.menuGroups.test.tsx` could not have caught this: its `fakeUser` fixture sets
-> `is_superuser: true`, which takes the bypass branch in the role filter. A dedicated test now
-> renders a **non-superuser** boss and asserts `/admin/fleet` is present.
+> `is_superuser: true`, which takes the bypass branch in the filter. Dedicated tests now render
+> a **non-superuser** boss and assert `/admin/fleet` is present when `transport.fleet` is
+> granted and absent when it is revoked.
 
 ## Layout
 
@@ -96,5 +122,6 @@ plate unchanged does **not** re-match. Trailers have no GPS link. See
 | `frontend/src/hooks/useFleetAdmin.ts` | `useAdminTruckHeads`/`useAdminTrailers`/`useAdminDrivers` (incl. inactive), the three `useAdminCreate*`, the three `useUpdate*`, and the `IDriver` type |
 | `frontend/src/hooks/useFleet.ts` | Shared `ITruckHead`/`ITrailer` types (extended locally for admin-only fields) |
 | `backend/apps/transport/views.py` | `TruckHeadViewSet` / `TrailerViewSet` / `DriverViewSet` (list/create/update) |
-| `backend/apps/transport/permissions.py` | `CanEditShipment` — write gate |
-| `frontend/src/App.tsx`, `AppLayout.tsx` | Role-gated route + nav item (`nav.admin_fleet`) |
+| `backend/apps/transport/permissions.py` | `CanEditFleet` — write gate, `resource_write_permission('fleet')` |
+| `frontend/src/App.tsx`, `AppLayout.tsx` | Route + nav item (`nav.admin_fleet`), both gated on `transport.fleet` |
+| `backend/apps/core/permission_registry.py`, `seed_permissions.py`, `core/migrations/0039_fleet_page_perms.py`, `0040_fleet_resource.py` | Page code + resource code, seeded defaults, live-DB backfill |

@@ -97,7 +97,9 @@ def widen_boss_permissions(apps, schema_editor):
     #
     # Post-deploy verification (unchanged):
     #   RolePagePermission.objects.filter(role='boss', is_visible=True).count()
-    # must equal len(PAGE_REGISTRY) - len(EXCLUDED_PAGES), i.e. 41 today. If it
+    # must equal len(PAGE_REGISTRY) - len(EXCLUDED_PAGES) — 41 when this
+    # migration was written; the registry has grown since (the two fleet codes
+    # of core/0039 among others), so compute it, do not compare to 41. If it
     # comes back 3, this ran as a no-op: delete the
     # ('core', '0033_boss_process_visibility_perms') row from django_migrations
     # and re-run `migrate core` against the real database.

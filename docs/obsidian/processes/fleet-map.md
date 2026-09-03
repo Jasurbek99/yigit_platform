@@ -281,14 +281,16 @@ comes back.
 ## REST Surface
 
 `GET /api/v1/transport/live-positions/` — `IsAuthenticated` + `CanViewFleetMap`, no
-pagination (bare list — bounded to one row per device). `CanViewFleetMap`
-(`backend/apps/transport/permissions.py`) is a **deny-list**: every authenticated user
-passes except the roles in `FLEET_MAP_DENIED_ROLES`, currently `{'seller'}`, and
-superusers bypass it. Deny-list rather than allow-list on purpose — a role added to
-`ROLE_CHOICES` later must not lose the map by omission, and an allow-list would be a
-second copy of the 14-role array in `AppLayout.tsx` that drifts against it. This is the
-**only** transport endpoint with a role gate; the rest of the module is finding F5's
-territory and is unchanged. Reads `DevicePosition.objects.filter(valid=True)`
+pagination (bare list — bounded to one row per device). Since **2026-09-03**
+`CanViewFleetMap` (`backend/apps/transport/permissions.py`) reads the **`transport.map`
+page permission** out of the matrix (`get_page_permissions(role)`); superusers bypass.
+It was a hardcoded deny-list (`FLEET_MAP_DENIED_ROLES = {'seller'}`) until then; the
+seller exclusion survives as a seeded `is_visible=False` row, so the role knowledge
+lives in one place — the row the nav item and the route guard already read — instead of
+a deny-list plus a 14-role array in `AppLayout.tsx`. Fail-closed: a role with no row for
+`transport.map` gets 403, which is why core migration `0039_fleet_page_perms` backfills
+every role. This is still the **only** transport read with a gate; the rest of the
+module is finding F5's territory and is unchanged. Reads `DevicePosition.objects.filter(valid=True)`
 with `select_related('device', 'device__truck')`; never calls Traccar.
 
 Response item shape (`LivePositionSerializer`, DB columns → API field names per
@@ -314,27 +316,28 @@ Response item shape (`LivePositionSerializer`, DB columns → API field names pe
 ## Fleet Map Page
 
 Route `/transport/map`, nav entry "Fleet Map" (`nav.fleet_map`, Turkmen/Russian/English —
-`fleet_map.*` keys in all three locale files). **No `transport.map` page_code registered
-yet** — the nav item carries an inline `roles` list that bypasses `canSeePage`, and the
-ROUTE is `ProtectedRoute` with no `pageCode` (see `frontend/src/App.tsx`, `AppLayout.tsx`).
+`fleet_map.*` keys in all three locale files). Page code **`transport.map`**, registered
+2026-09-03 — the nav item, the route (`<ProtectedRoute pageCode="transport.map">`) and
+the endpoint all read that one row, and it is a checkbox on `/admin/permissions`.
 
 > **`seller` cannot use this page** (owner request, 2026-08-23). Unlike `worklog` and
 > `team/kpi`, this is not an every-authenticated-user grant: the seller works one
 > screen — the [[local-sell-plan]] grid — and has no shipments, no fleet and no reason
-> to watch trucks move. Enforced in **two places, only one of which is a boundary**:
+> to watch trucks move. Since 2026-09-03 the exclusion is a **seeded matrix row**
+> (`seed_permissions` grants `transport.map` to every role but the seller; core
+> migration `0039_fleet_page_perms` writes the seller's row as `is_visible=False` so the
+> checkbox is present), which means an admin can reverse it without a deploy:
 >
 > | Layer | Where | What it does |
 > |---|---|---|
-> | Nav item | `AppLayout.tsx` inline `roles` list for `/transport/map` (de01b15) | The link is not rendered. Presentation only. Pinned by the *fleet map visibility* tests in `AppLayout.menuGroups.test.tsx`. |
-> | Endpoint | `CanViewFleetMap` on `LivePositionViewSet` (2026-08-23) | `GET /transport/live-positions/` returns **403**. This is the real boundary. Pinned by `apps/transport/tests/test_fleet_map_access.py`. |
+> | Nav item | `canSeePage('/transport/map')` → `transport.map` | The link is not rendered. Presentation only. Pinned by the *fleet map visibility* tests in `AppLayout.menuGroups.test.tsx`. |
+> | Route | `<ProtectedRoute pageCode="transport.map">` in `App.tsx` | Sends a typed URL to `/unauthorized` instead of rendering the page shell. |
+> | Endpoint | `CanViewFleetMap` on `LivePositionViewSet` | `GET /transport/live-positions/` returns **403**. This is the real boundary. Pinned by `apps/transport/tests/test_fleet_map_access.py`, including the revoke case. |
 >
-> The route itself is deliberately left ungated: a typed URL still renders the page
-> shell, but with the endpoint 403ing, a seller sees the `fleet_map.load_error` alert
-> instead of live truck positions. A client bundle is not a security boundary, so
-> route-gating would add a 14-role allow-list in `App.tsx` (a third copy of the role
-> knowledge) to buy a nicer error screen for a page the seller has no link to. Not done.
-> Registering a `transport.map` page_code would collapse all three copies into the
-> permission matrix — see Out of Scope for why that is still deferred.
+> All three read the same row, so there is no copy of the role knowledge left to drift.
+> Before this the nav item carried an inline 14-role array, the endpoint carried a
+> deny-list, and the route was ungated — a seller who typed the URL got the page shell
+> plus a `fleet_map.load_error` alert.
 
 `react-leaflet@4.2.1` + OpenStreetMap tiles (`VITE_MAP_TILE_URL` env override, default
 `{s}.tile.openstreetmap.org`), default view centred on Ashgabat
@@ -669,7 +672,7 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 | Traccar client | [`backend/apps/transport/services/traccar_client.py`](../../../backend/apps/transport/services/traccar_client.py) |
 | Sync service | [`backend/apps/transport/services/sync.py`](../../../backend/apps/transport/services/sync.py) |
 | Shipment↔device resolver | [`backend/apps/transport/services/matching.py`](../../../backend/apps/transport/services/matching.py) — `resolve_device_for_shipment` |
-| Permissions | [`backend/apps/transport/permissions.py`](../../../backend/apps/transport/permissions.py) — `CanEditShipment` |
+| Permissions | [`backend/apps/transport/permissions.py`](../../../backend/apps/transport/permissions.py) — `CanViewFleetMap` (`transport.map`), `CanEditFleet` (`fleet` resource), `CanEditShipment` (device-link override only) |
 | Seed command | [`backend/apps/transport/management/commands/seed_traccar_devices.py`](../../../backend/apps/transport/management/commands/seed_traccar_devices.py) |
 | Poll command (manual one-shot) | [`backend/apps/transport/management/commands/poll_traccar_positions.py`](../../../backend/apps/transport/management/commands/poll_traccar_positions.py) |
 | Celery task (beat-scheduled, live) | [`backend/apps/transport/tasks.py`](../../../backend/apps/transport/tasks.py) |
@@ -682,7 +685,8 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 | Query hooks (shipment link) | [`frontend/src/hooks/useShipmentTruckPosition.ts`](../../../frontend/src/hooks/useShipmentTruckPosition.ts) — `useShipmentTruckPosition` (30s refetch), `useSetShipmentDevice`; [`frontend/src/hooks/useTransportDevices.ts`](../../../frontend/src/hooks/useTransportDevices.ts) |
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
 | ShipmentDetail card | [`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`](../../../frontend/src/components/shipment/ShipmentTruckLocationCard.tsx) |
-| Route + nav | `frontend/src/App.tsx` (`transport/map`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |
+| Route + nav | `frontend/src/App.tsx` (`transport/map`, `pageCode="transport.map"`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |
+| Page permission rows | [`backend/apps/core/permission_registry.py`](../../../backend/apps/core/permission_registry.py) (`transport.map`, `transport.fleet`), [`seed_permissions.py`](../../../backend/apps/core/management/commands/seed_permissions.py) defaults, [`core/migrations/0039_fleet_page_perms.py`](../../../backend/apps/core/migrations/0039_fleet_page_perms.py) + [`0040_fleet_resource.py`](../../../backend/apps/core/migrations/0040_fleet_resource.py) backfill |
 | TIR fleet models | [`backend/apps/transport/models/fleet.py`](../../../backend/apps/transport/models/fleet.py) — `TruckHead`, `Trailer` |
 | Z_TIRWEB import | [`backend/apps/transport/management/commands/import_tir_fleet.py`](../../../backend/apps/transport/management/commands/import_tir_fleet.py), [`services/tir_import.py`](../../../backend/apps/transport/services/tir_import.py) (`import_fleet`), [`services/tir_client.py`](../../../backend/apps/transport/services/tir_client.py) (`TirClient`, read-only pyodbc) |
 | Fleet serializers/views | `TruckHeadSerializer`/`TrailerSerializer` in [`serializers.py`](../../../backend/apps/transport/serializers.py), `TruckHeadViewSet`/`TrailerViewSet` in [`views.py`](../../../backend/apps/transport/views.py) |
@@ -693,15 +697,15 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 
 ## Out of Scope (this slice)
 
-- **No `transport.map` page_code.** Still not registered, now with a recorded reason:
-  a brand-new page_code lands in the live permission matrix with **zero** rows, and
-  `canSeePage` / the seed both treat an absent row as *deny* — so shipping the frontend
-  ahead of a data migration would hide the Fleet Map from all 14 other roles and 403 the
-  endpoint for everyone but superusers. `seed_permissions` only `get_or_create`s and can
-  never flip an existing row (finding F13), so the grant would have to ship as a data
-  migration in the same release as the bundle. That is a disproportionate amount of
-  machinery for excluding one role, which `CanViewFleetMap`'s deny-list already does.
-  Revisit if a second role needs excluding or if the matrix UI has to own this page.
+- ~~**No `transport.map` page_code.**~~ **Registered 2026-09-03.** The reason recorded
+  here for deferring it was real, and is exactly what the change had to handle: a
+  brand-new page_code lands in the live matrix with **zero** rows, and both `canSeePage`
+  and the backend gates read an absent row as *deny*, so registering it alone would have
+  hidden the Fleet Map from every role. `seed_permissions` only `get_or_create`s and is
+  not run on deploy (finding F13), so the grant ships as core migration
+  `0039_fleet_page_perms` in the same release as the bundle. What tipped the balance was
+  not a second excluded role but the owner asking why neither fleet page appeared on the
+  permission screen — the matrix UI owns both pages now.
 - **No position history** — `DevicePosition` is upsert-latest-only, one row per device.
   A trail/history table would be a separate model + endpoint.
 - **No geofence-driven timestamps** — AD-1's shipment lifecycle timestamps are still
@@ -710,9 +714,6 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 - **No reefer temperature/humidity** — Traccar can carry these as device attributes, not
   wired in this slice.
 - **No trips/routes** — no start/end/route replay, just a live snapshot.
-- **`transport.map` page_code** — not registered; the page is open-to-all-authenticated
-  as a deliberate interim choice, matching `worklog`/`team/kpi`. Restricting it to
-  specific roles is a future backend follow-up (add the page_code + permission entries).
 
 ## Verification
 

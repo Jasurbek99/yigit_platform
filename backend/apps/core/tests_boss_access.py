@@ -27,7 +27,10 @@ from apps.core.permission_registry import PAGE_REGISTRY, RESOURCE_REGISTRY
 _MIGRATION = import_module('apps.core.migrations.0033_boss_process_visibility_perms')
 
 # Resources the boss is deliberately NOT given blanket CRUD on.
-_NARROWED = {'closed_season', 'truck_split_default', 'sale'}
+# `fleet` is narrowed for a different reason than the other three: not policy
+# but shape — the truck-head / trailer / driver ViewSets have no `destroy`
+# action, so can_delete is False for every role, boss included.
+_NARROWED = {'closed_season', 'truck_split_default', 'sale', 'fleet'}
 
 
 class BossPermissionDefaultsTests(TestCase):
@@ -70,6 +73,15 @@ class BossPermissionDefaultsTests(TestCase):
                 self.assertTrue(row.can_create)
                 self.assertTrue(row.can_edit)
                 self.assertTrue(row.can_delete)
+
+    def test_fleet_is_view_create_edit_but_never_delete_for_boss(self):
+        """Not a policy carve-out: no fleet ViewSet exposes `destroy`, so a
+        ticked delete box would grant nothing. Same for every other role."""
+        row = RoleResourcePermission.objects.get(role='boss', resource_code='fleet')
+        self.assertTrue(row.can_view)
+        self.assertTrue(row.can_create)
+        self.assertTrue(row.can_edit)
+        self.assertFalse(row.can_delete)
 
     def test_closed_season_stays_read_only_for_boss(self):
         """D1: a closed season is read-only for everyone, admin included."""

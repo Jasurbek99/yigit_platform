@@ -164,14 +164,30 @@ describe('AppLayout menu composition', () => {
     await i18n.changeLanguage('en');
   });
 
-  it('a NON-superuser boss reaches /admin/fleet — the inline role gate must list boss', () => {
+  it('a NON-superuser boss reaches /admin/fleet when the matrix grants it', () => {
     // Every other test here uses the fixture's `is_superuser: true`, which takes
-    // the bypass branch in AppLayout's role filter and therefore cannot see this
-    // gate at all. /admin/fleet is one of the few items gated by an inline
-    // `roles` list instead of page_permissions, and boss was missing from it
-    // until 2026-08-20 — the link simply never rendered for a real boss account.
-    renderLayout(fakeUser({ role: 'boss' as UserRole, is_superuser: false }));
+    // the bypass branch in AppLayout's filter and therefore proves nothing about
+    // the gate. /admin/fleet was gated by an inline `roles` list that omitted
+    // boss until 2026-08-20 — the link simply never rendered for a real boss
+    // account. It reads the `transport.fleet` page permission since 2026-09-03,
+    // which seed_permissions grants the boss.
+    renderLayout(fakeUser({
+      role: 'boss' as UserRole,
+      is_superuser: false,
+      page_permissions: { 'transport.fleet': true },
+    }));
     expect(renderedMenuItemKeys()).toContain('/admin/fleet');
+  });
+
+  it('a NON-superuser boss loses /admin/fleet when the matrix revokes it', () => {
+    // The half that the inline role array could never express: an admin turning
+    // the page off in the permission screen actually hides the link.
+    renderLayout(fakeUser({
+      role: 'boss' as UserRole,
+      is_superuser: false,
+      page_permissions: { 'transport.fleet': false },
+    }));
+    expect(renderedMenuItemKeys()).not.toContain('/admin/fleet');
   });
 
   it('renders a non-empty boss menu with no duplicate route keys', () => {
@@ -270,10 +286,10 @@ describe('AppLayout menu composition', () => {
   });
 });
 
-// The Fleet Map item is one of the handful gated by an inline `roles` list
-// rather than page_permissions, so `canSeePage` never sees it and the ordered
-// key assertions above — all of which run with the fixture's
-// `is_superuser: true` — take the bypass branch and prove nothing about it.
+// The Fleet Map item reads the `transport.map` page permission (registered
+// 2026-09-03; an inline `roles` list before that). The ordered key assertions
+// above all run with the fixture's `is_superuser: true` and take the bypass
+// branch, so they prove nothing about the gate — these do.
 describe('AppLayout fleet map visibility', () => {
   beforeAll(async () => {
     await i18n.changeLanguage('en');
@@ -282,9 +298,10 @@ describe('AppLayout fleet map visibility', () => {
   it('a real seller does not get the Fleet Map link', () => {
     // Owner request 2026-08-23: the seller works one screen, the sell plan, and
     // has no shipments and no fleet. Removed from the item's `roles` array in
-    // de01b15; this is the regression pin that change never had. The endpoint
-    // behind the page is gated separately (CanViewFleetMap, backend) — the menu
-    // is presentation, not a boundary.
+    // de01b15 and seeded as an `is_visible=false` matrix row since 2026-09-03;
+    // this is the regression pin that change never had. The endpoint behind the
+    // page reads the same row (CanViewFleetMap, backend) — the menu is
+    // presentation, the 403 is the boundary.
     renderLayout(fakeUser({
       role: 'seller' as UserRole,
       is_superuser: false,
@@ -293,13 +310,31 @@ describe('AppLayout fleet map visibility', () => {
     expect(renderedMenuItemKeys()).not.toContain('/transport/map');
   });
 
-  it('a real transport user still gets it', () => {
-    // The other half of the pin: the seller removal must not have narrowed the
-    // item to superusers by accident.
+  it('a granted role gets the Fleet Management link — the staff menu, not just the boss one', () => {
+    // Reported 2026-09-03: `transport.fleet` was ticked for `transport` in the
+    // permission screen and the link did not appear. The grant reaches the API
+    // (verified against a real /auth/me for that role), so this pins the render
+    // half of the chain: a non-superuser staff role holding the page must get
+    // the item out of `nav.group_system` in the STAFF composition. What the
+    // reporter hit was the client cache — `useAuth` keeps /auth/me for 5
+    // minutes, so an open tab keeps the pre-grant permission set until it
+    // refetches.
     renderLayout(fakeUser({
       role: 'transport' as UserRole,
       is_superuser: false,
-      page_permissions: {},
+      page_permissions: { 'transport.fleet': true },
+    }));
+    expect(renderedMenuItemKeys()).toContain('/admin/fleet');
+  });
+
+  it('a real transport user still gets it', () => {
+    // The other half of the pin: the seller removal must not have narrowed the
+    // item to superusers by accident. seed_permissions grants `transport.map`
+    // to every role but the seller.
+    renderLayout(fakeUser({
+      role: 'transport' as UserRole,
+      is_superuser: false,
+      page_permissions: { 'transport.map': true },
     }));
     expect(renderedMenuItemKeys()).toContain('/transport/map');
   });

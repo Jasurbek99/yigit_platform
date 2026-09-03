@@ -1,6 +1,8 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -13,6 +15,12 @@ User = get_user_model()
 @override_settings(TRACCAR_STALE_MINUTES=15)
 class LivePositionsApiTests(TestCase):
     def setUp(self):
+        # The live-positions read is gated on the `transport.map` page row
+        # (CanViewFleetMap, 2026-09-03) and the matrix is fail-closed, so the
+        # seeded defaults must exist. `op` has the default export_manager role,
+        # which holds the page.
+        call_command('seed_permissions')
+        cache.clear()
         self.client = APIClient()
         self.user = User.objects.create_user(username='op', password='x')
         self.client.force_authenticate(self.user)
@@ -46,6 +54,13 @@ class LivePositionsApiTests(TestCase):
         self.assertEqual(row['lon'], 58.49)
         self.assertTrue(row['is_online'])
         self.assertFalse(row['is_stale'])
+
+    def test_exposes_updated_at_for_the_last_sync_stamp(self):
+        # The Fleet Map header shows max(updated_at) as "data as of"; without
+        # this field a dead poller looks identical to a live one.
+        self._make_position(minutes_old=1)
+        row = self.client.get('/api/v1/transport/live-positions/').json()[0]
+        self.assertIsNotNone(row['updated_at'])
 
     def test_stale_flag_by_fix_time_age(self):
         self._make_position(minutes_old=30)

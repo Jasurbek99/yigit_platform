@@ -301,17 +301,18 @@ export default function App() {
                       <PackingTemplatePage />
                     </ProtectedRoute>
                   } />
-                  {/* Fleet map (Traccar live positions) — no page_code registered yet,
-                      open to every authenticated user (same bypass as worklog / team/kpi). */}
+                  {/* Fleet map (Traccar live positions). page_code registered
+                      2026-09-03 — the same row gates GET /transport/live-positions/
+                      via CanViewFleetMap, so hiding the page in the matrix also
+                      closes the endpoint behind it. */}
                   <Route path="transport/map" element={
-                    <ProtectedRoute><FleetMap /></ProtectedRoute>
+                    <ProtectedRoute pageCode="transport.map"><FleetMap /></ProtectedRoute>
                   } />
-                  {/* Fleet admin (truck-head / trailer CRUD) — no page_code registered
-                      yet, so gated by the fleet-editor role set (mirrors the
-                      backend CanEditShipment roles — see ShipmentDetail.tsx's
-                      TRANSPORT_EDIT_ROLES) instead of pageCode. */}
+                  {/* Fleet admin (truck-head / trailer / driver CRUD). page_code
+                      registered 2026-09-03, replacing the hardcoded fleet-editor
+                      role array; the backend's CanEditFleet reads the same row. */}
                   <Route path="admin/fleet" element={
-                    <ProtectedRoute roles={['admin', 'director', 'export_manager', 'boss', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy']}>
+                    <ProtectedRoute pageCode="transport.fleet">
                       <FleetAdminPage />
                     </ProtectedRoute>
                   } />

@@ -62,6 +62,14 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('contracts.list',          'Contracts'),
     ('contracts.sales',         'Contract Sales'),
     ('contracts.documents',     'Documents (truck packets)'),
+    # Transport / fleet. Non-admin prefix on purpose (AD-15): the fleet pages
+    # are operational, and the Fleet Management screen is held by warehouse and
+    # loading roles that must never inherit admin.* pages.
+    # Registered 2026-09-03 — before that both pages were gated by hardcoded
+    # role arrays (AppLayout.tsx + transport/permissions.py) that the permission
+    # matrix could not reach, so an admin could not grant or revoke either one.
+    ('transport.map',           'Fleet Map (live GPS)'),
+    ('transport.fleet',         'Fleet Management (trucks, trailers, drivers)'),
     # Admin
     # Sales rep worklist + coverage admin
     ('export.sales_reports',    'Sales Reports'),
@@ -135,6 +143,16 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # packing panel lists templates for any role that picks one on a truck; only
     # writes are gated (PackingTemplateViewSet uses resource_write_permission).
     ('packing_template',      'Packing Template catalog (gross-net)'),
+    # Fleet catalog (truck heads, trailers, drivers) behind the Fleet Management
+    # screen. All-or-nothing, so absent from RESOURCE_FIELDS. Same read/write
+    # split as packing_template: reads stay open to every authenticated user
+    # (the truck / trailer / driver pickers on the Sheet and the shipment drawer
+    # list this catalog), only writes are gated — TruckHead/Trailer/Driver
+    # ViewSets use resource_write_permission. **No delete**: none of the three
+    # ViewSets expose `destroy` (Shipment.driver_id is a loose integer with no
+    # FK, so rows are deactivated, never removed), which is why the seeded
+    # defaults are view+create+edit for every role that holds it.
+    ('fleet',                 'Fleet catalog (truck heads, trailers, drivers)'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────

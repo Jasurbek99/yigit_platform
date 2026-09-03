@@ -301,14 +301,10 @@ export default function AppLayout() {
     '/admin/customers': { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
     '/admin/blocks': { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
     '/admin/truck-destinations': { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
-    '/admin/fleet': {
-      key: '/admin/fleet',
-      icon: <IconTruck size={15} />,
-      label: t('nav.admin_fleet'),
-      // No page_code registered yet — role-gated the same way the route
-      // itself is (see App.tsx's admin/fleet ProtectedRoute).
-      roles: ['admin', 'director', 'export_manager', 'boss', 'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'] as import('@/types').UserRole[],
-    },
+    // page_code `transport.fleet` (registered 2026-09-03) — canSeePage, not an
+    // inline roles array. The route guard and the backend's CanEditFleet read
+    // the same row, so an admin grants or revokes the page in one place.
+    '/admin/fleet': { key: '/admin/fleet', icon: <IconTruck size={15} />, label: t('nav.admin_fleet') },
     '/admin/users': { key: '/admin/users', icon: <IconUsers size={15} />, label: t('nav.admin_users') },
     '/admin/permissions': { key: '/admin/permissions', icon: <IconShield size={15} />, label: t('nav.admin_permissions') },
     '/admin/staff-access': { key: '/admin/staff-access', icon: <IconUsers size={15} />, label: t('nav.admin_staff_access') },
@@ -328,34 +324,13 @@ export default function AppLayout() {
       icon: <IconClipboardList size={15} />,
       label: t('nav.admin_audit_log'),
     },
-    '/transport/map': {
-      key: '/transport/map',
-      icon: <IconMapPin size={15} />,
-      label: t('nav.fleet_map'),
-      // No page_code is registered for this page, so it is surfaced via an
-      // explicit roles list that bypasses canSeePage — the same bypass
-      // /worklog and /team/kpi use. Came in from main with the Fleet Map
-      // feature (PR #11).
-      //
-      // `seller` is deliberately ABSENT (owner request, 2026-08-23): the seller
-      // works one screen, the sell plan, and has no shipments, no fleet and no
-      // reason to watch trucks move. Unlike /worklog and /team/kpi below, this
-      // is not an every-authenticated-user grant.
-      //
-      // This list is presentation only. The boundary is server-side:
-      // GET /transport/live-positions/ — the one endpoint this page reads —
-      // 403s the seller via `CanViewFleetMap`
-      // (backend/apps/transport/permissions.py). The route stays a bare
-      // `<ProtectedRoute>` in App.tsx, so a typed URL still renders the page
-      // shell; for a seller it now resolves to the load-error alert rather
-      // than to live truck positions. Pinned by the fleet-map visibility
-      // tests in AppLayout.menuGroups.test.tsx.
-      roles: [
-        'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
-        'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
-        'director', 'accountant', 'greenhouse_manager', 'boss',
-      ] as import('@/types').UserRole[],
-    },
+    // page_code `transport.map` (registered 2026-09-03) — canSeePage, not an
+    // inline roles array. The seller's exclusion (owner request, 2026-08-23:
+    // the seller works one screen, the sell plan, and has no trucks to watch)
+    // is now a seeded matrix row rather than a hardcoded list, and the boundary
+    // stays server-side: GET /transport/live-positions/ reads the same row via
+    // CanViewFleetMap (backend/apps/transport/permissions.py).
+    '/transport/map': { key: '/transport/map', icon: <IconMapPin size={15} />, label: t('nav.fleet_map') },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
     '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
     '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },

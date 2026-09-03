@@ -310,14 +310,16 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | `useTrailers`/`useCreateTrailer` (`useFleet`); `useAdminTrailers`/`useAdminCreateTrailer`/`useUpdateTrailer` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
 | GET/POST/PATCH | `/api/v1/transport/drivers/` `/drivers/{id}/` | DriverViewSet | `useDrivers`/`useCreateDriver` (`useFleet`, active-only picker feed); `useAdminDrivers`/`useAdminCreateDriver`/`useUpdateDriver` (`useFleetAdmin`, incl. inactive) | `SheetDriverSelectEditor` (Sheet R27), FleetAdminPage Drivers tab (`/admin/fleet`) |
 
-`live-positions/` is the one gated endpoint in this module: `IsAuthenticated` +
-`CanViewFleetMap` (`apps/transport/permissions.py`), a **deny-list** — every
-authenticated role passes except `FLEET_MAP_DENIED_ROLES`, currently `{'seller'}`
-(owner request, 2026-08-23), with a superuser bypass. It is **not** page-permission
-backed: no `transport.map` page_code is registered, so nothing here reads the matrix
-(see [[fleet-map]] "Out of Scope" for why). Every other row in this table is still
-`IsAuthenticated` only, apart from the fleet-CRUD writes, which use `CanEditShipment` —
-a hardcoded `SHIPMENT_EDITOR_ROLES` allow-list in the same file. No pagination — a bare list,
+`live-positions/` is the one gated **read** in this module: `IsAuthenticated` +
+`CanViewFleetMap` (`apps/transport/permissions.py`), which since 2026-09-03 reads the
+`transport.map` **page permission** out of the matrix (superuser bypass). It was a
+hardcoded deny-list (`FLEET_MAP_DENIED_ROLES = {'seller'}`, owner request 2026-08-23)
+until then; the seller exclusion is now a seeded `is_visible=False` row, so revoking the
+page for any role also 403s this endpoint. Every other row in this table is still
+`IsAuthenticated` for reads; the fleet-CRUD **writes** use `CanEditFleet` —
+`resource_write_permission('fleet')`, i.e. the `fleet` resource in the permission matrix
+(`can_create` for POST, `can_edit` for PATCH), replacing the hardcoded
+`SHIPMENT_EDITOR_ROLES` allow-list. No pagination — a bare list,
 bounded to one row per device. Reads only `DevicePosition.objects.filter(valid=True)` from
 our own DB (`select_related('device', 'device__truck')`); never calls Traccar in the
 request path. One row per device:
@@ -338,8 +340,10 @@ device resolved but has no stored fix yet.
 **Shipment device override** (`PUT|DELETE shipments/{id}/device/`) — sets or clears a manual
 `ShipmentDeviceLink`. `PUT` body `{"traccar_id": <int>}`; `DELETE` reverts to auto-match, no
 body. Gated to `SHIPMENT_EDITOR_ROLES` (`admin`/`export_manager`/`director`/`warehouse_chief`/
-`loading_dept_head`/`loading_dept_head_deputy`) or superuser — `apps/transport/permissions.py`
-`CanEditShipment`, the same editor set as `ShipmentDetail`'s variety-override.
+`loading_dept_head`/`loading_dept_head_deputy`/`boss`) or superuser — `apps/transport/permissions.py`
+`CanEditShipment`, the same editor set as `ShipmentDetail`'s variety-override. This is the
+**only** remaining user of that hardcoded set: fleet CRUD moved to the matrix on 2026-09-03,
+and a device override is a shipment edit, not a fleet edit.
 
 **Devices list** (`GET devices/`) — every registry `TraccarDevice` (not filtered to
 positioned ones), for the override picker: `{traccar_id, plate, fleet_no, name}`.
@@ -348,8 +352,10 @@ positioned ones), for the override picker: `{traccar_id, plate, fleet_no, name}`
 from TIR then platform-owned). `GET` (any authenticated user) lists **active-only**
 (`is_active=True`), `SearchFilter` on `plate_number`/`owner_name`, no pagination:
 `{id, plate_number, owner_type, owner_name, status, capacity, is_active, has_gps}` —
-`has_gps` is `traccar_device_id is not None`. `POST`/`PATCH` gated to `CanEditShipment`
-(same `SHIPMENT_EDITOR_ROLES` as the device override above). `POST` auto-matches a
+`has_gps` is `traccar_device_id is not None`. `POST`/`PATCH` gated to `CanEditFleet` — the
+`fleet` resource in the permission matrix (`can_create` / `can_edit`), seeded to the same
+roles the old `SHIPMENT_EDITOR_ROLES` set held. No `can_delete` path: there is no `destroy`
+action on any fleet ViewSet. `POST` auto-matches a
 `TraccarDevice` by normalized plate via `device_for_plate()` (`apps/transport/services/
 matching.py`) — same resolution `_pick_device()` uses (positioned > category=truck > first).
 `PATCH /truck-heads/{id}/` sees **all** rows including inactive ones (only `list` filters to
@@ -370,7 +376,7 @@ list client-side by label, it does not drive `?search=`). Full feature detail:
 then platform-owned). Same shape as truck heads minus GPS: `GET` (any authenticated user)
 lists **active-only** (`is_active=True`), `SearchFilter` on `plate_number`, no pagination:
 `{id, plate_number, owner_type, status, is_active}`. `POST`/`PATCH` gated to
-`CanEditShipment`. No device matching — trailers have no `TraccarDevice` link. `PATCH
+`CanEditFleet` (the `fleet` resource). No device matching — trailers have no `TraccarDevice` link. `PATCH
 /trailers/{id}/` sees all rows including inactive ones, so `{"is_active": false}`
 deactivates and `{"is_active": true}` re-activates. No `RetrieveModelMixin` registered —
 `GET /trailers/{id}/` is 405, not 404. `?include_inactive=true` on the list works the same

@@ -1,9 +1,12 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from apps.core.models import RoleResourcePermission
 from apps.transport.models import TruckHead, TraccarDevice, Truck, DevicePosition, Trailer, Driver
 
 User = get_user_model()
@@ -11,6 +14,12 @@ User = get_user_model()
 
 class TruckHeadApiTests(TestCase):
     def setUp(self):
+        # Fleet writes are gated on the `transport.fleet` page row (CanEditFleet,
+        # 2026-09-03) and the matrix is fail-closed, so the seeded defaults have
+        # to exist before any editor can POST. cache.clear() drops the 60 s
+        # per-role page cache another test class may have warmed.
+        call_command('seed_permissions')
+        cache.clear()
         self.client = APIClient()
         self.editor = User.objects.create_user(username='mgr', password='x', role='export_manager')
         self.viewer = User.objects.create_user(username='op', password='x', role='sales_rep')
@@ -131,6 +140,12 @@ class TruckHeadApiTests(TestCase):
 
 class TrailerApiTests(TestCase):
     def setUp(self):
+        # Fleet writes are gated on the `transport.fleet` page row (CanEditFleet,
+        # 2026-09-03) and the matrix is fail-closed, so the seeded defaults have
+        # to exist before any editor can POST. cache.clear() drops the 60 s
+        # per-role page cache another test class may have warmed.
+        call_command('seed_permissions')
+        cache.clear()
         self.client = APIClient()
         self.editor = User.objects.create_user(username='mgr2', password='x', role='director')
         self.viewer = User.objects.create_user(username='op2', password='x', role='sales_rep')
@@ -174,6 +189,12 @@ class TrailerApiTests(TestCase):
 
 class DriverApiTests(TestCase):
     def setUp(self):
+        # Fleet writes are gated on the `transport.fleet` page row (CanEditFleet,
+        # 2026-09-03) and the matrix is fail-closed, so the seeded defaults have
+        # to exist before any editor can POST. cache.clear() drops the 60 s
+        # per-role page cache another test class may have warmed.
+        call_command('seed_permissions')
+        cache.clear()
         self.client = APIClient()
         self.editor = User.objects.create_user(username='mgr3', password='x', role='export_manager')
         self.viewer = User.objects.create_user(username='op3', password='x', role='sales_rep')
@@ -231,9 +252,10 @@ class DriverApiTests(TestCase):
         self.assertFalse(Driver.objects.filter(id=999).exists())
 
     def test_boss_may_write(self):
-        # boss holds ['*'] in the permission matrix, but CanEditShipment is a
-        # hardcoded set the matrix never consults — he was 403'd here until
-        # SHIPMENT_EDITOR_ROLES was widened (2026-08-20).
+        # boss was 403'd here until SHIPMENT_EDITOR_ROLES was widened
+        # (2026-08-20). The gate reads the matrix now (CanEditFleet on the
+        # `fleet` resource), where boss holds create+edit — so this passes for
+        # the opposite reason: the matrix IS consulted.
         boss = User.objects.create_user(username='patron', password='x', role='boss')
         self.client.force_authenticate(boss)
         r = self.client.post('/api/v1/transport/drivers/', {'name': 'BOSS PICK'}, format='json')
@@ -265,3 +287,82 @@ class DriverApiTests(TestCase):
         driver = Driver.objects.get(id=5)
         self.assertEqual(driver.logo_ref, '318')
         self.assertEqual(driver.driver_logo_code, '195.02.A001')
+
+
+class FleetWriteGateIsTheMatrixTests(TestCase):
+    """Fleet writes read the `fleet` RESOURCE from the permission matrix.
+
+    Before 2026-09-03 the gate was the hardcoded SHIPMENT_EDITOR_ROLES set, so
+    changing who may edit the fleet needed a deploy. These tests pin what
+    replaced it: a Resources-tab row an admin can flip, in both directions.
+    Page (`transport.fleet`) and resource (`fleet`) are a deliberate split —
+    the page decides who sees the screen, the resource who may write — so the
+    last test pins that seeing the page is not itself permission to edit.
+    """
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.head = TruckHead.objects.create(plate_number='7000AHF', owner_type='company')
+
+    def test_revoking_the_resource_row_blocks_a_seeded_editor(self):
+        RoleResourcePermission.objects.filter(
+            role='warehouse_chief', resource_code='fleet',
+        ).update(can_create=False, can_edit=False)
+        cache.clear()
+        self.client.force_authenticate(
+            User.objects.create_user(username='wc', password='x', role='warehouse_chief')
+        )
+        r = self.client.post('/api/v1/transport/truck-heads/', {'plate_number': '7777AHF'}, format='json')
+        self.assertEqual(r.status_code, 403)
+
+    def test_granting_the_resource_row_admits_a_role_that_had_no_fleet_access(self):
+        RoleResourcePermission.objects.update_or_create(
+            role='transport', resource_code='fleet',
+            defaults={'can_view': True, 'can_create': True, 'can_edit': True, 'can_delete': False},
+        )
+        cache.clear()
+        self.client.force_authenticate(
+            User.objects.create_user(username='tr', password='x', role='transport')
+        )
+        r = self.client.post('/api/v1/transport/truck-heads/', {'plate_number': '7778AHF'}, format='json')
+        self.assertEqual(r.status_code, 201)
+        p = self.client.patch(f"/api/v1/transport/truck-heads/{r.json()['id']}/",
+                              {'is_active': False}, format='json')
+        self.assertEqual(p.status_code, 200)
+
+    def test_create_and_edit_are_separate_checkboxes(self):
+        """`can_create` off but `can_edit` on: POST refused, PATCH allowed."""
+        RoleResourcePermission.objects.filter(
+            role='warehouse_chief', resource_code='fleet',
+        ).update(can_create=False, can_edit=True)
+        cache.clear()
+        self.client.force_authenticate(
+            User.objects.create_user(username='wc2', password='x', role='warehouse_chief')
+        )
+        post = self.client.post('/api/v1/transport/truck-heads/', {'plate_number': '7779AHF'}, format='json')
+        self.assertEqual(post.status_code, 403)
+        patch = self.client.patch(f'/api/v1/transport/truck-heads/{self.head.id}/',
+                                  {'is_active': False}, format='json')
+        self.assertEqual(patch.status_code, 200)
+
+    def test_seeing_the_page_is_not_permission_to_write(self):
+        """Page and resource are separate authorities: `transport.fleet` visible,
+        `fleet` resource absent → the screen loads, the save 403s."""
+        RoleResourcePermission.objects.filter(
+            role='warehouse_chief', resource_code='fleet',
+        ).delete()
+        cache.clear()
+        self.client.force_authenticate(
+            User.objects.create_user(username='wc3', password='x', role='warehouse_chief')
+        )
+        r = self.client.post('/api/v1/transport/truck-heads/', {'plate_number': '7780AHF'}, format='json')
+        self.assertEqual(r.status_code, 403)
+
+    def test_reads_stay_open_to_a_role_without_the_resource(self):
+        """The Sheet's truck / driver selectors list the catalog for everyone."""
+        self.client.force_authenticate(
+            User.objects.create_user(username='sr', password='x', role='sales_rep')
+        )
+        self.assertEqual(self.client.get('/api/v1/transport/truck-heads/').status_code, 200)
