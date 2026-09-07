@@ -8,7 +8,10 @@ export interface ITransportDevice {
   name: string;
 }
 
-export function useTransportDevices() {
+/** The whole device registry, for the manual-override picker.
+ *  `enabled` exists so a screen that renders the picker only for editors
+ *  (ShipmentTruckLocationBlock) doesn't fetch the registry for everyone else. */
+export function useTransportDevices({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery<ITransportDevice[]>({
     queryKey: ['transport', 'devices'],
     queryFn: async () => {
@@ -16,5 +19,6 @@ export function useTransportDevices() {
       return data;
     },
     staleTime: 5 * 60_000,
+    enabled,
   });
 }

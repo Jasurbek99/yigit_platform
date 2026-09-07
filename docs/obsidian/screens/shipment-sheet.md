@@ -617,10 +617,13 @@ may already have typed there.
 cannot read as two different things on two screens. It renders at the Fleet Map's *selected* size
 (48px): the modal shows exactly one truck, so there is nothing for it to be selected against.
 
-Deliberately not reusing `ShipmentTruckLocationCard` (Shipment Detail): that card also owns the
-manual device picker, which needs an edit-permission decision the Sheet should not make.
-Linking a device stays on the Detail page. It also still draws its own plain `CircleMarker` —
-unchanged here, and a candidate for the same shared pin later. See [[../processes/fleet-map]].
+**The modal is a wrapper, not a second implementation (2026-09-07).** It renders
+`ShipmentTruckLocationBlock` — the same block Shipment Detail shows inline as a `Card` — with
+`canEdit={false}` and a 380px map. The block owns the map, the summary line and all three empty
+states, so the two screens cannot drift apart again. `canEdit` stays false here on purpose: the
+block's manual device picker is an edit decision the Sheet should not make, and sourcing a real
+answer would drag it into the four-point Sheet edit-permission chain. Linking a device stays on
+the Detail page. See [[../processes/fleet-map#ShipmentDetail card]].
 
 ## Right-click context menu
 

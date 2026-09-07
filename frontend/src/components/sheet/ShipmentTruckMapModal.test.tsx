@@ -27,6 +27,13 @@ vi.mock('react-leaflet', () => ({
 let result: { data?: ITruckPositionResult; isLoading: boolean; isError: boolean };
 vi.mock('@/hooks/useShipmentTruckPosition', () => ({
   useShipmentTruckPosition: () => result,
+  useSetShipmentDevice: () => ({ set: { mutate: vi.fn() }, clear: { mutate: vi.fn() } }),
+}));
+// Spied so the "read-only Sheet" promise is assertable: the picker never
+// renders here, so the device registry must never be fetched either.
+const devicesHook = vi.fn((_opts?: { enabled?: boolean }) => ({ data: [], isLoading: false }));
+vi.mock('@/hooks/useTransportDevices', () => ({
+  useTransportDevices: (opts?: { enabled?: boolean }) => devicesHook(opts),
 }));
 
 const base = MOCK_SHEET_DATA[0] as IShipmentSheetItem;
@@ -117,6 +124,15 @@ describe('ShipmentTruckMapModal — resolved position', () => {
     // i18n splits the summary across text nodes; read the whole modal body.
     expect(document.body.textContent).toContain('62');
     expect(document.body.textContent).toContain('km/h');
+  });
+
+  it('stays read-only — no device picker, and no registry fetch for it', () => {
+    result = { data: { resolved_by: 'none', device: null, position: null }, isLoading: false, isError: false };
+    renderModal({ truck_plate: '48 AT 580' });
+    // Linking a device is an edit decision the Sheet deliberately does not make.
+    expect(screen.queryByText(/link a device/i)).toBeNull();
+    expect(screen.queryByText(/pick a device/i)).toBeNull();
+    expect(devicesHook).toHaveBeenCalledWith({ enabled: false });
   });
 
   it('surfaces a load error instead of an empty map', () => {

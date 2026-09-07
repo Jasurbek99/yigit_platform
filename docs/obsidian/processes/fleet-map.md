@@ -343,8 +343,8 @@ the endpoint all read that one row, and it is a checkbox on `/admin/permissions`
 `react-leaflet@4.2.1` + OpenStreetMap tiles (`VITE_MAP_TILE_URL` env override, default
 `{s}.tile.openstreetmap.org`), default view centred on Ashgabat
 (`[37.95, 58.39]`, zoom 5, matching the Traccar server's own coverage). A searchable
-sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck is a
-`CircleMarker` colour-coded by state:
+sidebar (plate / fleet_no / address) list next to the `MapContainer`; each truck is an image
+`Marker` (`utils/truckPin`, see “One pin, two screens” below) whose artwork encodes its state:
 
 | Pin | State | Rule |
 |---|---|---|
@@ -501,20 +501,39 @@ the request path (same rule as `live-positions/`). Full response shapes: `refere
 
 ### ShipmentDetail card
 
-`ShipmentTruckLocationCard` (`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`)
-sits on `ShipmentDetail` right after the customs-expenses card. Backed by
-`useShipmentTruckPosition` (30s `refetchInterval`, same cadence as the fleet map) /
-`useSetShipmentDevice` / `useTransportDevices`. The mini map's `MapContainer` reads
-`center`/`zoom` only once at mount (react-leaflet v4 behavior), so a module-scope `Recenter`
-child (`useMap()` + a `useEffect` keyed on `[lat, lon]`) calls `map.setView(...)` on every
-resolved-position change — this is what keeps the viewport following the truck across the 30s
-poll drift and across an editor switching the shipment to a different device (the pin alone
-would otherwise move off-screen). Shows a mini `react-leaflet` map + address +
-speed/online/stale line when a position exists, a `resolved_by` tag (manual vs auto), an
-`Empty` "No GPS device linked" state with a picker when `resolved_by='none'`, and (for
-editors) a searchable device picker plus a "reset to auto" button that clears the manual
-override. Non-editors see the position read-only, no picker. On a query error the card shows
-an inline `Alert`; mutation errors surface as a `sonner` toast. The frontend edit-gate
+**One block, two wrappers (2026-09-07).** Everything a screen shows about a shipment's truck
+lives in `ShipmentTruckLocationBlock`
+(`frontend/src/components/shipment/ShipmentTruckLocationBlock.tsx`). Two thin wrappers render it:
+`ShipmentTruckLocationCard` (a `Card` on `ShipmentDetail`, right after the customs-expenses card)
+and `ShipmentTruckMapModal` (a `Modal` behind the Sheet's R15 pin, below). Before the split the two
+screens showed the same truck with different artwork and different empty states — the block is
+what stops that recurring.
+
+Backed by `useShipmentTruckPosition` (30s `refetchInterval`, same cadence as the fleet map) /
+`useSetShipmentDevice` / `useTransportDevices`. The map's `MapContainer` reads `center`/`zoom` only
+once at mount (react-leaflet v4 behavior), so a `FitToTruck` child (`useMap()` + a `useEffect` keyed
+on `[lat, lon]`) calls `map.setView(...)` on every resolved-position change — this is what keeps
+the viewport following the truck across the 30s poll drift and across an editor switching the
+shipment to a different device (the pin alone would otherwise move off-screen). It calls
+`map.invalidateSize()` in the same effect, which the modal needs: Leaflet measures its container at
+mount and a modal's portal is still laying out, so without it the map paints as a grey 0×0 box.
+
+Shows the Fleet Map's truck pin (`utils/truckPin`, blue/green/red on the shared legend) + plate +
+a `resolved_by` tag (manual vs auto) + address + speed/online/stale/last-fix when a position
+exists. With no position it shows one of three `Empty` states, **resolved data checked before the
+shipment's own columns**: a resolved device with no fix → "no position yet"; no device but a truck
+named (`truck_plate || truck_head_id`, passed in as `hasTruck`) → "no GPS device linked"; neither
+→ "set the truck first". That order matters because a manual `ShipmentDeviceLink` is resolver
+step 1 and ignores both columns — the coverage note below is exactly that case — so checking
+`hasTruck` first would answer "set the truck" over a live position.
+
+For editors (`canEdit`) it adds a searchable device picker plus a "reset to auto" button that
+clears the manual override; `useTransportDevices` takes `{enabled}` so non-editors never fetch the
+registry they cannot use. **The Sheet passes `canEdit={false}`** — linking a device is an edit
+decision that screen deliberately does not make, and sourcing a real answer there would drag it
+into the four-point Sheet edit-permission chain. Non-editors and the Sheet see the position
+read-only. On a query error the block shows an inline `Alert`; mutation errors surface as a
+`sonner` toast. The frontend edit-gate
 (`TRANSPORT_EDIT_ROLES` in `ShipmentDetail.tsx`) is a literal mirror of the backend
 `SHIPMENT_EDITOR_ROLES` set above — kept in sync by comment, not by importing shared code
 (frontend/backend can't share a Python set).
@@ -523,11 +542,9 @@ an inline `Alert`; mutation errors surface as a `sonner` toast. The frontend edi
 
 The Shipment Sheet's "Vehicle Current Position / ETA" row (`vehicle_live_status`, R15) has a
 📍 pin in every non-Gapy cell that opens `ShipmentTruckMapModal`
-(`frontend/src/components/sheet/ShipmentTruckMapModal.tsx`) — a **read-only** Leaflet map of the
-same resolved position. It reuses `useShipmentTruckPosition` but **not**
-`ShipmentTruckLocationCard`: that card also owns the manual device picker, whose `canEdit` prop
-would drag the Sheet into the four-point edit-permission chain for what is a view-only feature.
-Linking or overriding a device stays on ShipmentDetail.
+(`frontend/src/components/sheet/ShipmentTruckMapModal.tsx`) — a `Modal` around the **same**
+`ShipmentTruckLocationBlock` ShipmentDetail renders inline, with `canEdit={false}` and a taller
+380px map. Read-only by design: linking or overriding a device stays on ShipmentDetail.
 
 `useShipmentTruckPosition` polls every 30 s and the Sheet mounts hundreds of cells, so the pin
 holds **no query** — `SheetCell` renders the modal conditionally (and `React.lazy`'s it, keeping
@@ -547,8 +564,7 @@ paints as a grey 0×0 box.
 draw the same artwork on the same legend and a re-export of the PNGs only has to be re-measured
 once — the module-level `iconCache` (3 states × selected) is shared with it. The modal asks for
 the *selected* 48px size: it shows exactly one truck, so there is nothing to be selected against.
-`ShipmentTruckLocationCard` on ShipmentDetail still draws its own plain `CircleMarker` — unchanged,
-and a candidate for the same shared pin later.
+ShipmentDetail's card gets the same pin for free — it renders the same block.
 
 See [[../screens/shipment-sheet#Map pin on R15 vehicle_live_status (2026-09-07)]].
 
@@ -795,7 +811,8 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 | Query hook (live map) | [`frontend/src/hooks/useLivePositions.ts`](../../../frontend/src/hooks/useLivePositions.ts) — `ILivePosition`, 30s `refetchInterval` |
 | Query hooks (shipment link) | [`frontend/src/hooks/useShipmentTruckPosition.ts`](../../../frontend/src/hooks/useShipmentTruckPosition.ts) — `useShipmentTruckPosition` (30s refetch), `useSetShipmentDevice`; [`frontend/src/hooks/useTransportDevices.ts`](../../../frontend/src/hooks/useTransportDevices.ts) |
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
-| ShipmentDetail card | [`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`](../../../frontend/src/components/shipment/ShipmentTruckLocationCard.tsx) |
+| Shared truck block | [`frontend/src/components/shipment/ShipmentTruckLocationBlock.tsx`](../../../frontend/src/components/shipment/ShipmentTruckLocationBlock.tsx) — map, summary, empty states, editor picker |
+| ShipmentDetail card | [`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`](../../../frontend/src/components/shipment/ShipmentTruckLocationCard.tsx) — a `Card` around the block (+`.test.tsx`) |
 | Sheet map pin + modal | [`frontend/src/components/sheet/ShipmentTruckMapModal.tsx`](../../../frontend/src/components/sheet/ShipmentTruckMapModal.tsx); pin in [`SheetCell.tsx`](../../../frontend/src/components/sheet/SheetCell.tsx) (`vehicle_live_status`) |
 | Shared pin artwork/legend | [`frontend/src/utils/truckPin.ts`](../../../frontend/src/utils/truckPin.ts) — `pinIcon`, `truckState`, `STATE_COLOR`, `PIN_URL`; used by `FleetMap.tsx` and `ShipmentTruckMapModal.tsx` |
 | Route + nav | `frontend/src/App.tsx` (`transport/map`, `pageCode="transport.map"`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |

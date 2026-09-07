@@ -118,7 +118,11 @@ export default function ShipmentDetail() {
 
       <ShipmentCustomsExpensesCard shipment={shipment} canWrite={canWriteExpense} />
 
-      <ShipmentTruckLocationCard shipmentId={shipment.id} canEdit={canEditTruckLink} />
+      <ShipmentTruckLocationCard
+        shipmentId={shipment.id}
+        hasTruck={Boolean(shipment.truck_plate || shipment.truck_head_id)}
+        canEdit={canEditTruckLink}
+      />
 
       <Flex justify="flex-end" style={{ marginBottom: 8 }}>
         <Link

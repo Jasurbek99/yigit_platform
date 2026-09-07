@@ -33,6 +33,11 @@ vi.mock('@/hooks/useShipmentFirmContracts', () => ({
 const positionHook = vi.fn((_shipmentId: number) => ({ data: undefined, isLoading: true, isError: false }));
 vi.mock('@/hooks/useShipmentTruckPosition', () => ({
   useShipmentTruckPosition: (id: number) => positionHook(id),
+  // The lazy modal renders the shared block, which also reaches for these.
+  useSetShipmentDevice: () => ({ set: { mutate: vi.fn() }, clear: { mutate: vi.fn() } }),
+}));
+vi.mock('@/hooks/useTransportDevices', () => ({
+  useTransportDevices: () => ({ data: [], isLoading: false }),
 }));
 vi.mock('react-leaflet', () => ({
   MapContainer: () => <div data-testid="map-container" />,
