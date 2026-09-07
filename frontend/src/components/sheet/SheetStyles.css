@@ -781,6 +781,28 @@
   color: #1677ff !important;
 }
 
+/* Map pin on the "Vehicle Current Position / ETA" row (R15). Vertically centred
+   on the right edge, and larger than the comment marker on purpose — it is a
+   primary action on this row, not a hint. Sitting mid-height also keeps it clear
+   of the comment marker, which owns the top-right corner. Always visible (not
+   hover-only like the comment hint): it is the only affordance that says this
+   row has a live GPS position behind it. */
+.sheet-cell__map-pin {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  font-size: calc(15px * var(--sheet-zoom, 1));
+  line-height: 1;
+  color: #1677ff;
+  cursor: pointer;
+  user-select: none;
+}
+.sheet-cell__map-pin:hover {
+  color: #0958d9;
+}
+
 /* ═══ ROLE BLOCKS (who-key bands) ═══
    The Sheet is transposed, so one role's fields are a contiguous run of ROWS.
    Each run is headed by a band row: a tinted stripe across the full grid width

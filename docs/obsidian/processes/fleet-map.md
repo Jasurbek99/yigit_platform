@@ -519,6 +519,39 @@ an inline `Alert`; mutation errors surface as a `sonner` toast. The frontend edi
 `SHIPMENT_EDITOR_ROLES` set above — kept in sync by comment, not by importing shared code
 (frontend/backend can't share a Python set).
 
+### Sheet map pin (2026-09-07)
+
+The Shipment Sheet's "Vehicle Current Position / ETA" row (`vehicle_live_status`, R15) has a
+📍 pin in every non-Gapy cell that opens `ShipmentTruckMapModal`
+(`frontend/src/components/sheet/ShipmentTruckMapModal.tsx`) — a **read-only** Leaflet map of the
+same resolved position. It reuses `useShipmentTruckPosition` but **not**
+`ShipmentTruckLocationCard`: that card also owns the manual device picker, whose `canEdit` prop
+would drag the Sheet into the four-point edit-permission chain for what is a view-only feature.
+Linking or overriding a device stays on ShipmentDetail.
+
+`useShipmentTruckPosition` polls every 30 s and the Sheet mounts hundreds of cells, so the pin
+holds **no query** — `SheetCell` renders the modal conditionally (and `React.lazy`'s it, keeping
+Leaflet's ~150 KB out of the Sheet chunk until the first click), and only the mounted modal
+subscribes. The modal checks **resolved data before the Sheet's own columns**: a `position` renders
+the map, a resolved `device` with no fix says "no signal yet", and only with no device at all does
+it use `truck_plate` / `truck_head_id` to choose between "set the truck first" (neither set) and
+"no GPS device linked" (a truck is named but nothing resolved). The order matters because a manual
+`ShipmentDeviceLink` is step 1 of the resolver and is independent of both columns — the coverage
+note below is exactly that case — so checking the columns first would answer "set the truck" over a
+live position. Leaflet measures its container at mount and a modal's portal is still laying out, so the
+map's `FitToTruck` child calls `map.invalidateSize()` alongside `setView` — without it the map
+paints as a grey 0×0 box.
+
+**One pin, two screens.** `pinIcon()`, `truckState()`, `STATE_COLOR` and `PIN_URL` moved out of
+`FleetMap.tsx` into `frontend/src/utils/truckPin.ts` when the Sheet modal shipped, so both screens
+draw the same artwork on the same legend and a re-export of the PNGs only has to be re-measured
+once — the module-level `iconCache` (3 states × selected) is shared with it. The modal asks for
+the *selected* 48px size: it shows exactly one truck, so there is nothing to be selected against.
+`ShipmentTruckLocationCard` on ShipmentDetail still draws its own plain `CircleMarker` — unchanged,
+and a candidate for the same shared pin later.
+
+See [[../screens/shipment-sheet#Map pin on R15 vehicle_live_status (2026-09-07)]].
+
 ### Coverage note
 
 With the TIR fleet registry (below), the primary path to GPS is now an **explicit truck-head
@@ -763,6 +796,8 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 | Query hooks (shipment link) | [`frontend/src/hooks/useShipmentTruckPosition.ts`](../../../frontend/src/hooks/useShipmentTruckPosition.ts) — `useShipmentTruckPosition` (30s refetch), `useSetShipmentDevice`; [`frontend/src/hooks/useTransportDevices.ts`](../../../frontend/src/hooks/useTransportDevices.ts) |
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
 | ShipmentDetail card | [`frontend/src/components/shipment/ShipmentTruckLocationCard.tsx`](../../../frontend/src/components/shipment/ShipmentTruckLocationCard.tsx) |
+| Sheet map pin + modal | [`frontend/src/components/sheet/ShipmentTruckMapModal.tsx`](../../../frontend/src/components/sheet/ShipmentTruckMapModal.tsx); pin in [`SheetCell.tsx`](../../../frontend/src/components/sheet/SheetCell.tsx) (`vehicle_live_status`) |
+| Shared pin artwork/legend | [`frontend/src/utils/truckPin.ts`](../../../frontend/src/utils/truckPin.ts) — `pinIcon`, `truckState`, `STATE_COLOR`, `PIN_URL`; used by `FleetMap.tsx` and `ShipmentTruckMapModal.tsx` |
 | Route + nav | `frontend/src/App.tsx` (`transport/map`, `pageCode="transport.map"`), `frontend/src/components/AppLayout.tsx` (`nav.fleet_map`) |
 | Page permission rows | [`backend/apps/core/permission_registry.py`](../../../backend/apps/core/permission_registry.py) (`transport.map`, `transport.fleet`), [`seed_permissions.py`](../../../backend/apps/core/management/commands/seed_permissions.py) defaults, [`core/migrations/0039_fleet_page_perms.py`](../../../backend/apps/core/migrations/0039_fleet_page_perms.py) + [`0040_fleet_resource.py`](../../../backend/apps/core/migrations/0040_fleet_resource.py) backfill |
 | TIR fleet models | [`backend/apps/transport/models/fleet.py`](../../../backend/apps/transport/models/fleet.py) — `TruckHead`, `Trailer` |

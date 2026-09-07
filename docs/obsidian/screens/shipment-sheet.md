@@ -567,6 +567,61 @@ is up (`ShipmentFirmContractsPanel`'s `onModalOpenChange` → `ContractAgreement
 `onOpenChange`). The `packing` cell's popover keeps its uncontrolled behaviour — nothing inside it
 opens a modal.
 
+## Map pin on R15 `vehicle_live_status` (2026-09-07)
+
+The "Vehicle Current Position / ETA" row (`vehicle_live_status`, R15) carries a blue
+📍 pin, vertically centred on the right edge of every cell (15px, larger than the comment
+marker — it is a primary action on this row, not a hint, and mid-height keeps it clear of the
+comment marker's top-right corner). Clicking it opens `ShipmentTruckMapModal` —
+a read-only Leaflet map of the truck's last GPS fix, resolved through the existing
+`GET /api/v1/transport/shipments/{id}/position/` (manual `ShipmentDeviceLink` > explicit
+`truck_head_id` > plate auto-match). The cell itself stays a normal editable text cell:
+the operator's free-text ETA note is unchanged, and the pin's `onClick`/`onDoubleClick`
+call `stopPropagation` so it never drops the cell into its editor.
+
+**The pin holds no query.** `useShipmentTruckPosition` polls every 30 s, and the Sheet
+mounts hundreds of cells at once — one hook per cell would put a poll behind every visible
+shipment column. The pin is a static icon; the hook mounts only inside the modal, and
+`SheetCell` renders the modal conditionally (`{mapOpen && <Suspense><ShipmentTruckMapModal …>}`)
+so closing it unmounts the poll. The modal is also `React.lazy`'d: it pulls in Leaflet + its CSS
+(~150 KB) and `SheetCell` is imported by every Sheet consumer, so the chunk loads on the first pin
+click rather than on every Sheet open (operators are on public networks in KZ/RU). The modal is a sibling of the cell inside `wrap()`, not a
+child — React portals still bubble synthetic events up the React tree, so a click on the
+map would otherwise reach the cell's own `onClick`.
+
+**Three dead ends, told apart — and resolved data is checked first.** The endpoint can return a
+device with no fix, so a single "no map" message would send an operator to the wrong row. The
+branch order is load-bearing: a position renders the map, then a resolved device explains itself,
+and only then do the Sheet's own `truck_plate` / `truck_head_id` columns pick between the two
+remaining dead ends. Checking those columns first would let a local heuristic override the
+backend's answer — a **manual `ShipmentDeviceLink` is resolver step 1 and ignores both fields**
+(that override exists precisely for stale or mistyped plates), so a hand-linked, live-streaming
+truck would have been answered with "set the truck first".
+
+| Checked in this order | State | Message |
+|---|---|---|
+| 1 | `position` present | the map |
+| 2 | `device` present, `position === null` | `fleet_map.no_position` — no signal yet |
+| 3 | no device, and no `truck_plate` **and** no `truck_head_id` | `fleet_map.sheet_set_truck` — "Set the truck first — fill the Truck / Trailer Plate row." |
+| 4 | no device, but a truck IS named | `fleet_map.shipment_no_gps` — the truck has no GPS device linked |
+
+**Gapy Satyş shipments get no pin.** Local buyers' trucks are not in the fleet and carry no
+tracker (same reason `SheetCellEditor` skips the fleet picker for their `truck_plate`). The
+pin is gated on `!shipment.is_gapy_satys` at the icon — deliberately **not** via the backend's
+`gapy_hidden` row flag, which would blank the whole cell to "—" and hide free text operators
+may already have typed there.
+
+**The map pin is the Fleet Map's pin.** The modal draws the truck with `pinIcon()` /
+`truckState()` from `utils/truckPin.ts` — the artwork, the anchor geometry and the legend
+(blue = rolling, green = parked, red = stale/offline) extracted out of `FleetMap.tsx` so one truck
+cannot read as two different things on two screens. It renders at the Fleet Map's *selected* size
+(48px): the modal shows exactly one truck, so there is nothing for it to be selected against.
+
+Deliberately not reusing `ShipmentTruckLocationCard` (Shipment Detail): that card also owns the
+manual device picker, which needs an edit-permission decision the Sheet should not make.
+Linking a device stays on the Detail page. It also still draws its own plain `CircleMarker` —
+unchanged here, and a candidate for the same shared pin later. See [[../processes/fleet-map]].
+
 ## Right-click context menu
 
 Every non-hidden cell is wrapped in an Ant `Dropdown` (`trigger={['contextMenu']}`) so right-click always opens a Sheet-owned menu instead of the browser's native one. Two items: **Show edit history** (clock icon) above a divider, then **Clear cell**.

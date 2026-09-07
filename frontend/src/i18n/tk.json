@@ -2283,7 +2283,9 @@
     "offline": "oflaýn",
     "stale": "köne",
     "resolved_auto": "awtomatik",
-    "resolved_manual": "el bilen"
+    "resolved_manual": "el bilen",
+    "sheet_open_map": "Maşyny kartada görkez",
+    "sheet_set_truck": "Ilki maşyny belläň — «Maşyn / Tyr belgisi» setirini dolduryň."
   },
   "pallet": {
     "title": "Palet manifest",

@@ -1,9 +1,9 @@
-import { memo, useCallback, useRef, useState } from 'react';
+import { memo, lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { Dropdown, Modal, Popover, Tag, ColorPicker, Button } from 'antd';
 import type { Color } from 'antd/es/color-picker';
 import {
   HistoryOutlined, FileTextOutlined, FileAddOutlined, FileDoneOutlined, FileSyncOutlined,
-  BgColorsOutlined,
+  BgColorsOutlined, EnvironmentOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,12 @@ import { FieldHistoryContent } from './CellLastEditMarker';
 import { getCellValue } from './getCellValue';
 import { ShipmentFirmContractsPanel } from './ShipmentFirmContractsPanel';
 import { ShipmentPackingPanel } from './ShipmentPackingPanel';
+// Lazy: this module pulls in Leaflet + its CSS (~150 KB), and SheetCell is
+// imported by every Sheet consumer. Operators on public networks in KZ/RU
+// shouldn't pay for a map they may never open — it loads on the first pin click.
+const ShipmentTruckMapModal = lazy(() =>
+  import('./ShipmentTruckMapModal').then((m) => ({ default: m.ShipmentTruckMapModal })),
+);
 import { getContrastTextColor } from '@/utils/contrastColor';
 
 // Re-export for consumers that only need the formatter (e.g. test files).
@@ -175,6 +181,11 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   // than a picker nested inside the context menu) keeps the antd Dropdown from
   // closing the popover the moment the swatch panel opens.
   const [colorOpen, setColorOpen] = useState(false);
+  // Truck GPS map (R15 "Vehicle Current Position / ETA"). The modal — and only
+  // the modal — mounts useShipmentTruckPosition, which polls every 30s. Mounting
+  // that hook in the cell instead would put one poll behind every visible
+  // shipment column, so the pin below stays a dumb icon until it is clicked.
+  const [mapOpen, setMapOpen] = useState(false);
   const setCellColor = useSetCellColor();
 
   const applyCellColor = useCallback(
@@ -381,6 +392,14 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
             open={historyOpen}
           />
         </Modal>
+      )}
+      {/* Rendered here (a sibling of the cell, not a child) because React
+          portals still bubble synthetic events up the React tree — a click
+          inside the map would otherwise reach the cell's own onClick. */}
+      {mapOpen && (
+        <Suspense fallback={null}>
+          <ShipmentTruckMapModal shipment={shipment} onClose={() => setMapOpen(false)} />
+        </Suspense>
       )}
     </>
   );
@@ -596,6 +615,25 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
       onDoubleClick={handleDoubleClick}
     >
       <span className="sheet-cell__text" style={cellTextStyle}>{value}</span>
+      {/* R15 only. Gapy Satyş trucks sell at the gate and are never fitted with
+          a fleet tracker, so they get no pin (same reasoning as the truck_plate
+          editor, which skips the fleet picker for them). */}
+      {fieldKey === 'vehicle_live_status' && !isGapy && (
+        <span
+          data-testid="truck-map-pin"
+          className="sheet-cell__map-pin"
+          title={t('fleet_map.sheet_open_map')}
+          onClick={(e) => {
+            // The cell is editable text and an empty one opens its editor on a
+            // single click — this pin must not trigger that.
+            e.stopPropagation();
+            setMapOpen(true);
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <EnvironmentOutlined />
+        </span>
+      )}
       <CommentMarker
         count={commentCount}
         taskState={commentTaskState}

@@ -2279,7 +2279,9 @@
     "offline": "offline",
     "stale": "stale",
     "resolved_auto": "auto",
-    "resolved_manual": "manual"
+    "resolved_manual": "manual",
+    "sheet_open_map": "Show truck on map",
+    "sheet_set_truck": "Set the truck first — fill the Truck / Trailer Plate row."
   },
   "pallet": {
     "title": "Pallet manifest",
