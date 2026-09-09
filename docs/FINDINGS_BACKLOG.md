@@ -605,6 +605,50 @@ that owns the work. `transition` never got one.
 - **P1–P4** (process/data divergences): [ROLE_PROCESS_TEST_PLAN.md](ROLE_PROCESS_TEST_PLAN.md#2-four-data-vs-code-divergences-found)
 - **T1–T2** (accounts): [TEST_ACCOUNTS.md](TEST_ACCOUNTS.md)
 
+## F24–F34 — Sheet lifecycle E2E, 2026-09-08
+
+Full source, evidence and the row/owner/label table:
+[SHEET_LIFECYCLE_E2E_2026-09-08.md](SHEET_LIFECYCLE_E2E_2026-09-08.md).
+Live Playwright walk of shipment 714 `0809002/26` from draft to `tamamlandy`, one real
+role account per step. Every transition in the chain fired (all twelve logged, `is_auto=True`);
+what failed is that two cells the spec names as triggers — `peregruz_date` and
+`sales_report_date` — drive no transition at all.
+
+- **F25 — HIGH, data loss.** `_execute_join` copies only
+  `{variety_id, export_code, weight_net, updated_by_id}` then hard-deletes the source, so
+  `harvest_date`, `harvest_status` and `rejected_weight_kg` are silently discarded on every
+  Join. Three of the five Stage-0 supply cells.
+- **F26 — HIGH, biting production.** Two `documents_status` options both read "OK": `ok`
+  (TK "Taýýar", icon column literally contains the text "OK" → renders "OK OK") and `ready`
+  (EN+TK "OK"). The gate is `field_equals 'ready'`, so the option that reads *Ready* in
+  Turkmen does not satisfy it. Live: 3 shipments on `ok`. **Latent, not currently blocking** —
+  639 and 702 also have other gates open (639 has no customer/import_firm, 702 has no
+  driver/phone/plate), so they would stay in `draft` either way; 684 sits on `ok` and already
+  reached `gumruk_girish`. The trap bites once the other gates are filled. Fixable in data:
+  neither value is referenced anywhere in `backend/apps` outside the `TaskRule` row.
+- **F28 — HIGH, data gap.** `views.py:1401` scopes reps to `customer__sales_rep=request.user`,
+  but 7 of 8 live Customers have `sales_rep = NULL`. Every sales rep sees an **empty Sheet**
+  for almost every shipment, so steps 5–11 cannot be driven by the role that owns them.
+  Fix is data (assign customers), not code.
+- **F29 — LOW** (downgraded from HIGH after checking the audit trail). A conditional task is
+  not regenerated when its `condition_field` changes after step entry. Both peregruz rules exist
+  and are correct, but the condition is evaluated when the step is entered, so flipping
+  Peregruz=Yes at `barysh_gumrugi` creates no `trigger_transshipment` and `peregruz_date` becomes
+  a field nobody is ever asked for. **`transshipment` is NOT skipped** — `ShipmentStatusLog` for
+  714 records `barysh_gumrugi → transshipment → bardy`, all `is_auto=True`; the cascade passed
+  through it in one save because `arrived_at` satisfied its trigger too. The lifecycle completes
+  correctly. Same exposure applies to the other conditional rules (`is_gapy_satys`).
+- **F30/F31 — MEDIUM.** The `satyldy` rule targets `sales_report`, not `sales_report_date`, so
+  the spec's step 11 never advances; and `t_finansist`, which owns
+  `satyldy → tamamlandy`, has no Sales Reports menu entry and is redirected off both
+  `/export/sales-reports/…` and ShipmentDetail. Relates to F12–F14.
+- **F24, F27, F32, F33, F34 — LOW/cosmetic.** Row labels keyed to profile language while the
+  rest of the UI follows the toggle (`SheetLabelColumn.tsx:95`); empty labels on
+  `firm_contracts`/`packing`/`rejected_weight_kg`; three-way owner disagreements
+  (`departed_at`, `firm_contracts`, `vehicle_condition`) plus "Soltanmyra**d**" typos; sheet
+  cells unclickable under the sticky frozen band; datetime cells discard a typed value and
+  stamp *now*.
+
 ## Verified clean — do not re-investigate
 
 - `core/team-kpi/`, `core/worklog/team/` open to everyone — ADR-020's locked "radical
