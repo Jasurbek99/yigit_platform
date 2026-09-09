@@ -152,6 +152,20 @@ ordering, so a value operators naturally walk past (`pending → in_progress →
 re-fire and left drafts stuck. (Two stale comments still say `in_progress` — the module header of
 `seed_task_rules.py` and the `create_shipment()` docstring. The rule body is correct.)
 
+> **The look-alike `ok` option (fixed 2026-09-09, F26).** The category used to ship *two* options
+> that both rendered as "OK": `ok` (EN "OK" / RU "Готово" / TK **"Taýýar"**, and its `icon` column
+> literally held the text `OK`, so it drew as `OK OK`) and `ready` (EN/RU/TK all literally "OK").
+> Only `ready` satisfies the gate — so the option that reads *Ready* to a Turkmen operator was the
+> one that silently did nothing. `core/0041_documents_status_single_ready_option` moves the good
+> labels onto `ready` (now `✅ Ready` / `Готово` / `Taýýar`, sort 1), migrates the 3 shipments that
+> were on `ok` to `ready`, and retires `ok` via `is_active=False` (not deleted — it is a historical
+> value, and `harvest_status` / `vehicle_condition` have their own unrelated `ok` rows, so every
+> query in that migration is scoped by category). Found by the E2E walk in
+> `docs/SHEET_LIFECYCLE_E2E_2026-09-08.md`.
+>
+> **Lesson for any new FIELD_EQUALS rule:** two options in one category must never render the same
+> string in any language, or the gate becomes a coin flip the operator cannot see.
+
 **Two-row join guard.** On top of the tasks, `transition_to()` refuses to leave `draft` unless
 `block_sources`, `country` **and** `customer` are all set. A pure supply draft (`loading_dept_head`,
 blocks only) or a pure destination draft (`export_manager`, destination only) raises `ValueError` —
