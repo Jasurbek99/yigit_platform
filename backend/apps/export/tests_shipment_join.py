@@ -418,6 +418,57 @@ class JoinSuccessTests(TestCase):
         self.target.refresh_from_db()
         self.assertEqual(self.target.variety_id, variety.pk)
 
+    def test_join_carries_supply_harvest_fields_to_target(self):
+        """harvest_date, harvest_status and rejected_weight_kg survive the join (F25).
+
+        Stage 0 asks the loading dept head to fill these on the supply column, and the
+        source row is hard-deleted by the join — before the fix they were lost silently.
+        harvest_date is a free-text CharField ("5-10 oktýabr"), not a DateField.
+        """
+        self.source.harvest_date = '2026-09-08'
+        self.source.harvest_status = 'ok'
+        self.source.rejected_weight_kg = Decimal('18100.00')
+        self.source.save(update_fields=[
+            'harvest_date', 'harvest_status', 'rejected_weight_kg',
+        ])
+
+        resp = self.client.post(
+            self._join_url(self.target.pk),
+            {'source_id': self.source.pk},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.target.refresh_from_db()
+        self.assertEqual(self.target.harvest_date, '2026-09-08')
+        self.assertEqual(self.target.harvest_status, 'ok')
+        self.assertEqual(self.target.rejected_weight_kg, Decimal('18100.00'))
+
+    def test_join_does_not_overwrite_harvest_fields_already_on_target(self):
+        """A destination draft that already carries these keeps its own values."""
+        self.target.harvest_date = '2026-01-01'
+        self.target.harvest_status = 'harvesting'
+        self.target.rejected_weight_kg = Decimal('999.00')
+        self.target.save(update_fields=[
+            'harvest_date', 'harvest_status', 'rejected_weight_kg',
+        ])
+        self.source.harvest_date = '2026-09-08'
+        self.source.harvest_status = 'ok'
+        self.source.rejected_weight_kg = Decimal('18100.00')
+        self.source.save(update_fields=[
+            'harvest_date', 'harvest_status', 'rejected_weight_kg',
+        ])
+
+        resp = self.client.post(
+            self._join_url(self.target.pk),
+            {'source_id': self.source.pk},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.target.refresh_from_db()
+        self.assertEqual(self.target.harvest_date, '2026-01-01')
+        self.assertEqual(self.target.harvest_status, 'harvesting')
+        self.assertEqual(self.target.rejected_weight_kg, Decimal('999.00'))
+
     def test_join_moves_firm_splits_when_target_has_none(self):
         """Firm splits from source move to target when target has none."""
         from apps.core.models import ExportFirm

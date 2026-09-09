@@ -141,9 +141,19 @@ flowchart LR
 **Endpoint**: `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`. Caller must be `admin`/`export_manager`/`director`/`boss` (or superuser). Gates: both must be `draft`; target ≠ source; target must have country + customer; target must **not** already have blocks; source must have ≥1 block. Effect:
 - `source.block_sources` (and `firm_splits` if the target has none) move to the target.
 - `variety` + `export_code` are copied to the target if the target's are empty.
+- `harvest_date`, `harvest_status` and `rejected_weight_kg` are copied to the target if the target's are empty (**added 2026-09-09, F25**).
 - The source's full set of sorts (`varieties_dominant`) is copied onto the target when the target has none.
 - `target.weight_net` is recomputed.
 - One `ShipmentStatusLog` audit row is written on the target ("Joined supply from {source.shipment_code} …").
+
+> **The source row is hard-deleted, so anything the merge does not copy is gone for good.**
+> Until 2026-09-09 the copy list omitted `harvest_date`, `harvest_status` and
+> `rejected_weight_kg` — three of the five cells Stage 0 asks Soltanmyrat to fill on the
+> supply column — so every join silently discarded them (F25, found by the E2E walk in
+> `docs/SHEET_LIFECYCLE_E2E_2026-09-08.md`). If you add a supply-side Sheet field, add it
+> to `_execute_join`'s `update_fields` in the same change, or it will vanish on join.
+> Note `harvest_date` and `harvest_status` are **nullable CharFields**, so "unset" is
+> `None` *or* `''` — guard on truthiness, not `is None`.
 
 **Client-side classification (corrected 2026-08-22)**: `isSupplyDraft()` used to additionally require
 `country === null || created_by_role ∈ SUPPLY_ROLES` — a **frontend-only rule the endpoint never had**.
