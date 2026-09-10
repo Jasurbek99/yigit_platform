@@ -496,11 +496,13 @@ GET /api/v1/contracts/contracts/{id}/agreement/?fmt=docx|pdf&buyer_director=&del
   the legal form `HJ` / `Хозяйственное общество`, so a trailing `H.J.`/`Х.Дж.` in the
   stored name is stripped), address, director (the leading `Директор`/`Direktor` title
   the template already prints is stripped), and the `bank_details_tk/ru` **blob**
-  collapsed to one line (`_oneline` joins newlines with `; ` — a bare `\n` won't
-  line-break in a docx run; the template's structured seller-bank lines were merged
-  since ExportFirm stores only a blob).
+  printed one requisite per line (`_lines` trims each line and drops the blanks but
+  keeps the breaks — docxtpl turns an embedded `\n` into a `<w:br/>`; the template's
+  structured seller-bank lines were merged since ExportFirm stores only a blob). All
+  four bank paragraphs in `contract_kz.docx` are **left-aligned**, not justified like
+  the body text — justification stretches a short requisite line across the box.
 - **Buyer** = `contract.import_firm`: the flat single-value fields the model has
-  (`name_company` / `address` / `bank_details` **blob**, collapsed to one line the
+  (`name_company` / `address` / `bank_details` **blob**, printed line by line the
   same way as the seller bank) shown in both language columns, plus the bilingual
   country name (the one buyer field that's genuinely per-language). The buyer's
   director name is the firm's **`contact_person`** ("Director's Full Name"); the

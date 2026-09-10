@@ -778,9 +778,14 @@ def _date_tk_spelled(value: date | None) -> str:
     return f'{_tk_ordinal(value.year)} ýylyň {_tk_ordinal(value.day)} {_TK_MONTHS_LOCATIVE[value.month]}'
 
 
-def _oneline(text: str) -> str:
-    """Collapse line breaks in a blob to '; ' (docx runs don't render '\\n')."""
-    return '; '.join(part.strip() for part in text.splitlines() if part.strip())
+def _lines(text: str) -> str:
+    """Tidy a multi-line blob, keeping one item per line.
+
+    Trims each line and drops the blank ones, but preserves the breaks: docxtpl
+    turns an embedded ``\\n`` into a ``<w:br/>``, so a firm's bank requisites
+    print stacked exactly as the office typed them instead of running together.
+    """
+    return '\n'.join(part.strip() for part in text.splitlines() if part.strip())
 
 
 def _parse_iso(value: str | None) -> date | None:
@@ -913,11 +918,11 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
     ).strip()
     director_tk = (getattr(buyer, 'contact_person_tk', '') or '').strip() or director_ru
 
-    # Buyer — single-value model fields shown in both language columns; a multi-line
-    # bank_details blob collapses to '; ' (a bare '\n' won't line-break in a docx run).
+    # Buyer — single-value model fields shown in both language columns; the
+    # multi-line bank_details blob prints one requisite per line.
     buyer_name = getattr(buyer, 'name_company', '') or getattr(buyer, 'name_short', '') or ''
     buyer_address = getattr(buyer, 'address', '') or ''
-    buyer_bank = _oneline(getattr(buyer, 'bank_details', '') or '')
+    buyer_bank = _lines(getattr(buyer, 'bank_details', '') or '')
 
     # Stamps: only when the request opts in AND the firm actually has the image.
     # Blank ('') otherwise → the placeholder renders nothing.
@@ -955,8 +960,8 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
             _DIRECTOR_TITLE.sub('', getattr(seller, 'director_tk', '') or '').strip()
             or _seller_director(seller)
         ),
-        'seller_bank_tk': _oneline(getattr(seller, 'bank_details_tk', '') or ''),
-        'seller_bank_ru': _oneline(
+        'seller_bank_tk': _lines(getattr(seller, 'bank_details_tk', '') or ''),
+        'seller_bank_ru': _lines(
             getattr(seller, 'bank_details_ru', '') or getattr(seller, 'bank_details_tk', '') or ''
         ),
         # Buyer (import firm) — flat fields repeated across both columns; country

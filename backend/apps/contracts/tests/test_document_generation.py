@@ -626,8 +626,11 @@ class ContractContextBuilderTest(SimpleTestCase):
         c.export_firm.director_tk = None  # Turkmen spelling not filled
         out = ctx.build_contract_context(c, 'ru')
         self.assertEqual(out['seller_director_tk'], 'Худайназаров Ы.')  # falls back to `director`
-        # bank blob collapsed to one line
-        self.assertEqual(out['seller_bank_ru'], 'Банк: Туркменбаши; Вал/счет: 23202; SWIFT: INVATM2X')
+        # bank blob keeps one requisite per line
+        self.assertEqual(
+            out['seller_bank_ru'],
+            'Банк: Туркменбаши\nВал/счет: 23202\nSWIFT: INVATM2X',
+        )
 
     def test_buyer_flat_fields(self):
         c = ctx.build_contract_context(_mock_contract(), 'ru')
@@ -636,10 +639,10 @@ class ContractContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['buyer_name_ru'], 'TOO «Aranşy - KZ»')
         self.assertEqual(c['buyer_country_tk'], 'Gazagystan')
         self.assertEqual(c['buyer_country_ru'], 'Казахстан')
-        # bank_details blob collapses to '; ' (docx runs drop '\n')
+        # bank_details blob keeps its line breaks (docxtpl renders them as <w:br/>)
         self.assertEqual(
             c['buyer_bank_ru'],
-            'БИН 191040016779; БИК HSBKKZKX; р/с KZ97601A891001387241',
+            'БИН 191040016779\nБИК HSBKKZKX\nр/с KZ97601A891001387241',
         )
 
     def test_buyer_director_override_wins(self):
@@ -760,10 +763,24 @@ class ContractRenderSmokeTest(TestCase):
         self.assertIn('30 июня 2026', text)                   # RU spelled deadline
         self.assertIn('Hemsaya', text)                       # seller name (not hardcoded Ýigit)
         self.assertIn('Худайназаров', text)                  # seller director
-        self.assertIn('191040016779', text)                  # buyer bank blob (collapsed)
+        self.assertIn('191040016779', text)                  # buyer bank blob
         self.assertNotIn('Ýigit', text)                      # no leftover hardcoded seller
         self.assertEqual(content_type, render.DOCX_CONTENT_TYPE)
         self.assertEqual(filename, 'Contract_108-26-YGT-EXP_KZ.docx')
+
+    def test_bank_requisites_print_one_per_line(self):
+        # The office reads the requisites off the printed page line by line, so the
+        # stored blob's breaks must survive the render (docxtpl emits <w:br/>, which
+        # python-docx reads back as '\\n').
+        data, _filename, _content_type = render.generate(
+            'contract_kz', _mock_contract(), 'docx', {},
+        )
+        text = self._text(data)
+        self.assertIn(
+            'БИН 191040016779\nБИК HSBKKZKX\nр/с KZ97601A891001387241',
+            text,
+        )
+        self.assertIn('SWIFT: INVATM2X', text)  # last line of the seller blob
 
 
 class HighlightRenderTest(TestCase):
