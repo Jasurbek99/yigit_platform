@@ -110,7 +110,12 @@ Response (files): `Content-Disposition: attachment`, e.g. `Invoice_93-26-DM-EXP_
 
 ## Data sources — the gross-net packing template
 
-Header/firms from **Contract + ExportFirm/ImportFirm**. Packing comes from a single
+Header/firms from **Contract + ExportFirm/ImportFirm**. The origin line (`country_origin`) is
+not data at all — the goods are always Turkmen and always that season's harvest, so the
+builder prints `Туркменистан, урожай {year} года` / `Turkmenistan, harvest of {year}` on every invoice.
+The year is the **invoice date's** year, falling back to the **current** year when the sale
+has none — half the sales in the database are still undated, and the line used to render
+as a bare label with nothing after it. Packing comes from a single
 **`PackingTemplate`** applied to the shipment (`Shipment.packing_template`) — one Excel
 `gross net` row (whole truck + firm shares), picked *before loading*:
 
@@ -528,7 +533,10 @@ GET /api/v1/contracts/contracts/{id}/agreement/?fmt=docx|pdf&buyer_director=&del
 > placeholders rendered blank on the one document type that most needs them. Creating a
 > one-time contract now **requires** the price and fills all three from the truck —
 > see [[../reference/contracts-contract-sale-model]]. Contracts created before that
-> date are not backfilled and still print blank.
+> date are not backfilled and still print blank — 38 one-time and 59 of 64 framework
+> contracts as of 2026-09-10. Fill them in with **Edit plan** on the contract detail
+> page ([[../screens/contract-detail]]); price alone is not enough, because the
+> quantity and total print from their own fields.
 
 **Amount in words.** The total is spelled out in both languages —
 `services/amount_words.py` (`amount_words_ru` / `amount_words_tk`), hand-rolled (no
@@ -545,19 +553,33 @@ rather than risk wrong grammar.
 **Stamps.** The template is **unstamped by default** — the original signed contract
 it was cloned from carried both parties' seals as embedded images, which were
 stripped (image elements + media files removed) so a generated draft never shows
-someone else's seal; seals are applied at signing. Passing **`?stamps=1`** stamps the
-section-9 signature block with each firm's own uploaded seal + signature —
+someone else's seal; seals are applied at signing. **`?stamps=`** picks which of the
+section-9 signature blocks carry that firm's own uploaded seal + signature —
 `ExportFirm.director_seal`/`director_signature` (seller) and
 `ImportFirm.director_seal`/`director_signature` (buyer), uploaded on the firm's admin
-page. The builder emits a `StampImage` marker (a deferred FieldFile ref, so builders
-stay I/O-free) only when stamps are on **and** the firm has the image; `render_docx`
-reads the bytes and turns it into a docxtpl `InlineImage` (an unreadable/missing file
-degrades to blank, never breaks the doc). Placeholders `{{ seller_seal }}` /
-`{{ seller_signature }}` / `{{ buyer_seal }}` / `{{ buyer_signature }}`.
+page. Four variants (2026-09-10):
+
+| `?stamps=` | Seller (export firm) | Buyer (import firm) |
+|---|---|---|
+| omitted, `none`, `0`, anything unrecognised | — | — |
+| `both` (also legacy `1` / `true` / `yes` / `on`) | stamped | stamped |
+| `export` | stamped | — |
+| `import` | — | stamped |
+
+Seal and signature always travel **together per firm** — the choice is which *firm* is
+stamped, never seal-without-signature. An unrecognised value falls through to the clean
+draft rather than erroring, so a stale link can never leak a stamp. The builder emits a
+`StampImage` marker (a deferred FieldFile ref, so builders stay I/O-free) only when that
+firm is selected **and** it has the image; `render_docx` reads the bytes and turns it
+into a docxtpl `InlineImage` (an unreadable/missing file degrades to blank, never breaks
+the doc). Placeholders `{{ seller_seal }}` / `{{ seller_signature }}` /
+`{{ buyer_seal }}` / `{{ buyer_signature }}`.
 
 Frontend: a **"Download contract"** button (`components/ContractAgreementButton.tsx`)
-opens a modal for the director + deadline + format + a **"With stamps"** checkbox (off by
-default), then downloads via `downloadFile()`. Labels `contracts.generate.*` (tk/ru/en).
+opens a modal for the director + deadline + format + a four-way **"Stamps"** radio group
+(No stamps / Both / Export firm only / Import firm only, defaulting to no stamps), then
+downloads via `downloadFile()`. Labels `contracts.generate.stamps*` (tk/ru/en). Vertical
+radios rather than a `Segmented`: four translated labels overflow the modal in RU/TK.
 
 Renamed from **"Generate contract"** on 2026-09-03. The `Contract` row already exists by the
 time this button renders — it is created from the Sheet's contracts cell — and the tk label

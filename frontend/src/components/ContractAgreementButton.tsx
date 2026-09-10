@@ -1,11 +1,18 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Checkbox, DatePicker, Form, Input, Modal, Segmented } from 'antd';
+import { Button, Checkbox, DatePicker, Form, Input, Modal, Radio, Segmented } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { IconFileText } from '@tabler/icons-react';
 
 import { DocumentLayoutPopover } from '@/components/DocumentLayoutPopover';
 import { useDocumentDownload } from '@/hooks/useDocumentDownload';
+
+/**
+ * Which firms' signature blocks carry their seal + signature. Sent as ?stamps=;
+ * 'none' sends nothing (the server's default is an unstamped draft). Seal and
+ * signature travel together per firm — the choice is which FIRM is stamped.
+ */
+type TStampMode = 'none' | 'both' | 'export' | 'import';
 
 interface IContractAgreementButtonProps {
   readonly contractId: number;
@@ -49,7 +56,7 @@ export function ContractAgreementButton({
   const [buyerDirector, setBuyerDirector] = useState('');
   const [deadline, setDeadline] = useState<Dayjs | null>(null);
   const [fmt, setFmt] = useState<'docx' | 'pdf'>('docx');
-  const [withStamps, setWithStamps] = useState(false);
+  const [stampMode, setStampMode] = useState<TStampMode>('none');
   const [highlight, setHighlight] = useState(true);
   const { isGenerating, download } = useDocumentDownload();
 
@@ -64,7 +71,7 @@ export function ContractAgreementButton({
     setBuyerDirector(defaultDirector);  // pre-fill from the firm's saved director
     setDeadline(null);
     setFmt('docx');
-    setWithStamps(false);
+    setStampMode('none');
     setHighlight(true);
     setModalOpen(true);
   };
@@ -73,7 +80,7 @@ export function ContractAgreementButton({
     const params = new URLSearchParams({ fmt });
     if (buyerDirector.trim()) params.set('buyer_director', buyerDirector.trim());
     if (deadline) params.set('delivery_deadline', deadline.format('YYYY-MM-DD'));
-    if (withStamps) params.set('stamps', '1');
+    if (stampMode !== 'none') params.set('stamps', stampMode);
     // Red is the server default; only the opt-out needs to travel.
     if (!highlight) params.set('highlight', '0');
     // The PDF variant shells out to LibreOffice (slow); the hook keeps the modal
@@ -140,10 +147,29 @@ export function ContractAgreementButton({
               ]}
             />
           </Form.Item>
-          <Form.Item extra={t('contracts.generate.with_stamps_extra')}>
-            <Checkbox checked={withStamps} onChange={(e) => setWithStamps(e.target.checked)}>
-              {t('contracts.generate.with_stamps')}
-            </Checkbox>
+          <Form.Item
+            label={t('contracts.generate.stamps')}
+            extra={t('contracts.generate.with_stamps_extra')}
+          >
+            {/* Vertical radios, not a Segmented: four translated labels overflow
+                the modal in RU/TK. */}
+            <Radio.Group
+              value={stampMode}
+              onChange={(e) => setStampMode(e.target.value as TStampMode)}
+            >
+              <Radio value="none" style={{ display: 'block' }}>
+                {t('contracts.generate.stamps_none')}
+              </Radio>
+              <Radio value="both" style={{ display: 'block' }}>
+                {t('contracts.generate.stamps_both')}
+              </Radio>
+              <Radio value="export" style={{ display: 'block' }}>
+                {t('contracts.generate.stamps_export')}
+              </Radio>
+              <Radio value="import" style={{ display: 'block' }}>
+                {t('contracts.generate.stamps_import')}
+              </Radio>
+            </Radio.Group>
           </Form.Item>
           <Form.Item extra={t('documents.highlight_extra')}>
             <Checkbox checked={highlight} onChange={(e) => setHighlight(e.target.checked)}>

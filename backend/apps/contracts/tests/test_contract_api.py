@@ -419,3 +419,82 @@ class ContractDeleteTest(_SeededPermsMixin, TestCase):
         by_id = {row['id']: row for row in response.json()['results']}
         self.assertFalse(by_id[clean.pk]['has_sales'])
         self.assertTrue(by_id[used.pk]['has_sales'])
+
+
+class ContractPlannedFiguresPatchTest(_SeededPermsMixin, TestCase):
+    """The planned block must stay editable after a contract exists.
+
+    The contract .docx prints its price, quantity and total straight off
+    ``price_per_kg`` / ``planned_quantity_kg`` / ``planned_amount_usd``, and a
+    contract auto-created from the Sheet before 2026-09-10 has all three NULL.
+    There is no other way to fill them in, so a partial PATCH carrying only
+    those fields has to pass validation — the serializer is shared with create,
+    where ``export_firm`` and ``import_firm`` are required.
+    """
+
+    def setUp(self) -> None:
+        self.season = _make_season()
+        self.export_firm = _make_export_firm()
+        self.import_firm = _make_import_firm()
+        self.contract = Contract.objects.create(
+            contract_number='500/25-YGTE-EXP',
+            export_firm=self.export_firm,
+            import_firm=self.import_firm,
+            season=self.season,
+            contract_type=Contract.TYPE_ONE_TIME,
+            status=Contract.STATUS_ACTIVE,
+        )
+        self.url = f'/api/v1/contracts/contracts/{self.contract.id}/'
+        self.client = APIClient()
+        self.client.force_authenticate(user=_make_user('mgr_patch', 'export_manager'))
+
+    def test_partial_patch_of_the_planned_block_returns_200(self) -> None:
+        resp = self.client.patch(self.url, {
+            'planned_trucks': 1,
+            'planned_quantity_kg': '9000.00',
+            'price_per_kg': '0.9000',
+            'planned_amount_usd': '8100.00',
+        }, format='json')
+
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.contract.refresh_from_db()
+        self.assertEqual(self.contract.price_per_kg, Decimal('0.9000'))
+        self.assertEqual(self.contract.planned_quantity_kg, Decimal('9000.00'))
+        self.assertEqual(self.contract.planned_amount_usd, Decimal('8100.00'))
+
+    def test_the_patch_leaves_identity_and_rollup_columns_alone(self) -> None:
+        """It must not renumber the contract or disturb rollup-owned totals."""
+        self.client.patch(self.url, {'price_per_kg': '1.1000'}, format='json')
+
+        self.contract.refresh_from_db()
+        self.assertEqual(self.contract.contract_number, '500/25-YGTE-EXP')
+        self.assertEqual(self.contract.export_firm_id, self.export_firm.id)
+        self.assertEqual(self.contract.exported_amount_usd, Decimal('0'))
+        self.assertEqual(self.contract.payment_received_usd, Decimal('0'))
+
+    def test_the_document_then_prints_the_price_quantity_and_total(self) -> None:
+        from apps.contracts.services.document_context import build_contract_context
+
+        self.client.patch(self.url, {
+            'planned_quantity_kg': '9000.00',
+            'price_per_kg': '0.9000',
+            'planned_amount_usd': '8100.00',
+        }, format='json')
+        self.contract.refresh_from_db()
+
+        context = build_contract_context(self.contract, 'ru')
+        self.assertEqual(context['price'], '0,9')
+        self.assertTrue(context['quantity'])
+        self.assertTrue(context['total_sum'])
+        self.assertTrue(context['total_sum_words_ru'])
+
+    def test_a_role_without_contract_edit_is_refused(self) -> None:
+        client = APIClient()
+        client.force_authenticate(user=_make_user('wh_patch', 'warehouse_chief'))
+
+        resp = client.patch(self.url, {'price_per_kg': '1.0000'}, format='json')
+
+        self.assertEqual(resp.status_code, 403, resp.content)
+        self.contract.refresh_from_db()
+        self.assertIsNone(self.contract.price_per_kg)
+

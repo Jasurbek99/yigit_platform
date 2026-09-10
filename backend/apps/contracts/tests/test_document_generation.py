@@ -99,6 +99,7 @@ def _mock_invoice(*, with_shipment=True, truck_template=None,
         weight_net=Decimal('9000'), weight_gross=Decimal('10720'), box_count=1800,
         pallet_count=16, packaging_kg=Decimal('300'), pallet_weight_kg=Decimal('300'),
         truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.', country=country,
+        truck_plate_2=None, driver_2_name=None,
         packing_template=truck_template,
     ) if with_shipment else None
     contract = SimpleNamespace(
@@ -163,6 +164,7 @@ def _mock_shipment(*, firms=None, truck_template=None):
         weight_net=Decimal('9000'), weight_gross=Decimal('10720'), box_count=1800,
         pallet_count=16, packaging_kg=Decimal('300'), pallet_weight_kg=Decimal('300'),
         truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.', date=date(2026, 3, 16),
+        truck_plate_2=None, driver_2_name=None,
     )
 
 
@@ -185,6 +187,16 @@ class InvoiceContextBuilderTest(SimpleTestCase):
         self.assertEqual(item['net'], '9 000')
         self.assertEqual(item['price'], '0,87')
         self.assertIn('2026', c['country_origin'])
+
+    def test_origin_line_falls_back_to_the_current_year_without_an_invoice_date(self):
+        """An undated sale still prints the origin line, not a bare label."""
+        invoice = _mock_invoice()
+        invoice.invoice_date = None
+        # A year no other fixture date could supply, so the assertion can only
+        # pass through the fallback.
+        with mock.patch.object(ctx.timezone, 'localdate', return_value=date(2031, 7, 1)):
+            c = ctx.build_invoice_context(invoice, 'ru')
+        self.assertEqual(c['country_origin'], 'Туркменистан, урожай 2031 года')
 
     def test_en_keeps_english_number_format_and_firm_columns(self):
         c = ctx.build_invoice_context(_mock_invoice(), 'en')
@@ -735,6 +747,52 @@ class ContractContextBuilderTest(SimpleTestCase):
         self.assertIsInstance(
             ctx.build_contract_context(c, 'ru', {'stamps': 'true'})['seller_seal'], ctx.StampImage,
         )
+
+    @staticmethod
+    def _both_firms_stamped():
+        """A contract where BOTH firms have seal + signature uploaded.
+
+        The per-firm variants can only be proved on this fixture: the plain
+        ``_mock_contract()`` buyer has no images, so a blank buyer slot there
+        would pass vacuously.
+        """
+        c = _mock_contract()
+        for firm in (c.export_firm, c.import_firm):
+            firm.director_seal = SimpleNamespace(name='seal.png')
+            firm.director_signature = SimpleNamespace(name='sign.png')
+        return c
+
+    def test_stamps_both_marks_seller_and_buyer(self):
+        out = ctx.build_contract_context(self._both_firms_stamped(), 'ru', {'stamps': 'both'})
+        for slot in ('seller_seal', 'seller_signature', 'buyer_seal', 'buyer_signature'):
+            self.assertIsInstance(out[slot], ctx.StampImage, slot)
+
+    def test_stamps_export_marks_seller_only(self):
+        out = ctx.build_contract_context(self._both_firms_stamped(), 'ru', {'stamps': 'export'})
+        self.assertIsInstance(out['seller_seal'], ctx.StampImage)
+        self.assertIsInstance(out['seller_signature'], ctx.StampImage)
+        # Buyer HAS images here — blank proves the variant, not a missing file.
+        self.assertEqual(out['buyer_seal'], '')
+        self.assertEqual(out['buyer_signature'], '')
+
+    def test_stamps_import_marks_buyer_only(self):
+        out = ctx.build_contract_context(self._both_firms_stamped(), 'ru', {'stamps': 'import'})
+        self.assertIsInstance(out['buyer_seal'], ctx.StampImage)
+        self.assertIsInstance(out['buyer_signature'], ctx.StampImage)
+        self.assertEqual(out['seller_seal'], '')
+        self.assertEqual(out['seller_signature'], '')
+
+    def test_stamps_none_and_unknown_leave_every_slot_blank(self):
+        for mode in ('none', '', '0', 'seller', 'nonsense'):
+            out = ctx.build_contract_context(self._both_firms_stamped(), 'ru', {'stamps': mode})
+            for slot in ('seller_seal', 'seller_signature', 'buyer_seal', 'buyer_signature'):
+                self.assertEqual(out[slot], '', f'{mode}/{slot}')
+
+    def test_legacy_truthy_aliases_still_stamp_both_firms(self):
+        for mode in ('1', 'true', 'yes', 'on'):
+            out = ctx.build_contract_context(self._both_firms_stamped(), 'ru', {'stamps': mode})
+            self.assertIsInstance(out['seller_seal'], ctx.StampImage, mode)
+            self.assertIsInstance(out['buyer_seal'], ctx.StampImage, mode)
 
 
 class ContractRenderSmokeTest(TestCase):
@@ -1792,3 +1850,88 @@ class DocumentLayoutEndpointTest(_SeededPermsMixin, TestCase):
         data, _f, _ct = render.generate('invoice_ru', _mock_invoice(), 'docx')
         rendered = Document(BytesIO(data)).sections[0].left_margin
         self.assertAlmostEqual(rendered, template_margin + Mm(6), delta=TWIP_EMU)
+
+
+class TruckPlateAndDriverPrintingTests(TestCase):
+    """``_truck_plate`` / ``_driver_names`` decide how a truck's registration
+    and crew print on the invoice, the CMR (context and overlay) and every
+    request letter — one helper each so those four can never disagree.
+    """
+
+    def _ship(self, **kw):
+        base = {
+            'truck_plate': '',
+            'trailer_id': None,
+            'truck_plate_2': None,
+            'driver_name': '',
+            'driver_2_name': None,
+        }
+        base.update(kw)
+        return SimpleNamespace(**base)
+
+    def test_no_shipment_prints_blank(self):
+        self.assertEqual(ctx._truck_plate(None), '')
+        self.assertEqual(ctx._driver_names(None), '')
+
+    def test_stored_plate_prints_untouched(self):
+        s = self._ship(truck_plate='2189AHF/1485TAG')
+        self.assertEqual(ctx._truck_plate(s), '2189AHF/1485TAG')
+
+    def test_trailer_row_id_is_not_appended(self):
+        """Regression: the helper used to append ``shipment.trailer_id``.
+
+        ``truck_plate`` already reads ``"{head}/{trailer}"`` — the Sheet's
+        picker composes it that way via ``composeTruckPlate`` — so appending
+        the FK printed a database row id on the CMR ("2189AHF/1485TAG/34").
+        Checked on the live DB: 90 shipments carry a slash-composed plate and 8
+        of them also carry a ``trailer_id``, so 8 documents printed the id.
+        """
+        s = self._ship(truck_plate='2189AHF/1485TAG', trailer_id=34)
+        self.assertEqual(ctx._truck_plate(s), '2189AHF/1485TAG')
+
+    def test_second_head_prints_after_the_first(self):
+        s = self._ship(truck_plate='2189AHF/1485TAG', truck_plate_2='2596AHF')
+        self.assertEqual(ctx._truck_plate(s), '2189AHF/1485TAG, 2596AHF')
+
+    def test_second_head_alone_still_prints(self):
+        """The head can be exchanged before the first one is ever recorded."""
+        s = self._ship(truck_plate='', truck_plate_2='2596AHF')
+        self.assertEqual(ctx._truck_plate(s), '2596AHF')
+
+    def test_blank_second_head_adds_no_separator(self):
+        for blank in (None, '', '   '):
+            with self.subTest(blank=blank):
+                s = self._ship(truck_plate='2189AHF/1485TAG', truck_plate_2=blank)
+                self.assertEqual(ctx._truck_plate(s), '2189AHF/1485TAG')
+
+    def test_both_drivers_print(self):
+        s = self._ship(driver_name='Ahmet A.', driver_2_name='Bayram B.')
+        self.assertEqual(ctx._driver_names(s), 'Ahmet A., Bayram B.')
+
+    def test_blank_second_driver_adds_no_separator(self):
+        s = self._ship(driver_name='Ahmet A.', driver_2_name='  ')
+        self.assertEqual(ctx._driver_names(s), 'Ahmet A.')
+
+    def test_second_head_reaches_the_invoice(self):
+        """The invoice's transport line is plates only — no crew on it."""
+        inv = _mock_invoice()
+        inv.shipment.truck_plate_2 = '2596AHF'
+        self.assertEqual(ctx.build_invoice_context(inv, 'ru')['transport'],
+                         'BR1427LB, 2596AHF')
+
+    def test_second_rig_reaches_the_cmr(self):
+        """The CMR names both rigs and both drivers, in one transport line."""
+        ship = _mock_shipment()
+        ship.truck_plate_2 = '2596AHF'
+        ship.driver_2_name = 'Bayram B.'
+        c = ctx.build_cmr_context(ship, 'ru')
+        self.assertEqual(c['transport'], 'BR1427LB, 2596AHF — Ahmet A., Bayram B.')
+
+    def test_second_rig_reaches_the_cmr_overlay(self):
+        """The pre-printed CMR form has its own driver and plate boxes."""
+        ship = _mock_shipment()
+        ship.truck_plate_2 = '2596AHF'
+        ship.driver_2_name = 'Bayram B.'
+        v = ctx.build_cmr_overlay_values(ship, 'ru')
+        self.assertEqual(v['driver_name'], 'Ahmet A., Bayram B.')
+        self.assertEqual(v['plates'], 'BR1427LB, 2596AHF')

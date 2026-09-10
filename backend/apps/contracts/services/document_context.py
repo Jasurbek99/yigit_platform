@@ -15,6 +15,8 @@ from datetime import date
 from decimal import Decimal
 from typing import NamedTuple
 
+from django.utils import timezone
+
 from apps.contracts.services.amount_words import amount_words_ru, amount_words_tk
 
 
@@ -100,7 +102,7 @@ _LOCALE = {
     'en': {
         'product_name': 'Fresh tomatoes',
         'packing': 'plastic box',
-        'country_origin': 'Turkmenistan, harvest {year} of the year',
+        'country_origin': 'Turkmenistan, harvest of {year}',
         'pallet_note': (
             'The goods are laid on {pallets} wooden pallets, with a total weight of '
             '{kg} kg., which are not goods and are intended for circulating cooling air.'
@@ -192,17 +194,40 @@ def _firm_attr(firm, base: str, lang: str) -> str:
 
 
 def _truck_plate(shipment) -> str:
-    """``'{tractor}/{trailer}'`` for a shipment ('' if no shipment/plate).
+    """Every registration a shipment runs under, comma-separated ('' if none).
 
     Single source of truth for how a truck's registration prints — the invoice,
     CMR context, CMR overlay, and the request letters all read it, so the
-    separator / empty-trailer handling stays identical across every document.
+    separator handling stays identical across every document.
+
+    ``truck_plate`` already reads ``"{head}/{trailer}"`` — the Sheet's picker
+    composes it that way — and ``truck_plate_2`` is the second head, which has
+    no trailer of its own (it takes over the same load mid-route).
+
+    This used to append ``shipment.trailer_id``, a database row id, producing
+    "2189AHF/1485TAG/34" on the CMR for the 8 shipments carrying both a
+    slash-composed plate and a fleet trailer link.
     """
     if shipment is None:
         return ''
-    plate = (shipment.truck_plate or '').strip()
-    trailer = shipment.trailer_id
-    return f'{plate}/{trailer}' if plate and trailer else plate or ''
+    return _join_rig(shipment.truck_plate, shipment.truck_plate_2)
+
+
+def _driver_names(shipment) -> str:
+    """Both drivers, comma-separated ('' if no shipment / no driver).
+
+    A truck runs the long legs with two drivers; both are named on the invoice
+    and the CMR, so the pair is composed here rather than at each call site.
+    """
+    if shipment is None:
+        return ''
+    return _join_rig(shipment.driver_name, shipment.driver_2_name)
+
+
+def _join_rig(first, second) -> str:
+    """``'a, b'`` from two nullable strings, dropping blanks and their separator."""
+    parts = [(value or '').strip() for value in (first, second)]
+    return ', '.join(part for part in parts if part)
 
 
 def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = None) -> dict:
@@ -230,8 +255,12 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
 
-    # Year for "harvest YYYY" — invoice date drives it.
-    year = invoice.invoice_date.year if invoice.invoice_date else ''
+    # Year for "harvest YYYY" — the invoice date drives it, falling back to the
+    # current year. The origin line is a constant of the business (the goods are
+    # always Turkmen, always that season's harvest), so it must print on every
+    # invoice; half the sales in the database are still unnumbered and undated,
+    # and those used to render the label with an empty value after it.
+    year = invoice.invoice_date.year if invoice.invoice_date else timezone.localdate().year
 
     # Per-firm packing = the EXPLICIT values on this firm's ContractSale (copied
     # from the applied PackingTemplate's share, then editable per truck). NET is the
@@ -318,7 +347,7 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
         'buyer_name': getattr(buyer, 'name_company', '') or '',
         'buyer_address': getattr(buyer, 'address', '') or '',
         'buyer_bank': getattr(buyer, 'bank_details', '') or '',
-        'country_origin': loc['country_origin'].format(year=year) if year else '',
+        'country_origin': loc['country_origin'].format(year=year),
         'place_loading': overrides.get('place_loading', ''),  # picked at generate-time
         'delivery_terms': incoterm,
         'transport': transport,
@@ -416,7 +445,7 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     gross_wo = ((gross_with - pallet_w) if (gross_with is not None and pallet_w is not None)
                 else gross_with)
 
-    driver = (shipment.driver_name or '').strip()
+    driver = _driver_names(shipment)
     veh = _truck_plate(shipment)
     transport = ' — '.join(part for part in (veh, driver) if part)
 
@@ -565,7 +594,7 @@ def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None 
         'gross_without_pallet': ctx['gross_without_pallet'],
         'gross_with_pallet': ctx['gross_with_pallet'],
         'net_line': f"{ctx['net']}{phrases['net_suffix']}" if ctx['net'] else '',
-        'driver_name': (shipment.driver_name or '').strip(),
+        'driver_name': _driver_names(shipment),
         'plates': plates,
     }
 
@@ -924,13 +953,18 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
     buyer_address = getattr(buyer, 'address', '') or ''
     buyer_bank = _lines(getattr(buyer, 'bank_details', '') or '')
 
-    # Stamps: only when the request opts in AND the firm actually has the image.
-    # Blank ('') otherwise → the placeholder renders nothing.
-    want_stamps = str(overrides.get('stamps', '')).strip().lower() in ('1', 'true', 'yes', 'on')
+    # Stamps: which firms' signature blocks get their seal + signature. The
+    # request picks one of four variants via ?stamps= — absent/anything else is
+    # the clean, unstamped draft. '1'/'true'/'yes'/'on' are kept as aliases of
+    # 'both' so older links still work. A firm is stamped only when it also has
+    # the image uploaded; blank ('') otherwise → the placeholder renders nothing.
+    mode = str(overrides.get('stamps', '')).strip().lower()
+    stamp_seller = mode in ('1', 'true', 'yes', 'on', 'both', 'export')
+    stamp_buyer = mode in ('1', 'true', 'yes', 'on', 'both', 'import')
 
-    def _stamp(firm, field: str):
+    def _stamp(firm, field: str, wanted: bool):
         f = getattr(firm, field, None)
-        return StampImage(f) if (want_stamps and f and getattr(f, 'name', '')) else ''
+        return StampImage(f) if (wanted and f and getattr(f, 'name', '')) else ''
 
     return {
         'contract_no': contract.contract_number or '',
@@ -980,13 +1014,13 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         'buyer_address_ru': buyer_address,
         'buyer_bank_tk': buyer_bank,
         'buyer_bank_ru': buyer_bank,
-        # Signature-block stamps — only rendered when ?stamps=1 and the firm has
-        # the image uploaded (else '' → nothing). Seller from ExportFirm, buyer
-        # from ImportFirm.
-        'seller_seal': _stamp(seller, 'director_seal'),
-        'seller_signature': _stamp(seller, 'director_signature'),
-        'buyer_seal': _stamp(buyer, 'director_seal'),
-        'buyer_signature': _stamp(buyer, 'director_signature'),
+        # Signature-block stamps — rendered only for the firms the ?stamps=
+        # variant selects, and only when that firm has the image uploaded
+        # (else '' → nothing). Seller from ExportFirm, buyer from ImportFirm.
+        'seller_seal': _stamp(seller, 'director_seal', stamp_seller),
+        'seller_signature': _stamp(seller, 'director_signature', stamp_seller),
+        'buyer_seal': _stamp(buyer, 'director_seal', stamp_buyer),
+        'buyer_signature': _stamp(buyer, 'director_signature', stamp_buyer),
     }
 
 
