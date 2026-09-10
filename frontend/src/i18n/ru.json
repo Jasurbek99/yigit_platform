@@ -3532,7 +3532,7 @@
     "no_contract": "Контракт ещё не привязан",
     "pagination_total": "Машин: {{total}}",
     "column": {
-      "code": "Машина",
+      "code": "Отгрузка",
       "date": "Дата",
       "route": "Маршрут",
       "buyer": "Покупатель",

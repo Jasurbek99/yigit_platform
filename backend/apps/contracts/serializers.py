@@ -584,6 +584,10 @@ class DocumentPacketSerializer(serializers.Serializer):
 
     id = serializers.IntegerField(read_only=True)
     shipment_code = serializers.CharField(read_only=True)
+    # Operator-typed Export Code (Sheet, stream G). When filled it is what the
+    # office calls the shipment, so the Documents page shows it in place of the
+    # platform-generated shipment_code; shipment_code stays the deep-link key.
+    export_code = serializers.CharField(read_only=True, allow_null=True)
     date = serializers.DateField(read_only=True)
     status_code = serializers.CharField(source='status.code', read_only=True)
     status_display = serializers.CharField(source='status.name_en', read_only=True)

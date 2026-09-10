@@ -1997,6 +1997,7 @@ export interface IDocumentPacketFirm {
 export interface IDocumentPacket {
   readonly id: number;                  // shipment (truck) id
   readonly shipment_code: string;
+  readonly export_code: string | null;  // operator-typed; shown instead of shipment_code when filled
   readonly date: string | null;
   readonly status_code: string | null;
   readonly status_display: string | null;

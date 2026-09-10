@@ -40,10 +40,12 @@ export default function DocumentsPage() {
       title: t('documents_page.column.code'),
       dataIndex: 'shipment_code',
       width: 140,
-      // Link to the Sheet, pre-filtered to this one truck (via ?code=).
+      // The operator-typed Export Code is what the office calls the shipment, so
+      // it wins over the platform-generated code whenever it is filled. The link
+      // still carries shipment_code — that is what the Sheet's ?code= search matches.
       render: (_, r) => (
         <Link to={`/export/shipments/sheet?code=${encodeURIComponent(r.shipment_code)}`}>
-          {r.shipment_code}
+          {(r.export_code ?? '').trim() || r.shipment_code}
         </Link>
       ),
     },

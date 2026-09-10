@@ -1661,6 +1661,19 @@ class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
         self.assertIsNotNone(by_firm[self.ef1.id]['sale_id'])   # ef1 has a sale
         self.assertIsNone(by_firm[self.ef2.id]['sale_id'])      # ef2 does not
 
+    def test_carries_both_codes(self):
+        """Both codes travel: the page prints export_code when the operator filled
+        it and falls back to shipment_code, so neither may be dropped."""
+        pkt = self.client.get('/api/v1/contracts/document-packets/').json()['results'][0]
+        self.assertEqual(pkt['shipment_code'], '0101701/25')
+        self.assertIsNone(pkt['export_code'])            # not typed yet → falls back
+
+        self.shipment.export_code = 'TM-EXP-001'
+        self.shipment.save(update_fields=['export_code'])
+        pkt = self.client.get('/api/v1/contracts/document-packets/').json()['results'][0]
+        self.assertEqual(pkt['export_code'], 'TM-EXP-001')
+        self.assertEqual(pkt['shipment_code'], '0101701/25')
+
     def test_document_team_can_list(self):
         # Regression: document_team is the page's primary user — it must have the
         # 'sale' resource (view) or every Documents-page call 403s.

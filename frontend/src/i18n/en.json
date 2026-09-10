@@ -3530,7 +3530,7 @@
     "no_contract": "No contract linked yet",
     "pagination_total": "{{total}} trucks",
     "column": {
-      "code": "Truck",
+      "code": "Shipment",
       "date": "Date",
       "route": "Route",
       "buyer": "Buyer",

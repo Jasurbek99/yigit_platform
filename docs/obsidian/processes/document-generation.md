@@ -91,6 +91,11 @@ GET /api/v1/contracts/document-packets/?date=&date_from=&date_to=&status=&firm=
   packing do NOT hide the truck — they surface as `is_ready=false` + `missing_setup[]` so the
   team sees what to fill. Defaults to the active season. Returns `packing_complete` +
   `missing_packing[]`, `is_ready` + `missing_setup[]`, and `firms[]` (each with `sale_id`).
+- Carries **both** codes: `shipment_code` (platform-generated) and `export_code` (the
+  operator-typed Export Code from the Sheet). The page's first column is headed
+  **Shipment** and prints `export_code` when it is filled, falling back to
+  `shipment_code` when it is blank. The row's Sheet deep-link always uses
+  `shipment_code` — that is what the Sheet's `?code=` search matches.
 
 **Contract-link status** — how many of each truck's firms already have a live contract:
 ```
