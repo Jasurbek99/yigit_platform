@@ -110,7 +110,11 @@ Response (files): `Content-Disposition: attachment`, e.g. `Invoice_93-26-DM-EXP_
 
 ## Data sources — the gross-net packing template
 
-Header/firms from **Contract + ExportFirm/ImportFirm**. The origin line (`country_origin`) is
+Header/firms from **Contract + ExportFirm/ImportFirm**. The contract line prints the
+**stored number as-is** — `build_contract_number` already bakes the date into it
+(`{seq}/{YY}-{FIRM}-EXP, {DD.MM.YYYY}`, matching the 1-Contracts sheet), so `_contract_line`
+appends `start_date` only to a number that does not already end in a date. It used to append
+unconditionally and printed the date twice. The origin line (`country_origin`) is
 not data at all — the goods are always Turkmen and always that season's harvest, so the
 builder prints `Туркменистан, урожай {year} года` / `Turkmenistan, harvest of {year}` on every invoice.
 The year is the **invoice date's** year, falling back to the **current** year when the sale

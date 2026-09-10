@@ -150,6 +150,10 @@ def _kg(value: Decimal | None, lang: str = 'ru') -> str:
     return _localize_number(f'{Decimal(value):,.0f}', lang)
 
 
+# A DD.MM.YYYY already sitting at the end of a contract number (see _contract_line).
+_TRAILING_DATE_RE = re.compile(r'\d{2}\.\d{2}\.\d{4}\s*$')
+
+
 def _date(value: date | None) -> str:
     """Format a date as DD.MM.YYYY, '' if None."""
     if value is None:
@@ -618,10 +622,21 @@ def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None)
 # ─── Authority request letters (CT-1, phyto, customs) ────────────────────────
 
 def _contract_line(contract) -> str:
-    """``<number>, <DD.MM.YYYY>`` for a contract, '' if none."""
+    """``<number>, <DD.MM.YYYY>`` for a contract, '' if none.
+
+    The date is normally already IN the number: ``build_contract_number`` formats
+    it as ``{seq}/{YY}-{FIRM}-EXP, {DD.MM.YYYY}`` to match the office's
+    1-Contracts sheet, and 101 of the 102 contracts in the database carry it that
+    way. Appending ``start_date`` on top printed the date twice. So the date is
+    only appended to a number that does not already end in one — and it is the
+    number's own date that wins, since the two can disagree on imported rows.
+    """
     if not contract:
         return ''
-    parts = [contract.contract_number]
+    number = (contract.contract_number or '').strip()
+    if _TRAILING_DATE_RE.search(number):
+        return number
+    parts = [number] if number else []
     if contract.start_date:
         parts.append(_date(contract.start_date))
     return ', '.join(parts)

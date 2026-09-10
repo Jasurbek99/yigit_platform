@@ -188,6 +188,17 @@ class InvoiceContextBuilderTest(SimpleTestCase):
         self.assertEqual(item['price'], '0,87')
         self.assertIn('2026', c['country_origin'])
 
+    def test_contract_line_does_not_repeat_a_date_the_number_already_carries(self):
+        """Real numbers end in their own date — 101 of the 102 rows in the database.
+
+        The fixture above deliberately uses a bare number to exercise the append;
+        this is the shape production actually stores.
+        """
+        invoice = _mock_invoice()
+        invoice.contract.contract_number = '56/26-Tel CH-EXP, 09.09.2026'
+        c = ctx.build_invoice_context(invoice, 'ru')
+        self.assertEqual(c['contract_line'], '56/26-Tel CH-EXP, 09.09.2026')
+
     def test_origin_line_falls_back_to_the_current_year_without_an_invoice_date(self):
         """An undated sale still prints the origin line, not a bare label."""
         invoice = _mock_invoice()
