@@ -683,11 +683,15 @@ branch — `ShipmentTransportBody.tsx`, `ShipmentEditDrawer.tsx`, and the Sheet 
 each writes `driver_id` + `driver_name` in one PATCH.
 
 **Phone auto-fill.** `driverPatchFields()` decides what a pick writes: always `driver_id` +
-`driver_name`, plus `driver_phone` **only when the registry row has one**. Z_TIRWEB supplies no
-phones, so an unconditional write could do nothing but erase the 80 operator-typed numbers
-already on shipments; a real phone entered in the Drivers tab is newer information and does
-replace what is there. Clearing the driver leaves the phone alone. The Sheet's undo snapshot
-carries `driver_phone` only on the patches that actually write it.
+`driver_name`, plus `driver_phone` per `pickedPhone()`. A registry phone always wins — a number
+entered in the Drivers tab is newer information about that person. With **no** registry phone the
+patch omits `driver_phone` when the pick fills an empty slot or clears the driver, because
+Z_TIRWEB supplies no phones and an unconditional write could do nothing but erase the 80
+operator-typed numbers already on shipments. It sends `''` when the pick **swaps in a different
+known driver**: that number was the previous driver's, and leaving it names one driver while
+giving another's phone. Added 2026-09-10; the same rule covers the second driver slot
+(`driver2PatchFields`). The Sheet's undo snapshot carries `driver_phone` only on the patches that
+actually write it, blanks included.
 
 `DRIVER_NAME_FIELD` is exported from `shipmentEditConfig.ts` and listed in `excludeKeys`
 alongside `TRUCK_PLATE_FIELD`, so the field group renders it once, standalone, and the
@@ -696,8 +700,9 @@ completeness chip still counts it. `driver_phone` deliberately stays an ordinary
 The option list, filtering and inline "+ Add" live in one self-fetching control,
 `components/DriverSelect.tsx` (frontend/CLAUDE.md's STRICT rule for selects that own their
 query). It feeds on `useDrivers()` — **active-only**, unlike the admin tab's
-`include_inactive=true` — and its `onChange` emits `(id, name)` rather than the id alone,
-because every consumer must write both columns and they must never drift apart. Clearing emits
+`include_inactive=true` — and its `onChange` emits `(id, name, phone)` rather than the id alone,
+because every consumer must write the id and the name together — they must never drift apart —
+and the phone feeds `pickedPhone()`. Clearing emits
 `(null, '')`. `ShipmentDriverSelector` wraps it for the card/drawer (saves on change, with an
 early return when the pick is unchanged so a no-op costs no PATCH or audit row);
 `SheetDriverSelectEditor` wraps it in the portal/scroll-commit overlay and defers to Done.

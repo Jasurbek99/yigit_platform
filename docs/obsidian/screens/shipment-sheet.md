@@ -950,13 +950,24 @@ are "outside" the panel:
 the viewport corner and must still count as visible, or every test would see the editor dismiss
 itself on the first scroll.
 
-**R28 `driver_phone` is written by that picker only when the registry actually holds a number**
-(`driverPatchFields()` in `components/DriverSelect.tsx`). Z_TIRWEB supplies no phones at all,
-while 80 of the 146 shipments carry one an operator typed by hand — so a blank registry value
-is omitted from the patch entirely rather than erasing their work. A real registry phone is
-newer information and does replace what is there. Clearing the driver leaves R28 alone for the
-same reason. Operators can fill a driver's phone once in the Fleet Admin Drivers tab and it
-then follows that driver onto every future shipment. Inline-added driver names are upper-cased to match how the registry stores all 152
+**What that picker writes into R28 `driver_phone`** is decided by `pickedPhone()` in
+`components/DriverSelect.tsx`, and it depends on which driver is being replaced:
+
+| Registry phone | Previous driver | R28 |
+|---|---|---|
+| has one | anything | written — newer information about this person |
+| none | none (empty slot) | **left alone** — a number typed before the link existed is about this same person |
+| none | a different driver | **blanked** (`''`) — the number was the previous driver's |
+| none | cleared to nobody | **left alone** — the name is visibly gone, nobody reads the number as theirs |
+
+Z_TIRWEB supplies no phones at all while 80 of the 146 shipments carry one an operator typed by
+hand, which is why a blank registry value is not written unconditionally. The swap case was
+added on 2026-09-10: before it, replacing driver A with driver B kept A's number under B's name,
+and a wrong phone reads as a right one where a blank does not. `''` is the same value a manually
+cleared phone cell sends. The undo snapshot needs no special case — `saveOverlayFields` keys off
+the payload's own keys, so a blanked phone is captured and Ctrl+Z restores it. The same rule
+covers the second driver slot (`driver2PatchFields`). Operators can fill a driver's phone once in
+the Fleet Admin Drivers tab and it then follows that driver onto every future shipment. Inline-added driver names are upper-cased to match how the registry stores all 152
 rows, so a re-type doesn't create a near-duplicate.
 
 **R39 `harvest_date` (Ýygylan senesi)** is a **free-text** cell (`input_type='text'`), not a date picker. `Shipment.harvest_date` is a `CharField` — operators type whatever form the operation uses (a single day, a range like `5–10 oktýabr`, or a note). The earlier multi-block per-`block_source` calendar editor was removed; the vestigial `ShipmentBlockSource.harvest_date` column is no longer read or written by the Sheet.

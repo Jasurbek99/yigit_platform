@@ -18,8 +18,8 @@ interface IShipmentDriverSelectorProps {
  * text here (the previous behaviour) left `driver_id` pointing at whoever was
  * picked before — a link that is wrong rather than merely absent.
  *
- * `driver_phone` stays a plain text row in the group, and the pick only writes
- * it when the registry actually holds a number — see `driverPatchFields()`.
+ * `driver_phone` stays a plain text row in the group; when the pick writes it
+ * and when it leaves it alone is decided in `pickedPhone()`.
  *
  * Gapy-Satys shipments keep the plain text field — local buyers bring their own
  * truck and their own driver (see ShipmentTransportBody).
@@ -35,7 +35,10 @@ export function ShipmentDriverSelector({ shipment, readOnly }: IShipmentDriverSe
     // Re-picking the same driver is a no-op — don't spend a PATCH and an audit
     // row on it (same guard SheetDriverSelectEditor applies before committing).
     if (id === driverId) return;
-    mutate({ id: shipment.id, fields: driverPatchFields(id, name, phone) });
+    mutate({
+      id: shipment.id,
+      fields: driverPatchFields({ previousId: driverId, id, name, phone }),
+    });
   }
 
   return (

@@ -323,6 +323,21 @@ class SheetPatchPermissionTests(TestCase):
         self.assertEqual(resp.status_code, 403, resp.data)
         self.assertIn('price_per_kg', resp.data['error'])
 
+    def test_transport_can_blank_driver_phone(self):
+        """An empty string must reach the column, not 400 on allow_blank.
+
+        The driver picker sends `driver_phone: ''` when it swaps in a driver the
+        registry has no phone for — the number on the row was the previous
+        driver's. `driver_phone` is a plain ModelSerializer field off a
+        `blank=True` column, so DRF allows the blank; this pins that, because
+        the frontend mocks the mutation and cannot see a 400.
+        """
+        Shipment.objects.filter(pk=self.shipment.pk).update(driver_phone='+99365111111')
+        resp = self._patch('transport', {'driver_phone': ''})
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.driver_phone, '')
+
     def test_transport_cannot_edit_weight_net(self):
         resp = self._patch('transport', {'weight_net': '18000.00'})
         self.assertEqual(resp.status_code, 403, resp.data)

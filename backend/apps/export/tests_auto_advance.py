@@ -146,6 +146,32 @@ class DraftAutoAdvanceTests(TestCase):
         self.assertIsNotNone(last_log)
         self.assertTrue(last_log.is_auto, 'Status log must be flagged is_auto=True')
 
+    def test_blank_driver_phone_does_not_satisfy_the_assign_driver_gate(self):
+        """`''` must read as unfilled, the way `None` does.
+
+        The driver picker writes an empty `driver_phone` when it swaps in a
+        driver the registry has no phone for, so this value now arrives in
+        normal operation. `_is_filled()` tests truthiness rather than
+        `is None`; were it the other way round, blanking the phone would
+        resolve the assign_driver task and walk the shipment out of draft on a
+        field nobody filled.
+        """
+        shipment = self._make_draft_with_destination()
+        shipment.driver_name = 'Test Driver'
+        shipment.truck_plate = 'AB1234'
+        shipment.driver_phone = ''
+        shipment.documents_status = 'ready'
+        shipment.save()
+
+        shipment.refresh_from_db()
+        self.assertEqual(
+            shipment.status.code, 'draft',
+            'A blank driver_phone must leave the draft gate shut',
+        )
+        assign = shipment.tasks.filter(rule__target_fields__contains='driver_phone').first()
+        self.assertIsNotNone(assign)
+        self.assertNotEqual(assign.state, TaskState.DONE)
+
     def test_field_equals_intermediate_value_does_not_fire(self):
         shipment = self._make_draft_with_destination()
         shipment.driver_name = 'Test Driver'
