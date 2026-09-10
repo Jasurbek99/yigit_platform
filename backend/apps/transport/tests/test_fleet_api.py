@@ -1,13 +1,19 @@
+import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.cache import cache
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.core.models import RoleResourcePermission
-from apps.transport.models import TruckHead, TraccarDevice, Truck, DevicePosition, Trailer, Driver
+from apps.transport.models import (
+    DevicePosition, Driver, DriverDocument, TraccarDevice, Trailer, Truck, TruckHead,
+    TruckHeadDocument,
+)
+from apps.transport.services.files import MAX_FILES_PER_RECORD
 
 User = get_user_model()
 
@@ -26,7 +32,14 @@ class TruckHeadApiTests(TestCase):
         truck = Truck.objects.create(plate='4378AHF', fleet_no='TR050')
         self.device = TraccarDevice.objects.create(traccar_id=67, name='4378AHF TR050', truck=truck, status='online')
         DevicePosition.objects.create(device=self.device, latitude='37.9', longitude='58.4')
-        TruckHead.objects.create(id=13, plate_number='3269AHF', owner_type='company', traccar_device=self.device)
+        # `truck_model` is required on save as of 2026-09-10, so the rows the
+        # PATCH tests below edit carry one — otherwise every one of them would
+        # 400 on the new rule instead of exercising the device re-matching it
+        # is actually about. The blank-row cases have their own tests.
+        TruckHead.objects.create(
+            id=13, plate_number='3269AHF', owner_type='company',
+            truck_model='MAN TGX', traccar_device=self.device,
+        )
         TruckHead.objects.create(id=14, plate_number='9999XYZ', owner_type='company', is_active=False)
 
     def test_list_requires_auth(self):
@@ -51,7 +64,11 @@ class TruckHeadApiTests(TestCase):
 
     def test_create_matches_device_by_plate_and_avoids_id_collision(self):
         self.client.force_authenticate(self.editor)
-        r = self.client.post('/api/v1/transport/truck-heads/', {'plate_number': '4378AHF'}, format='json')
+        r = self.client.post(
+            '/api/v1/transport/truck-heads/',
+            {'plate_number': '4378AHF', 'truck_model': 'MAN TGX'},
+            format='json',
+        )
         self.assertEqual(r.status_code, 201)
         th = TruckHead.objects.get(plate_number='4378AHF')
         self.assertEqual(th.traccar_device, self.device)   # matched by plate
@@ -73,7 +90,9 @@ class TruckHeadApiTests(TestCase):
             traccar_id=402, name='4378HF TR077', truck=latin_truck, status='online',
         )
         r = self.client.post(
-            '/api/v1/transport/truck-heads/', {'plate_number': '4378АHF'}, format='json',
+            '/api/v1/transport/truck-heads/',
+            {'plate_number': '4378АHF', 'truck_model': 'MAN TGX'},
+            format='json',
         )  # 'А' here is Cyrillic (U+0410), not Latin 'A'
         self.assertEqual(r.status_code, 201)
         th = TruckHead.objects.get(plate_number='4378АHF')
@@ -227,7 +246,11 @@ class DriverApiTests(TestCase):
         self.client.force_authenticate(self.editor)
         r = self.client.post(
             '/api/v1/transport/drivers/',
-            {'name': 'TEST SURUJI', 'phone': '+99365123456'},
+            {
+                'name': 'TEST SURUJI', 'phone': '+99365123456',
+                # Required as of 2026-09-10 — see DriverAdminSerializer.validate.
+                'passport_serial': 'I-AN 1112223', 'passport_issue_date': '2021-04-05',
+            },
             format='json',
         )
         self.assertEqual(r.status_code, 201)
@@ -258,7 +281,12 @@ class DriverApiTests(TestCase):
         # the opposite reason: the matrix IS consulted.
         boss = User.objects.create_user(username='patron', password='x', role='boss')
         self.client.force_authenticate(boss)
-        r = self.client.post('/api/v1/transport/drivers/', {'name': 'BOSS PICK'}, format='json')
+        r = self.client.post(
+            '/api/v1/transport/drivers/',
+            {'name': 'BOSS PICK', 'passport_serial': 'I-AN 4445556',
+             'passport_issue_date': '2021-04-05'},
+            format='json',
+        )
         self.assertEqual(r.status_code, 201)
         p = self.client.patch(f"/api/v1/transport/drivers/{r.json()['id']}/",
                               {'is_active': False}, format='json')
@@ -326,7 +354,11 @@ class FleetWriteGateIsTheMatrixTests(TestCase):
         self.client.force_authenticate(
             User.objects.create_user(username='tr', password='x', role='transport')
         )
-        r = self.client.post('/api/v1/transport/truck-heads/', {'plate_number': '7778AHF'}, format='json')
+        r = self.client.post(
+            '/api/v1/transport/truck-heads/',
+            {'plate_number': '7778AHF', 'truck_model': 'MAN TGX'},
+            format='json',
+        )
         self.assertEqual(r.status_code, 201)
         p = self.client.patch(f"/api/v1/transport/truck-heads/{r.json()['id']}/",
                               {'is_active': False}, format='json')
@@ -366,3 +398,445 @@ class FleetWriteGateIsTheMatrixTests(TestCase):
             User.objects.create_user(username='sr', password='x', role='sales_rep')
         )
         self.assertEqual(self.client.get('/api/v1/transport/truck-heads/').status_code, 200)
+
+
+class TruckModelFieldTests(TestCase):
+    """`truck_model` — free-text make and model on the tractor."""
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.editor = User.objects.create_user(username='mgr9', password='x', role='export_manager')
+        TruckHead.objects.create(id=21, plate_number='1111AAA', truck_model='MAN TGX')
+
+    def test_list_exposes_truck_model(self):
+        self.client.force_authenticate(self.editor)
+        rows = self.client.get('/api/v1/transport/truck-heads/').json()
+        row = next(r for r in rows if r['plate_number'] == '1111AAA')
+        self.assertEqual(row['truck_model'], 'MAN TGX')
+
+    def test_editor_writes_truck_model(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post(
+            '/api/v1/transport/truck-heads/',
+            {'plate_number': '2222BBB', 'truck_model': 'DAF XF 480'},
+            format='json',
+        )
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(TruckHead.objects.get(plate_number='2222BBB').truck_model, 'DAF XF 480')
+
+    def test_truck_model_is_required_on_create(self):
+        """Owner request 2026-09-10 — a truck may not be registered model-less.
+
+        Enforced in the serializer rather than on the model because the TIR
+        import writes these same rows and carries no model column; all 92
+        imported heads start blank and are filled in as they are edited.
+        """
+        self.client.force_authenticate(self.editor)
+        r = self.client.post('/api/v1/transport/truck-heads/', {'plate_number': '3333CCC'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('truck_model', r.json())
+        self.assertFalse(TruckHead.objects.filter(plate_number='3333CCC').exists())
+
+    def test_blank_model_cannot_be_left_blank_by_a_patch_that_omits_it(self):
+        """The effective value is what counts, not the payload.
+
+        An imported head has no model. A PATCH that changes something else must
+        not sail through just because it never mentions `truck_model`.
+        """
+        head = TruckHead.objects.create(plate_number='4444DDD', truck_model='')
+        self.client.force_authenticate(self.editor)
+        r = self.client.patch(
+            f'/api/v1/transport/truck-heads/{head.id}/', {'owner_name': 'X'}, format='json',
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('truck_model', r.json())
+
+    def test_deactivating_a_blank_row_still_works(self):
+        """`is_active`-only is the one exempt payload.
+
+        Deactivation is how a wrongly-imported head is retired, and that row is
+        exactly the one nobody will ever supply a model for. A required field
+        must not make a row impossible to switch off.
+        """
+        head = TruckHead.objects.create(plate_number='5555EEE', truck_model='')
+        self.client.force_authenticate(self.editor)
+        r = self.client.patch(
+            f'/api/v1/transport/truck-heads/{head.id}/', {'is_active': False}, format='json',
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        head.refresh_from_db()
+        self.assertFalse(head.is_active)
+
+
+class DriverPassportTests(TestCase):
+    """Passport serial + issue date: written by fleet editors, hidden from everyone else."""
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.editor = User.objects.create_user(username='mgr7', password='x', role='export_manager')
+        self.viewer = User.objects.create_user(username='op7', password='x', role='sales_rep')
+        self.driver = Driver.objects.create(id=41, name='MERET SAPAROW')
+
+    def test_editor_writes_and_reads_passport_fields(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.patch(
+            f'/api/v1/transport/drivers/{self.driver.id}/',
+            {'passport_serial': 'I-AN 1234567', 'passport_issue_date': '2021-04-15'},
+            format='json',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['passport_serial'], 'I-AN 1234567')
+        self.assertEqual(r.json()['passport_issue_date'], '2021-04-15')
+        self.driver.refresh_from_db()
+        self.assertEqual(self.driver.passport_serial, 'I-AN 1234567')
+
+    def test_non_editor_never_sees_passport_fields(self):
+        """The Sheet's driver picker reads this same route — passport identity
+        must not ride along to every authenticated user."""
+        self.driver.passport_serial = 'I-AN 7654321'
+        self.driver.save()
+        self.client.force_authenticate(self.viewer)
+        rows = self.client.get('/api/v1/transport/drivers/').json()
+        row = next(r for r in rows if r['id'] == self.driver.id)
+        self.assertNotIn('passport_serial', row)
+        self.assertNotIn('passport_issue_date', row)
+
+    def test_passport_fields_are_required_on_create(self):
+        """Owner request 2026-09-10 — a driver may not exist without a passport.
+
+        This is also what closed the picker's inline "+ Add driver": it POSTed a
+        name alone, so it would now 400 on every use. Drivers are created in
+        Fleet Management, which collects both fields and the scan.
+        """
+        self.client.force_authenticate(self.editor)
+        r = self.client.post('/api/v1/transport/drivers/', {'name': 'NO PASSPORT YET'}, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('passport_serial', r.json())
+        self.assertIn('passport_issue_date', r.json())
+        self.assertFalse(Driver.objects.filter(name='NO PASSPORT YET').exists())
+
+    def test_half_a_passport_is_still_a_400(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post(
+            '/api/v1/transport/drivers/',
+            {'name': 'SERIAL ONLY', 'passport_serial': 'I-AN 1234567'},
+            format='json',
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('passport_issue_date', r.json())
+        self.assertNotIn('passport_serial', r.json())
+
+    def test_blank_passport_cannot_be_left_blank_by_a_patch_that_omits_it(self):
+        """All 153 imported drivers start blank; a PATCH must fill them, not skip."""
+        self.client.force_authenticate(self.editor)
+        r = self.client.patch(
+            f'/api/v1/transport/drivers/{self.driver.id}/', {'phone': '+99365000000'},
+            format='json',
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('passport_serial', r.json())
+
+    def test_deactivating_a_blank_driver_still_works(self):
+        """`is_active`-only is exempt — deactivation is how a duplicate driver is
+        retired (a delete would come back on the next TIR import), and the
+        duplicate is precisely the row nobody will fill in."""
+        self.client.force_authenticate(self.editor)
+        r = self.client.patch(
+            f'/api/v1/transport/drivers/{self.driver.id}/', {'is_active': False},
+            format='json',
+        )
+        self.assertEqual(r.status_code, 200, r.content)
+        self.driver.refresh_from_db()
+        self.assertFalse(self.driver.is_active)
+
+    def test_search_matches_passport_serial_for_an_editor(self):
+        self.driver.passport_serial = 'I-AN 9090909'
+        self.driver.save()
+        self.client.force_authenticate(self.editor)
+        rows = self.client.get('/api/v1/transport/drivers/?search=9090909').json()
+        self.assertEqual([r['id'] for r in rows], [self.driver.id])
+
+    def test_search_is_not_a_passport_oracle_for_everyone_else(self):
+        """Hiding the field on the serializer is not enough on its own: a
+        searchable passport serial hands back the matching driver's NAME, which
+        is the very thing the split serializer exists to withhold."""
+        self.driver.passport_serial = 'I-AN 9090909'
+        self.driver.save()
+        self.client.force_authenticate(self.viewer)
+        rows = self.client.get('/api/v1/transport/drivers/?search=9090909').json()
+        self.assertEqual(rows, [])
+        # The same viewer still searches name and phone normally.
+        by_name = self.client.get('/api/v1/transport/drivers/?search=MERET').json()
+        self.assertEqual([r['id'] for r in by_name], [self.driver.id])
+
+
+def _jpg(name='passport.jpg', size=64):
+    """A minimal file whose magic bytes really are JPEG."""
+    return SimpleUploadedFile(name, b'\xff\xd8\xff' + b'\x00' * size, content_type='image/jpeg')
+
+
+def _pdf(name='passport.pdf', size=64):
+    return SimpleUploadedFile(name, b'%PDF-1.4' + b'\x00' * size, content_type='application/pdf')
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class DriverDocumentTests(TestCase):
+    """Passport scans — upload, list, download, delete."""
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.editor = User.objects.create_user(username='mgr8', password='x', role='export_manager')
+        self.viewer = User.objects.create_user(username='op8', password='x', role='sales_rep')
+        self.driver = Driver.objects.create(id=51, name='GURBAN ORAZOW')
+        self.url = f'/api/v1/transport/drivers/{self.driver.id}/documents/'
+
+    def test_upload_accepts_several_files_in_one_request(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post(self.url, {'files': [_jpg('front.jpg'), _pdf('scan.pdf')]}, format='multipart')
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(self.driver.documents.count(), 2)
+        self.assertEqual(
+            {d.mime_type for d in self.driver.documents.all()},
+            {'image/jpeg', 'application/pdf'},
+        )
+
+    def test_upload_rejects_other_file_types(self):
+        self.client.force_authenticate(self.editor)
+        bad = SimpleUploadedFile('passport.png', b'\x89PNG\r\n\x1a\n', content_type='image/png')
+        r = self.client.post(self.url, {'files': [bad]}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.driver.documents.count(), 0)
+
+    def test_upload_rejects_a_renamed_file(self):
+        """Extension says .jpg, bytes say PNG — the magic-byte check catches it."""
+        self.client.force_authenticate(self.editor)
+        liar = SimpleUploadedFile('passport.jpg', b'\x89PNG\r\n\x1a\n', content_type='image/jpeg')
+        r = self.client.post(self.url, {'files': [liar]}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.driver.documents.count(), 0)
+
+    def test_one_bad_file_rejects_the_whole_batch(self):
+        """Validation runs before any DB write — a half-accepted upload would
+        leave the operator guessing which passport page landed."""
+        self.client.force_authenticate(self.editor)
+        bad = SimpleUploadedFile('back.gif', b'GIF89a', content_type='image/gif')
+        r = self.client.post(self.url, {'files': [_jpg('front.jpg'), bad]}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.driver.documents.count(), 0)
+
+    def test_upload_enforces_the_per_driver_cap(self):
+        self.client.force_authenticate(self.editor)
+        for i in range(MAX_FILES_PER_RECORD):
+            self.client.post(self.url, {'files': [_jpg(f'p{i}.jpg')]}, format='multipart')
+        r = self.client.post(self.url, {'files': [_jpg('one-too-many.jpg')]}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.driver.documents.count(), MAX_FILES_PER_RECORD)
+
+    def test_upload_rejects_an_empty_request(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post(self.url, {}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+
+    def test_non_editor_cannot_list_upload_or_download(self):
+        """Reads are closed here, unlike the rest of the fleet catalog."""
+        doc = DriverDocument.objects.create(
+            driver=self.driver, file='driver_passports/x.jpg', original_filename='x.jpg',
+            mime_type='image/jpeg', size_bytes=10, uploaded_by=self.editor,
+        )
+        self.client.force_authenticate(self.viewer)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.assertEqual(
+            self.client.post(self.url, {'files': [_jpg()]}, format='multipart').status_code, 403,
+        )
+        self.assertEqual(self.client.get(f'{self.url}{doc.id}/download/').status_code, 403)
+        self.assertEqual(self.client.delete(f'{self.url}{doc.id}/').status_code, 403)
+
+    def test_list_requires_auth(self):
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+
+    def test_list_returns_metadata_without_a_file_url(self):
+        """No /media/ path is exposed: nginx serves that directory with no auth."""
+        self.client.force_authenticate(self.editor)
+        self.client.post(self.url, {'files': [_jpg('front.jpg')]}, format='multipart')
+        rows = self.client.get(self.url).json()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['original_filename'], 'front.jpg')
+        self.assertEqual(rows[0]['uploaded_by_name'], 'mgr8')
+        self.assertNotIn('file', rows[0])
+
+    def test_filename_is_stripped_of_path_components(self):
+        self.client.force_authenticate(self.editor)
+        self.client.post(
+            self.url, {'files': [_jpg('../../etc/passwd.jpg')]}, format='multipart',
+        )
+        self.assertEqual(self.driver.documents.first().original_filename, 'passwd.jpg')
+
+    def test_download_streams_the_file(self):
+        self.client.force_authenticate(self.editor)
+        doc_id = self.client.post(
+            self.url, {'files': [_pdf('scan.pdf')]}, format='multipart',
+        ).json()[0]['id']
+        r = self.client.get(f'{self.url}{doc_id}/download/')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertTrue(b''.join(r.streaming_content).startswith(b'%PDF-'))
+
+    def test_delete_removes_the_row(self):
+        self.client.force_authenticate(self.editor)
+        doc_id = self.client.post(
+            self.url, {'files': [_jpg('front.jpg')]}, format='multipart',
+        ).json()[0]['id']
+        self.assertEqual(self.client.delete(f'{self.url}{doc_id}/').status_code, 204)
+        self.assertEqual(self.driver.documents.count(), 0)
+
+    def test_another_drivers_document_is_not_reachable(self):
+        other = Driver.objects.create(id=52, name='OTHER DRIVER')
+        doc = DriverDocument.objects.create(
+            driver=other, file='driver_passports/y.jpg', original_filename='y.jpg',
+            mime_type='image/jpeg', size_bytes=10, uploaded_by=self.editor,
+        )
+        self.client.force_authenticate(self.editor)
+        self.assertEqual(self.client.get(f'{self.url}{doc.id}/download/').status_code, 404)
+        self.assertEqual(self.client.delete(f'{self.url}{doc.id}/').status_code, 404)
+
+    def test_document_count_rides_on_the_driver_row(self):
+        self.client.force_authenticate(self.editor)
+        self.client.post(self.url, {'files': [_jpg('front.jpg')]}, format='multipart')
+        rows = self.client.get('/api/v1/transport/drivers/').json()
+        row = next(r for r in rows if r['id'] == self.driver.id)
+        self.assertEqual(row['document_count'], 1)
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class TruckHeadDocumentTests(TestCase):
+    """Tech passport (тех паспорт) scans on a tractor — upload, list, download, delete."""
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.editor = User.objects.create_user(username='mgr11', password='x', role='export_manager')
+        self.viewer = User.objects.create_user(username='op11', password='x', role='sales_rep')
+        self.truck = TruckHead.objects.create(id=61, plate_number='6161AAA', truck_model='MAN TGX')
+        self.url = f'/api/v1/transport/truck-heads/{self.truck.id}/documents/'
+
+    def test_upload_accepts_several_files_in_one_request(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post(self.url, {'files': [_jpg('front.jpg'), _pdf('scan.pdf')]}, format='multipart')
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(len(r.json()), 2)
+        self.assertEqual(self.truck.documents.count(), 2)
+        self.assertEqual(
+            {d.mime_type for d in self.truck.documents.all()},
+            {'image/jpeg', 'application/pdf'},
+        )
+
+    def test_upload_rejects_other_file_types(self):
+        self.client.force_authenticate(self.editor)
+        bad = SimpleUploadedFile('tehpasport.png', b'\x89PNG\r\n\x1a\n', content_type='image/png')
+        r = self.client.post(self.url, {'files': [bad]}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.truck.documents.count(), 0)
+
+    def test_one_bad_file_rejects_the_whole_batch(self):
+        self.client.force_authenticate(self.editor)
+        bad = SimpleUploadedFile('back.gif', b'GIF89a', content_type='image/gif')
+        r = self.client.post(self.url, {'files': [_jpg('front.jpg'), bad]}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.truck.documents.count(), 0)
+
+    def test_upload_enforces_the_per_truck_cap(self):
+        self.client.force_authenticate(self.editor)
+        for i in range(MAX_FILES_PER_RECORD):
+            self.client.post(self.url, {'files': [_jpg(f'p{i}.jpg')]}, format='multipart')
+        r = self.client.post(self.url, {'files': [_jpg('one-too-many.jpg')]}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(self.truck.documents.count(), MAX_FILES_PER_RECORD)
+
+    def test_upload_rejects_an_empty_request(self):
+        self.client.force_authenticate(self.editor)
+        r = self.client.post(self.url, {}, format='multipart')
+        self.assertEqual(r.status_code, 400)
+
+    def test_non_editor_cannot_list_upload_download_or_delete(self):
+        """Reads are closed here, unlike the rest of the truck catalog."""
+        doc = TruckHeadDocument.objects.create(
+            truck_head=self.truck, file='truck_documents/x.jpg', original_filename='x.jpg',
+            mime_type='image/jpeg', size_bytes=10, uploaded_by=self.editor,
+        )
+        self.client.force_authenticate(self.viewer)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.assertEqual(
+            self.client.post(self.url, {'files': [_jpg()]}, format='multipart').status_code, 403,
+        )
+        self.assertEqual(self.client.get(f'{self.url}{doc.id}/download/').status_code, 403)
+        self.assertEqual(self.client.delete(f'{self.url}{doc.id}/').status_code, 403)
+
+    def test_list_requires_auth(self):
+        self.assertEqual(self.client.get(self.url).status_code, 401)
+
+    def test_list_returns_metadata_without_a_file_url(self):
+        """No /media/ path is exposed: nginx serves that directory with no auth."""
+        self.client.force_authenticate(self.editor)
+        self.client.post(self.url, {'files': [_jpg('front.jpg')]}, format='multipart')
+        rows = self.client.get(self.url).json()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['original_filename'], 'front.jpg')
+        self.assertEqual(rows[0]['uploaded_by_name'], 'mgr11')
+        self.assertNotIn('file', rows[0])
+
+    def test_filename_is_stripped_of_path_components(self):
+        self.client.force_authenticate(self.editor)
+        self.client.post(self.url, {'files': [_jpg('../../etc/passwd.jpg')]}, format='multipart')
+        self.assertEqual(self.truck.documents.first().original_filename, 'passwd.jpg')
+
+    def test_download_streams_the_file(self):
+        self.client.force_authenticate(self.editor)
+        doc_id = self.client.post(
+            self.url, {'files': [_pdf('tehpasport.pdf')]}, format='multipart',
+        ).json()[0]['id']
+        r = self.client.get(f'{self.url}{doc_id}/download/')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/pdf')
+        self.assertTrue(b''.join(r.streaming_content).startswith(b'%PDF-'))
+
+    def test_delete_removes_the_row(self):
+        self.client.force_authenticate(self.editor)
+        doc_id = self.client.post(
+            self.url, {'files': [_jpg('front.jpg')]}, format='multipart',
+        ).json()[0]['id']
+        self.assertEqual(self.client.delete(f'{self.url}{doc_id}/').status_code, 204)
+        self.assertEqual(self.truck.documents.count(), 0)
+
+    def test_another_trucks_document_is_not_reachable(self):
+        other = TruckHead.objects.create(id=62, plate_number='6262BBB', truck_model='DAF XF')
+        doc = TruckHeadDocument.objects.create(
+            truck_head=other, file='truck_documents/y.jpg', original_filename='y.jpg',
+            mime_type='image/jpeg', size_bytes=10, uploaded_by=self.editor,
+        )
+        self.client.force_authenticate(self.editor)
+        self.assertEqual(self.client.get(f'{self.url}{doc.id}/download/').status_code, 404)
+        self.assertEqual(self.client.delete(f'{self.url}{doc.id}/').status_code, 404)
+
+    def test_document_count_rides_on_the_truck_row(self):
+        self.client.force_authenticate(self.editor)
+        self.client.post(self.url, {'files': [_jpg('front.jpg')]}, format='multipart')
+        rows = self.client.get('/api/v1/transport/truck-heads/').json()
+        row = next(r for r in rows if r['id'] == self.truck.id)
+        self.assertEqual(row['document_count'], 1)
+
+    def test_document_count_is_visible_to_a_non_editor_but_the_scans_are_not(self):
+        """A count is not sensitive, so it stays on the shared picker serializer —
+        unlike the driver's passport scalars, which need their own class."""
+        self.client.force_authenticate(self.editor)
+        self.client.post(self.url, {'files': [_jpg('front.jpg')]}, format='multipart')
+        self.client.force_authenticate(self.viewer)
+        rows = self.client.get('/api/v1/transport/truck-heads/').json()
+        row = next(r for r in rows if r['id'] == self.truck.id)
+        self.assertEqual(row['document_count'], 1)
+        self.assertEqual(self.client.get(self.url).status_code, 403)

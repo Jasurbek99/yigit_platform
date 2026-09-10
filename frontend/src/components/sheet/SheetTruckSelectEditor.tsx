@@ -1,15 +1,25 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Select } from 'antd';
+import { Button, Select, Typography } from 'antd';
+
+const { Text } = Typography;
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { useTruckHeads, useTrailers, useCreateTruckHead, useCreateTrailer } from '@/hooks/useFleet';
+import { useTruckHeads, useTrailers, useCreateTrailer } from '@/hooks/useFleet';
 import { composeTruckPlate } from '@/utils/truckPlate';
+import { useAnchoredCellPanel } from './useAnchoredCellPanel';
 
 interface ISheetTruckSelectEditorProps {
   initialHeadId: number | null;
+  initialHead2Id: number | null;
   initialTrailerId: number | null;
-  onCommit: (fields: { truck_head_id: number | null; trailer_id: number | null; truck_plate: string }) => void;
+  onCommit: (fields: {
+    truck_head_id: number | null;
+    trailer_id: number | null;
+    truck_plate: string;
+    truck_head_2_id: number | null;
+    truck_plate_2: string;
+  }) => void;
   onClose: () => void;
 }
 
@@ -19,10 +29,21 @@ interface ISheetTruckSelectEditorProps {
  * a Done button; mirrors ShipmentTruckSelector's inline-add and
  * controlled-searchValue-clear patterns but defers saving until commit
  * (Done / outside-click) instead of saving on every change, since this is a
- * single overlay covering three backing fields in one PATCH.
+ * single overlay covering five backing fields in one PATCH.
+ *
+ * The second head (2026-09-10) is the same truck's tractor after it is
+ * exchanged mid-route — a transshipment or a border swap — while the trailer
+ * stays with the load. That is why there is a second head and deliberately no
+ * second trailer, and why `truck_plate_2` holds a bare tractor plate where
+ * `truck_plate` holds the composed `"{head}/{trailer}"`.
+ *
+ * The portal / position:fixed / re-anchor-on-scroll / dropdown-exclusion
+ * machinery lives in `useAnchoredCellPanel`, shared with
+ * SheetDriverSelectEditor.
  */
 export default function SheetTruckSelectEditor({
   initialHeadId,
+  initialHead2Id,
   initialTrailerId,
   onCommit,
   onClose,
@@ -30,112 +51,55 @@ export default function SheetTruckSelectEditor({
   const { t } = useTranslation();
   const { data: truckHeads } = useTruckHeads();
   const { data: trailers } = useTrailers();
-  const createHead = useCreateTruckHead();
   const createTrailer = useCreateTrailer();
 
   const [headId, setHeadId] = useState<number | null>(initialHeadId);
+  const [head2Id, setHead2Id] = useState<number | null>(initialHead2Id);
   const [trailerId, setTrailerId] = useState<number | null>(initialTrailerId);
   const [headSearch, setHeadSearch] = useState('');
+  const [head2Search, setHead2Search] = useState('');
   const [trailerSearch, setTrailerSearch] = useState('');
 
-  // `.sheet-cell` has `contain: layout paint` and `.sheet-grid` scrolls with
-  // overflow — an in-flow-positioned panel gets clipped/mispositioned inside
-  // the editing cell. `anchorRef` stays in-flow (so it measures the cell's
-  // real on-screen position) while the actual panel is portaled to
-  // document.body and placed with `position: fixed` at the anchor's rect —
-  // same escape hatch AntD's own Select dropdowns already use below.
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
-  const panelRef = useRef<HTMLDivElement>(null);
   const committedRef = useRef(false);
   // Just-created plates aren't in `truckHeads`/`trailers` yet (list refetch
   // is async) — remember them here so commit() composes truck_plate from the
   // real new plate, not a blank lookup miss (SP3c `knownPlates` lesson).
   const createdPlates = useRef<{ head?: string; trailer?: string }>({});
 
+  const plateFor = (id: number | null) =>
+    (truckHeads ?? []).find((h) => h.id === id)?.plate_number ?? '';
+
   function commit() {
     if (committedRef.current) return;
     committedRef.current = true;
-    if (headId === initialHeadId && trailerId === initialTrailerId) {
+    if (headId === initialHeadId && head2Id === initialHead2Id && trailerId === initialTrailerId) {
       onClose();
       return;
     }
-    const headPlate =
-      createdPlates.current.head ?? (truckHeads ?? []).find((h) => h.id === headId)?.plate_number ?? '';
+    const headPlate = createdPlates.current.head ?? plateFor(headId);
     const trailerPlate =
       createdPlates.current.trailer ?? (trailers ?? []).find((r) => r.id === trailerId)?.plate_number ?? '';
     onCommit({
       truck_head_id: headId,
       trailer_id: trailerId,
       truck_plate: composeTruckPlate(headPlate, trailerPlate),
+      truck_head_2_id: head2Id,
+      // Bare tractor plate — the second head takes over the same trailer, so
+      // composing it with one would print the trailer twice on the CMR.
+      truck_plate_2: plateFor(head2Id),
     });
   }
 
-  // Latest `commit` for the document listener below, without re-subscribing
-  // the listener (and without a stale closure) on every keystroke.
-  const commitRef = useRef(commit);
-  commitRef.current = commit;
-
-  // One-shot measurement at open time — the editor is transient (closes on
-  // commit/Escape), so no scroll/resize re-tracking is needed. In jsdom
-  // (tests) getBoundingClientRect() returns all zeros, which is fine: the
-  // panel still renders and is queryable via `screen` since it's portaled
-  // to document.body either way.
-  useLayoutEffect(() => {
-    const rect = anchorRef.current?.getBoundingClientRect();
-    if (rect) {
-      setCoords({ top: rect.bottom, left: rect.left });
-    }
-  }, []);
-
-  useEffect(() => {
-    function handleMouseDown(e: MouseEvent) {
-      // The Select dropdowns render in an AntD portal on document.body (not
-      // as a DOM descendant of panelRef) — deliberately NOT overridden via
-      // getPopupContainer, since the sheet grid clips absolutely-positioned
-      // descendants with overflow. So a click on an option is "outside"
-      // panelRef by DOM containment; excluding `.ant-select-dropdown`
-      // prevents that from firing a premature commit() mid-pick.
-      const target = e.target as HTMLElement;
-      if (panelRef.current && !panelRef.current.contains(target) && !target.closest('.ant-select-dropdown')) {
-        commitRef.current();
-      }
-    }
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, []);
-
-  // The panel is `position: fixed`, measured once at open time (see the
-  // one-shot useLayoutEffect above) — it doesn't track the sheet grid's
-  // scroll container, so scrolling would leave it visually stranded over
-  // the wrong cell. Rather than re-anchoring on every scroll tick, commit
-  // and close on the first scroll (matches this editor's transient model).
-  // capture=true so this also catches the grid's inner scroll container,
-  // not just window-level scroll.
-  useEffect(() => {
-    function handleScroll() {
-      commitRef.current();
-    }
-    window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
-  }, []);
+  const { anchorRef, panelRef, coords } = useAnchoredCellPanel(() => commit());
 
   const norm = (s: string) => s.trim().toUpperCase();
   const headExists = (truckHeads ?? []).some((h) => norm(h.plate_number) === norm(headSearch));
+  const head2Exists = (truckHeads ?? []).some((h) => norm(h.plate_number) === norm(head2Search));
   const trailerExists = (trailers ?? []).some((r) => norm(r.plate_number) === norm(trailerSearch));
 
-  async function addHead() {
-    const plate = headSearch.trim().toUpperCase();
-    if (!plate) return;
-    try {
-      const created = await createHead.mutateAsync(plate);
-      createdPlates.current.head = created.plate_number;
-      setHeadId(created.id);
-      setHeadSearch('');
-    } catch {
-      toast.error(t('shipment_edit_drawer.save_error'));
-    }
-  }
+  // `addHead` was removed on 2026-09-10 — a truck head needs a `truck_model`,
+  // which this one-line control cannot collect, so the create would 400.
+  // Trailers are unaffected; `addTrailer` below still works.
 
   async function addTrailer() {
     const plate = trailerSearch.trim().toUpperCase();
@@ -172,7 +136,7 @@ export default function SheetTruckSelectEditor({
             top: coords.top,
             left: coords.left,
             zIndex: 1000,
-            minWidth: 220,
+            width: 300,
             background: '#fff',
             border: '1px solid #d9d9d9',
             borderRadius: 4,
@@ -180,6 +144,9 @@ export default function SheetTruckSelectEditor({
             padding: 8,
           }}
         >
+          <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 2 }}>
+            {t('shipment_edit_drawer.field.truck_head')}
+          </Text>
           <Select
             aria-label={t('shipment_edit_drawer.field.truck_head')}
             // SheetCellEditor's mount-time auto-focus finds the editor's
@@ -191,7 +158,8 @@ export default function SheetTruckSelectEditor({
             autoFocus
             showSearch
             allowClear
-            style={{ width: '100%', marginBottom: 4 }}
+            listHeight={320}
+            style={{ width: '100%', marginBottom: 8 }}
             value={headId ?? undefined}
             options={(truckHeads ?? []).map((h) => ({ value: h.id, label: h.plate_number }))}
             filterOption={(input, option) =>
@@ -212,23 +180,24 @@ export default function SheetTruckSelectEditor({
               <>
                 {menu}
                 {headSearch.trim() && !headExists && (
-                  <Button
-                    type="text"
-                    loading={createHead.isPending}
-                    style={{ width: '100%', textAlign: 'left' }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={addHead}
+                  <Text
+                    type="secondary"
+                    style={{ display: 'block', padding: '4px 12px 8px' }}
                   >
-                    {t('shipment_edit_drawer.add_truck', { plate: headSearch.trim() })}
-                  </Button>
+                    {t('shipment_edit_drawer.truck_not_found_hint')}
+                  </Text>
                 )}
               </>
             )}
           />
+          <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 2 }}>
+            {t('shipment_edit_drawer.field.trailer')}
+          </Text>
           <Select
             aria-label={t('shipment_edit_drawer.field.trailer')}
             showSearch
             allowClear
+            listHeight={320}
             style={{ width: '100%', marginBottom: 8 }}
             value={trailerId ?? undefined}
             options={(trailers ?? []).map((r) => ({ value: r.id, label: r.plate_number }))}
@@ -259,6 +228,39 @@ export default function SheetTruckSelectEditor({
                   >
                     {t('shipment_edit_drawer.add_trailer', { plate: trailerSearch.trim() })}
                   </Button>
+                )}
+              </>
+            )}
+          />
+          <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 2 }}>
+            {`${t('shipment_edit_drawer.field.truck_head')} 2`}
+          </Text>
+          <Select
+            aria-label={`${t('shipment_edit_drawer.field.truck_head')} 2`}
+            showSearch
+            allowClear
+            listHeight={320}
+            style={{ width: '100%', marginBottom: 8 }}
+            value={head2Id ?? undefined}
+            options={(truckHeads ?? []).map((h) => ({ value: h.id, label: h.plate_number }))}
+            filterOption={(input, option) =>
+              ((option?.label as string) ?? '').toLowerCase().includes(input.toLowerCase())
+            }
+            popupMatchSelectWidth={false}
+            searchValue={head2Search}
+            onSearch={setHead2Search}
+            onChange={(v) => {
+              setHead2Id((v as number) ?? null);
+              setHead2Search('');
+            }}
+            placeholder={`${t('shipment_edit_drawer.field.truck_head')} 2`}
+            dropdownRender={(menu) => (
+              <>
+                {menu}
+                {head2Search.trim() && !head2Exists && (
+                  <Text type="secondary" style={{ display: 'block', padding: '4px 12px 8px' }}>
+                    {t('shipment_edit_drawer.truck_not_found_hint')}
+                  </Text>
                 )}
               </>
             )}

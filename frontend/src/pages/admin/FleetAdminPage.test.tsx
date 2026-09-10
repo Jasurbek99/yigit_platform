@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -27,6 +27,11 @@ vi.mock('@/hooks/useFleetAdmin', () => ({
   useAdminDrivers: vi.fn(),
   useAdminCreateDriver: vi.fn(),
   useUpdateDriver: vi.fn(),
+  useDriverDocuments: vi.fn(() => ({ data: [], isLoading: false })),
+  useUploadDriverDocuments: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useDeleteDriverDocument: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  driverDocumentUrl: (driverId: number, documentId: number) =>
+    `/api/v1/transport/drivers/${driverId}/documents/${documentId}/download/`,
 }));
 
 vi.mock('sonner', () => ({
@@ -62,7 +67,7 @@ describe('FleetAdminPage', () => {
     createTrailerMutateAsync.mockResolvedValue({ id: 98, plate_number: '09TRL998' });
     vi.mocked(useAdminTruckHeads).mockReturnValue({
       data: [
-        { id: 1, plate_number: '01ABC123', owner_type: 'company', owner_name: '', status: 'idle', has_gps: true, is_active: true },
+        { id: 1, plate_number: '01ABC123', owner_type: 'company', owner_name: '', truck_model: 'MAN TGX', status: 'idle', has_gps: true, is_active: true },
         { id: 2, plate_number: '02XYZ456', owner_type: '', owner_name: '', status: '', has_gps: false, is_active: false },
       ],
       isLoading: false,
@@ -152,6 +157,7 @@ describe('FleetAdminPage', () => {
     fireEvent.change(screen.getByLabelText('Plate Number'), { target: { value: '07test999' } });
     fireEvent.change(screen.getByLabelText('Owner Type'), { target: { value: 'company' } });
     fireEvent.change(screen.getByLabelText('Owner'), { target: { value: 'YGT Holding' } });
+    fireEvent.change(screen.getByLabelText('Truck Model'), { target: { value: 'MAN TGX' } });
     fireEvent.change(screen.getByLabelText('Capacity'), { target: { value: '20' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
@@ -161,6 +167,7 @@ describe('FleetAdminPage', () => {
       plate_number: '07TEST999',
       owner_type: 'company',
       owner_name: 'YGT Holding',
+      truck_model: 'MAN TGX',
       capacity: 20,
       is_active: true,
     });
@@ -176,7 +183,10 @@ describe('FleetAdminPage', () => {
     // A single imported truck carrying a non-empty Cyrillic owner name.
     vi.mocked(useAdminTruckHeads).mockReturnValue({
       data: [
-        { id: 5, plate_number: '05CYR555', owner_type: 'leased', owner_name: 'Иванов Пётр', capacity: '20.00', status: 'idle', has_gps: true, is_active: true },
+        // `truck_model` is required as of 2026-09-10, so the row carries one —
+        // otherwise the form blocks on it and never reaches the assertion this
+        // test is about (the Cyrillic owner name surviving a capacity edit).
+        { id: 5, plate_number: '05CYR555', owner_type: 'leased', owner_name: 'Иванов Пётр', truck_model: 'MAN TGX', capacity: '20.00', status: 'idle', has_gps: true, is_active: true },
       ],
       isLoading: false,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -197,5 +207,23 @@ describe('FleetAdminPage', () => {
     // The Cyrillic owner name must survive a capacity-only edit, not be wiped to ''.
     expect(payload.owner_name).toBe('Иванов Пётр');
     expect(payload.owner_type).toBe('leased');
+  });
+
+  it('shows the truck model in the table and carries it through an edit', async () => {
+    renderPage();
+    expect(screen.getByText('MAN TGX')).toBeInTheDocument();
+
+    const row = screen.getByText('01ABC123').closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: /Edit/ }));
+    const field = await screen.findByLabelText('Truck Model');
+    expect(field).toHaveValue('MAN TGX');
+
+    fireEvent.change(field, { target: { value: 'DAF XF 480' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() =>
+      expect(updateTruckMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 1, truck_model: 'DAF XF 480' }),
+      ),
+    );
   });
 });

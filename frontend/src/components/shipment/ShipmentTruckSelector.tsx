@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Select, Space, Typography, Button, Divider } from 'antd';
+
+const { Text } = Typography;
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { IShipmentDetail } from '@/types';
-import { useTruckHeads, useTrailers, useCreateTruckHead, useCreateTrailer } from '@/hooks/useFleet';
+import { useTruckHeads, useTrailers, useCreateTrailer } from '@/hooks/useFleet';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import { composeTruckPlate } from '@/utils/truckPlate';
 
@@ -29,7 +31,6 @@ export function ShipmentTruckSelector({
   const { mutate } = useShipmentPatchMulti();
   const [headSearch, setHeadSearch] = useState('');
   const [trailerSearch, setTrailerSearch] = useState('');
-  const createHead = useCreateTruckHead();
   const createTrailer = useCreateTrailer();
 
   const headOpts = useMemo(
@@ -81,19 +82,9 @@ export function ShipmentTruckSelector({
   const headExists = (heads ?? []).some((h) => norm(h.plate_number) === norm(headSearch));
   const trailerExists = (trailers ?? []).some((r) => norm(r.plate_number) === norm(trailerSearch));
 
-  async function addHead() {
-    const plate = headSearch.trim().toUpperCase();
-    if (!plate) return;
-    try {
-      const created = await createHead.mutateAsync(plate);
-      setHeadSearch('');
-      // link the new truck to the shipment; pass its plate directly since
-      // `heads` won't include it until the list refetch lands (see plateFor)
-      save(created.id, trailerId, { head: created.plate_number });
-    } catch {
-      toast.error(t('shipment_edit_drawer.save_error'));
-    }
-  }
+  // `addHead` was removed on 2026-09-10 — a truck head needs a `truck_model`,
+  // which this one-line control cannot collect, so the create would 400.
+  // Trailers are unaffected; `addTrailer` below still works.
   async function addTrailer() {
     const plate = trailerSearch.trim().toUpperCase();
     if (!plate) return;
@@ -134,16 +125,12 @@ export function ShipmentTruckSelector({
               {headSearch.trim() && !headExists && (
                 <>
                   <Divider style={{ margin: '4px 0' }} />
-                  <Button
-                    type="text"
-                    icon={<PlusOutlined />}
-                    loading={createHead.isPending}
-                    style={{ width: '100%', textAlign: 'left' }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={addHead}
+                  <Text
+                    type="secondary"
+                    style={{ display: 'block', padding: '4px 12px 8px' }}
                   >
-                    {t('shipment_edit_drawer.add_truck', { plate: headSearch.trim() })}
-                  </Button>
+                    {t('shipment_edit_drawer.truck_not_found_hint')}
+                  </Text>
                 </>
               )}
             </>

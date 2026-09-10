@@ -91,20 +91,18 @@ describe('ShipmentDriverSelector', () => {
     expect(mutate).not.toHaveBeenCalled();
   });
 
-  it('inline add creates the driver upper-cased and PATCHes it in one go', async () => {
+  // The inline "+ Add driver" button was removed on 2026-09-10 — a driver now
+  // needs a passport serial and issue date, which this control cannot collect.
+  it('offers no inline add for an unknown name, and PATCHes nothing', async () => {
     wrap(<ShipmentDriverSelector shipment={shipmentWith(null)} readOnly={false} />);
 
     await userEvent.click(screen.getByLabelText(LABEL));
     await userEvent.type(screen.getByLabelText(LABEL), 'test suruji');
-    await userEvent.click(await screen.findByRole('button', { name: /Add driver "TEST SURUJI"/ }));
 
-    expect(createDriver).toHaveBeenCalledWith('TEST SURUJI');
-    await waitFor(() =>
-      expect(mutate).toHaveBeenCalledWith({
-        id: 7,
-        fields: { driver_id: 200, driver_name: 'TEST SURUJI' },
-      }),
-    );
+    expect(await screen.findByText(/Add the driver in Fleet Management/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add driver/ })).not.toBeInTheDocument();
+    expect(createDriver).not.toHaveBeenCalled();
+    expect(mutate).not.toHaveBeenCalled();
   });
 
   it('readOnly disables the select', () => {
@@ -134,6 +132,20 @@ describe('ShipmentDriverSelector', () => {
     expect(mutate).toHaveBeenCalledWith({
       id: 7,
       fields: { driver_id: 5, driver_name: 'ABRAY ANNAKULYYEW' },
+    });
+  });
+
+  it('swapping in a driver the registry has no phone for blanks the phone', async () => {
+    // The number on the row was typed for driver 7. Leaving it would name one
+    // driver and give another driver's phone.
+    wrap(<ShipmentDriverSelector shipment={shipmentWith(7)} readOnly={false} />);
+
+    await userEvent.click(screen.getByLabelText(LABEL));
+    await userEvent.click(await screen.findByRole('option', { name: 'ABRAY ANNAKULYYEW' }));
+
+    expect(mutate).toHaveBeenCalledWith({
+      id: 7,
+      fields: { driver_id: 5, driver_name: 'ABRAY ANNAKULYYEW', driver_phone: '' },
     });
   });
 

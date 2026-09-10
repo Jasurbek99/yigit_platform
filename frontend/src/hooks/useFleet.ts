@@ -27,6 +27,14 @@ export interface IDriver {
   logo_ref: string;
   driver_logo_code: string;
   is_active: boolean;
+  /**
+   * Passport identity. Absent for every role that cannot edit the fleet: the
+   * backend swaps in a serializer without these fields, because the driver
+   * pickers read the same `/transport/drivers/` route as the admin screen.
+   */
+  passport_serial?: string;
+  passport_issue_date?: string | null;
+  document_count?: number;
 }
 
 export function useTruckHeads(search?: string) {
@@ -53,16 +61,12 @@ export function useTrailers(search?: string) {
   });
 }
 
-export function useCreateTruckHead() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (plate_number: string) => {
-      const { data } = await api.post<ITruckHead>('/transport/truck-heads/', { plate_number });
-      return data;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['transport', 'truck-heads'] }),
-  });
-}
+// `useCreateTruckHead` was removed on 2026-09-10, for the same reason as
+// `useCreateDriver` below: it POSTed a plate alone, and a truck head now needs a
+// `truck_model` to exist. Truck heads are created in Fleet Management.
+//
+// `useCreateTrailer` stays — a trailer has no required field beyond its plate,
+// so the picker's inline add still works there.
 
 export function useCreateTrailer() {
   const qc = useQueryClient();
@@ -90,16 +94,7 @@ export function useDrivers(search?: string) {
   });
 }
 
-export function useCreateDriver() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (name: string) => {
-      const { data } = await api.post<IDriver>('/transport/drivers/', { name });
-      return data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['transport', 'drivers'] });
-      qc.invalidateQueries({ queryKey: ['transport', 'admin-drivers'] });
-    },
-  });
-}
+// `useCreateDriver` was removed on 2026-09-10. It POSTed a name alone, which
+// the API now rejects: a driver needs a passport serial and issue date to
+// exist. Drivers are created in Fleet Management, where those fields and the
+// passport scan live — see `FleetDriversTab`.

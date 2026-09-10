@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { useTruckHeads, useTrailers, useCreateTruckHead, useCreateTrailer } from './useFleet';
+import { useTruckHeads, useTrailers, useCreateTrailer } from './useFleet';
 import api from '@/services/api';
 
 vi.mock('@/services/api');
@@ -36,15 +36,9 @@ describe('useFleet', () => {
 describe('useFleet create', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('useCreateTruckHead POSTs the plate and returns the created row', async () => {
-    (api.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: { id: 300, plate_number: '5555AHF', owner_type: '', status: '', has_gps: false },
-    });
-    const { result } = renderHook(() => useCreateTruckHead(), { wrapper });
-    const created = await result.current.mutateAsync('5555AHF');
-    expect(created.id).toBe(300);
-    expect(api.post).toHaveBeenCalledWith('/transport/truck-heads/', { plate_number: '5555AHF' });
-  });
+  // `useCreateTruckHead` was removed on 2026-09-10 — a truck head needs a
+  // `truck_model`, so a plate-only POST is a 400. Trailers keep their quick
+  // create, which is what the case below still covers.
 
   it('useCreateTrailer POSTs the plate', async () => {
     (api.post as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({

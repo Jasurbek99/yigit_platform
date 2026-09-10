@@ -101,24 +101,22 @@ describe('ShipmentTruckSelector', () => {
     );
   });
 
-  it('offers "+ Add" for an unknown plate and creates + selects it', async () => {
+  // The truck head's "+ Add" was removed on 2026-09-10 — a head needs a
+  // `truck_model` now, which this one-line control cannot collect, so the
+  // create would 400. The trailer's inline add is untouched (see the case
+  // below): a trailer has no required field beyond its plate.
+  it('offers no inline add for an unknown truck plate, and PATCHes nothing', async () => {
     wrap(<ShipmentTruckSelector shipment={shipment} readOnly={false} />);
     // aria-label is the translated field label ("Truck (tractor)"), same as
     // the other tests in this file — not a literal "truck head" string.
     const heads = screen.getByLabelText('Truck (tractor)');
     await userEvent.click(heads);
     await userEvent.type(heads, '5555AHF');
-    await userEvent.click(await screen.findByText(/add.*5555AHF/i));
-    await waitFor(() => expect(createHead).toHaveBeenCalledWith('5555AHF'));
-    // after create, the new id is saved onto the shipment, and truck_plate
-    // is composed with the JUST-CREATED head's plate — not the stale
-    // pre-refetch `heads` list (which doesn't contain id 300 yet).
-    await waitFor(() =>
-      expect(mutate).toHaveBeenCalledWith({
-        id: 7,
-        fields: { truck_head_id: 300, trailer_id: 1, truck_plate: '5555AHF/2602TAH' },
-      }),
-    );
+
+    expect(await screen.findByText(/Add the truck in Fleet Management/)).toBeInTheDocument();
+    expect(screen.queryByText(/add truck/i)).not.toBeInTheDocument();
+    expect(createHead).not.toHaveBeenCalled();
+    expect(mutate).not.toHaveBeenCalled();
   });
 
   it('offers "+ Add" for an unknown trailer plate and creates + selects it', async () => {

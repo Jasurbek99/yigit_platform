@@ -33,6 +33,7 @@ interface ITruckFormValues {
   plate_number: string;
   owner_type?: string;
   owner_name?: string;
+  truck_model?: string;
   capacity?: number | null;
   is_active?: boolean;
 }
@@ -68,6 +69,7 @@ export default function FleetAdminPage() {
       plate_number: record.plate_number,
       owner_type: record.owner_type,
       owner_name: record.owner_name ?? undefined,
+      truck_model: record.truck_model ?? undefined,
       capacity: record.capacity != null && record.capacity !== '' ? Number(record.capacity) : undefined,
       is_active: record.is_active,
     });
@@ -88,6 +90,7 @@ export default function FleetAdminPage() {
           plate_number: values.plate_number.toUpperCase(),
           owner_type: values.owner_type ?? '',
           owner_name: values.owner_name ?? '',
+          truck_model: values.truck_model ?? '',
           capacity: values.capacity ?? null,
           is_active: values.is_active ?? true,
         });
@@ -97,6 +100,7 @@ export default function FleetAdminPage() {
           plate_number: values.plate_number.toUpperCase(),
           owner_type: values.owner_type ?? '',
           owner_name: values.owner_name ?? '',
+          truck_model: values.truck_model ?? '',
           capacity: values.capacity ?? null,
           is_active: values.is_active ?? true,
         });
@@ -131,6 +135,12 @@ export default function FleetAdminPage() {
       title: t('fleet_admin.field_owner_name'),
       dataIndex: 'owner_name',
       key: 'owner_name',
+      render: (v?: string | null) => v || <Text type="secondary">—</Text>,
+    },
+    {
+      title: t('fleet_admin.truck_model'),
+      dataIndex: 'truck_model',
+      key: 'truck_model',
       render: (v?: string | null) => v || <Text type="secondary">—</Text>,
     },
     {
@@ -209,6 +219,13 @@ export default function FleetAdminPage() {
           </Form.Item>
           <Form.Item name="owner_name" label={t('fleet_admin.field_owner_name')}>
             <Input />
+          </Form.Item>
+          <Form.Item
+            name="truck_model"
+            label={t('fleet_admin.truck_model')}
+            rules={[{ required: true, message: t('common.required') }]}
+          >
+            <Input placeholder={t('fleet_admin.truck_model_placeholder')} />
           </Form.Item>
           <Form.Item name="capacity" label={t('fleet_admin.capacity')}>
             <InputNumber min={0} style={{ width: '100%' }} />

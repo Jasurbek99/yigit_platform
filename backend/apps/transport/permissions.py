@@ -1,6 +1,8 @@
 from rest_framework.permissions import BasePermission
 
-from apps.core.permissions import get_page_permissions, resource_write_permission
+from apps.core.permissions import (
+    get_page_permissions, get_resource_perm, resource_write_permission,
+)
 from apps.core.roles import PRIVILEGED_ROLES
 
 # Same editor set as export.views ShipmentDetail's variety-override (~line 2987):
@@ -79,3 +81,37 @@ class CanViewFleetMap(BasePermission):
         if not role:
             return False
         return get_page_permissions(role).get('transport.map', False)
+
+
+def can_edit_fleet(user) -> bool:
+    """True when this user may WRITE the fleet catalog.
+
+    The same matrix lookup `CanEditFleet` makes, exposed as a plain function so
+    the driver serializer can ask it too. Passport identity is readable only by
+    the people who maintain the catalog, and `CanEditFleet` cannot express that
+    on its own — it lets every authenticated user through on GET by design.
+    """
+    if not (user and user.is_authenticated):
+        return False
+    if getattr(user, 'is_superuser', False):
+        return True
+    role = getattr(user, 'role', None)
+    if not role:
+        return False
+    perm = get_resource_perm(role, 'fleet')
+    return bool(perm and (perm['can_edit'] or perm['can_create']))
+
+
+class CanAccessFleetDocuments(BasePermission):
+    """Read AND write gate for fleet document scans — driver passports and
+    truck-head tech passports alike.
+
+    Unlike `CanEditFleet`, this closes GET as well. A passport is a personal
+    identity document and a tech passport is a vehicle's registration; the
+    pickers on the Sheet and the shipment drawer read the same
+    `/transport/drivers/` and `/transport/truck-heads/` routes as the Fleet
+    Admin screen, so leaving reads open would hand both to every logged-in user.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        return can_edit_fleet(request.user)

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -31,6 +31,39 @@ vi.mock('@/hooks/useFleet', () => ({
 const toastError = vi.fn();
 vi.mock('sonner', () => ({ toast: { error: (...args: unknown[]) => toastError(...args) } }));
 
+/** jsdom returns an all-zero rect; build a real one so anchoring is assertable. */
+function rectAt({ top, bottom, left }: { top: number; bottom: number; left: number }): DOMRect {
+  return {
+    top, bottom, left, right: left + 120, width: 120, height: bottom - top,
+    x: left, y: top, toJSON: () => ({}),
+  } as DOMRect;
+}
+
+/**
+ * Open one Select and click an option inside ITS dropdown.
+ *
+ * Both head Selects list the same plates and antd keeps a dropdown mounted
+ * after it closes, so a bare getByText('02DEF') matches two nodes. Exactly one
+ * dropdown is un-hidden at a time, which makes it the unambiguous scope.
+ */
+async function pickIn(ariaLabel: string, text: string): Promise<void> {
+  await userEvent.click(screen.getByLabelText(ariaLabel));
+  const open = Array.from(document.querySelectorAll('.ant-select-dropdown')).filter(
+    (d) => !d.classList.contains('ant-select-dropdown-hidden'),
+  );
+  const dropdown = open[open.length - 1];
+  if (!dropdown) throw new Error(`No open dropdown for "${ariaLabel}"`);
+  await userEvent.click(within(dropdown as HTMLElement).getByText(text));
+}
+
+/** Find the antd clear ("x") icon scoped to one specific Select, by its aria-label. */
+function clearIconFor(ariaLabel: string): HTMLElement {
+  const input = screen.getByLabelText(ariaLabel);
+  const clear = input.closest('.ant-select')?.querySelector('.ant-select-clear');
+  if (!clear) throw new Error(`No clear icon found for "${ariaLabel}" — does it have a value?`);
+  return clear as HTMLElement;
+}
+
 function wrap(ui: React.ReactNode) {
   const qc = new QueryClient();
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
@@ -53,6 +86,7 @@ describe('SheetTruckSelectEditor', () => {
     wrap(
       <SheetTruckSelectEditor
         initialHeadId={null}
+        initialHead2Id={null}
         initialTrailerId={null}
         onCommit={vi.fn()}
         onClose={vi.fn()}
@@ -68,6 +102,7 @@ describe('SheetTruckSelectEditor', () => {
     wrap(
       <SheetTruckSelectEditor
         initialHeadId={null}
+        initialHead2Id={null}
         initialTrailerId={null}
         onCommit={onCommit}
         onClose={vi.fn()}
@@ -88,6 +123,8 @@ describe('SheetTruckSelectEditor', () => {
       truck_head_id: 1,
       trailer_id: 10,
       truck_plate: '01ABC/T-100',
+      truck_head_2_id: null,
+      truck_plate_2: '',
     });
 
     // Commit-once guard: clicking Done again must not fire onCommit a second time.
@@ -101,6 +138,7 @@ describe('SheetTruckSelectEditor', () => {
     wrap(
       <SheetTruckSelectEditor
         initialHeadId={1}
+        initialHead2Id={null}
         initialTrailerId={10}
         onCommit={onCommit}
         onClose={onClose}
@@ -124,6 +162,7 @@ describe('SheetTruckSelectEditor', () => {
     wrap(
       <SheetTruckSelectEditor
         initialHeadId={null}
+        initialHead2Id={null}
         initialTrailerId={null}
         onCommit={onCommit}
         onClose={vi.fn()}
@@ -140,43 +179,233 @@ describe('SheetTruckSelectEditor', () => {
       truck_head_id: 1,
       trailer_id: null,
       truck_plate: '01ABC',
+      truck_head_2_id: null,
+      truck_plate_2: '',
     });
   });
 
-  it('scrolling the grid commits the pending selection (panel would otherwise be stranded)', async () => {
+  // A truck can run with two heads: the head is exchanged mid-route
+  // (transshipment or a border swap) while the trailer stays with the load.
+  // There is deliberately no second trailer.
+  describe('second head', () => {
+    it('renders a second head select beside the first', () => {
+      wrap(
+        <SheetTruckSelectEditor
+          initialHeadId={null}
+          initialHead2Id={null}
+          initialTrailerId={null}
+          onCommit={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      );
+      expect(screen.getByLabelText('Truck (tractor)')).toBeInTheDocument();
+      expect(screen.getByLabelText('Truck (tractor) 2')).toBeInTheDocument();
+      expect(screen.getByLabelText('Trailer')).toBeInTheDocument();
+    });
+
+    it('commits the second head as its own plate, not folded into the first', async () => {
+      const onCommit = vi.fn();
+      wrap(
+        <SheetTruckSelectEditor
+          initialHeadId={null}
+          initialHead2Id={null}
+          initialTrailerId={null}
+          onCommit={onCommit}
+          onClose={vi.fn()}
+        />,
+      );
+      await userEvent.click(screen.getByLabelText('Truck (tractor)'));
+      await userEvent.click(await screen.findByText('01ABC'));
+      await userEvent.click(screen.getByLabelText('Trailer'));
+      await userEvent.click(await screen.findByText('T-100'));
+      await pickIn('Truck (tractor) 2', '02DEF');
+      await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+      expect(onCommit).toHaveBeenCalledTimes(1);
+      expect(onCommit).toHaveBeenCalledWith({
+        truck_head_id: 1,
+        trailer_id: 10,
+        truck_plate: '01ABC/T-100',
+        truck_head_2_id: 2,
+        truck_plate_2: '02DEF',
+      });
+    });
+
+    it('commits a change to the second head alone', async () => {
+      const onCommit = vi.fn();
+      wrap(
+        <SheetTruckSelectEditor
+          initialHeadId={1}
+          initialHead2Id={null}
+          initialTrailerId={10}
+          onCommit={onCommit}
+          onClose={vi.fn()}
+        />,
+      );
+      await pickIn('Truck (tractor) 2', '02DEF');
+      await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+      expect(onCommit).toHaveBeenCalledWith({
+        truck_head_id: 1,
+        trailer_id: 10,
+        truck_plate: '01ABC/T-100',
+        truck_head_2_id: 2,
+        truck_plate_2: '02DEF',
+      });
+    });
+
+    it('sends a blank second plate when the second head is cleared', async () => {
+      const onCommit = vi.fn();
+      wrap(
+        <SheetTruckSelectEditor
+          initialHeadId={1}
+          initialHead2Id={2}
+          initialTrailerId={10}
+          onCommit={onCommit}
+          onClose={vi.fn()}
+        />,
+      );
+      await userEvent.click(clearIconFor('Truck (tractor) 2'));
+      await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+      expect(onCommit).toHaveBeenCalledWith({
+        truck_head_id: 1,
+        trailer_id: 10,
+        truck_plate: '01ABC/T-100',
+        truck_head_2_id: null,
+        truck_plate_2: '',
+      });
+    });
+
+    it('Done with nothing touched still closes without committing', async () => {
+      const onCommit = vi.fn();
+      const onClose = vi.fn();
+      wrap(
+        <SheetTruckSelectEditor
+          initialHeadId={1}
+          initialHead2Id={2}
+          initialTrailerId={10}
+          onCommit={onCommit}
+          onClose={onClose}
+        />,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+      expect(onCommit).not.toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  // A visible field label was added above this select (2026-09-10). It must not
+  // displace the caret: SheetCellEditor's mount-time auto-focus reaches only DOM
+  // descendants of the cell, and this input is portaled out, so the editor's own
+  // `autoFocus` is the only thing putting the caret in the first picker.
+  it('puts the caret in the first picker on open, label notwithstanding', () => {
+    wrap(
+      <SheetTruckSelectEditor
+        initialHeadId={null}
+        initialHead2Id={null}
+        initialTrailerId={null}
+        onCommit={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Truck (tractor)')).toHaveFocus();
+  });
+
+  it('scrolling the option list leaves the panel open mid-pick', async () => {
+    const onCommit = vi.fn();
+    const onClose = vi.fn();
+    wrap(
+      <SheetTruckSelectEditor
+        initialHeadId={null}
+        initialHead2Id={null}
+        initialTrailerId={null}
+        onCommit={onCommit}
+        onClose={onClose}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText('Truck (tractor)'));
+    const dropdown = document.querySelector('.ant-select-dropdown');
+    expect(dropdown).not.toBeNull();
+
+    fireEvent.scroll(dropdown!);
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByTestId('sheet-truck-select-editor')).toBeInTheDocument();
+  });
+
+  it('scrolling the grid re-anchors the panel instead of closing it', async () => {
+    const onCommit = vi.fn();
+    const onClose = vi.fn();
+    wrap(
+      <SheetTruckSelectEditor
+        initialHeadId={null}
+        initialHead2Id={null}
+        initialTrailerId={null}
+        onCommit={onCommit}
+        onClose={onClose}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText('Truck (tractor)'));
+    await userEvent.click(await screen.findByText('01ABC'));
+
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(
+      rectAt({ top: 100, bottom: 120, left: 50 }),
+    );
+    fireEvent.scroll(document.body);
+    rect.mockRestore();
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    const panel = screen.getByTestId('sheet-truck-select-editor');
+    expect(panel.style.top).toBe('120px');
+    expect(panel.style.left).toBe('50px');
+  });
+
+  it('commits and closes once the cell has scrolled out of the viewport', async () => {
     const onCommit = vi.fn();
     wrap(
       <SheetTruckSelectEditor
         initialHeadId={null}
+        initialHead2Id={null}
         initialTrailerId={null}
         onCommit={onCommit}
         onClose={vi.fn()}
       />,
     );
-    const headSelect = screen.getByLabelText('Truck (tractor)');
-    await userEvent.click(headSelect);
+    await userEvent.click(screen.getByLabelText('Truck (tractor)'));
     await userEvent.click(await screen.findByText('01ABC'));
 
-    fireEvent.scroll(window);
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(
+      rectAt({ top: -80, bottom: -60, left: 50 }),
+    );
+    fireEvent.scroll(document.body);
 
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith({
       truck_head_id: 1,
       trailer_id: null,
       truck_plate: '01ABC',
+      truck_head_2_id: null,
+      truck_plate_2: '',
     });
 
     // Commit-once guard: a second scroll must not fire onCommit again.
-    fireEvent.scroll(window);
+    fireEvent.scroll(document.body);
+    rect.mockRestore();
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
-  it('inline add creates a truck head then commits a plate starting with the new plate', async () => {
-    createHead.mockResolvedValue({ id: 99, plate_number: '09NEW' });
+  // The truck head's "+ Add" was removed on 2026-09-10 — a head needs a
+  // `truck_model` now, which this one-line control cannot collect. The
+  // trailer's inline add is untouched: it has no required field beyond a plate.
+  it('offers no inline add for an unknown truck plate, and points at Fleet Management', async () => {
     const onCommit = vi.fn();
     wrap(
       <SheetTruckSelectEditor
         initialHeadId={null}
+        initialHead2Id={null}
         initialTrailerId={null}
         onCommit={onCommit}
         onClose={vi.fn()}
@@ -185,35 +414,32 @@ describe('SheetTruckSelectEditor', () => {
     const headSelect = screen.getByLabelText('Truck (tractor)');
     await userEvent.click(headSelect);
     await userEvent.type(headSelect, '09new');
-    await userEvent.click(await screen.findByText(/add.*09new/i));
 
-    await waitFor(() => expect(createHead).toHaveBeenCalledWith('09NEW'));
-
-    await userEvent.click(screen.getByRole('button', { name: 'Done' }));
-
-    expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit.mock.calls[0][0].truck_plate).toMatch(/^09NEW/);
+    expect(await screen.findByText(/Add the truck in Fleet Management/)).toBeInTheDocument();
+    expect(screen.queryByText(/add truck/i)).not.toBeInTheDocument();
+    expect(createHead).not.toHaveBeenCalled();
   });
 
-  it('a manual pick after an inline-add supersedes the earlier created plate', async () => {
-    createHead.mockResolvedValue({ id: 99, plate_number: '09NEW' });
+  it('a manual pick after a typed-then-abandoned search commits the picked plate', async () => {
     const onCommit = vi.fn();
     wrap(
       <SheetTruckSelectEditor
         initialHeadId={null}
+        initialHead2Id={null}
         initialTrailerId={null}
         onCommit={onCommit}
         onClose={vi.fn()}
       />,
     );
     const headSelect = screen.getByLabelText('Truck (tractor)');
-    // Inline-add "09NEW" (a typo the operator then corrects)...
+    // Type a plate that is not in the fleet (a typo the operator corrects)...
     await userEvent.click(headSelect);
     await userEvent.type(headSelect, '09new');
-    await userEvent.click(await screen.findByText(/add.*09new/i));
-    await waitFor(() => expect(createHead).toHaveBeenCalledWith('09NEW'));
 
-    // ...then reopens and picks a real fleet option instead.
+    // ...then clears the typo and picks a real fleet option instead. The clear
+    // matters: the typed text filters the option list down to nothing, and it
+    // used to be wiped as a side effect of the inline-add that no longer exists.
+    await userEvent.clear(headSelect);
     await userEvent.click(headSelect);
     await userEvent.click(await screen.findByText('02DEF'));
 
@@ -226,24 +452,9 @@ describe('SheetTruckSelectEditor', () => {
       truck_head_id: 2,
       trailer_id: null,
       truck_plate: '02DEF',
+      truck_head_2_id: null,
+      truck_plate_2: '',
     });
   });
 
-  it('shows a toast error when inline add fails', async () => {
-    createHead.mockRejectedValue(new Error('boom'));
-    wrap(
-      <SheetTruckSelectEditor
-        initialHeadId={null}
-        initialTrailerId={null}
-        onCommit={vi.fn()}
-        onClose={vi.fn()}
-      />,
-    );
-    const headSelect = screen.getByLabelText('Truck (tractor)');
-    await userEvent.click(headSelect);
-    await userEvent.type(headSelect, '09new');
-    await userEvent.click(await screen.findByText(/add.*09new/i));
-
-    await waitFor(() => expect(toastError).toHaveBeenCalledTimes(1));
-  });
 });
