@@ -84,11 +84,15 @@ export function getCellValue(
     case 'document_note':
     case 'vehicle_condition_note':
     case 'vehicle_live_status':
-    case 'truck_plate':
-    case 'driver_name':
-    case 'driver_phone':
     case 'additional_notes_arap':
       return (shipment[fieldKey as keyof IShipmentSheetItem] as string) ?? '—';
+    // The second rig shares these three cells — it has no Sheet row of its own.
+    case 'truck_plate':
+      return joinRig(shipment.truck_plate, shipment.truck_plate_2);
+    case 'driver_name':
+      return joinRig(shipment.driver_name, shipment.driver_2_name);
+    case 'driver_phone':
+      return joinRig(shipment.driver_phone, shipment.driver_2_phone);
     case 'customs_clearance_planned_day': {
       const day = shipment.customs_clearance_planned_day;
       if (!day) return '—';
@@ -167,4 +171,15 @@ export function getCellValue(
     return `${days ?? '?'}d ${temp ?? '?'}°C`;
   }
   return '—';
+}
+
+/**
+ * Joins a first/second rig pair for display. Blank halves drop out with their
+ * separator, so a truck with one driver reads "Ahmet A.", never "Ahmet A., ".
+ * Mirrors the backend's `_join_rig` in document_context.py — the Sheet and the
+ * CMR must not disagree about how a two-driver truck is written.
+ */
+function joinRig(first: string | null, second: string | null): string {
+  const parts = [first, second].map((v) => (v ?? '').trim()).filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : '—';
 }

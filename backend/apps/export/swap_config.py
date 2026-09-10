@@ -48,6 +48,13 @@ SWAPPABLE_FIELDS: frozenset[str] = frozenset({
     'truck_plate',
     'driver_name',
     'driver_phone',
+    # Second rig. Display strings only, matching the first rig: the fleet id
+    # columns (truck_head_id / trailer_id / driver_id, and now truck_head_2_id
+    # / driver_2_id) are deliberately NOT swappable and stay with their own
+    # row — a pre-existing gap this does not widen or fix.
+    'truck_plate_2',
+    'driver_2_name',
+    'driver_2_phone',
     'transport_temp_c',
     # Gadam (export_manager)
     'export_manager_note',

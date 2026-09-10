@@ -141,6 +141,22 @@ class Shipment(models.Model):
     # R28 — driver phone (transport). Operator-entered; free-form to allow
     # international formats and intl operator notation.
     driver_phone = models.CharField(max_length=30, blank=True, null=True)
+    # === Second rig (2026-09-10) ===
+    # A truck can run with two drivers, and the head can be exchanged mid-route
+    # (transshipment or a border swap) while the trailer stays with the load —
+    # so there is a second head but deliberately NO second trailer. Both sets
+    # print on the invoice/CMR, which is why they are flat columns rather than
+    # a through-table: every document template does a flat field lookup.
+    #
+    # These carry no field_key of their own on the Sheet. The `truck_plate`
+    # cell's overlay writes the head pair and the `driver_name` cell's overlay
+    # writes the driver trio, so they are gated through _REVERSE_FIELD_DELEGATES
+    # like `truck_head_id` / `driver_id` already are.
+    truck_head_2_id = models.BigIntegerField(null=True, blank=True)
+    truck_plate_2 = models.CharField(max_length=50, blank=True, null=True)
+    driver_2_id = models.BigIntegerField(null=True, blank=True)
+    driver_2_name = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
+    driver_2_phone = models.CharField(max_length=30, blank=True, null=True)
     transport_temp_c = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     transit_days = models.IntegerField(null=True, blank=True)
     shelf_life_days = models.IntegerField(null=True, blank=True)

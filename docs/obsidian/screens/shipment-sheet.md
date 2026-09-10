@@ -917,12 +917,12 @@ Querystring `?season=<id>` overrides the active season; default scopes to `seaso
 - All rows from R2 to R44 are now configured (R24 is the new finansist doc-advance flag).
 - **`truck_capacity`, `product_date`, `transit_days_temp`** — present in `sheetRowConfig.ts` but not backed by a model field in `_ALL_PATCHABLE_FIELDS`. They render but plain cell edits would 403. (`transit_days_temp` is a virtual key — its perm gate delegates to `transit_days` and saves dispatch to both real fields; see R26 above.) The previously-listed `harvest_date`, `additional_notes_arap`, `truck_plate`, `driver_name`, `driver_phone` are now real `Shipment` columns in `_ALL_PATCHABLE_FIELDS` and edit normally.
 
-**`truck_plate` — fleet head+trailer picker (SP3b).** Although its `input_type` is `'text'`, `SheetCellEditor` special-cases `field_key === 'truck_plate'`: for a **non-gapy** shipment it renders `SheetTruckSelectEditor` (a two-select overlay — truck head + trailer — from the company fleet, with inline "+ Add", portaled to `document.body` so the cell's `contain: layout paint` doesn't clip it) and saves `truck_head_id` + `trailer_id` + a derived `truck_plate = "{head}/{trailer}"` in **one** `patchMultiMutation` with Sheet undo capture. For a **gapy_satyş** shipment it stays the plain text `<Input>` — no selects, no GPS (local buyers' trucks aren't in the fleet). Picking a head auto-resolves the shipment's GPS device. See [[../processes/fleet-map#Shipment truck selectors (SP3a / SP3c / SP3b)]].
+**`truck_plate` — fleet head+trailer picker (SP3b).** Although its `input_type` is `'text'`, `SheetCellEditor` special-cases `field_key === 'truck_plate'`: for a **non-gapy** shipment it renders `SheetTruckSelectEditor` (a two-select overlay — truck head + trailer — from the company fleet, the trailer with an inline "+ Add", portaled to `document.body` so the cell's `contain: layout paint` doesn't clip it) and saves `truck_head_id` + `trailer_id` + a derived `truck_plate = "{head}/{trailer}"` in **one** `patchMultiMutation` with Sheet undo capture. For a **gapy_satyş** shipment it stays the plain text `<Input>` — no selects, no GPS (local buyers' trucks aren't in the fleet). Picking a head auto-resolves the shipment's GPS device. See [[../processes/fleet-map#Shipment truck selectors (SP3a / SP3c / SP3b)]].
 
 **`driver_name` — driver registry picker (2026-08-20).** Same shape one row down. `input_type`
 stays `'text'`, and `SheetCellEditor` special-cases `field_key === 'driver_name'`: for a
 **non-gapy** shipment it renders `SheetDriverSelectEditor` (one select over the `Z_TIRWEB`
-driver registry, active-only, with inline "+ Add", portaled the same way) and saves
+driver registry, active-only, portaled the same way) and saves
 `driver_id` + `driver_name` in **one** `patchMultiMutation` with Sheet undo capture. For a
 **gapy_satyş** shipment it stays the plain text `<Input>` — local buyers bring their own truck
 *and* their own driver, so picking from the company registry there would pollute it.
@@ -930,6 +930,25 @@ driver registry, active-only, with inline "+ Add", portaled the same way) and sa
 The same picker (`components/DriverSelect.tsx`) also backs the ShipmentDetail transport card and
 the edit drawer via `ShipmentDriverSelector`, so the three surfaces cannot disagree about
 `driver_id` — see [[../processes/fleet-map#Shipment driver selector (2026-08-20)]].
+
+**Both overlays share `useAnchoredCellPanel` (2026-09-10).** The panel is portaled to
+`document.body` and positioned `fixed` at the anchor's rect, so it does not ride the grid's
+scroll container. Two dismissal rules live in that hook, and both deliberately ignore anything
+inside `.ant-select-dropdown` — those dropdowns are portaled to `document.body` too (NOT
+overridden via `getPopupContainer`, since the grid would clip them), so by DOM containment they
+are "outside" the panel:
+
+- **Outside mousedown** commits and closes. Without the dropdown exclusion, clicking an option
+  would dismiss the editor before the pick landed.
+- **Scroll re-anchors** rather than dismissing — it re-measures the anchor and moves the panel to
+  follow the cell. It commits and closes only once the anchor has left the viewport entirely,
+  where there is nothing left to anchor to. Before 2026-09-10 *any* scroll committed and closed,
+  which meant scrolling the ~150-row driver list shut the editor mid-pick; that was the reported
+  defect.
+
+`isOffScreen()` uses strict comparisons on purpose: jsdom reports an all-zero rect, which sits on
+the viewport corner and must still count as visible, or every test would see the editor dismiss
+itself on the first scroll.
 
 **R28 `driver_phone` is written by that picker only when the registry actually holds a number**
 (`driverPatchFields()` in `components/DriverSelect.tsx`). Z_TIRWEB supplies no phones at all,

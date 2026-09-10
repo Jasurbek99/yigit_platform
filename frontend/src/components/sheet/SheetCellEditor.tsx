@@ -378,17 +378,16 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
     [patchMultiMutation, shipment, close],
   );
 
-  // Virtual combined cell: the truck_plate cell's overlay (SheetTruckSelectEditor)
-  // resolves a fleet head + trailer and the derived plate string, all committed
-  // in one PATCH — mirrors saveTransitTemp above. Gapy-Satys shipments never
-  // reach this (renderEditor's gapy branch keeps the plain text input instead).
-  const saveTruck = useCallback(
-    (fields: { truck_head_id: number | null; trailer_id: number | null; truck_plate: string }) => {
-      const before = {
-        truck_head_id: shipment.truck_head_id,
-        trailer_id: shipment.trailer_id,
-        truck_plate: shipment.truck_plate,
-      };
+  // Both fleet overlays (truck_plate, driver_name) commit a bag of real Shipment
+  // columns in one PATCH. The payload's own keys drive the undo snapshot: an
+  // overlay omits a slot it did not change — a second driver left alone, or a
+  // `driver_phone` the registry had none for — and undo must not restore a
+  // field the PATCH never wrote.
+  const saveOverlayFields = useCallback(
+    (fields: Record<string, unknown>) => {
+      const keys = Object.keys(fields);
+      const row = shipment as unknown as Record<string, unknown>;
+      const before = Object.fromEntries(keys.map((k) => [k, row[k]]));
       const undoId = recordMultiEntry(shipment.id, before, fields);
       patchMultiMutation.mutate(
         { id: shipment.id, fields },
@@ -400,11 +399,9 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
                 const d = data as Record<string, unknown>;
                 setEntryAfter(
                   undoId,
-                  {
-                    truck_head_id: d.truck_head_id !== undefined ? d.truck_head_id : fields.truck_head_id,
-                    trailer_id: d.trailer_id !== undefined ? d.trailer_id : fields.trailer_id,
-                    truck_plate: d.truck_plate !== undefined ? d.truck_plate : fields.truck_plate,
-                  },
+                  Object.fromEntries(
+                    keys.map((k) => [k, d[k] !== undefined ? d[k] : fields[k]]),
+                  ),
                   cascadeFrom(shipment, d),
                 );
               },
@@ -415,52 +412,28 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
     [patchMultiMutation, shipment, close],
   );
 
+  // Virtual combined cell: the truck_plate cell's overlay (SheetTruckSelectEditor)
+  // resolves a fleet head + trailer and the derived plate string, all committed
+  // in one PATCH — mirrors saveTransitTemp above. Gapy-Satys shipments never
+  // reach this (renderEditor's gapy branch keeps the plain text input instead).
+  const saveTruck = useCallback(
+    (fields: Record<string, unknown>) => {
+      saveOverlayFields(fields);
+    },
+    [saveOverlayFields],
+  );
+
   // Virtual combined cell: the driver_name cell's overlay
   // (SheetDriverSelectEditor) resolves a registry driver and commits the id and
   // the display name in one PATCH — same shape as saveTruck. `driver_phone`
-  // (R28) is intentionally absent: it is its own cell with its own history and
-  // was typed by operators, so picking a driver must not overwrite it.
+  // (R28) rides along only when the overlay decided to write it (see
+  // `pickedPhone()`); the undo snapshot above keys off the payload, so an
+  // omitted phone is neither saved nor restored.
   const saveDriver = useCallback(
-    (fields: { driver_id: number | null; driver_name: string; driver_phone?: string }) => {
-      // Snapshot only what is actually being written — driver_phone rides along
-      // just when the registry supplied one, and undo must not restore a field
-      // the PATCH never touched.
-      const before: Record<string, unknown> = {
-        driver_id: shipment.driver_id,
-        driver_name: shipment.driver_name,
-      };
-      if (fields.driver_phone !== undefined) {
-        before.driver_phone = shipment.driver_phone;
-      }
-      const undoId = recordMultiEntry(shipment.id, before, fields);
-      patchMultiMutation.mutate(
-        { id: shipment.id, fields },
-        undoId === -1
-          ? undefined
-          : {
-              onError: () => dropEntry(undoId),
-              onSuccess: (data) => {
-                const d = data as Record<string, unknown>;
-                setEntryAfter(
-                  undoId,
-                  {
-                    driver_id: d.driver_id !== undefined ? d.driver_id : fields.driver_id,
-                    driver_name: d.driver_name !== undefined ? d.driver_name : fields.driver_name,
-                    ...(fields.driver_phone !== undefined
-                      ? {
-                          driver_phone:
-                            d.driver_phone !== undefined ? d.driver_phone : fields.driver_phone,
-                        }
-                      : {}),
-                  },
-                  cascadeFrom(shipment, d),
-                );
-              },
-            },
-      );
-      close();
+    (fields: Record<string, unknown>) => {
+      saveOverlayFields(fields);
     },
-    [patchMultiMutation, shipment, close],
+    [saveOverlayFields],
   );
 
   // Type-to-edit commit-and-hop for text-like inputs (text / phone / number /
@@ -523,6 +496,7 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
       return (
         <SheetTruckSelectEditor
           initialHeadId={shipment.truck_head_id}
+          initialHead2Id={shipment.truck_head_2_id}
           initialTrailerId={shipment.trailer_id}
           onCommit={saveTruck}
           onClose={close}
@@ -538,6 +512,7 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
       return (
         <SheetDriverSelectEditor
           initialDriverId={shipment.driver_id}
+          initialDriver2Id={shipment.driver_2_id}
           onCommit={saveDriver}
           onClose={close}
         />

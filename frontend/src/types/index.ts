@@ -255,6 +255,9 @@ export interface IShipmentListItem {
   truck_plate: string | null;
   driver_name: string | null;
   driver_phone: string | null;
+  truck_plate_2: string | null;
+  driver_2_name: string | null;
+  driver_2_phone: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
   has_peregruz: boolean;
@@ -378,6 +381,15 @@ export interface IShipmentSheetItem {
   truck_plate: string | null;
   driver_name: string | null;
   driver_phone: string | null;
+  // Second rig — no Sheet row of its own; written by the R23/R27 overlays and
+  // rendered inside those same three cells. There is deliberately no second
+  // trailer: the head is exchanged mid-route while the trailer stays with the
+  // load.
+  truck_head_2_id: number | null;
+  truck_plate_2: string | null;
+  driver_2_id: number | null;
+  driver_2_name: string | null;
+  driver_2_phone: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
   has_peregruz: boolean;
