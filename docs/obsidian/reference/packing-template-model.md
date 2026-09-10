@@ -46,8 +46,37 @@ admin/director/export_manager/document_team):
   stays correct — [[quota]]), copies each share's packing onto the firm's `ContractSale`,
   sets `Shipment.packing_template`. **All three writes are one `transaction.atomic()`.**
   Returns **`no_sale_firms`** — firm ids whose packing couldn't be copied because no
-  `ContractSale` is linked yet (their weight/quota *are* set). Approved-quota guard → 400.
+  `ContractSale` is linked yet (their weight/quota *are* set). Approved-quota guard → 400. Each of
+  those firms gets its packing when its own contract is linked — see *Linking a contract
+  afterwards* below. A firm whose contract is never linked has no sale and so no packing.
 - `POST scope:'firm'` — edit one firm's packing values (`.update()`).
+### Linking a contract afterwards (fixed 2026-09-10)
+
+The apply-time copy is a **one-shot push**: it updates zero rows for a firm whose
+`ContractSale` does not exist yet. An operator who picks the template *before* linking
+contracts used to end up with a sale carrying no packing at all, and that firm's Invoice
+rendered with **no pieces, no gross and no pallet sentence** while the CMR — which reads the
+truck template directly — printed correctly. `no_sale_firms` said so in the response and the
+frontend never read it.
+
+`link_split_to_contract` now closes the gap:
+
+- It **refuses** a link on a truck with no `packing_template` (`ValueError` → 400), naming the
+  fix. The Sheet's contracts panel shows the backend sentence instead of a generic toast.
+- After creating the bridge sale it **back-fills only the blank** packing columns from the
+  firm's share, so a number the operator typed in the packing panel survives a re-link.
+- It back-fills only while the share's `net_kg` still equals the sale's `quantity_kg`. A
+  `scope:'swap'` that reported `packing_swapped: false` exchanged the two firms' weights but
+  left `split_order` alone, so the positional share now belongs to the other firm; writing it
+  would put a gross and box count against a net they were never cut for. The columns stay
+  blank instead, and the operator fills them in the packing panel.
+
+Both this and the apply endpoint read the firm ↔ share mapping from one helper,
+`template_share_for(shipment, export_firm_id, template=None)` — the mapping is **positional**
+(Nth firm split by `split_order` ↔ Nth share by `share_order`), and duplicating that rule risks
+printing one firm's boxes on another firm's invoice. It returns `None` when the share count no
+longer matches the firm count.
+
 - `POST scope:'swap'` — exchange two firms' weight + packing. **Rebuilds the full weight map
   and swaps only the two, so the other firms on a 3+ firm truck are preserved** (a bare
   two-firm map would delete the rest — the fix for the review's HIGH finding). Returns
@@ -72,7 +101,8 @@ no row → no writes). Seeded holders: admin, director, export_manager, boss, **
 
 - `build_invoice_context`: NET = `quantity_kg`; gross/boxes/pallets = the sale's explicit
   packing (fallback to the whole-truck shipment fields when unset). Never `weight_net`
-  (ADR-023).
+  (ADR-023). It deliberately does **not** read `shipment.packing_template` — the invoice is
+  per-firm and the template is whole-truck, so the share must already be on the sale.
 - `build_cmr_context`: reads `shipment.packing_template` whole-truck; `gross_with_pallet =
   gross_kg`, `gross_without_pallet = gross_kg − pallet_weight_kg`.
 

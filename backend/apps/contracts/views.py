@@ -46,6 +46,13 @@ from apps.contracts.services.document_render import (
     generate,
     generate_packet_zip,
 )
+# One definition of the per-firm packing columns and of the firm ↔ share rule,
+# shared with the contract-link service — the two write the same sale fields and
+# must never drift into printing one firm's boxes on another firm's invoice.
+from apps.contracts.services.shipment_firm_contracts import (
+    FIRM_PACKING_FIELDS as _FIRM_PACKING_FIELDS,
+    template_share_for,
+)
 from apps.contracts.services.files import (
     MAX_FILES_PER_CONTRACT,
     sanitise_filename,
@@ -830,7 +837,6 @@ class ShipmentFirmContractsView(APIView):
         }, status=201)
 
 
-_FIRM_PACKING_FIELDS = ('gross_kg', 'box_count', 'pallet_count', 'pallet_weight_kg')
 _SHARE_FIELDS = ('net_kg', *_FIRM_PACKING_FIELDS)
 
 
@@ -1106,10 +1112,11 @@ class ShipmentPackingView(APIView):
                 # linked ContractSale matches 0 rows — report it so the operator
                 # knows to link a contract (weight/quota are still set above).
                 no_sale_firms = []
-                for i, fid in enumerate(firms):
+                for fid in firms:
+                    share = template_share_for(shipment, fid, template)
                     updated = ContractSale.objects.filter(
                         shipment=shipment, export_firm_id=fid,
-                    ).update(**{f: getattr(shares[i], f) for f in _FIRM_PACKING_FIELDS})
+                    ).update(**{f: getattr(share, f) for f in _FIRM_PACKING_FIELDS})
                     if updated == 0:
                         no_sale_firms.append(fid)
                 Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)

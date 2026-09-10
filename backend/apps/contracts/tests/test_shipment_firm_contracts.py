@@ -6,7 +6,9 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import Country, ExportFirm, ImportFirm, Season, ShipmentStatusType, User
-from apps.export.models import Shipment, ShipmentFirmSplit
+from apps.export.models import (
+    PackingTemplate, PackingTemplateShare, Shipment, ShipmentFirmSplit,
+)
 from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.shipment_firm_contracts import (
     framework_contracts_for_pair,
@@ -69,6 +71,9 @@ class LinkServiceTest(TestCase):
         self.shipment = _shipment(self.buyer)
         self.split = _split(self.shipment, self.ygt)
         self.user = User.objects.create(username='shohrat', role='export_manager')
+        # Linking is refused on a truck with no packing template, so every truck
+        # under test carries one — a whole-truck load for the single firm here.
+        _apply_packing(self.shipment, _SHARE_A)
 
     def test_one_time_creates_contract_and_bridge(self) -> None:
         sale = link_split_to_contract(
@@ -158,6 +163,7 @@ class EndpointSmokeTest(TestCase):
         self.ygt = _efirm('YGT')
         self.shipment = _shipment(self.buyer)
         _split(self.shipment, self.ygt, amount='12000.00')
+        _apply_packing(self.shipment, _SHARE_A)
         self.admin = User.objects.create(username='admin1', role='admin', is_superuser=True)
         self.client = APIClient()
         self.client.force_authenticate(user=self.admin)
@@ -193,6 +199,7 @@ class ContractStatusEndpointTest(TestCase):
         self.shipment = _shipment(self.buyer)
         _split(self.shipment, self.ygt)
         _split(self.shipment, self.hj)
+        _apply_packing(self.shipment, _SHARE_A, _SHARE_B)
         self.admin = User.objects.create(username='admin2', role='admin', is_superuser=True)
         self.client = APIClient()
         self.client.force_authenticate(user=self.admin)
@@ -268,3 +275,105 @@ class BuyerGeneratorFieldsTest(TestCase):
         body = self._get(shipment)
         self.assertFalse(body['contract_template_supported'])
         self.assertIsNone(body['import_firm_director'])
+
+
+# One share per firm split, positional — the same firm↔share rule the apply-template
+# endpoint uses. `_split` leaves split_order at its default, so number the splits
+# here or `order_by('split_order')` has nothing to order by.
+def _apply_packing(shipment, *shares) -> PackingTemplate:
+    template = PackingTemplate.objects.create(
+        name=f'T{shipment.pk}', net_kg='18000.00', gross_kg='20442.00',
+        box_count=2912, pallet_count='33.0', pallet_weight_kg='412.00',
+    )
+    for order, share in enumerate(shares, start=1):
+        PackingTemplateShare.objects.create(template=template, share_order=order, **share)
+    for order, split in enumerate(shipment.firm_splits.order_by('id'), start=1):
+        ShipmentFirmSplit.objects.filter(pk=split.pk).update(split_order=order)
+    shipment.packing_template = template
+    shipment.save(update_fields=['packing_template'])
+    return template
+
+
+_SHARE_A = dict(net_kg='10000.00', gross_kg='11373.00', box_count=1618,
+                pallet_count='18.0', pallet_weight_kg='229.00')
+_SHARE_B = dict(net_kg='8000.00', gross_kg='9099.00', box_count=1294,
+                pallet_count='15.0', pallet_weight_kg='183.00')
+
+
+class PackingFromTemplateTest(TestCase):
+    """Applying a packing template copies each share onto the firm's sale — but
+    that copy hits nothing when the contract is linked afterwards, because the
+    sale did not exist yet. The link must back-fill, or the firm's invoice
+    renders with no pieces, no gross and no pallet sentence.
+    """
+
+    def setUp(self) -> None:
+        self.buyer = _ifirm('B1')
+        self.first = _efirm('AAA')
+        self.second = _efirm('BBB')
+        self.shipment = _shipment(self.buyer)
+        _split(self.shipment, self.first, weight='10000.00')
+        _split(self.shipment, self.second, weight='8000.00')
+        self.user = User.objects.create(username='linker', role='export_manager')
+        _apply_packing(self.shipment, _SHARE_A, _SHARE_B)
+
+    def _link(self, firm):
+        return link_split_to_contract(
+            shipment=self.shipment, export_firm_id=firm.id,
+            mode='one_time', contract_id=None, user=self.user,
+        )
+
+    def test_the_firms_own_share_lands_on_its_sale(self) -> None:
+        sale = self._link(self.second)
+        self.assertEqual(sale.gross_kg, Decimal('9099.00'))
+        self.assertEqual(sale.box_count, 1294)
+        self.assertEqual(sale.pallet_count, Decimal('15.0'))
+        self.assertEqual(sale.pallet_weight_kg, Decimal('183.00'))
+
+    def test_each_firm_gets_its_own_share_not_the_trucks_total(self) -> None:
+        self.assertEqual(self._link(self.first).gross_kg, Decimal('11373.00'))
+        self.assertEqual(self._link(self.second).gross_kg, Decimal('9099.00'))
+
+    def test_an_operator_edit_survives_a_relink(self) -> None:
+        sale = self._link(self.first)
+        ContractSale.objects.filter(pk=sale.pk).update(box_count=1600)
+        again = self._link(self.first)
+        self.assertEqual(again.box_count, 1600)  # kept
+        self.assertEqual(again.gross_kg, Decimal('11373.00'))  # still filled
+
+    def test_a_truck_with_no_packing_template_is_refused(self) -> None:
+        bare = _shipment(self.buyer, code='0101009/25')
+        _split(bare, self.first)
+        with self.assertRaisesRegex(ValueError, 'packing template'):
+            link_split_to_contract(
+                shipment=bare, export_firm_id=self.first.id,
+                mode='one_time', contract_id=None, user=self.user,
+            )
+
+    def test_the_invoice_document_then_carries_the_packing(self) -> None:
+        """The reported symptom, end to end: pieces, gross and the pallet line."""
+        from apps.contracts.services.document_context import build_invoice_context
+
+        sale = self._link(self.second)
+        sale.refresh_from_db()
+        context = build_invoice_context(sale, 'en')
+        self.assertEqual(context['line_items'][0]['pieces'], '1294')
+        self.assertEqual(context['line_items'][0]['gross'], '9,099')
+        self.assertIn('15 wooden pallets', context['pallet_note'])
+        self.assertIn('183 kg', context['pallet_note'])
+
+    def test_a_swapped_firm_is_left_blank_rather_than_given_the_wrong_share(self) -> None:
+        """`scope='swap'` exchanges the two weights but keeps `split_order`, so
+        the positional share stops matching. Back-filling it would print a gross
+        and box count against a net they were never cut for."""
+        splits = {s.export_firm_id: s for s in self.shipment.firm_splits.all()}
+        first, second = splits[self.first.id], splits[self.second.id]
+        first.weight_kg, second.weight_kg = second.weight_kg, first.weight_kg
+        ShipmentFirmSplit.objects.filter(pk=first.pk).update(weight_kg=first.weight_kg)
+        ShipmentFirmSplit.objects.filter(pk=second.pk).update(weight_kg=second.weight_kg)
+
+        sale = self._link(self.first)  # now 8,000 kg, but share 1 is cut for 10,000
+        self.assertEqual(sale.quantity_kg, Decimal('8000.00'))
+        self.assertIsNone(sale.gross_kg)
+        self.assertIsNone(sale.box_count)
+

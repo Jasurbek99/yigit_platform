@@ -111,13 +111,21 @@ function FirmContractRow({
     if (warning) toast.warning(t(`sheet.firm_contracts.${warning}`));
   };
 
+  // The backend refuses a link when the truck has no packing template, and names
+  // the fix ("apply one in the packing panel first"). Show that sentence — the
+  // generic toast would leave the operator with an invoice missing its packing.
+  const onLinkError = (err: unknown) => {
+    const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+    toast.error(msg ?? t('sheet.firm_contracts.toast_error'));
+  };
+
   const linkFramework = () => {
     if (!selected) return;
     link.mutate(
       { shipment: shipmentId, export_firm: row.export_firm, mode: 'framework', contract_id: selected },
       {
         onSuccess: (r) => onDone(r.contract_number, r.money_warning),
-        onError: () => toast.error(t('sheet.firm_contracts.toast_error')),
+        onError: onLinkError,
       },
     );
   };
@@ -127,7 +135,7 @@ function FirmContractRow({
       { shipment: shipmentId, export_firm: row.export_firm, mode: 'one_time' },
       {
         onSuccess: (r) => onDone(r.contract_number, r.money_warning),
-        onError: () => toast.error(t('sheet.firm_contracts.toast_error')),
+        onError: onLinkError,
       },
     );
   };
@@ -246,3 +254,4 @@ function LinkedContract({
     </div>
   );
 }
+

@@ -96,6 +96,13 @@ Query params:
 
 The document-generation action lives on the same viewset: `GET /api/v1/contracts/sales/{id}/document/` (see [[../processes/document-generation]]).
 
+The bridge row itself is created by `POST /api/v1/contracts/shipment-firm-contracts/`
+(`link_split_to_contract`). Since 2026-09-10 that call **requires the truck to carry a packing
+template** and copies the firm's share onto the new sale's `gross_kg` / `box_count` /
+`pallet_count` / `pallet_weight_kg`, filling only columns that are still blank. Without it a
+sale linked after the template was applied kept NULL packing and its Invoice printed no pieces,
+gross or pallet line — see [[packing-template-model]].
+
 ## Permissions
 
 | Action | Allowed roles |
