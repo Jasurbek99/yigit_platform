@@ -48,19 +48,19 @@ related: [[permissions-system]]
 | Shipment List | Y | Y | Y | Y | Y | Y | Y | Y | Y | - | - |
 | Kanban Board | Y | Y | Y | Y | Y | Y | Y | Y | Y | - | - |
 | Shipment Sheet | Y | Y | Y | Y | - | Y | - | - | - | - | - |
-| Shipment Dashboard | Y | Y | Y | Y | - | - | - | - | - | - | - |
-| Overdue Reports | Y | Y | Y | Y | - | - | - | Y | - | - | - |
+| Shipment Dashboard | Y | Y | Y | Y | - | Y | - | - | - | - | - |
+| Overdue Reports | Y | Y | Y | Y | - | Y | - | Y | - | - | - |
 | Quota Dashboard | Y | Y | Y | Y | - | Y | - | - | - | - | Y |
-| Weekly Plan | Y | Y | Y | Y | - | - | - | - | - | Y | - |
-| Price Panel | Y | Y | Y | Y | - | - | - | Y | - | - | - |
-| Advances | Y | Y | Y | Y | - | - | - | - | Y | - | - |
-| Truck Forecast | Y | Y | Y | Y | - | - | Y | - | - | - | - |
-| Block Summary | Y | Y | Y | Y | - | - | - | - | - | Y | - |
-| Domestic Sales | Y | Y | Y | Y | - | - | - | - | - | Y | - |
+| Weekly Plan | Y | Y | Y | Y | - | Y | - | - | - | Y | - |
+| Price Panel | Y | Y | Y | Y | - | Y | - | Y | - | - | - |
+| Advances | Y | Y | Y | Y | - | Y | - | - | Y | - | - |
+| Truck Forecast | Y | Y | Y | Y | - | Y | Y | - | - | - | - |
+| Block Summary | Y | Y | Y | Y | - | Y | - | - | - | Y | - |
+| Domestic Sales | Y | Y | Y | Y | - | Y | - | - | - | Y | - |
 | Fleet Map (`transport.map`) | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | - |
-| Fleet Management (`transport.fleet`) | Y | Y | Y | Y | Y | - | - | - | - | - | - |
+| Fleet Management (`transport.fleet`) | Y | Y | Y | Y | Y | Y | - | - | - | - | - |
 | Admin Pages (Firms, Seasons, Blocks, Customers, Truck Dest, Process Links) | Y | - | - | Y | - | - | - | - | - | - | - |
-| Admin: Shipment Settings (`admin.shipment_settings`) | Y | Y | - | Y | - | - | - | - | - | - | - |
+| Admin: Shipment Settings (`admin.shipment_settings`) | Y | Y | - | Y | - | Y | - | - | - | - | - |
 | Admin: Users (`admin.users`) / Staff Page Access (`admin.staff_access`) | Y | - | - | - | - | - | - | - | - | - | - |
 | Feedback: Admin Inbox (`feedback.admin_inbox`) | Y | - | - | - | - | - | - | - | - | - | - |
 | Permission Matrix page (`admin.permissions`) | Y | - | - | - | - | - | - | - | - | - | - |
@@ -80,23 +80,23 @@ related: [[permissions-system]]
 | Resource | admin | export_manager | director | boss | warehouse_chief | document_team | transport | sales_rep | finansist | greenhouse_manager |
 |----------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Shipment (view) | Y | Y | Y | Y | Y | Y | Y | Y | Y | - |
-| Shipment (create) | Y | Y | Y | Y | - | - | - | - | - | - |
-| Shipment (edit) | Y | Y | Y | Y | limited | limited | limited | limited | limited | - |
-| Shipment (delete) | Y | Y | Y | Y | - | - | - | - | - | - |
-| Quota Issuance | CRUD | CRUD | CRUD | CRUD | - | view | - | - | - | - |
-| Quota Usage | CRUD+approve | CRUD+approve | CRUD+approve | CRUD+approve | - | view | - | - | - | - |
-| Weekly Plan | CRUD+approve | CRUD+approve | CRUD+approve | CRUD+approve | - | - | - | - | - | CRUD (own blocks) |
-| Local Sell Plan | CRUD+approve | CRUD+approve | CRUD+approve | V+submit¹ | - | - | - | - | - | - |
-| Price Entry | CRUD | CRUD | CRUD | CRUD | - | - | CRUD | - | - | - |
-| Advance | CRUD | CRUD | CRUD | VUD² | - | - | - | - | CRUD | - |
-| Truck Allocation | CRUD | CRUD | CRUD | CRUD | - | - | view | - | - | - |
-| Reference Data (Country, City, Customer, BorderPoint, Block, ShipmentStatusType, OptionType, TruckDestination) | CRUD | CRUD | CRUD | view³ | - | - | - | - | - | - |
-| Truck Split Default | CRUD | view | CRUD | view⁵ | - | - | - | - | - | - |
+| Shipment (create) | Y | Y | Y | Y | - | Y | - | - | - | - |
+| Shipment (edit) | Y | Y | Y | Y | limited | Y | limited | limited | limited | - |
+| Shipment (delete) | Y | Y | Y | Y | - | Y | - | - | - | - |
+| Quota Issuance | CRUD | CRUD | CRUD | CRUD | - | CRUD | - | - | - | - |
+| Quota Usage | CRUD+approve | CRUD+approve | CRUD+approve | CRUD+approve | - | CRUD+approve | - | - | - | - |
+| Weekly Plan | CRUD+approve | CRUD+approve | CRUD+approve | CRUD+approve | - | CRUD+approve | - | - | - | CRUD (own blocks) |
+| Local Sell Plan | CRUD+approve | CRUD+approve | CRUD+approve | V+submit¹ | - | CRUD+approve | - | - | - | - |
+| Price Entry | CRUD | CRUD | CRUD | CRUD | - | CRUD | CRUD | - | - | - |
+| Advance | CRUD | CRUD | CRUD | VUD² | - | CRUD | - | - | CRUD | - |
+| Truck Allocation | CRUD | CRUD | CRUD | CRUD | - | CRUD | view | - | - | - |
+| Reference Data (Country, City, Customer, BorderPoint, Block, ShipmentStatusType, OptionType, TruckDestination) | CRUD | CRUD | CRUD | view³ | - | CRUD | - | - | - | - |
+| Truck Split Default | CRUD | view | CRUD | view⁵ | - | view | - | - | - | - |
 | Contract | CRUD | CRUD | CRUD | CRUD | - | CRUD | - | - | - | - |
 | Sale (ContractSale) | CRUD | VCU | VCU | VCU⁶ | - | VCU | - | - | - | - |
-| Season (admin Seasons page + close/open) | CRUD+close | CRUD+close | CRUD+close | CRUD+close⁷ | - | - | - | view | - | - |
-| Fleet catalog (`fleet` — truck heads, trailers, drivers) | VCU | VCU | VCU | VCU | VCU | - | - | - | - | - |
-| Sheet Row Settings (`/admin/sheet-rows/`) | CRUD | CRUD | CRUD | CRUD⁸ | - | - | - | - | - | - |
+| Season (admin Seasons page + close/open) | CRUD+close | CRUD+close | CRUD+close | CRUD+close⁷ | - | CRUD+close | - | view | - | - |
+| Fleet catalog (`fleet` — truck heads, trailers, drivers) | VCU | VCU | VCU | VCU | VCU | VCU | - | - | - | - |
+| Sheet Row Settings (`/admin/sheet-rows/`) | CRUD | CRUD | CRUD | CRUD⁸ | - | CRUD | - | - | - | - |
 | Permission Matrix (page / resource / field) | CRUD | - | - | -⁴ | - | - | - | - | - | - |
 | User CRUD (role / activate / password) | CRUD | - | - | - | - | - | - | - | - | - |
 
@@ -109,6 +109,8 @@ related: [[permissions-system]]
 > 6. **Sale — `boss` gets `VCU`: no delete, narrowed 2026-08-05.** Sale deletion is `admin`-only by design; `director` and `export_manager` both get view+create+edit only. The blanket grant had handed `boss` a delete they don't have, and deleting a `ContractSale` re-rolls the parent `Contract`'s totals — money data. Corrected in both `seed_permissions.py` and `core/0033`. (`/sales` already hides its delete button behind an `isAdmin` check, so no control was live for him even before this.)
 > 7. **Season — `boss` gets `CRUD+close`, and closing is irreversible.** `SeasonViewSet.close` / `open` / `close-preview` (`apps/export/views_admin.py`) call `_require_season_edit`, which reads the `season` resource's `edit` flag — so the blanket widening reached them and `boss` can freeze a season. This is at **parity** with `director`/`export_manager`, who already had it, and is defensible on that basis; it is recorded here because it was missing, not because it is wrong. Note the asymmetry with the rest of the matrix: `close_season` (`apps/core/services/season.py`) raises on any attempt to reopen a closed season by design, so this is the one grant in the boss column with no undo. Distinct from `closed_season` (view-only, D1), which only gates *browsing* an already-closed season.
 > 8. **Sheet Row Settings — `boss` gets `CRUD`, and this row was corrected 2026-09-02 (Task 1, Sheet-Settings-permission-authority plan).** `SheetRowSettingViewSet` used to declare `resource_code = 'shipment'` with no other gate, so its cells were the `shipment` cells restated — five non-management roles (`warehouse_chief`, `document_team`, `transport`, `sales_rep`, `finansist`) could relabel/reorder/soft-delete Sheet rows and grant `permissions/bulk` per-user exceptions purely because `shipment.can_edit` is broad, with only the hidden admin page keeping them off it in practice. It now declares its own resource, `sheet_row_setting` (`core/migration 0038`), granted directly to `admin`, `director`, `export_manager`, **and `boss`** — `0038`'s own `grant()` function writes a full-CRUD `RoleResourcePermission` row for each name in its `ROLES` list, independent of `seed_permissions`, unlike every other unfootnoted `boss` cell in this table (which really is the blanket `**{r: _VCRUD for r in _ALL_RESOURCES}` wildcard). **Correction (2026-09-03):** `boss` was briefly missing from `0038`'s `ROLES` — the original reasoning here (that he'd "inherit it too, unavoidably, from the same wildcard") is exactly what the migration's own docstring now records as false on a migrated database: `sheet_row_setting` did not exist in `RESOURCE_REGISTRY` when the earlier boss-widening migration (`core/0033`) ran, so `boss` could not have inherited it from there, and no wildcard reaches a migrate-only database at all — `seed_permissions` never runs in production. `boss` was 403'd on every save until a follow-up commit (`4a47be2`) added him to `0038`'s `ROLES` directly, the same explicit-grant shape the other three already had. The five roles that lost the grant now have **no** `RoleResourcePermission` row for `sheet_row_setting` at all, so `DynamicResourcePermission` refuses **every** method including `GET` — they cannot even list `/admin/sheet-rows/` any more, not just write to it (harmless: none of their screens ever called this admin endpoint; the Sheet itself reads `/sheet/`, a different endpoint with its own field-level gate). **Correction (AD-17, 2026-09-02, `docs/ADR.md`): `permissions/bulk` grants are no longer AND-composed with `RoleFieldPermission`.** That was true when this footnote was first written (2026-09-02, same day, earlier in the plan) but is superseded by the later task on the same branch: `can_edit_sheet_field` no longer ANDs a Sheet row's trigger config (which `matched_extra`/`SheetRowUserPermission` feeds into) with the field permission — a `permissions/bulk` grant on a row that otherwise carries no config is itself enough to grant that one user edit access, independent of what their role holds in `RoleFieldPermission`.
+
+> **`document_team` mirrors `export_manager` in both tables above (2026-09-09).** Stakeholder decision: the document team carries the same authority as the export manager on every operational gate, so its column is a copy of his — including `admin.shipment_settings` (grant a Sheet row to another role), shipment cancel, draft assign/promote, reference-data and quota writes, the audit log, archived rows and the Sheet all-cells bypass. The code half is `EXPORT_MANAGER_LIKE` in `apps/core/roles.py`; the data half is `core/0042_document_team_export_manager_parity`, which copies the rows **from the live `export_manager` rows** rather than from a hardcoded list. On the shared database the outcome is a **superset**, not an exact clone: `document_team` already held `director.stuck_shipments` and `export.shipments_dashboard` from earlier matrix edits, and the migration's OR rule kept both rather than revoking access already in use — `export_manager` does not hold the first of those by seed default. **Like the deputy parity noted below, this is point-in-time** — after the migration the two roles hold independent rows, so a permission later granted to `export_manager` through the admin matrix is not auto-propagated. What stays admin-only for both: the permission matrix, user create/edit/delete and role changes, and the feedback admin inbox. See [[permissions-system#`EXPORT_MANAGER_LIKE` — document_team is an export_manager peer (2026-09-09)]] and [[document-team]].
 
 > **Draft-create (supply column):** `loading_dept_head` (Soltanmyrat) is now also granted shipment-**draft** create — supply-only columns (blocks + variety, no destination) in the [[draft-shipments#Two-column Join flow (coexisting alternative)]] flow. Previously draft-create was limited to `warehouse_chief` + `export_manager`/`director`. The **Join** action that merges a supply draft into a destination draft is `apps.core.roles.JOIN_ROLES` = `admin`/`export_manager`/`director`/`boss`/`document_team` (+ superuser) — `boss` widened 2026-08-05, `document_team` 2026-09-03.
 

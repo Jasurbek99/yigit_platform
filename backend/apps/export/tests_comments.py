@@ -298,8 +298,13 @@ class TestLegacyCommentEndpointChecksTheCommentResource(TestCase):
     """
 
     #: Hold `shipment_comment.can_create` but NOT `shipment.can_create`.
+    #:
+    #: `document_team` was the first entry until 2026-09-09: `document_team` became an authority-level peer of `export_manager` (EXPORT_MANAGER_LIKE, apps/core/roles.py).
+    #: It holds `shipment.can_create` now, so the two flags no longer disagree
+    #: for it and it stops proving the endpoint reads the right one. The other
+    #: four prove it unchanged.
     COMMENTERS_WITHOUT_SHIPMENT_CREATE = [
-        'document_team', 'transport', 'sales_rep', 'finansist', 'weight_master',
+        'transport', 'sales_rep', 'finansist', 'weight_master',
     ]
 
     #: No `shipment_comment` row at all -- fail-closed, must stay refused.

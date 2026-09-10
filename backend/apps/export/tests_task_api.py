@@ -569,7 +569,11 @@ class TaskCompleteActionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.warehouse_chief = _make_user('complete_wh', 'warehouse_chief')
-        cls.wrong_role = _make_user('complete_doc', 'document_team')
+        # NOT a supervisor: `_SUPERVISOR_ROLES` (apps/export/permissions.py)
+        # lets supervisors act on any task regardless of `assignee_role`, and
+        # `document_team` joined that set 2026-09-09: `document_team` became an authority-level peer of `export_manager` (EXPORT_MANAGER_LIKE, apps/core/roles.py),
+        # so it can no longer stand for "the wrong role" here.
+        cls.wrong_role = _make_user('complete_doc', 'transport')
         cls.shipment = _make_shipment('COMP001')
 
     def test_manual_done_task_completes_successfully(self) -> None:
@@ -607,7 +611,7 @@ class TaskCompleteActionTests(TestCase):
         self.assertIn('error', resp.data)
 
     def test_wrong_role_returns_403(self) -> None:
-        """document_team cannot complete a warehouse_chief task."""
+        """transport cannot complete a warehouse_chief task."""
         task = Task.objects.create(
             shipment=self.shipment,
             step='yuklenme',

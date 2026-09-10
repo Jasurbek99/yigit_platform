@@ -42,6 +42,7 @@ import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { canDoBackendGated } from '@/utils/permissions';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import type { IWeeklyLocalSellPlan, PlanStatus } from '@/types';
+import { isExportManagerLike } from '@/constants/roles';
 import { cellMode, lockReasonKey, saveErrorKey } from './LocalSellPlanGrid.cells';
 import type { CellMode } from './LocalSellPlanGrid.cells';
 
@@ -158,7 +159,7 @@ export function LocalSellPlanGrid() {
   // permission matrix says.
   const canEdit = !isSeasonReadOnly && canDoBackendGated(user, 'local_sell_plan', 'edit');
   const isManager = !isSeasonReadOnly
-    && (role === 'admin' || role === 'export_manager' || role === 'director');
+    && (role === 'admin' || role === 'director' || isExportManagerLike(role));
 
   // Deep-link from a task card: ?week=&year= opens that ISO week (else current).
   const [searchParams] = useSearchParams();

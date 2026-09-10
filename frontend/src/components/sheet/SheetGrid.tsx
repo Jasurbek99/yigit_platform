@@ -47,6 +47,7 @@ import {
   markRoleBands,
 } from './sheetRoleBlocks';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
+import { EXPORT_MANAGER_LIKE } from '@/constants/roles';
 import { getContrastTextColor, mixWithWhite } from '@/utils/contrastColor';
 
 // The column tint is rendered as `color-mix(in srgb, <pick> 60%, var(--surface))`
@@ -215,7 +216,7 @@ export function SheetGrid({
   const canEditRowStyle =
     !!user && (
       user.is_superuser ||
-      ['admin', 'director', 'export_manager'].includes(userRole)
+      ['admin', 'director', ...EXPORT_MANAGER_LIKE].includes(userRole)
     );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

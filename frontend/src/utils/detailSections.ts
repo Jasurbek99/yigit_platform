@@ -7,11 +7,12 @@
  */
 
 import { EDIT_FIELD_GROUPS } from '@/constants/shipmentEditConfig';
+import { EXPORT_MANAGER_LIKE } from '@/constants/roles';
 import type { ICurrentUser } from '@/types';
 
 export type SectionKey = 'logistics' | 'transport' | 'goods' | 'documents' | 'finance';
 
-export const SUPERVISOR_ROLES = new Set(['export_manager', 'boss', 'admin', 'director']);
+export const SUPERVISOR_ROLES = new Set(['boss', 'admin', 'director', ...EXPORT_MANAGER_LIKE]);
 
 // EDIT_FIELD_GROUPS uses 6 logical groups; the Detail page renders 5 panels
 // (status → documents, notes → finance).

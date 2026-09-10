@@ -628,8 +628,17 @@ class RemainingPoolSeasonScopeTests(TestCase):
         cls.closed_date = datetime.date(2026, 3, 2)  # Monday, inside FS-CLS
         _make_plan_and_entry(cls.closed, cls.block, cls.closed_date, Decimal('40000.00'))
 
-        # export_manager holds closed_season.can_view per the AD-16 seed;
-        # document_team does not.
+        # export_manager keeps closed_season.can_view from the AD-16 seed.
+        # document_team held it too once it became an export_manager peer
+        # (2026-09-09: `document_team` became an authority-level peer of `export_manager` (EXPORT_MANAGER_LIKE, apps/core/roles.py)), so the flag
+        # is revoked here explicitly — exactly one permission separates the two
+        # users, and the fixture no longer depends on a seed default that moved.
+        from apps.core.models import RoleResourcePermission
+        RoleResourcePermission.objects.update_or_create(
+            role='document_team', resource_code='closed_season',
+            defaults={'can_view': False, 'can_create': False,
+                      'can_edit': False, 'can_delete': False},
+        )
         cls.permitted = _make_user('fs_em', 'export_manager')
         cls.unpermitted = _make_user('fs_dt', 'document_team')
 

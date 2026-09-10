@@ -306,7 +306,7 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
     def perform_create(self, serializer):
         role = getattr(self.request.user, 'role', None)
         if role not in _LOCAL_SELL_WRITE_ROLES:
-            raise PermissionDenied('Only export_manager/director/seller can create local sell plans.')
+            raise PermissionDenied('Only export_manager/document_team/director/seller can create local sell plans.')
         # WeeklyLocalSellPlan.season is nullable and the serializer does not
         # require it. Now that the list is season-scoped, a NULL-season row
         # would be invisible the moment it is created, so stamp the write
@@ -421,7 +421,7 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         plan = self.get_object()
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_APPROVE_ROLES:
-            raise PermissionDenied('Only export_manager/director can approve.')
+            raise PermissionDenied('Only export_manager/document_team/director can approve.')
         try:
             approve_local_sell_plan(plan, request.user)
         except (ValueError, PermissionError) as exc:
@@ -433,7 +433,7 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         plan = self.get_object()
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_APPROVE_ROLES:
-            raise PermissionDenied('Only export_manager/director can reject.')
+            raise PermissionDenied('Only export_manager/document_team/director can reject.')
         rejection_note = request.data.get('rejection_note', '')
         try:
             reject_local_sell_plan(plan, request.user, rejection_note)
@@ -445,7 +445,7 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
     def bulk_submit(self, request):
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_WRITE_ROLES:
-            raise PermissionDenied('Only export_manager/director/seller can submit.')
+            raise PermissionDenied('Only export_manager/document_team/director/seller can submit.')
         ids = request.data.get('ids', [])
         if not ids:
             return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
@@ -465,7 +465,7 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
     def bulk_approve(self, request):
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_APPROVE_ROLES:
-            raise PermissionDenied('Only export_manager/director can approve.')
+            raise PermissionDenied('Only export_manager/document_team/director can approve.')
         ids = request.data.get('ids', [])
         if not ids:
             return Response({'error': 'ids list is required.'}, status=http_status.HTTP_400_BAD_REQUEST)
@@ -509,7 +509,7 @@ class WeeklyLocalSellPlanViewSet(SeasonScopedMixin, ModelViewSet):
         # submit and approve stay on _LOCAL_SELL_APPROVE_ROLES below.
         role = getattr(request.user, 'role', None)
         if role not in _LOCAL_SELL_WRITE_ROLES:
-            raise PermissionDenied('Only export_manager/director/seller can initialize a week.')
+            raise PermissionDenied('Only export_manager/document_team/director/seller can initialize a week.')
 
         # Write freeze (D1). Only the explicit-body branch can be closed —
         # get_active_season() never returns a closed season.

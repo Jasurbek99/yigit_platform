@@ -607,7 +607,9 @@ class SwapReachabilityTests(SwapTestBase):
     """
 
     #: Hold `shipment.can_edit` but NOT `shipment.can_create`.
-    EDITORS_WITHOUT_CREATE = ['document_team', 'transport', 'sales_rep', 'finansist']
+    #: `document_team` dropped 2026-09-09: `document_team` became an authority-level peer of `export_manager` (EXPORT_MANAGER_LIKE, apps/core/roles.py)
+    #: — it holds `can_create` now, so it no longer isolates the two flags.
+    EDITORS_WITHOUT_CREATE = ['transport', 'sales_rep', 'finansist']
 
     #: No `shipment.can_edit` -- refused at the resource gate, by design.
     NO_SHIPMENT_EDIT = ['weight_master', 'accountant']

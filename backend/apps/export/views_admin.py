@@ -42,6 +42,7 @@ from apps.core.permissions import (
 from apps.core.roles import (
     ADMIN_ONLY,
     AUDIT_VIEWERS,
+    EXPORT_MANAGER_LIKE,
     PRIVILEGED_ROLES as _PRIVILEGED_ROLES,
     can_manage_users,
     manageable_roles,
@@ -58,8 +59,9 @@ logger = logging.getLogger(__name__)
 # System-administration gates: only admin (or is_superuser) can change user
 # roles or manage user permissions. Director/EM lost these powers in AD-15.
 _ADMIN_ONLY = ADMIN_ONLY
-# User-list visibility — admin always; EM keeps it for the comments/mentions UX.
-_ADMIN_MANAGER = frozenset({'admin', 'export_manager'})
+# User-list visibility — admin always; EM + document_team keep it for the
+# comments/mentions UX. Read-only: every mutating method re-gates on _ADMIN_ONLY.
+_ADMIN_MANAGER = frozenset({'admin'}) | EXPORT_MANAGER_LIKE
 
 
 def _require_role(user, allowed: frozenset, verb: str = 'perform this action') -> None:

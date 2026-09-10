@@ -3,6 +3,7 @@ import { Drawer, Spin, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useAuth } from '@/hooks/useAuth';
+import { isExportManagerLike } from '@/constants/roles';
 import { SalesReportPanel } from '@/components/SalesReportPanel';
 import { MIN_SALES_REPORT_STEP } from '@/components/salesReport/salesReportUtils';
 
@@ -35,9 +36,9 @@ export function SalesReportDrawer({
   const canEdit =
     (
       user?.role === 'sales_rep' ||
-      user?.role === 'export_manager' ||
       user?.role === 'director' ||
       user?.role === 'admin' ||
+      isExportManagerLike(user?.role) ||
       user?.is_superuser === true
     ) && (detail?.status_step ?? 0) >= MIN_SALES_REPORT_STEP;
 

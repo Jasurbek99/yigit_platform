@@ -17,7 +17,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.core.models import ExportFirm, Season, User
+from apps.core.models import ExportFirm, RoleResourcePermission, Season, User
 from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
 
 URL = '/api/v1/export/quota-dashboard/'
@@ -71,11 +71,18 @@ class QuotaDashboardSeasonResolutionTests(TestCase):
     other read path (AD-16).
 
     It used to read the parameter directly, look the row up itself, and 400 if
-    it was absent — so `closed_season.can_view` was never consulted. Verified
-    on the live database: `document_team`, `loading_dept_head` and
-    `loading_dept_head_deputy` hold `quota_issuance` but NOT `closed_season`,
-    so they are correctly 403'd on `/quota-issuances/?season=<closed>` yet
-    could still read that same season's aggregates here.
+    it was absent — so `closed_season.can_view` was never consulted. The roles
+    that hit it on the live database held `quota_issuance` but NOT
+    `closed_season`, so they were correctly 403'd on
+    `/quota-issuances/?season=<closed>` yet could still read that same season's
+    aggregates here.
+
+    Since 2026-09-09 every seeded role that holds `quota_issuance` also holds
+    `closed_season.can_view` (document_team became an export_manager peer —
+    EXPORT_MANAGER_LIKE in apps/core/roles.py), so the unpermitted half of the
+    pair is now built by revoking that one flag below rather than by picking a
+    role that happens to lack it. The gate under test is unchanged; only the
+    fixture stopped depending on a seed default that moved.
     """
 
     @classmethod
@@ -88,9 +95,15 @@ class QuotaDashboardSeasonResolutionTests(TestCase):
             name='qd25', start_date='2025-09-01', end_date='2026-06-30',
             closed_at=timezone.now(),
         )
-        # export_manager holds closed_season.can_view per the AD-16 seed;
-        # document_team does not. Both hold quota_issuance.can_view, so the
-        # pair isolates the closed-season permission from page access.
+        # Both roles hold quota_issuance.can_view, so the pair isolates the
+        # closed-season permission from page access. export_manager keeps
+        # closed_season.can_view from the AD-16 seed; document_team's row is
+        # revoked here so exactly one flag separates the two users.
+        RoleResourcePermission.objects.update_or_create(
+            role='document_team', resource_code='closed_season',
+            defaults={'can_view': False, 'can_create': False,
+                      'can_edit': False, 'can_delete': False},
+        )
         cls.permitted = _make_user('gadam', 'export_manager')
         cls.unpermitted = _make_user('sulgun', 'document_team')
 

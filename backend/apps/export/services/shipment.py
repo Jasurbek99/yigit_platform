@@ -27,6 +27,7 @@ from typing import Callable, Optional
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.roles import EXPORT_MANAGER_LIKE
 from apps.export.models import Shipment, ShipmentStatusLog
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ STATUS_TIMESTAMP_MAP: dict[str, str] = {}
 # unstick any step from his own login instead of logging in as each role.
 # NOTE: apps/core/roles.py has a same-named constant with different members.
 # They are already divergent — do not "fix" that here.
-PRIVILEGED_ROLES = {'export_manager', 'director', 'boss'}
+PRIVILEGED_ROLES = {'director', 'boss'} | EXPORT_MANAGER_LIKE
 
 # Roles allowed to CANCEL a shipment. A LITERAL set, deliberately NOT derived
 # from PRIVILEGED_ROLES: it was `PRIVILEGED_ROLES | {'admin'}`, so adding boss
@@ -53,7 +54,7 @@ PRIVILEGED_ROLES = {'export_manager', 'director', 'boss'}
 # (apps.core.roles.PRIVILEGED_ROLES, which already means admin/export_manager/
 # director), and let privilege-widening on the STEP edges move independently.
 # Superusers bypass the role gate entirely — see transition_to().
-CANCEL_ROLES = {'admin', 'export_manager', 'director'}
+CANCEL_ROLES = {'admin', 'director'} | EXPORT_MANAGER_LIKE
 
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)

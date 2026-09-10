@@ -42,6 +42,7 @@ import { CustomsExpensesTab, CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/cu
 import { ShipmentMultiSelect } from '@/components/ShipmentMultiSelect';
 import { ShipmentSelect } from '@/components/ShipmentSelect';
 import { COLORS, FONT } from '@/constants/styles';
+import { EXPORT_MANAGER_LIKE } from '@/constants/roles';
 
 const { Text, Link } = Typography;
 const { RangePicker } = DatePicker;
@@ -49,7 +50,7 @@ const { RangePicker } = DatePicker;
 type ReconcileFilter = 'all' | 'pending' | 'reconciled';
 
 /** Roles that may create advances (money-IN). Separate from customs-expense writers. */
-const CAN_CREATE_ROLES = new Set(['finansist', 'export_manager', 'director']);
+const CAN_CREATE_ROLES = new Set(['finansist', 'director', ...EXPORT_MANAGER_LIKE]);
 
 /** Group-separated amount + currency code (e.g. "35 640 TMT"). */
 function formatMoney(amount: number, currency?: string): string {

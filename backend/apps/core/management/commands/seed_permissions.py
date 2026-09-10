@@ -125,15 +125,6 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         _BOARD,
         _HARVEST_BOARD,
     } | _UNIVERSAL,
-    'document_team': {
-        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
-        'export.quota', _BOARD,
-        _HARVEST_BOARD,
-        # Documents workspace + the Contracts / Sales pages they now fully manage.
-        'contracts.documents', 'contracts.list', 'contracts.sales',
-        # Gross-net catalog page — pairs with the packing_template resource CRUD.
-        'export.packing_presets',
-    } | _UNIVERSAL,
     'transport': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
         _HARVEST_BOARD,
@@ -172,6 +163,12 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
 # Copy (not a shared reference) so future in-place edits to either role's set
 # don't silently mutate the other.
 PAGE_DEFAULTS['loading_dept_head_deputy'] = set(PAGE_DEFAULTS['loading_dept_head'])
+
+# document_team: identical page access to export_manager (Sep 2026 stakeholder
+# decision — see EXPORT_MANAGER_LIKE in apps/core/roles.py). Includes
+# admin.shipment_settings, so the document team can grant a Sheet row without an
+# admin, exactly as Gadam can. Copy, not a shared reference.
+PAGE_DEFAULTS['document_team'] = set(PAGE_DEFAULTS['export_manager']) | _UNIVERSAL
 
 
 # ── Fleet pages (registered 2026-09-03) ─────────────────────────────────
@@ -282,23 +279,6 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # fleet: same as loading_dept_head — registers trucks / trailers / drivers.
         'fleet': _VCE,
     },
-    'document_team': {
-        'shipment': _VE,
-        'shipment_firm_split': _VCE,     # Sulgun manages firm splits
-        'quality_document': _VCE,
-        'shipment_comment': _VCE,
-        'quota_issuance': _VCE,
-        'quota_usage': _VCE,
-        # Documents/sales/contracts are the document team's core work — full
-        # operational CRUD, same level as export_manager. sale stays _VCE because
-        # sale DELETE is admin-only by design (see ContractSaleViewSet); contract
-        # has no such restriction.
-        'contract': _VCRUD,
-        'sale': _VCE,
-        # packing_template: the document team builds the CMR/Invoice packets, so
-        # they own the gross-net catalog they pick from — full CRUD (2026-08-27).
-        'packing_template': _VCRUD,
-    },
     'transport': {
         'shipment': _VE,
         'shipment_comment': _VCE,
@@ -357,6 +337,13 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
 
 # loading_dept_head_deputy: identical resource permissions to the head (copied, not shared).
 RESOURCE_DEFAULTS['loading_dept_head_deputy'] = dict(RESOURCE_DEFAULTS['loading_dept_head'])
+
+# document_team: identical resource CRUD to export_manager (Sep 2026). That set
+# is already a blanket _VCRUD over every registered resource with four narrower
+# carve-outs (shipment_assign, truck_split_default, sale, closed_season, fleet),
+# each of which applies to the document team for the same reason it applies to
+# the export manager. Copy, not a shared reference.
+RESOURCE_DEFAULTS['document_team'] = dict(RESOURCE_DEFAULTS['export_manager'])
 
 
 # ── Field permission defaults ────────────────────────────────────────────
@@ -432,30 +419,6 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
         # R8: same junction grant as loading_dept_head — "deputies and head do
         # identical day-to-day work" (see comment above the head's block).
         'shipment_block_source': ['*'],
-    },
-    # ── document_team (Sirin, Sulgun) ────────────────────────────────
-    # Excel: R6 documents_status, R9 firm splits (separate resource),
-    # R18 Shirin's notes (comments), R26 customs_exit (AD-1, via transition)
-    'document_team': {
-        'shipment': [
-            'documents_status',
-            'customs_clearance_planned_day',
-            'box_count', 'pallet_count', 'weight_net', 'weight_gross',
-            # Whole-truck packing config the document team picks for the CMR.
-            'packing_template',
-            'notes',
-            # R18: Şirin's freeform document-team note
-            'document_note',
-            # R25: Şirin logs TM customs-exit done time (was AD-1, now operator-entered).
-            'customs_exit_at',
-            # R4: Şirin logs when transport dept handed docs over
-            # (replaced Malik's R4 notes column per feedback #9).
-            'transport_docs_given_at',
-        ],
-        'shipment_firm_split': ['*'],
-        'quality_document': ['*'],
-        'quota_issuance': ['*'],
-        'quota_usage': ['*'],
     },
     # ── transport (Haltac, Malik, Transport bölüm, Hil Gözegçi) ─────
     # Excel: R15 vehicle status, R23 responsible, R24 truck/trailer,
@@ -558,6 +521,15 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
 FIELD_DEFAULTS['loading_dept_head_deputy'] = {
     resource: list(fields) for resource, fields in FIELD_DEFAULTS['loading_dept_head'].items()
 }
+
+# document_team (Sirin, Sulgun): identical editable fields to export_manager
+# (Sep 2026) — a wildcard on every resource the export manager holds, plus
+# quota_usage, which they owned before the clone and the export manager did not.
+# Deep-copied, not shared.
+FIELD_DEFAULTS['document_team'] = {
+    resource: list(fields) for resource, fields in FIELD_DEFAULTS['export_manager'].items()
+}
+FIELD_DEFAULTS['document_team']['quota_usage'] = ['*']
 
 # boss: wildcard on every resource. Uses a comprehension rather than admin's
 # hand-enumerated list so a newly registered resource is covered automatically.

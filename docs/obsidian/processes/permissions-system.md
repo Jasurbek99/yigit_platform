@@ -222,6 +222,44 @@ Converted on 2026-08-20 (the weekly-plan surface, in full):
 
 **Scope stops at the weekly plan.** Roughly twenty other one-off `| {'boss'}` widenings remain scattered across `export/views.py`, and other surfaces still hold un-widened `role == 'admin'` compares. Sweeping them onto `is_admin_like()` is a separate, deliberate pass — not something to do opportunistically while touching a nearby file.
 
+### `EXPORT_MANAGER_LIKE` — document_team is an export_manager peer (2026-09-09)
+
+Stakeholder decision: `document_team` now carries the **same authority as `export_manager` on every operational gate** — identical pages, identical resource CRUD, wildcard field edit, and the Sheet all-cells bypass. It is a clone, not a widening of one screen.
+
+The change has two halves, and both are load-bearing.
+
+**Code half** — `apps/core/roles.py`:
+
+```python
+EXPORT_MANAGER_LIKE = frozenset({'export_manager', 'document_team'})
+
+PRIVILEGED_ROLES = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
+# … and REFERENCE_DATA_WRITE, AUDIT_VIEWERS, DOMESTIC_WRITE, JOIN_ROLES,
+#     TRUCK_WRITE, PRICE_WRITE, LOCAL_SELL_WRITE, LOCAL_SELL_APPROVE, QUOTA_WRITE
+```
+
+Same shape and same reasoning as `ADMIN_LIKE` above: the authority is written once, so the scattered literals that kept `boss` hitting 403s cannot repeat here. **Do not add a bare `'export_manager'` literal to a new permission check — union `EXPORT_MANAGER_LIKE` in.**
+
+Five sets did **not** import from `roles.py` and were carrying their own copy of the export manager. All five were widened in the same commit, because widening four of five is exactly how the Sheet permission fixes kept regressing:
+
+| Site | Constant | Gates |
+|------|----------|-------|
+| `apps/core/permissions.py` | `SHEET_BYPASS_ROLES` (new) | the Sheet trigger/lock bypass — was three separate hardcoded tuples in `_trigger_matches`, `can_edit_sheet_field` and `get_sheet_edit_map`, each with a docstring insisting the three must never disagree. They are one constant now. |
+| `apps/core/views_me.py` | `_SUPERVISOR_ROLES` | `/me/tasks/` — supervisors receive every role's tasks |
+| `apps/export/permissions.py` | `_SUPERVISOR_ROLES` | `IsTaskActor` — acting on any task regardless of `assignee_role` |
+| `apps/export/serializers.py` | `_SUPERVISOR_ROLES` | the `my_work` / owner-role annotation |
+| `apps/export/services/shipment.py` | `PRIVILEGED_ROLES`, `CANCEL_ROLES` | the per-edge role bypass in `transition_to()`, and the cancel edges |
+
+Two more literal role tuples went the same way: `ShipmentViewSet._ARCHIVE_VIEW_ROLES` (archived-row visibility) and `_ADMIN_MANAGER` in `export/views_admin.py` (the read-only user list behind the comments/mentions picker).
+
+**Data half** — `core/migrations/0042_document_team_export_manager_parity.py`. `seed_permissions` only ever `get_or_create`s, so on an existing database every `document_team` row keeps its old, narrower value and the new defaults never apply. The migration copies the rows **from the live `export_manager` rows**, so a matrix edit an admin already made to the export manager is reflected rather than reverted: pages OR'd, each resource CRUD flag maxed, field rows merged with `'*'` collapsing the per-field rows for that resource. `document_team`'s pre-existing `contract` and `packing_template` full CRUD therefore survives. `seed_permissions` now derives all three `document_team` dicts from `export_manager` (plus `quota_usage`, which the document team held and the export manager did not), so a fresh database matches.
+
+**What document_team gains that is worth naming:** shipment cancel, draft assign / promote, quota + price + reference-data writes, the audit log, archived rows, the Sheet all-cells bypass, and `admin.shipment_settings` — the one `admin.*` page `export_manager` holds, which grants Sheet rows to other roles. That last one is permission administration by proxy and runs against AD-15's grain in the same way the export manager's own grant does (AD-17, 2026-09-02). It was a deliberate, user-approved call: "full clone, everything".
+
+**Still admin-only, unchanged:** the permission matrix (`admin.permissions`), user create/edit/delete and role changes (`ADMIN_ONLY` in `views_admin.py`), and the feedback admin inbox. `document_team` reads the user list and nothing more, exactly like `export_manager`.
+
+**Frontend mirror** — `EXPORT_MANAGER_LIKE` / `isExportManagerLike()` in `frontend/src/constants/roles.ts`, spread into the role lists in `utils/permissions.ts` (archive access, reference-data writes), `utils/detailSections.ts` and `SelfBoard.tsx` (supervisor), `ShipmentDetailHero.tsx` (manifest, cancel, promote), `ShipmentDetail.tsx` (transport edit, sales report, variety override), `SheetGrid.tsx` (row-style editing), `WeeklyPlanGrid.roles.ts`, `ShipmentList.tsx`, `AdvancesTracker.tsx`, `LocalSellPlanGrid.tsx`, `SalesReportPage.tsx` and `SalesReportDrawer.tsx`. The backend is the authority; these only decide what is shown.
+
 ### Process node links — inline admin gate, not the resource matrix (2026-08-06)
 
 `ProcessNodeLinkViewSet` (`/api/v1/export/admin/process-node-links/`, list + PATCH only, backs the [[../roles/boss#BPMN diagram click-through|boss BPMN diagram's]] node→route mapping) is gated the same way `UserManagementViewSet` is — an inline `if not _is_full_admin(request.user): raise PermissionDenied(...)` in `check_permissions`, not `DynamicResourcePermission` against a registered `resource_code`.

@@ -38,3 +38,20 @@ export const ROLE_CHOICES: ReadonlyArray<{ value: string; labelKey: string }> = 
   { value: 'seller',             labelKey: 'roles.seller' },
   { value: 'boss',               labelKey: 'roles.boss' },
 ] as const;
+
+/**
+ * Document-team ↔ export-manager equivalence — mirrors `EXPORT_MANAGER_LIKE`
+ * in backend/apps/core/roles.py (Sep 2026 stakeholder decision). The document
+ * team carries the same authority as the export manager on every operational
+ * gate, so every client-side role list that names one names the other.
+ *
+ * The backend is the authority; these lists only decide what a user is SHOWN.
+ * Spread this constant into a role array, or call `isExportManagerLike` in an
+ * equality chain, rather than adding a second bare literal that can drift.
+ */
+export const EXPORT_MANAGER_LIKE: readonly string[] = ['export_manager', 'document_team'];
+
+/** True when `role` holds export-manager-level authority. */
+export function isExportManagerLike(role: string | null | undefined): boolean {
+  return !!role && EXPORT_MANAGER_LIKE.includes(role);
+}

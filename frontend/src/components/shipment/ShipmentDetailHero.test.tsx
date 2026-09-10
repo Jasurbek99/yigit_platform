@@ -242,10 +242,26 @@ describe('ShipmentDetailHero — join supply gate', () => {
     expect(screen.getByText(/Promote to/)).toBeInTheDocument();
   });
 
-  it('still hides the promote button for a role the API refuses', () => {
+  it('shows the promote button for document_team, an export_manager peer', () => {
+    // 2026-09-09: document_team joined PRIVILEGED_ROLES via EXPORT_MANAGER_LIKE
+    // (backend/apps/core/roles.py), so /assign/ accepts it. This case used to
+    // stand for "a role the API refuses" -- that job moved to the test below.
     vi.mocked(useAuth).mockReturnValue({
       user: fakeUser({
         role: 'document_team' as UserRole,
+        active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
+      }),
+      isLoading: false,
+      isError: false,
+    });
+    renderHero(promotableDraft);
+    expect(screen.getByText(/Promote to/)).toBeInTheDocument();
+  });
+
+  it('still hides the promote button for a role the API refuses', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: fakeUser({
+        role: 'warehouse_chief' as UserRole,
         active_season: { id: 1, name: 'Season 1', status: 'ACTIVE' },
       }),
       isLoading: false,

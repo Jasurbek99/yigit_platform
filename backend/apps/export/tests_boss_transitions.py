@@ -232,7 +232,12 @@ class CancelIsNotAGenericTransitionTests(TestCase):
         Fails the moment someone writes ``CANCEL_ROLES = PRIVILEGED_ROLES |
         {'admin'}`` again — which silently rewrote every cancel edge below.
         """
-        self.assertEqual(CANCEL_ROLES, {'admin', 'export_manager', 'director'})
+        # document_team joined 2026-09-09: `document_team` became an authority-level peer of `export_manager` (EXPORT_MANAGER_LIKE, apps/core/roles.py).
+        # The point of this assertion is unchanged: the set is written out
+        # in full, so deriving it from PRIVILEGED_ROLES still fails here.
+        self.assertEqual(
+            CANCEL_ROLES, {'admin', 'export_manager', 'document_team', 'director'},
+        )
         for from_code, edges in TRANSITIONS.items():
             for edge in edges:
                 if edge[0] == 'cancelled':

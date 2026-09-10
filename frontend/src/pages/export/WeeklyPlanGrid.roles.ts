@@ -1,3 +1,5 @@
+import { isExportManagerLike } from '@/constants/roles';
+
 /**
  * Role → capability mapping for the Weekly Plan grid.
  *
@@ -70,12 +72,12 @@ export function planGridCapabilities({ role, isReadOnly }: IPlanGridUser): IPlan
     isAdminLike,
     canEditHarvest,
     planOnlyCells,
-    canEditTrucks: (isAdmin || role === 'export_manager') && !isReadOnly,
+    canEditTrucks: (isAdmin || isExportManagerLike(role)) && !isReadOnly,
     canGenerateTasks:
       role === 'admin' ||
-      role === 'export_manager' ||
       role === 'director' ||
-      role === 'boss',
+      role === 'boss' ||
+      isExportManagerLike(role),
     canEditActual: !isReadOnly && isAdminLike && !planOnlyCells,
   };
 }

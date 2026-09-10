@@ -5,10 +5,11 @@ IsBossOrDirector, etc.) lives in apps.core.permissions. This module holds
 export-domain permissions that reference export models.
 """
 from rest_framework.permissions import BasePermission
+from apps.core.roles import EXPORT_MANAGER_LIKE
 
 # Roles that can act on ANY task, regardless of assignee_role.
 # Mirrors the "supervisor" concept from the B-api plan.
-_SUPERVISOR_ROLES = frozenset({'export_manager', 'boss', 'admin', 'director'})
+_SUPERVISOR_ROLES = frozenset({'boss', 'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 # Only these roles may cancel a task (hard delete of work-in-flight is sensitive).
 _CANCEL_ROLES = frozenset({'admin', 'director'})

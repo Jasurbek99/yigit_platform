@@ -5,7 +5,8 @@
  * returned by /auth/me/ and cached in the useAuth() hook.
  */
 import { useUiStore } from '@/stores/uiStore';
-import type { ICurrentUser, UserRole } from '@/types';
+import { EXPORT_MANAGER_LIKE } from '@/constants/roles';
+import type { ICurrentUser } from '@/types';
 
 // Roles allowed to view archived (soft-deleted) shipment rows, and — per the
 // season lifecycle design's §9.1 ruling — archived rows inside a CLOSED
@@ -13,12 +14,12 @@ import type { ICurrentUser, UserRole } from '@/types';
 // `ShipmentViewSet._ARCHIVE_VIEW_ROLES` on the backend; keep the two lists in
 // sync. Duplicated (not imported) from `pages/export/ShipmentList.tsx`'s own
 // copy — `utils/` must not import from `pages/` (module boundary).
-const ARCHIVE_VIEW_ROLES: ReadonlyArray<UserRole> = [
+const ARCHIVE_VIEW_ROLES: ReadonlyArray<string> = [
   'admin',
   'director',
-  'export_manager',
   'finansist',
   'boss',
+  ...EXPORT_MANAGER_LIKE,
 ];
 
 /**
@@ -84,7 +85,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
 };
 
 /** Mirrors REFERENCE_DATA_WRITE in backend/apps/core/roles.py. */
-const REFERENCE_DATA_WRITE_ROLES = new Set(['admin', 'director', 'export_manager']);
+const REFERENCE_DATA_WRITE_ROLES = new Set(['admin', 'director', ...EXPORT_MANAGER_LIKE]);
 
 /**
  * Check if a user can see a page/route.

@@ -24,6 +24,7 @@ import { canDo } from '@/utils/permissions';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import type { IShipmentDetail } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
+import { EXPORT_MANAGER_LIKE, isExportManagerLike } from '@/constants/roles';
 
 interface IShipmentDetailHeroProps {
   shipment: IShipmentDetail;
@@ -59,8 +60,8 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
     'loading_dept_head',
     'loading_dept_head_deputy',
     'warehouse_chief',
-    'export_manager',
     'director',
+    ...EXPORT_MANAGER_LIKE,
   ];
   const canSeeManifest =
     (user?.role != null && MANIFEST_ROLES.includes(user.role)) ||
@@ -68,7 +69,7 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
 
   // Cancel shipment: admin / export_manager / director (or any superuser),
   // and only when the shipment is not already cancelled or fully completed.
-  const CANCEL_ROLES: ReadonlyArray<string> = ['admin', 'export_manager', 'director'];
+  const CANCEL_ROLES: ReadonlyArray<string> = ['admin', 'director', ...EXPORT_MANAGER_LIKE];
   const canCancel =
     !!user &&
     (CANCEL_ROLES.includes(user.role) || user.is_superuser === true) &&
@@ -115,10 +116,10 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
   // NOT route through canDo/bossEditMode, exactly like canJoinSupply below.
   const canPromote =
     shipment.can_promote_from_draft &&
-    (user?.role === 'export_manager' ||
-      user?.role === 'director' ||
+    (user?.role === 'director' ||
       user?.role === 'admin' ||
       user?.role === 'boss' ||
+      isExportManagerLike(user?.role) ||
       user?.is_superuser === true) &&
     !isReadOnly;
 

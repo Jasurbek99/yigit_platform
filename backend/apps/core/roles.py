@@ -37,6 +37,21 @@ def is_admin_like(user) -> bool:
         return True
     return getattr(user, 'role', None) in ADMIN_LIKE
 
+# Document-team ↔ export-manager equivalence (Sep 2026, stakeholder decision).
+# 'document_team' now carries the SAME authority as 'export_manager' on every
+# operational gate: identical pages, identical resource CRUD, wildcard field
+# edit and the Sheet all-cells bypass.
+#
+# Same shape as ADMIN_LIKE above, and for the same reason: the authority is
+# written once here, and every role set or literal role tuple that named
+# 'export_manager' now names 'document_team' beside it. Scattered literals are
+# what kept `boss` hitting 403s on surfaces his matrix said he owned — do not
+# add a new bare 'export_manager' literal to a permission check; union this in.
+#
+# NOT an admin alias: user/role administration and the permission matrix stay
+# admin-only per AD-15 (ADMIN_ONLY), exactly as they are for export_manager.
+EXPORT_MANAGER_LIKE = frozenset({'export_manager', 'document_team'})
+
 # ── Task ownership equivalence ────────────────────────────────────────────────
 # Task.assignee_role holds ONE role, but some roles are operationally the same
 # team: a deputy acts with identical authority to their head (stakeholder
@@ -74,14 +89,14 @@ def task_roles_for(role: str | None) -> frozenset[str]:
 
 # Reference-data writes (countries, cities, customers, blocks, etc.) are
 # operational, not administrative. Admin is a superset of director and EM.
-REFERENCE_DATA_WRITE = frozenset({'admin', 'director', 'export_manager'})
+REFERENCE_DATA_WRITE = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 # Audit log viewers — admin always; director/EM keep current visibility.
-AUDIT_VIEWERS = frozenset({'admin', 'director', 'export_manager'})
+AUDIT_VIEWERS = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 # Broad operational access. Admin is implicitly included since admin is the
 # system superuser; gates that use this set should never deny admin.
-PRIVILEGED_ROLES = frozenset({'admin', 'export_manager', 'director'})
+PRIVILEGED_ROLES = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 # Kept for back-compat with callers that still import it. Do NOT use for
 # admin-only gates — use ADMIN_ONLY. Director is no longer the system admin.
@@ -98,7 +113,7 @@ HARVEST_DAY_WRITE = ADMIN_LIKE | frozenset({'greenhouse_manager', 'loading_dept_
 HARVEST_DAY_OVERRIDE = ADMIN_LIKE  # admin/boss only, with required `reason`
 
 # Domestic operations
-DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief', 'greenhouse_manager', 'export_manager', 'director'})
+DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief', 'greenhouse_manager', 'director'}) | EXPORT_MANAGER_LIKE
 
 # Who may merge a supply draft into a destination draft (POST
 # /export/shipments/{id}/join/). Deliberately NOT derived from PRIVILEGED_ROLES:
@@ -106,19 +121,19 @@ DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'loading_dept_head_dep
 # check, so widening it here would widen all three. 'boss' has been allowed since
 # the two-column join flow shipped; 'document_team' was added 2026-09-03 so the
 # document team can pair the two halves themselves.
-JOIN_ROLES = frozenset({'admin', 'export_manager', 'director', 'boss', 'document_team'})
+JOIN_ROLES = frozenset({'admin', 'director', 'boss'}) | EXPORT_MANAGER_LIKE
 
 # Export logistics
-TRUCK_WRITE = frozenset({'admin', 'export_manager', 'director'})
-PRICE_WRITE = frozenset({'admin', 'export_manager', 'finansist', 'director'})
-LOCAL_SELL_WRITE = frozenset({'admin', 'export_manager', 'director', 'seller'})
-LOCAL_SELL_APPROVE = frozenset({'admin', 'export_manager', 'director'})
+TRUCK_WRITE = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
+PRICE_WRITE = frozenset({'admin', 'finansist', 'director'}) | EXPORT_MANAGER_LIKE
+LOCAL_SELL_WRITE = frozenset({'admin', 'director', 'seller'}) | EXPORT_MANAGER_LIKE
+LOCAL_SELL_APPROVE = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 # Finance
 ADVANCE_WRITE = frozenset({'admin', 'finansist', 'director'})
 
 # Quota
-QUOTA_WRITE = frozenset({'admin', 'export_manager', 'director'})
+QUOTA_WRITE = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 
 # ---------------------------------------------------------------------------

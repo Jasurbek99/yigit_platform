@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.roles import task_roles_for
+from apps.core.roles import EXPORT_MANAGER_LIKE
 from apps.core.seasons import resolve_season, season_scope_q
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 _KPI_CACHE_TTL = 60
 
 # Supervisor roles see all tasks, not just their own role's tasks.
-_SUPERVISOR_ROLES = frozenset({'export_manager', 'boss', 'admin', 'director'})
+_SUPERVISOR_ROLES = frozenset({'boss', 'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 
 def _today_midnight_utc() -> datetime:
@@ -43,7 +44,7 @@ class MeTaskListView(APIView):
     """GET /api/v1/me/tasks/
 
     Returns a paginated list of tasks belonging to the current user's role.
-    Supervisors (export_manager, boss, admin, director) see all tasks.
+    Supervisors (export_manager, document_team, boss, admin, director) see all tasks.
 
     Supports the same filters as the main TaskViewSet:
         ?state=open

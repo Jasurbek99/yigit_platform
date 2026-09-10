@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.core.models import City, Country, Customer, ExportFirm, ImportFirm, Season, GreenhouseBlock, TomatoVariety
 from apps.core.permissions import can_edit_field, can_edit_sheet_fields, PRIVILEGED_ROLES
+from apps.core.roles import EXPORT_MANAGER_LIKE
 from apps.export.services import TRANSITIONS, _edge_to
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_export_code  # noqa: F401  (kept for downstream importers)
@@ -488,6 +489,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'vehicle_responsible', 'vehicle_responsible_display',
             'trailer_id',
             'truck_plate', 'driver_name', 'driver_phone',
+            'truck_plate_2', 'driver_2_name', 'driver_2_phone',
             'transport_temp_c', 'transit_days',
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Operational planning
@@ -705,6 +707,10 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'truck_head_id', 'trailer_id', 'driver_id',
             # Operator-entered transport details — sheet R23, R27, R28
             'truck_plate', 'driver_name', 'driver_phone',
+            # Second rig — no Sheet row of their own; the R23/R27 overlays
+            # write them and the same three cells render both values.
+            'truck_head_2_id', 'truck_plate_2',
+            'driver_2_id', 'driver_2_name', 'driver_2_phone',
             'transport_temp_c', 'transit_days',
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Finance
@@ -1178,7 +1184,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     # Supervisor roles that skip my_task auto-selection. They can browse all
     # tasks via other_tasks. Defined locally to avoid conflating with
     # PRIVILEGED_ROLES (which also gates write permissions, a separate concern).
-    _SUPERVISOR_ROLES = frozenset({'export_manager', 'boss', 'admin', 'director'})
+    _SUPERVISOR_ROLES = frozenset({'boss', 'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
     def _get_tasks_prefetched(self, obj: 'Shipment') -> list:
         """Return prefetched tasks list, ordered by deadline asc nulls last, created_at asc.
@@ -1200,7 +1206,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     def get_my_task(self, obj: 'Shipment') -> dict | None:
         """Return the requesting user's active task on this shipment, or null.
 
-        Supervisors (export_manager, boss, admin, director) always get null —
+        Supervisors (export_manager, document_team, boss, admin, director) get null —
         they see everything via other_tasks.
 
         Active states: OPEN, IN_PROGRESS, BLOCKED.
@@ -1474,6 +1480,10 @@ _ALL_PATCHABLE_FIELDS = {
     'truck_head_id', 'trailer_id', 'driver_id',
     # Operator-entered transport details — sheet R23, R27, R28
     'truck_plate', 'driver_name', 'driver_phone',
+    # Second rig — written by the same two overlays, gated through
+    # _REVERSE_FIELD_DELEGATES onto the R23/R27/R28 rows.
+    'truck_head_2_id', 'truck_plate_2',
+    'driver_2_id', 'driver_2_name', 'driver_2_phone',
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
     # Operator-entered timestamps — sheet R19/R20/R21/R25/R30/R31/R32/R35/R41/R42.

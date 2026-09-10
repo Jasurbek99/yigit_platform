@@ -25,7 +25,7 @@ from rest_framework.viewsets import ModelViewSet
 from apps.core.idempotency import idempotent
 from apps.core.services import sheet_events
 from apps.core.permission_registry import ROLE_REQUIRED_FIELDS
-from apps.core.roles import JOIN_ROLES
+from apps.core.roles import EXPORT_MANAGER_LIKE, JOIN_ROLES
 from apps.core.permissions import (
     PRIVILEGED_ROLES,
     DynamicResourcePermission,
@@ -319,7 +319,7 @@ class ShipmentViewSet(ModelViewSet):
     # (the default) is open to everyone with shipment.view permission. Archive
     # is a more sensitive read — closed shipments may include historical buyer
     # prices and other data only management should browse.
-    _ARCHIVE_VIEW_ROLES = ('admin', 'director', 'export_manager', 'finansist', 'boss')
+    _ARCHIVE_VIEW_ROLES = frozenset({'admin', 'director', 'finansist', 'boss'}) | EXPORT_MANAGER_LIKE
 
     def _can_view_archive(self) -> bool:
         """True when the requester may see archived rows."""
@@ -728,7 +728,7 @@ class ShipmentViewSet(ModelViewSet):
         is_super = getattr(request.user, 'is_superuser', False)
         if not is_super and getattr(request.user, 'role', None) not in PRIVILEGED_ROLES:
             return Response(
-                {'error': 'Only admin, export_manager or director can cancel shipments'},
+                {'error': 'Only admin, export_manager, document_team or director can cancel shipments'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -1992,7 +1992,7 @@ class ShipmentViewSet(ModelViewSet):
         else:
             if user_role not in PRIVILEGED_ROLES:
                 return Response(
-                    {'error': 'Only export_manager or director can create shipments'},
+                    {'error': 'Only export_manager, document_team or director can create shipments'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -2258,7 +2258,7 @@ class ShipmentViewSet(ModelViewSet):
         # a draft is a genuine process step, so its only action must work.
         if user_role not in PRIVILEGED_ROLES | {'boss'}:
             return Response(
-                {'error': 'Only export_manager, director or boss can assign draft shipments'},
+                {'error': 'Only export_manager, document_team, director or boss can assign draft shipments'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -3240,7 +3240,7 @@ class ShipmentViewSet(ModelViewSet):
         if getattr(request.user, 'role', None) not in PALLET_WRITE_ROLES:
             return Response(
                 {'error': 'Only weight_master, loading department staff, warehouse_chief, '
-                          'export_manager, or director can submit pallets'},
+                          'export_manager, document_team, or director can submit pallets'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -3292,7 +3292,7 @@ class ShipmentViewSet(ModelViewSet):
         if getattr(request.user, 'role', None) not in PALLET_WRITE_ROLES:
             return Response(
                 {'error': 'Only weight_master, loading department staff, warehouse_chief, '
-                          'export_manager, or director can import pallets'},
+                          'export_manager, document_team, or director can import pallets'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -3392,7 +3392,7 @@ class ShipmentViewSet(ModelViewSet):
         if getattr(request.user, 'role', None) not in PALLET_WRITE_ROLES:
             return Response(
                 {'error': 'Only weight_master, loading department staff, warehouse_chief, '
-                          'export_manager, or director can close the manifest'},
+                          'export_manager, document_team, or director can close the manifest'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -3422,7 +3422,7 @@ class ShipmentViewSet(ModelViewSet):
         allowed_roles = PRIVILEGED_ROLES | {'warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'}
         if getattr(request.user, 'role', None) not in allowed_roles:
             return Response(
-                {'error': 'Only loading_dept_head, loading_dept_head_deputy, warehouse_chief, export_manager, or director can override varieties'},
+                {'error': 'Only loading_dept_head, loading_dept_head_deputy, warehouse_chief, export_manager, document_team, or director can override varieties'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -4445,7 +4445,7 @@ class ExpenseCategoryViewSet(ModelViewSet):
     serializer_class = ExpenseCategorySerializer
     permission_classes = [
         IsAuthenticated,
-        write_permission('admin', 'director', 'export_manager'),
+        write_permission(*(frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE)),
     ]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     filterset_fields = ['is_active']

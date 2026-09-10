@@ -448,8 +448,22 @@ class CancelTests(LifecycleBase):
         )
         self.assertEqual(resp.status_code, 403)
 
+    def test_document_team_can_cancel(self):
+        """document_team cancels like export_manager (2026-09-09 parity decision).
+
+        /cancel/ gates on core.roles.PRIVILEGED_ROLES, and document_team joined
+        that set via EXPORT_MANAGER_LIKE. Pinned as its own test so the parity
+        is asserted, not merely absent from the deny-list below.
+        """
+        s = self.make_shipment('LC-CANCEL-DT')
+        resp = self.client_as('document_team').post(
+            '/api/v1/export/shipments/{}/cancel/'.format(s.pk),
+            {'reason': 'test'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, getattr(resp, 'data', resp))
+
     def test_operational_roles_cannot_cancel(self):
-        for role in ('document_team', 'warehouse_chief', 'transport', 'sales_rep'):
+        for role in ('warehouse_chief', 'transport', 'sales_rep'):
             s = self.make_shipment('LC-CX-' + role[:6])
             resp = self.client_as(role).post(
                 '/api/v1/export/shipments/{}/cancel/'.format(s.pk),
@@ -608,8 +622,13 @@ class TransitionEndpointReachabilityTests(LifecycleBase):
 
     #: (role, status to stand on, edge it owns) for the four edge-owning roles
     #: that hold NO `shipment.can_create` -- the ones F12 locked out.
+    #:
+    #: `document_team` was the first row here until 2026-09-09, when it was made
+    #: an authority-level peer of `export_manager` (EXPORT_MANAGER_LIKE in
+    #: apps/core/roles.py). It holds `shipment.can_create` now, so it no longer
+    #: proves that `can_edit` alone is what admits an edge owner. The remaining
+    #: three prove it unchanged.
     EDGE_OWNERS_WITHOUT_CREATE = [
-        ('document_team', None,            'gumruk_girish'),
         ('transport',     'yola_chykdy',   'serhet_gechdi'),
         ('sales_rep',     'serhet_gechdi', 'dest_entry'),
         ('finansist',     'satyldy',       'tamamlandy'),

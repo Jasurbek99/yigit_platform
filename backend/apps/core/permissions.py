@@ -10,7 +10,16 @@ import logging
 from django.core.cache import cache
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+from apps.core.roles import EXPORT_MANAGER_LIKE
 from apps.core.roles import PRIVILEGED_ROLES as PRIVILEGED_ROLES  # re-export for back-compat
+
+# Roles that bypass every Sheet trigger/lock gate and get a wildcard edit map.
+# Was three separate hardcoded role tuples in _trigger_matches /
+# can_edit_sheet_field / get_sheet_edit_map, whose docstrings each insist
+# "the three must never disagree" — so they are one constant now.
+# document_team joined via EXPORT_MANAGER_LIKE (Sep 2026).
+
+SHEET_BYPASS_ROLES = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
 
 logger = logging.getLogger(__name__)
 
@@ -51,15 +60,32 @@ _JUNCTION_FIELD_DELEGATES: dict[str, tuple[str, str]] = {
 # guessed from the name:
 #   transit_days / transport_temp_c  ← SheetCellEditor, transit_days_temp cell
 #   driver_id                        ← SheetDriverSelectEditor, driver_name cell
+#   driver_2_id / driver_2_name      ← SheetDriverSelectEditor, driver_name cell
+#   driver_2_phone                   ← SheetDriverSelectEditor, driver_phone cell
 #   truck_head_id / trailer_id       ← SheetTruckSelectEditor, truck_plate cell
+#   truck_head_2_id / truck_plate_2  ← SheetTruckSelectEditor, truck_plate cell
 #   vehicle_condition_note           ← SheetCellEditor, vehicle_condition cell
 #   packing columns                  ← ShipmentPackingPanel, packing cell
 _REVERSE_FIELD_DELEGATES: dict[str, str] = {
     'transit_days': 'transit_days_temp',
     'transport_temp_c': 'transit_days_temp',
     'driver_id': 'driver_name',
+    # Second rig. `driver_2_phone` answers to the `driver_phone` row, not to
+    # `driver_name`, keeping it the exact parallel of the first driver's phone:
+    # both are written by the same overlay and both are checked against R28.
+    # Verified on the live DB — R27 and R28 carry identical role triggers
+    # (admin, boss, director, export_manager, transport) — so this adds no
+    # mixed-verdict surface that the single-driver flow does not already have.
+    # ShipmentPatchSerializer rejects the WHOLE body if any one field is
+    # denied, so a future divergence between those two rows would break the
+    # driver picker for whoever holds only one of them.
+    'driver_2_id': 'driver_name',
+    'driver_2_name': 'driver_name',
+    'driver_2_phone': 'driver_phone',
     'truck_head_id': 'truck_plate',
     'trailer_id': 'truck_plate',
+    'truck_head_2_id': 'truck_plate',
+    'truck_plate_2': 'truck_plate',
     'vehicle_condition_note': 'vehicle_condition',
     'box_count': 'packing',
     'pallet_count': 'packing',
@@ -372,7 +398,8 @@ def _has_trigger_config(setting) -> bool:
 def _trigger_matches(user, setting) -> bool:
     """True if `user` matches a trigger on `setting` (triggered_user, a
     role_trigger, or an active extra-user grant), OR the privileged bypass
-    (superuser / admin / director / export_manager, AD-15).
+    (superuser / SHEET_BYPASS_ROLES — admin, director, export_manager,
+    document_team; AD-15).
 
     Computes the same matched_user/matched_role/matched_extra flags as
     can_edit_sheet_field's Rule 4 and get_sheet_edit_map's _resolve -- the
@@ -388,7 +415,7 @@ def _trigger_matches(user, setting) -> bool:
     N+1 queries.
     """
     role = getattr(user, 'role', None)
-    if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
+    if getattr(user, 'is_superuser', False) or role in SHEET_BYPASS_ROLES:
         return True
     triggered_user = setting.triggered_user if setting.triggered_user_id else None
     matched_user = (
@@ -409,7 +436,7 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     """Gate a shipment sheet cell edit against Shipment Settings trigger config.
 
     Logic (Sheet Control v2 — ADR-0001, ADR-0010; AD-17, 2026-09-02):
-      1. superuser / admin / director → always True (bypass all gates; AD-15).
+      1. superuser / SHEET_BYPASS_ROLES → always True (bypass all gates; AD-15).
          Checked BEFORE visibility so admin can always fix misconfiguration.
       2. Load SheetRowSetting via objects.active(). If None → virtual rows
          delegate to their real field, everything else falls back to
@@ -435,12 +462,12 @@ def can_edit_sheet_field(user, field_key: str) -> bool:
     Returns:
         True if the user is permitted to edit this cell, False otherwise.
     """
-    # Rule 1: superuser / admin / director / export_manager bypass all gates
+    # Rule 1: superuser / SHEET_BYPASS_ROLES bypass all gates
     # (per plan D4 + AD-15). export_manager (Gadam J) is the operational owner
     # of the shipment lifecycle and must be able to edit any Sheet cell to
     # unstick a stalled truck, regardless of trigger/lock config.
     role = getattr(user, 'role', None)
-    if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
+    if getattr(user, 'is_superuser', False) or role in SHEET_BYPASS_ROLES:
         return True
 
     # Import lazily to avoid circular import
@@ -534,9 +561,10 @@ def get_sheet_edit_map(user, settings_by_key: dict | None = None,
     from apps.export.models import SheetRowSetting
 
     # Privileged bypass: no DB queries needed.
-    # export_manager (Gadam J) bypasses all gates — see can_edit_sheet_field Rule 1.
+    # export_manager (Gadam J) and document_team bypass all gates —
+    # see can_edit_sheet_field Rule 1.
     role = getattr(user, 'role', None)
-    if getattr(user, 'is_superuser', False) or role in ('admin', 'director', 'export_manager'):
+    if getattr(user, 'is_superuser', False) or role in SHEET_BYPASS_ROLES:
         return {row['field_key']: True for row in DEFAULT_SHEET_ROWS}
 
     # Query 1 (+2 prefetch SELECTs): load active settings with triggers and perms

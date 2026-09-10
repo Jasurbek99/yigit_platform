@@ -95,6 +95,17 @@ class QuotaUsageByShipmentTests(TestCase):
             product_type='tomato', status='approved',
         )
 
+        # document_team held closed_season.can_view once it became an
+        # export_manager peer (2026-09-09: `document_team` became an authority-level peer of `export_manager` (EXPORT_MANAGER_LIKE, apps/core/roles.py)),
+        # so the flag is revoked here explicitly — exactly one permission
+        # separates the two users, and the fixture no longer depends on a seed
+        # default that moved.
+        from apps.core.models import RoleResourcePermission
+        RoleResourcePermission.objects.update_or_create(
+            role='document_team', resource_code='closed_season',
+            defaults={'can_view': False, 'can_create': False,
+                      'can_edit': False, 'can_delete': False},
+        )
         cls.permitted = _make_user('qbs-gadam', 'export_manager')
         cls.unpermitted = _make_user('qbs-sulgun', 'document_team')
 

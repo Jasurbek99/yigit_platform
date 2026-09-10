@@ -22,6 +22,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { canDo, canDoBackendGated, canEditField } from '@/utils/permissions';
 import { COLORS, FONT } from '@/constants/styles';
+import { EXPORT_MANAGER_LIKE } from '@/constants/roles';
 import type { IShipmentListItem } from '@/types';
 import { ListEditableCell } from './ListEditableCell';
 
@@ -34,9 +35,9 @@ type ViewMode = 'all' | 'my_work' | 'archive';
 const ARCHIVE_VIEW_ROLES: ReadonlyArray<string> = [
   'admin',
   'director',
-  'export_manager',
   'finansist',
   'boss',
+  ...EXPORT_MANAGER_LIKE,
 ];
 
 const COUNTRY_FLAGS: Record<string, string> = {

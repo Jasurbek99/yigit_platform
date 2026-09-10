@@ -37,7 +37,7 @@ import { PlanTaskCard } from '@/components/me/PlanTaskCard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
 import { COLORS } from '@/constants/styles';
-import { ROLE_CHOICES } from '@/constants/roles';
+import { EXPORT_MANAGER_LIKE, ROLE_CHOICES } from '@/constants/roles';
 
 const { Title, Text } = Typography;
 
@@ -59,7 +59,7 @@ const PHASE_OPTIONS: ShipmentPhase[] = [
  *  receive EVERY role's tasks from /me/tasks/, so only they get the role
  *  switcher — everyone else already sees just their own work. */
 const SUPERVISOR_ROLES: readonly string[] = [
-  'export_manager', 'boss', 'admin', 'director',
+  'boss', 'admin', 'director', ...EXPORT_MANAGER_LIKE,
 ];
 
 // ─── Column definitions ──────────────────────────────────────────────────────

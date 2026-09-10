@@ -48,6 +48,7 @@ import type {
   ISalesReportPayload,
 } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { isExportManagerLike } from '@/constants/roles';
 
 const { Title, Text } = Typography;
 
@@ -122,9 +123,9 @@ export default function SalesReportPage(): React.ReactElement {
 
   const canEdit =
     (user?.role === 'sales_rep' ||
-      user?.role === 'export_manager' ||
       user?.role === 'director' ||
       user?.role === 'admin' ||
+      isExportManagerLike(user?.role) ||
       user?.is_superuser === true) &&
     (detail?.status_step ?? 0) >= MIN_SALES_REPORT_STEP;
 
