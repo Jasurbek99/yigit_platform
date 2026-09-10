@@ -10,6 +10,8 @@ import { useAdminImportFirms, useUpdateImportFirm } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { buildSearchBlob, normalizeSearch } from '@/utils/normalizeSearch';
+import { missingImportFirmFields } from '@/utils/firmCompleteness';
+import { FirmCompletenessTag } from '@/components/FirmCompletenessTag';
 import type { IImportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -111,6 +113,19 @@ export default function ImportFirmsPage() {
       responsive: ['lg'],
       search: false,
       render: (_, record) => record.phone ?? <Text type="secondary">—</Text>,
+    },
+    {
+      title: t('firm_completeness.column'),
+      dataIndex: 'completeness',
+      width: 130,
+      search: false,
+      sorter: (a, b) => missingImportFirmFields(b).length - missingImportFirmFields(a).length,
+      render: (_, record) => (
+        <FirmCompletenessTag
+          missing={missingImportFirmFields(record)}
+          labelNamespace="import_firms_admin"
+        />
+      ),
     },
     {
       title: t('import_firms_admin.is_active'),

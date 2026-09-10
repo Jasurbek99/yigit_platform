@@ -36,6 +36,8 @@ import { canDo } from '@/utils/permissions';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CitySelect } from '@/components/CitySelect';
 import { InlineEdit } from '@/components/InlineEdit';
+import { FirmCompletenessAlert } from '@/components/FirmCompletenessTag';
+import { missingImportFirmFields } from '@/utils/firmCompleteness';
 import type { IImportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -246,6 +248,11 @@ export default function ImportFirmDetailPage() {
         <Text type="secondary">404</Text>
       ) : (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <FirmCompletenessAlert
+            missing={missingImportFirmFields(firm)}
+            labelNamespace="import_firms_admin"
+          />
+
           <Descriptions bordered column={2} size="small">
             <Descriptions.Item label={t('import_firms_admin.name_company')} span={2}>
               <InlineEdit value={firm.name_company} required editable={canEdit} onSave={(v) => saveField({ name_company: v })} />

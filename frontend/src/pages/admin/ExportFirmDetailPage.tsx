@@ -33,6 +33,8 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { InlineEdit } from '@/components/InlineEdit';
+import { FirmCompletenessAlert } from '@/components/FirmCompletenessTag';
+import { missingExportFirmFields } from '@/utils/firmCompleteness';
 import type { IExportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -252,6 +254,11 @@ export default function ExportFirmDetailPage() {
         <Text type="secondary">404</Text>
       ) : (
         <>
+          <FirmCompletenessAlert
+            missing={missingExportFirmFields(firm)}
+            labelNamespace="firms_admin"
+          />
+
           <Descriptions bordered column={2} size="small" style={{ marginBottom: 24 }}>
             <Descriptions.Item label={t('firms_admin.code')}>
               <InlineEdit value={firm.code} required editable={canEdit} onSave={(v) => saveField({ code: v })} />

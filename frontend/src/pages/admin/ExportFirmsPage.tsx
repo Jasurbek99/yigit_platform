@@ -9,6 +9,8 @@ import { useAdminFirms } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { buildSearchBlob, normalizeSearch } from '@/utils/normalizeSearch';
+import { missingExportFirmFields } from '@/utils/firmCompleteness';
+import { FirmCompletenessTag } from '@/components/FirmCompletenessTag';
 import type { IExportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -57,19 +59,17 @@ export default function ExportFirmsPage() {
       sorter: (a, b) => a.name_tk.localeCompare(b.name_tk),
     },
     {
-      title: t('firms_admin.name_en'),
-      dataIndex: 'name_en',
-      ellipsis: true,
-      sorter: (a, b) => (a.name_en || '').localeCompare(b.name_en || ''),
-      render: (_, record) => record.name_en ?? <Text type="secondary">—</Text>,
-    },
-    {
-      title: t('firms_admin.name_ru'),
-      dataIndex: 'name_ru',
-      ellipsis: true,
-      responsive: ['md'],
-      sorter: (a, b) => (a.name_ru || '').localeCompare(b.name_ru || ''),
-      render: (_, record) => record.name_ru ?? <Text type="secondary">—</Text>,
+      title: t('firm_completeness.column'),
+      dataIndex: 'completeness',
+      width: 130,
+      search: false,
+      sorter: (a, b) => missingExportFirmFields(b).length - missingExportFirmFields(a).length,
+      render: (_, record) => (
+        <FirmCompletenessTag
+          missing={missingExportFirmFields(record)}
+          labelNamespace="firms_admin"
+        />
+      ),
     },
     {
       title: t('firms_admin.is_active'),
