@@ -216,18 +216,31 @@ class ExportFirmSerializer(serializers.ModelSerializer):
     # url built from the Host header is wrong behind both of our proxies.
     director_signature = RelativeFileField(required=False, allow_null=True)
     director_seal = RelativeFileField(required=False, allow_null=True)
+    director_stamp = RelativeFileField(required=False, allow_null=True)
+    # FK returns id + display, per the API contract. `code` is the stable key
+    # the frontend branches on; `display` is what a table cell renders.
+    legal_type_code = serializers.CharField(source='legal_type.code', read_only=True, default=None)
+    legal_type_display = serializers.SerializerMethodField()
 
     class Meta:
         model = ExportFirm
         fields = [
             'id', 'code', 'name_short', 'name_tk', 'name_en', 'name_ru',
+            'legal_type', 'legal_type_code', 'legal_type_display',
+            'name_bare_tk', 'name_bare_ru', 'name_bare_en',
             'address_tk', 'address_en', 'address_ru',
             'bank_details_tk', 'bank_details_en', 'bank_details_ru',
-            'director', 'director_tk', 'director_signature', 'director_seal',
+            'director', 'director_tk', 'director_signature', 'director_seal', 'director_stamp',
             'tax_code', 'swift_code', 'one_c_code',
             'color', 'sort_order',
             'is_active', 'is_gapy_satys',
         ]
+
+    def get_legal_type_display(self, obj) -> str | None:
+        legal_type = obj.legal_type
+        if legal_type is None:
+            return None
+        return legal_type.abbr_tk or legal_type.abbr_ru or legal_type.code
 
 
 class TruckSplitDefaultSerializer(serializers.ModelSerializer):
@@ -270,17 +283,29 @@ class ImportFirmSerializer(serializers.ModelSerializer):
     # See ExportFirmSerializer above.
     director_signature = RelativeFileField(required=False, allow_null=True)
     director_seal = RelativeFileField(required=False, allow_null=True)
+    director_stamp = RelativeFileField(required=False, allow_null=True)
+
+    # See ExportFirmSerializer for why both the code and a display string.
+    legal_type_code = serializers.CharField(source='legal_type.code', read_only=True, default=None)
+    legal_type_display = serializers.SerializerMethodField()
 
     class Meta:
         model = ImportFirm
         fields = [
             'id', 'code', 'name_company', 'name_short',
+            'legal_type', 'legal_type_code', 'legal_type_display', 'name_bare',
             'country', 'country_name', 'city', 'city_name',
             'address', 'bank_details', 'contact_person', 'contact_person_tk', 'phone',
-            'director_signature', 'director_seal',
+            'director_signature', 'director_seal', 'director_stamp',
             'color', 'sort_order',
             'is_active', 'is_gapy_satys',
         ]
+
+    def get_legal_type_display(self, obj) -> str | None:
+        legal_type = obj.legal_type
+        if legal_type is None:
+            return None
+        return legal_type.abbr_ru or legal_type.abbr_tk or legal_type.code
 
 
 class UserListSerializer(serializers.ModelSerializer):
@@ -607,7 +632,7 @@ class ExportFirmViewSet(ModelViewSet):
     parser_classes = [MultiPartParser, JSONParser]
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = ExportFirmSerializer
-    queryset = ExportFirm.objects.all().order_by('name_en')
+    queryset = ExportFirm.objects.select_related('legal_type').order_by('name_en')
 
 
 class ProcessNodeLinkViewSet(ModelViewSet):
@@ -662,7 +687,7 @@ class ImportFirmViewSet(ModelViewSet):
     parser_classes = [MultiPartParser, JSONParser]
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = ImportFirmSerializer
-    queryset = ImportFirm.objects.select_related('country', 'city').order_by('name_company')
+    queryset = ImportFirm.objects.select_related('country', 'city', 'legal_type').order_by('name_company')
 
 
 class UserManagementViewSet(ModelViewSet):

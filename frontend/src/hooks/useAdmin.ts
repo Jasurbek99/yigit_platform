@@ -18,6 +18,7 @@ import type {
   IBorderPoint,
   IShipmentStatusType,
   IShipmentOptionType,
+  ICompanyLegalType,
   ICrateType,
   ITruckSplitDefault,
   IAuditLog,
@@ -193,26 +194,48 @@ export function useAdminFirms() {
   });
 }
 
-type ExportFirmPayload = Omit<IExportFirm, 'id' | 'director_signature' | 'director_seal'>;
+type ExportFirmPayload = Omit<IExportFirm, 'id' | 'legal_type_code' | 'legal_type_display' | 'director_signature' | 'director_seal' | 'director_stamp'>;
+
+/**
+ * The three stamp images a firm can carry: a separate signature and seal, or
+ * `stampFile` — one photo showing both, which replaces the pair on documents.
+ */
+export type FirmStampFiles = {
+  signatureFile?: File | null;
+  sealFile?: File | null;
+  stampFile?: File | null;
+};
+
+/** Firm stamp fields, in the order they are uploaded. Also the PATCH field union. */
+export const FIRM_STAMP_FIELDS = ['director_signature', 'director_seal', 'director_stamp'] as const;
+export type FirmStampField = (typeof FIRM_STAMP_FIELDS)[number];
+
+function appendStampFiles(fd: FormData, { signatureFile, sealFile, stampFile }: FirmStampFiles): void {
+  if (signatureFile) fd.append('director_signature', signatureFile);
+  if (sealFile) fd.append('director_seal', sealFile);
+  if (stampFile) fd.append('director_stamp', stampFile);
+}
+
+function hasStampFile({ signatureFile, sealFile, stampFile }: FirmStampFiles): boolean {
+  return Boolean(signatureFile || sealFile || stampFile);
+}
 
 function buildExportFirmBody(
   payload: Partial<ExportFirmPayload>,
-  signatureFile?: File | null,
-  sealFile?: File | null,
+  files: FirmStampFiles,
 ): FormData | Partial<ExportFirmPayload> {
-  if (!signatureFile && !sealFile) return payload;
+  if (!hasStampFile(files)) return payload;
   const fd = new FormData();
   Object.entries(payload).forEach(([k, v]) => { if (v != null) fd.append(k, String(v)); });
-  if (signatureFile) fd.append('director_signature', signatureFile);
-  if (sealFile) fd.append('director_seal', sealFile);
+  appendStampFiles(fd, files);
   return fd;
 }
 
 export function useCreateFirm(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ signatureFile, sealFile, ...payload }: ExportFirmPayload & { signatureFile?: File | null; sealFile?: File | null }) =>
-      api.post<IExportFirm>('/export/admin/firms/', buildExportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
+    mutationFn: ({ signatureFile, sealFile, stampFile, ...payload }: ExportFirmPayload & FirmStampFiles) =>
+      api.post<IExportFirm>('/export/admin/firms/', buildExportFirmBody(payload, { signatureFile, sealFile, stampFile })).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
       options.onSuccess?.();
@@ -224,8 +247,8 @@ export function useCreateFirm(options: MutationOptions = {}) {
 export function useUpdateFirm(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, signatureFile, sealFile, ...payload }: { id: number; signatureFile?: File | null; sealFile?: File | null } & Partial<ExportFirmPayload>) =>
-      api.patch<IExportFirm>(`/export/admin/firms/${id}/`, buildExportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
+    mutationFn: ({ id, signatureFile, sealFile, stampFile, ...payload }: { id: number } & FirmStampFiles & Partial<ExportFirmPayload>) =>
+      api.patch<IExportFirm>(`/export/admin/firms/${id}/`, buildExportFirmBody(payload, { signatureFile, sealFile, stampFile })).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
       queryClient.invalidateQueries({ queryKey: ['admin-firm'] });
@@ -238,7 +261,7 @@ export function useUpdateFirm(options: MutationOptions = {}) {
 export function useUploadExportFirmFile(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, field, file }: { id: number; field: 'director_signature' | 'director_seal'; file: File }) => {
+    mutationFn: ({ id, field, file }: { id: number; field: FirmStampField; file: File }) => {
       const fd = new FormData();
       fd.append(field, file);
       return api.patch<IExportFirm>(`/export/admin/firms/${id}/`, fd).then(r => r.data);
@@ -745,26 +768,24 @@ export function useAdminImportFirms() {
   });
 }
 
-type ImportFirmPayload = Omit<IImportFirm, 'id' | 'country_name' | 'city_name' | 'director_signature' | 'director_seal'>;
+type ImportFirmPayload = Omit<IImportFirm, 'id' | 'legal_type_code' | 'legal_type_display' | 'country_name' | 'city_name' | 'director_signature' | 'director_seal' | 'director_stamp'>;
 
 function buildImportFirmBody(
   payload: Partial<ImportFirmPayload>,
-  signatureFile?: File | null,
-  sealFile?: File | null,
+  files: FirmStampFiles,
 ): FormData | Partial<ImportFirmPayload> {
-  if (!signatureFile && !sealFile) return payload;
+  if (!hasStampFile(files)) return payload;
   const fd = new FormData();
   Object.entries(payload).forEach(([k, v]) => { if (v != null) fd.append(k, String(v)); });
-  if (signatureFile) fd.append('director_signature', signatureFile);
-  if (sealFile) fd.append('director_seal', sealFile);
+  appendStampFiles(fd, files);
   return fd;
 }
 
 export function useCreateImportFirm(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ signatureFile, sealFile, ...payload }: ImportFirmPayload & { signatureFile?: File | null; sealFile?: File | null }) =>
-      api.post<IImportFirm>('/export/admin/import-firms/', buildImportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
+    mutationFn: ({ signatureFile, sealFile, stampFile, ...payload }: ImportFirmPayload & FirmStampFiles) =>
+      api.post<IImportFirm>('/export/admin/import-firms/', buildImportFirmBody(payload, { signatureFile, sealFile, stampFile })).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
       options.onSuccess?.();
@@ -778,8 +799,8 @@ export function useUpdateImportFirm(options: MutationOptions = {}) {
   // Accepts partial payloads — the detail page submits the full payload, but
   // the OptionListsTab "color only" flow PATCHes a single field.
   return useMutation({
-    mutationFn: ({ id, signatureFile, sealFile, ...payload }: { id: number; signatureFile?: File | null; sealFile?: File | null } & Partial<ImportFirmPayload>) =>
-      api.patch<IImportFirm>(`/export/admin/import-firms/${id}/`, buildImportFirmBody(payload, signatureFile, sealFile)).then(r => r.data),
+    mutationFn: ({ id, signatureFile, sealFile, stampFile, ...payload }: { id: number } & FirmStampFiles & Partial<ImportFirmPayload>) =>
+      api.patch<IImportFirm>(`/export/admin/import-firms/${id}/`, buildImportFirmBody(payload, { signatureFile, sealFile, stampFile })).then(r => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
       queryClient.invalidateQueries({ queryKey: ['admin-import-firm'] });
@@ -792,7 +813,7 @@ export function useUpdateImportFirm(options: MutationOptions = {}) {
 export function useUploadImportFirmFile(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, field, file }: { id: number; field: 'director_signature' | 'director_seal'; file: File }) => {
+    mutationFn: ({ id, field, file }: { id: number; field: FirmStampField; file: File }) => {
       const fd = new FormData();
       fd.append(field, file);
       return api.patch<IImportFirm>(`/export/admin/import-firms/${id}/`, fd).then(r => r.data);
@@ -1184,6 +1205,75 @@ export function useDeleteShipmentOption(options: MutationOptions = {}) {
   return useMutation({
     mutationFn: (id: number) => api.delete(`/core/shipment-options/${id}/`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['core-shipment-options'] }); options.onSuccess?.(); },
+    onError: options.onError,
+  });
+}
+
+// ─── Company Legal Types (HJ, HT, OOO, TOO, ...) ────────────────────────
+
+/**
+ * Legal-entity forms a firm can be tagged with.
+ *
+ * Pass `countryId` to get only the forms valid in that country, which is what
+ * the import-firm form does so a Kazakh buyer is never offered a Turkmen form.
+ * Omit it (export firms, and the settings screen) to get the whole list.
+ */
+export function useCompanyLegalTypes(countryId?: number | null) {
+  return useQuery({
+    queryKey: ['core-company-legal-types', countryId ?? null],
+    queryFn: async (): Promise<ICompanyLegalType[]> => {
+      if (USE_MOCK) return [];
+      const url = countryId
+        ? `/core/company-legal-types/?country=${countryId}&page_size=200`
+        : '/core/company-legal-types/?page_size=200';
+      const { data } = await api.get<IApiListResponse<ICompanyLegalType> | ICompanyLegalType[]>(url);
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+type CompanyLegalTypePayload = Partial<Omit<ICompanyLegalType, 'id' | 'country_codes'>>;
+
+export function useCreateCompanyLegalType(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CompanyLegalTypePayload) =>
+      api.post<ICompanyLegalType>('/core/company-legal-types/', payload).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['core-company-legal-types'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateCompanyLegalType(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: CompanyLegalTypePayload & { id: number }) =>
+      api.patch<ICompanyLegalType>(`/core/company-legal-types/${id}/`, payload).then(r => r.data),
+    onSuccess: () => {
+      // Firm rows carry legal_type_display, so they go stale with the type.
+      queryClient.invalidateQueries({ queryKey: ['core-company-legal-types'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-firms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-import-firms'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteCompanyLegalType(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    // PROTECT on the firm FK means a type still in use returns an error rather
+    // than orphaning firms — prefer toggling is_active off.
+    mutationFn: (id: number) => api.delete(`/core/company-legal-types/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['core-company-legal-types'] });
+      options.onSuccess?.();
+    },
     onError: options.onError,
   });
 }

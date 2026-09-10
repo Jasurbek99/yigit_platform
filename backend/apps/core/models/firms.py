@@ -11,6 +11,22 @@ class ExportFirm(models.Model):
     name_tk = models.CharField(max_length=200, **cyrillic_collation())
     name_ru = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
     name_en = models.CharField(max_length=200, blank=True, null=True)
+    # Legal form (HJ / HT / HK). Nullable: 9 of the 25 existing firms name a
+    # different form in Turkmen than in Russian, or carry none at all, so the
+    # backfill leaves them for staff to resolve rather than guessing.
+    legal_type = models.ForeignKey(
+        'core.CompanyLegalType',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='export_firms',
+    )
+    # Name with the legal form stripped off, e.g. name_tk '"Ak Bulut" HJ' ->
+    # '"Ak Bulut"'. Documents compose form + bare name; the name_* columns above
+    # stay as they are and remain the fallback for a firm with no legal_type.
+    name_bare_tk = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
+    name_bare_ru = models.CharField(max_length=200, blank=True, null=True, **cyrillic_collation())
+    name_bare_en = models.CharField(max_length=200, blank=True, null=True)
     address_tk = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
     address_ru = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
     address_en = models.CharField(max_length=500, blank=True, null=True)
@@ -26,6 +42,10 @@ class ExportFirm(models.Model):
     # ImportFirm's fields, for the seller side.
     director_signature = models.FileField(upload_to='export_firms/signatures/', null=True, blank=True)
     director_seal = models.FileField(upload_to='export_firms/seals/', null=True, blank=True)
+    # Some firms stamp and sign in one go and can only photograph the result as a
+    # single image. When this is filled it REPLACES the two above on the document
+    # (see document_context._stamp_pair) and they become optional for the firm.
+    director_stamp = models.FileField(upload_to='export_firms/stamps/', null=True, blank=True)
     tax_code = models.CharField(max_length=50, blank=True, null=True)
     swift_code = models.CharField(max_length=20, blank=True, null=True)
     one_c_code = models.CharField(max_length=50, blank=True, null=True)
@@ -48,6 +68,17 @@ class ImportFirm(models.Model):
     code = models.CharField(max_length=50, blank=True, null=True)
     name_company = models.CharField(max_length=300, **cyrillic_collation())
     name_short = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
+    # Legal form of the buyer (OOO / TOO / OsOO / IP / ...). Nullable for the
+    # same reason as ExportFirm.legal_type. Single bare-name column, matching
+    # this model's existing no-language-split shape.
+    legal_type = models.ForeignKey(
+        'core.CompanyLegalType',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='import_firms',
+    )
+    name_bare = models.CharField(max_length=300, blank=True, null=True, **cyrillic_collation())
     country = models.ForeignKey('core.Country', on_delete=models.PROTECT, null=True, blank=True)
     city = models.ForeignKey('core.City', on_delete=models.PROTECT, null=True, blank=True)
     address = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
@@ -59,6 +90,8 @@ class ImportFirm(models.Model):
     phone = models.CharField(max_length=50, blank=True, null=True)
     director_signature = models.FileField(upload_to='import_firms/signatures/', null=True, blank=True)
     director_seal = models.FileField(upload_to='import_firms/seals/', null=True, blank=True)
+    # Combined seal+signature photo — see ExportFirm.director_stamp.
+    director_stamp = models.FileField(upload_to='import_firms/stamps/', null=True, blank=True)
     color = models.CharField(max_length=7, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)

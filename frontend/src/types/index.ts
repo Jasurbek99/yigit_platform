@@ -73,6 +73,32 @@ export interface ICity {
   sort_order?: number;
 }
 
+export interface ICompanyLegalType {
+  id: number;
+  /** Stable key: HJ, HT, HK, OOO, TOO, OSOO, IP, MCHJ, TOV, LLC, LTD, FH. */
+  code: string;
+  /** Short form for CMR boxes, invoice headers and signature blocks. */
+  abbr_tk: string;
+  abbr_ru: string;
+  abbr_en: string | null;
+  /** Spelled-out form for a contract preamble. */
+  full_tk: string;
+  full_ru: string;
+  full_en: string | null;
+  /** Genitive form, contract preamble only. Blank until someone fills it. */
+  gen_tk: string | null;
+  gen_ru: string | null;
+  /** Whether the form sits before or after the name, per language. */
+  position_tk: 'PREFIX' | 'SUFFIX';
+  position_ru: 'PREFIX' | 'SUFFIX';
+  position_en: 'PREFIX' | 'SUFFIX';
+  /** Countries this form is valid in. Empty means it is offered everywhere. */
+  countries: number[];
+  country_codes: string[];
+  sort_order?: number;
+  is_active: boolean;
+}
+
 export interface IExportFirm {
   id: number;
   code: string;
@@ -80,6 +106,14 @@ export interface IExportFirm {
   name_tk: string;
   name_ru: string | null;
   name_en: string | null;
+  /** Legal form. Null when the stored names disagreed and staff must pick one. */
+  legal_type: number | null;
+  legal_type_code: string | null;
+  legal_type_display: string | null;
+  /** Name with the legal form stripped off. Documents compose form + this. */
+  name_bare_tk: string | null;
+  name_bare_ru: string | null;
+  name_bare_en: string | null;
   address_tk: string | null;
   address_en: string | null;
   address_ru: string | null;
@@ -97,6 +131,8 @@ export interface IExportFirm {
   is_gapy_satys: boolean;
   director_signature: string | null;
   director_seal: string | null;
+  /** One photo showing seal + signature together. When set it replaces the two above. */
+  director_stamp: string | null;
 }
 
 export interface IImportFirm {
@@ -104,6 +140,12 @@ export interface IImportFirm {
   code: string | null;
   name_company: string;
   name_short: string | null;
+  /** Legal form. Null when the stored name carried none we recognise. */
+  legal_type: number | null;
+  legal_type_code: string | null;
+  legal_type_display: string | null;
+  /** Name with the legal form stripped off. */
+  name_bare: string | null;
   country: number | null;
   country_name: string | null;
   city: number | null;
@@ -119,6 +161,8 @@ export interface IImportFirm {
   is_gapy_satys: boolean;
   director_signature: string | null;
   director_seal: string | null;
+  /** One photo showing seal + signature together. When set it replaces the two above. */
+  director_stamp: string | null;
 }
 
 export interface ICustomer {

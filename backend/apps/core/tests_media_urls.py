@@ -44,20 +44,24 @@ class MediaUrlsAreRelativeTests(TestCase):
             code='TST', name_short='T', name_tk='T', name_en='T', name_ru='T',
             director_signature='export_firms/signatures/sig.png',
             director_seal='export_firms/seals/seal.png',
+            director_stamp='export_firms/stamps/both.jpg',
         )
         data = ExportFirmSerializer(firm, context=_ctx()).data
         self._assert_relative(data['director_signature'], 'signatures/sig.png')
         self._assert_relative(data['director_seal'], 'seals/seal.png')
+        self._assert_relative(data['director_stamp'], 'stamps/both.jpg')
 
     def test_import_firm_signature_and_seal_are_relative(self):
         firm = ImportFirm.objects.create(
             code='IMP', name_company='I', name_short='I',
             director_signature='import_firms/signatures/sig.png',
             director_seal='import_firms/seals/seal.png',
+            director_stamp='import_firms/stamps/both.jpg',
         )
         data = ImportFirmSerializer(firm, context=_ctx()).data
         self._assert_relative(data['director_signature'], 'signatures/sig.png')
         self._assert_relative(data['director_seal'], 'seals/seal.png')
+        self._assert_relative(data['director_stamp'], 'stamps/both.jpg')
 
     def test_empty_file_serialises_to_none(self):
         """A firm with no upload must stay None, not '' — the frontend renders
@@ -68,6 +72,7 @@ class MediaUrlsAreRelativeTests(TestCase):
         data = ExportFirmSerializer(firm, context=_ctx()).data
         self.assertIsNone(data['director_signature'])
         self.assertIsNone(data['director_seal'])
+        self.assertIsNone(data['director_stamp'])
 
     def test_upload_still_writes_the_file(self):
         """Only `to_representation` was overridden. If `to_internal_value` were

@@ -14,6 +14,16 @@ import type { IExportFirm, IImportFirm } from '@/types';
  * complete was misleading even though the plain download still renders. They
  * are the reason most firms now read amber — that is the intended answer.
  *
+ * `director_stamp` is the third variant of that pair: one photo showing seal and
+ * signature together, which some firms are only able to supply that way. When it
+ * is on file the separate two are neither needed nor asked for, so the pair drops
+ * out of the missing list. `requiredFieldsFor` is the one place that holds this.
+ *
+ * `legal_type` is required on both. Leaving it blank does not blank the
+ * document — it prints the WRONG legal entity, because the contract template
+ * labels every seller an HJ regardless. This is how the firms whose stored
+ * Turkmen and Russian names named different forms surface for staff to resolve.
+ *
  * Deliberately NOT required, and why:
  *   - `*_en` (name/address/bank_details) — `_firm_attr()` falls back ru→en→tk,
  *     so an English invoice still renders; it just renders in Russian.
@@ -28,6 +38,7 @@ export const REQUIRED_EXPORT_FIRM_FIELDS = [
   'code',
   'name_tk',
   'name_ru',
+  'legal_type',
   'address_tk',
   'address_ru',
   'bank_details_tk',
@@ -40,6 +51,7 @@ export const REQUIRED_EXPORT_FIRM_FIELDS = [
 /** ImportFirm fields a generated document needs. Labels: `import_firms_admin.<key>`. */
 export const REQUIRED_IMPORT_FIRM_FIELDS = [
   'name_company',
+  'legal_type',
   'country',
   'address',
   'bank_details',
@@ -51,6 +63,23 @@ export const REQUIRED_IMPORT_FIRM_FIELDS = [
 export type ExportFirmRequiredField = (typeof REQUIRED_EXPORT_FIRM_FIELDS)[number];
 export type ImportFirmRequiredField = (typeof REQUIRED_IMPORT_FIRM_FIELDS)[number];
 
+/** The seal/signature pair, dropped from the required set once a combined photo is on file. */
+const STAMP_PAIR_FIELDS = ['director_signature', 'director_seal'] as const;
+
+/**
+ * The required fields that still apply to this firm's stamps.
+ *
+ * A combined `director_stamp` photo satisfies the pair on its own — see the
+ * module comment — so the two separate fields stop being required.
+ */
+function requiredFieldsFor<T extends readonly string[]>(
+  fields: T,
+  firm: { director_stamp: string | null },
+): T[number][] {
+  if (isBlank(firm.director_stamp)) return [...fields];
+  return fields.filter((key) => !STAMP_PAIR_FIELDS.includes(key as never));
+}
+
 /** Blank means null, undefined, or whitespace-only — a `country` FK is blank when null. */
 function isBlank(value: unknown): boolean {
   if (value === null || value === undefined) return true;
@@ -60,10 +89,10 @@ function isBlank(value: unknown): boolean {
 
 /** Required ExportFirm fields that are still empty, in display order. */
 export function missingExportFirmFields(firm: IExportFirm): ExportFirmRequiredField[] {
-  return REQUIRED_EXPORT_FIRM_FIELDS.filter((key) => isBlank(firm[key]));
+  return requiredFieldsFor(REQUIRED_EXPORT_FIRM_FIELDS, firm).filter((key) => isBlank(firm[key]));
 }
 
 /** Required ImportFirm fields that are still empty, in display order. */
 export function missingImportFirmFields(firm: IImportFirm): ImportFirmRequiredField[] {
-  return REQUIRED_IMPORT_FIRM_FIELDS.filter((key) => isBlank(firm[key]));
+  return requiredFieldsFor(REQUIRED_IMPORT_FIRM_FIELDS, firm).filter((key) => isBlank(firm[key]));
 }

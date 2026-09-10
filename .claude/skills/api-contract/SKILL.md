@@ -680,14 +680,20 @@ All timestamps in ISO 8601 with timezone: `2025-02-01T14:30:00+05:00`. Frontend 
 
 ## Uploaded files arrive as a **root-relative** url, never absolute
 
-Every media field — `ExportFirm.director_signature` / `director_seal`,
-`ImportFirm.director_signature` / `director_seal`, `FeedbackAttachment.file` —
-serialises through `apps.core.serializer_fields.RelativeFileField` and returns
-a path, not a url:
+Every media field — `ExportFirm.director_signature` / `director_seal` /
+`director_stamp`, `ImportFirm.director_signature` / `director_seal` /
+`director_stamp`, `FeedbackAttachment.file` — serialises through
+`apps.core.serializer_fields.RelativeFileField` and returns a path, not a url:
 
 ```json
 { "director_seal": "/media/import_firms/seals/shah.png" }
 ```
+
+`director_stamp` (2026-09-10) is one photo showing a firm's seal and signature
+together. It is a **third variant of the pair, not an addition**: when it is set,
+document generation uses it and ignores the other two, and the firm-completeness
+rule stops requiring them. Uploads for all three are a multipart `PATCH` with the
+file under its own field name; `null` clears one.
 
 Never `http://host/media/...`. **Do not use DRF's stock `serializers.FileField`
 for anything the frontend renders**: it returns `request.build_absolute_uri(...)`,

@@ -18,6 +18,8 @@ erDiagram
     Country ||--o{ Shipment : "destination"
     City ||--o{ Shipment : "city"
     Customer ||--o{ Shipment : "buyer"
+    CompanyLegalType ||--o{ ExportFirm : "legal form"
+    CompanyLegalType ||--o{ ImportFirm : "legal form"
     ExportFirm ||--o{ ShipmentFirmSplit : "split"
     ImportFirm ||--o{ Shipment : "importer"
     GreenhouseBlock ||--o{ ShipmentBlockSource : "source"
@@ -70,8 +72,9 @@ erDiagram
 | **City** | name, country (FK) | Cities within countries |
 | **BorderPoint** | name, country (FK) | Border crossing points |
 | **Season** | name (unique), start_date, end_date, is_active, closed_at, closed_by (FK User) | Growing seasons. `is_active` is the write target only (`get_active_season()`); read scope is per-request (`resolve_season()`, `?season=<id>`). State (`UPCOMING`/`ACTIVE`/`CLOSED`) is a derived `status` property, not a column. Filtered unique index enforces at most one `is_active=True` row. `docs/ADR.md` (AD-16). |
-| **ExportFirm** | code, name_tk/ru/en, tax_code, is_active, is_gapy_satys | YGT's export legal entities (~24) |
-| **ImportFirm** | code, name_company, country, city, director_signature (file), is_active | Buyer companies (~111) |
+| **CompanyLegalType** | code, abbr_tk/ru/en, full_tk/ru/en, gen_tk/gen_ru, position_tk/ru/en, countries (M2M Country), is_active | Legal-entity forms (HJ, HT, HK, OOO, TOO, OsOO, IP, MChJ, TOV, LLC, LTD, FH). Three renderings per language: abbreviation for CMR boxes and signature blocks, full form for a contract preamble, genitive for the preamble's declined position. `position_*` is per language because HJ trails the name in Turkmen while HT leads it. `countries` is M2M, not a single FK — OOO is used by buyers in RU, UZ, KG, AZ and BY. |
+| **ExportFirm** | code, name_tk/ru/en, legal_type (FK, nullable), name_bare_tk/ru/en, tax_code, is_active, is_gapy_satys | YGT's export legal entities (25). `name_*` keeps the stored string with the legal form baked in; `name_bare_*` is the same name with the form and quotes stripped. |
+| **ImportFirm** | code, name_company, legal_type (FK, nullable), name_bare, country, city, director_signature / director_seal / director_stamp (files), is_active | Buyer companies (119) |
 | **Customer** | name (unique), phone, default_country, import_firms (M2M) | Individual buyers |
 | **DomesticBuyer** | name, phone | Local market buyers |
 | **GreenhouseBlock** | code (A-O), name, is_active | 15 greenhouse blocks |

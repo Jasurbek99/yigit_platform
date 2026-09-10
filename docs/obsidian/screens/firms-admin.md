@@ -25,6 +25,77 @@ code, Turkmen name, doc-readiness and active; the **Name (EN)** and **Name (RU)*
 Access is the standard resource split: `export_firm` and `import_firm` on `/admin/permissions`,
 checked in the UI with `canDo(user, '<resource>', 'create' | 'edit' | 'delete')`.
 
+## Legal form (company type)
+
+Every firm carries a **Legal form** — HJ, HT, HK on the export side; OOO, TOO, OsOO, IP, MChJ,
+TOV, LLC, LTD, FH on the import side. It is a FK to `core.CompanyLegalType`, edited on the
+detail page and on the create drawer.
+
+The list of forms itself is its own screen, `/admin/legal-forms`
+(`pages/admin/CompanyLegalTypesPage.tsx`), reached by the **gear button in the toolbar of
+both firm lists** rather than from the sidebar — it is reference data for these two screens,
+not a destination of its own. It has **no page permission code**: the route is gated on
+`['admin.firms', 'admin.import_firms']` (ProtectedRoute ORs an array), so anyone who can open
+either firm registry can open the forms behind it, and there is nothing new to seed on the
+permissions matrix. Editing needs `export_firm` **or** `import_firm` edit rights.
+
+The import-firm selector filters on the firm's country, so a Kazakh buyer is offered TOO / IP /
+FH and never a Turkmen HJ. It hangs off the same country cascade the city selector uses: change
+the country and the offered forms change with it. The export selector passes a fixed `TM`
+instead — every export firm is Turkmen, so it offers only HJ / HT / HK. A form tagged with no
+country at all is offered everywhere.
+
+### Why the field exists
+
+The legal form used to live **inside** the name string, and the contract template held a second
+copy of it. Three things followed, all of them visible on signed paperwork:
+
+1. `contract_kz.docx` appends `HJ` to the seller unconditionally (`"{{ seller_name_tk }}" HJ-iň`),
+   and the stripper beside it (`_SELLER_FORM_SUFFIX`) only matched a trailing `H.J.` / `Х.Дж.`.
+   Ten sole-proprietor firms are stored with a **prefix** form (`Hususy Telekeçi Döwranow J.A.`,
+   `ИП Атаев Максат Амангельдиевич`), so they passed through untouched and printed as economic
+   societies.
+2. The buyer name was never stripped at all, yet the template adds a form anyway, so a buyer
+   stored as `ТОО «Нур-Алем»` rendered `TOO «ТОО «Нур-Алем»»`.
+3. The buyer's form is hardcoded Kazakh (`TOO` / `JÇB`) across all seven contract-eligible
+   countries, so a Kyrgyz `ОсОО` buyer was declared a Kazakh partnership.
+
+### The name columns
+
+`name_tk` / `name_ru` / `name_en` (export) and `name_company` (import) are **unchanged** and
+still carry the form. Migration `core.0046` added `name_bare_*` beside them: the same name with
+the form, surrounding quotes and stray punctuation stripped.
+
+Documents still read the `name_*` columns. Swapping them onto `legal_type` + `name_bare_*` is a
+separate change, deliberately kept apart so this one moves no generated output at all.
+
+### Firms the backfill could not type
+
+`core.0046` types a firm only when **every** non-empty name column parses and they all agree.
+That left 7 of 25 export firms and 6 of 119 import firms with a null form, and they are the
+right ones to leave alone rather than guess at:
+
+| Firm | Conflict |
+|---|---|
+| `BK`, `BKHK`, `KIHK` | Turkmen name says HJ, Russian name says ИП |
+| `AMLH` | Turkmen says HK, Russian says ИП |
+| `YE` | Turkmen carries an unrecognised `JH`; Russian and English say sole proprietor |
+| `MA`, `TELGUWANC` | no form written in any column |
+
+On the import side the six are junk or unseeded rows: `Грузополучатель: ИП ТУРСЫНБАЕВ О.Б.`,
+`CUSTOMER «Masoud Behrooz LTD»`, `LZ SERVICE SRL` (Romanian SRL, not seeded), and three names
+with no form at all. `SRL` can be added from the settings screen without a migration.
+
+`legal_type` is in `REQUIRED_EXPORT_FIRM_FIELDS` and `REQUIRED_IMPORT_FIRM_FIELDS`, so an
+untyped firm names **Legal form** among its missing fields on hover. A blank form does not blank
+the document — it prints the **wrong** legal entity — which is why it counts as incomplete.
+
+That is *not*, however, a way to **find** these firms. As of 2026-09-10 the indicator already
+reads amber on 25 of 25 export and 118 of 119 import firms, because no stamps have ever been
+uploaded, so adding `legal_type` turns no row from green to amber and the thirteen are not
+distinguishable without hovering every one. Until the stamp backlog is cleared, the list above is
+the way to find them.
+
 ## Document-readiness indicator
 
 Both lists carry a **Doc Fields** column and both detail pages open with a matching banner:
@@ -54,6 +125,17 @@ The signature and seal are required on **both** firms, and the import firm's dir
 them, by operator decision on 2026-09-10. A firm with no stamp on file cannot produce a signed
 contract, so calling it complete was misleading even though the plain download still renders.
 
+The three upload slots share a fixed `UPLOAD_SLOT_WIDTH` so they line up as equal columns. The long
+explanation of what the combined photo is sits behind an ⓘ beside the label rather than inline: a flex
+item sizes to its longest line of text, so as a paragraph it stretched the first slot across the card and
+wrapped onto three lines. Its tooltip opens on click as well as hover, for tablets.
+
+**One combined photo counts as both.** Some firms stamp and sign in one motion and can only
+supply a photo of the result. `director_stamp` (added 2026-09-10) holds that single image; when
+it is on file the separate `director_signature` and `director_seal` stop being required and drop
+out of the missing list. `requiredFieldsFor()` in `frontend/src/utils/firmCompleteness.ts` is the
+only place this rule lives.
+
 Deliberately **not** required, with the reason each one is safe to leave blank:
 
 | Field | Why not required |
@@ -61,6 +143,8 @@ Deliberately **not** required, with the reason each one is safe to leave blank:
 | `name_en`, `address_en`, `bank_details_en` | `_firm_attr()` falls back ru→en→tk — an English invoice still renders, just in Russian |
 | `director_tk`, `contact_person_tk` | the Turkmen spelling of a name already required in its Russian form, and both fall back to it |
 | `tax_code`, `swift_code`, `one_c_code`, `phone`, `city`, `code` (import), `name_short` | no document builder reads them |
+
+`legal_type` joined the required set on 2026-09-10 — see **Legal form** above for why a blank one is worse than a blank text field.
 
 `address_tk` and `bank_details_tk` are the strictest entries: the KZ export contract's Turkmen
 column reads them with **no** fallback, so a blank leaves a visibly empty box on a signed

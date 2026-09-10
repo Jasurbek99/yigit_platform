@@ -6,6 +6,7 @@ from apps.core.models import (
     User, City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
     TruckDestination, CrateType, GreenhouseConfig, OperatingDayException,
+    CompanyLegalType,
 )
 from apps.core.permissions import get_editable_fields
 from apps.core.seasons import can_view_closed, get_active_season
@@ -189,6 +190,32 @@ class BorderPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = BorderPoint
         fields = ['id', 'name', 'route_description', 'typical_transit_days', 'color', 'sort_order', 'is_active']
+
+
+class CompanyLegalTypeSerializer(serializers.ModelSerializer):
+    """Legal-entity forms a firm can be tagged with (HJ, HT, OOO, TOO, ...).
+
+    ``countries`` is writable (a list of Country PKs); ``country_codes`` is the
+    read-side companion so the firm forms can label the option without a second
+    request, per the FK-returns-id-and-display rule.
+    """
+
+    country_codes = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CompanyLegalType
+        fields = [
+            'id', 'code',
+            'abbr_tk', 'abbr_ru', 'abbr_en',
+            'full_tk', 'full_ru', 'full_en',
+            'gen_tk', 'gen_ru',
+            'position_tk', 'position_ru', 'position_en',
+            'countries', 'country_codes',
+            'sort_order', 'is_active',
+        ]
+
+    def get_country_codes(self, obj) -> list:
+        return [c.code for c in obj.countries.all() if c.code]
 
 
 class ShipmentOptionTypeSerializer(serializers.ModelSerializer):

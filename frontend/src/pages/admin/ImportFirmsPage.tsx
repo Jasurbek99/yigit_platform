@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, Popconfirm, Select, Tabs, Tag, Typography } from 'antd';
-import { ShopOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
+import { Alert, Button, Popconfirm, Select, Tabs, Tag, Tooltip, Typography } from 'antd';
+import { PlusOutlined, SettingOutlined, ShopOutlined, SwapOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
@@ -239,6 +239,13 @@ export default function ImportFirmsPage() {
             style={{ minWidth: 180 }}
             size="small"
           />,
+          <Tooltip key="legal-forms" title={t('company_legal_types.open')}>
+            <Button
+              icon={<SettingOutlined />}
+              onClick={() => navigate('/admin/legal-forms')}
+              aria-label={t('company_legal_types.open')}
+            />
+          </Tooltip>,
           ...(canCreate
             ? [
                 <Button

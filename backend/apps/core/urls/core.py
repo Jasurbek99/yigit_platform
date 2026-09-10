@@ -14,6 +14,7 @@ from apps.core.views import (
     TruckDestinationViewSet,
     BorderPointViewSet,
     ShipmentOptionTypeViewSet,
+    CompanyLegalTypeViewSet,
     MentionableView,
     GreenhouseConfigView,
     OperatingDayExceptionViewSet,
@@ -44,6 +45,7 @@ router.register('crate-types', CrateTypeViewSet, basename='crate-type')
 router.register('truck-destinations', TruckDestinationViewSet, basename='truck-destination')
 router.register('border-points', BorderPointViewSet, basename='border-point')
 router.register('shipment-options', ShipmentOptionTypeViewSet, basename='shipment-option')
+router.register('company-legal-types', CompanyLegalTypeViewSet, basename='company-legal-type')
 router.register('operating-day-exceptions', OperatingDayExceptionViewSet, basename='operating-day-exception')
 
 urlpatterns = router.urls + [

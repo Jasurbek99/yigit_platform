@@ -15,6 +15,12 @@ function exportFirm(overrides: Partial<IExportFirm> = {}): IExportFirm {
     name_tk: 'Ýigit HJ',
     name_ru: 'Йигит',
     name_en: null,
+    legal_type: 1,
+    legal_type_code: 'HJ',
+    legal_type_display: 'HJ',
+    name_bare_tk: 'Ýigit',
+    name_bare_ru: 'Йигит',
+    name_bare_en: null,
     address_tk: 'Aşgabat',
     address_ru: 'Ашхабад',
     address_en: null,
@@ -30,6 +36,7 @@ function exportFirm(overrides: Partial<IExportFirm> = {}): IExportFirm {
     is_gapy_satys: false,
     director_signature: '/media/export_firms/signatures/ygt.png',
     director_seal: '/media/export_firms/seals/ygt.png',
+    director_stamp: null,
     ...overrides,
   };
 }
@@ -40,6 +47,10 @@ function importFirm(overrides: Partial<IImportFirm> = {}): IImportFirm {
     code: null,
     name_company: 'ТОО Альфа',
     name_short: null,
+    legal_type: 5,
+    legal_type_code: 'TOO',
+    legal_type_display: 'ТОО',
+    name_bare: 'Альфа',
     country: 3,
     country_name: 'Kazakhstan',
     city: null,
@@ -53,6 +64,7 @@ function importFirm(overrides: Partial<IImportFirm> = {}): IImportFirm {
     is_gapy_satys: false,
     director_signature: '/media/import_firms/signatures/alfa.png',
     director_seal: '/media/import_firms/seals/alfa.png',
+    director_stamp: null,
     ...overrides,
   };
 }
@@ -88,11 +100,36 @@ describe('missingExportFirmFields', () => {
     expect(missingExportFirmFields(firm)).toEqual(['director_signature', 'director_seal']);
   });
 
+  it('accepts one combined seal+signature photo in place of the separate two', () => {
+    const firm = exportFirm({
+      director_signature: null,
+      director_seal: null,
+      director_stamp: '/media/export_firms/stamps/ygt.jpg',
+    });
+    expect(missingExportFirmFields(firm)).toEqual([]);
+  });
+
+  it('still reports the other missing fields when a combined photo is on file', () => {
+    const firm = exportFirm({
+      director_signature: null,
+      director_seal: null,
+      director_stamp: '/media/export_firms/stamps/ygt.jpg',
+      address_ru: null,
+    });
+    expect(missingExportFirmFields(firm)).toEqual(['address_ru']);
+  });
+
+  it('treats a whitespace-only combined photo as absent', () => {
+    const firm = exportFirm({ director_signature: null, director_seal: null, director_stamp: '  ' });
+    expect(missingExportFirmFields(firm)).toEqual(['director_signature', 'director_seal']);
+  });
+
   it('keeps the declared field order', () => {
     const blank = exportFirm({
       code: '',
       name_tk: '',
       name_ru: '',
+      legal_type: null,
       address_tk: '',
       address_ru: '',
       bank_details_tk: '',
@@ -140,9 +177,19 @@ describe('missingImportFirmFields', () => {
     ]);
   });
 
+  it('accepts one combined seal+signature photo in place of the separate two', () => {
+    const firm = importFirm({
+      director_signature: null,
+      director_seal: null,
+      director_stamp: '/media/import_firms/stamps/alfa.jpg',
+    });
+    expect(missingImportFirmFields(firm)).toEqual([]);
+  });
+
   it('keeps the declared field order', () => {
     const blank = importFirm({
       name_company: '',
+      legal_type: null,
       country: null,
       address: '',
       bank_details: '',

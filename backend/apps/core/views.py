@@ -16,6 +16,7 @@ from apps.core.models import (
     City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
     TruckDestination, CrateType, GreenhouseConfig, OperatingDayException,
+    CompanyLegalType,
 )
 from apps.core.permissions import write_permission
 from apps.core.roles import REFERENCE_DATA_WRITE
@@ -35,6 +36,7 @@ from apps.core.serializers import (
     TruckDestinationSerializer,
     BorderPointSerializer,
     ShipmentOptionTypeSerializer,
+    CompanyLegalTypeSerializer,
     GreenhouseConfigSerializer,
     OperatingDayExceptionSerializer,
 )
@@ -266,6 +268,26 @@ class ShipmentOptionTypeViewSet(ModelViewSet):
         if category:
             qs = qs.filter(category=category)
         return qs.order_by('category', 'sort_order')
+
+
+class CompanyLegalTypeViewSet(ModelViewSet):
+    """CRUD /api/v1/core/company-legal-types/
+
+    ``?country=<id>`` narrows the list to forms valid in that country, which is
+    what the import-firm form uses so a Kazakh buyer is not offered a Turkmen
+    form. ``?is_active=`` filters the settings screen.
+    """
+
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
+    serializer_class = CompanyLegalTypeSerializer
+    filterset_fields = ['is_active']
+
+    def get_queryset(self):
+        qs = CompanyLegalType.objects.prefetch_related('countries')
+        country_id = self.request.query_params.get('country')
+        if country_id:
+            qs = qs.filter(countries__id=country_id)
+        return qs.order_by('sort_order', 'code')
 
 
 class MentionableView(APIView):

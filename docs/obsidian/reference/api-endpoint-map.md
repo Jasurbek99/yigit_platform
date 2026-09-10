@@ -188,10 +188,13 @@ See [[screens/main-dashboard]] for the full response contract.
 | GET/POST/PATCH | `/api/v1/export/admin/firms/` | ExportFirmViewSet | `useAdmin` | ExportFirmsPage |
 | GET/POST/PATCH | `/api/v1/export/admin/import-firms/` | ImportFirmViewSet | `useAdmin` | ImportFirmsPage |
 
-> Both firm endpoints return `director_signature` / `director_seal` as a
-> **root-relative** `/media/...` path (or `null`), never an absolute url — see
-> the api-contract skill and `apps/core/serializer_fields.RelativeFileField`.
-> Uploads are a multipart `PATCH` with the file under its own field name.
+> Both firm endpoints return `director_signature` / `director_seal` /
+> `director_stamp` as a **root-relative** `/media/...` path (or `null`), never an
+> absolute url — see the api-contract skill and
+> `apps/core/serializer_fields.RelativeFileField`. Uploads are a multipart
+> `PATCH` with the file under its own field name. `director_stamp` (2026-09-10)
+> is one photo of the seal and signature together; when set it replaces the
+> other two on generated documents.
 | GET/POST/PATCH | `/api/v1/export/admin/users/` | UserManagementViewSet | `useAdmin` | UsersPage |
 | GET/PUT | `/api/v1/export/admin/users/{id}/permissions/` | UserPermissionsView | `useAdmin` | PermissionsPage |
 | GET/POST | `/api/v1/export/admin/sheet-rows/` | SheetRowSettingViewSet (list/create) | `useSheetRowSettings` | ShipmentSettings (Sheet Rows tab) |
@@ -431,6 +434,7 @@ as for truck heads (admin page uses it; the picker does not). Consumed by the
 | Method | Endpoint | Hook | Used By |
 |--------|----------|------|---------|
 | GET | `/api/v1/core/countries/` | `useCountries` | CountrySelect |
+| GET/POST/PATCH/DELETE | `/api/v1/core/company-legal-types/?country=<id>` | `useCompanyLegalTypes` + CRUD | CompanyLegalTypeSelect, `/admin/legal-forms` |
 | GET | `/api/v1/core/cities/` | `useCities` | CitySelect |
 | GET | `/api/v1/core/customers/` | `useCustomers` | CustomerSelect |
 | GET | `/api/v1/core/truck-destinations/?is_active=true` | `useTruckDestinations` | TruckForecast |

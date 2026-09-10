@@ -1326,6 +1326,9 @@
     "signature_and_seal": "Signature & Seal",
     "director_signature": "Director's Signature",
     "director_seal": "Company Seal",
+    "director_stamp": "Seal + Signature",
+    "director_stamp_hint": "One photo showing the seal and the signature together. Upload this and the two below are not needed.",
+    "not_needed_with_stamp": "Covered by the photo above",
     "upload_file": "Upload Image",
     "replace_file": "Replace Image",
     "toast_file_uploaded": "File uploaded",
@@ -1337,7 +1340,11 @@
     "toast_deleted": "Firm deleted",
     "toast_error": "Operation failed",
     "subtitle": "Manage export firms",
-    "director_tk": "Director (Turkmen)"
+    "director_tk": "Director (Turkmen)",
+    "legal_type": "Legal form",
+    "name_bare_tk": "Name without form (TK)",
+    "name_bare_ru": "Name without form (RU)",
+    "name_bare_en": "Name without form (EN)"
   },
   "import_firms_admin": {
     "title": "Import Firms",
@@ -1361,6 +1368,9 @@
     "signature_and_seal": "Signature & Seal",
     "director_signature": "Director's Signature",
     "director_seal": "Company Seal",
+    "director_stamp": "Seal + Signature",
+    "director_stamp_hint": "One photo showing the seal and the signature together. Upload this and the two below are not needed.",
+    "not_needed_with_stamp": "Covered by the photo above",
     "upload_file": "Upload Image",
     "replace_file": "Replace Image",
     "toast_file_uploaded": "File uploaded",
@@ -1377,7 +1387,9 @@
     "move_to_our": "Move to Our Firms",
     "confirm_move": "Change this firm's type?",
     "filter_country": "All countries",
-    "contact_person_tk": "Director's Full Name (Turkmen)"
+    "contact_person_tk": "Director's Full Name (Turkmen)",
+    "legal_type": "Legal form",
+    "name_bare": "Name without form"
   },
   "users_admin": {
     "title": "Users",
@@ -1452,7 +1464,9 @@
     "load_error": "Failed to load data",
     "select_season": "Select season",
     "select": "Select...",
-    "request_in_progress": "This request is already being processed — please wait"
+    "request_in_progress": "This request is already being processed — please wait",
+    "select_legal_type": "Select legal form",
+    "back": "Back"
   },
   "permissions_admin": {
     "subtitle": "Manage role permissions",
@@ -3131,8 +3145,7 @@
         "end_date": "End date (optional)",
         "customer": "Customer (optional)",
         "contract_type": "Contract type",
-        "passport_sdelka": "Deal passport (optional)",
-        "passport_sdelka_hint": "Bank deal-passport — framework contracts only; leave blank for one-time."
+        "passport_sdelka": "Deal passport (optional)"
       },
       "toast": {
         "created": "Contract created",
@@ -3604,5 +3617,44 @@
     "rollup": "Rollup",
     "rollup_never": "The nightly rollup never ran for these days",
     "achieved_hint": "Achieved = export + domestic"
+  },
+  "company_legal_types": {
+    "col_code": "Code",
+    "col_abbr": "Abbreviation (TK / RU)",
+    "col_full": "Full form",
+    "col_genitive": "Genitive",
+    "col_countries": "Countries",
+    "col_sort": "Sort order",
+    "genitive_set": "Filled",
+    "genitive_missing": "Missing",
+    "all_countries": "All countries",
+    "code_hint": "Stable key used when generating documents. Cannot be changed later.",
+    "abbr_tk": "Abbreviation (TK)",
+    "abbr_ru": "Abbreviation (RU)",
+    "abbr_en": "Abbreviation (EN)",
+    "full_tk": "Full form (TK)",
+    "full_ru": "Full form (RU)",
+    "full_en": "Full form (EN)",
+    "gen_tk": "Genitive (TK)",
+    "gen_ru": "Genitive (RU)",
+    "gen_hint": "Used by the contract preamble, which needs the declined form.",
+    "position_tk": "Position (TK)",
+    "position_ru": "Position (RU)",
+    "position_en": "Position (EN)",
+    "position_hint": "Whether the form is written before or after the company name.",
+    "countries_hint": "Leave empty to offer this form for every country.",
+    "confirm_delete": "Delete this legal form?",
+    "confirm_delete_hint": "A form already used by a firm cannot be deleted. Switch it off instead.",
+    "error_in_use": "This legal form is in use by a firm and cannot be deleted.",
+    "title": "Legal forms",
+    "subtitle": "Company types used by export and import firms on generated documents.",
+    "open": "Legal forms",
+    "add": "Add",
+    "edit": "Edit",
+    "col_status": "Status",
+    "toast_created": "Legal form created",
+    "toast_updated": "Legal form updated",
+    "toast_deleted": "Legal form deleted",
+    "toast_error": "Something went wrong"
   }
 }

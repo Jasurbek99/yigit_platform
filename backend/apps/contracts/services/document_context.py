@@ -35,6 +35,32 @@ class StampImage:
     width_mm: float = 32.0
 
 
+# A combined seal+signature photo has to cover the width the separate seal and
+# signature would have taken side by side (2 x StampImage's 32mm default).
+COMBINED_STAMP_WIDTH_MM = 60.0
+
+
+def _stamp_pair(firm, wanted: bool):
+    """``(seal, signature)`` context values for one firm's signature block.
+
+    A firm uploads EITHER a seal and a signature separately OR one photo showing
+    both together (``director_stamp``). The combined photo wins: it renders in
+    the seal slot at ``COMBINED_STAMP_WIDTH_MM`` and the signature slot renders
+    nothing, so the block never shows the same stamp twice. ``wanted`` is the
+    ``?stamps=`` gate — off means an unstamped draft, both slots blank.
+    """
+    def _img(field: str, **kw):
+        f = getattr(firm, field, None)
+        return StampImage(f, **kw) if (f and getattr(f, 'name', '')) else ''
+
+    if not wanted:
+        return '', ''
+    combined = _img('director_stamp', width_mm=COMBINED_STAMP_WIDTH_MM)
+    if combined:
+        return combined, ''
+    return _img('director_seal'), _img('director_signature')
+
+
 # Constant: TN VED (HS) code for fresh tomatoes. Overridable per line if needed.
 TOMATO_HS_CODE = '070200000'
 
@@ -976,10 +1002,8 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
     mode = str(overrides.get('stamps', '')).strip().lower()
     stamp_seller = mode in ('1', 'true', 'yes', 'on', 'both', 'export')
     stamp_buyer = mode in ('1', 'true', 'yes', 'on', 'both', 'import')
-
-    def _stamp(firm, field: str, wanted: bool):
-        f = getattr(firm, field, None)
-        return StampImage(f) if (wanted and f and getattr(f, 'name', '')) else ''
+    seller_seal, seller_sign = _stamp_pair(seller, stamp_seller)
+    buyer_seal, buyer_sign = _stamp_pair(buyer, stamp_buyer)
 
     return {
         'contract_no': contract.contract_number or '',
@@ -1032,10 +1056,10 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         # Signature-block stamps — rendered only for the firms the ?stamps=
         # variant selects, and only when that firm has the image uploaded
         # (else '' → nothing). Seller from ExportFirm, buyer from ImportFirm.
-        'seller_seal': _stamp(seller, 'director_seal', stamp_seller),
-        'seller_signature': _stamp(seller, 'director_signature', stamp_seller),
-        'buyer_seal': _stamp(buyer, 'director_seal', stamp_buyer),
-        'buyer_signature': _stamp(buyer, 'director_signature', stamp_buyer),
+        'seller_seal': seller_seal,
+        'seller_signature': seller_sign,
+        'buyer_seal': buyer_seal,
+        'buyer_signature': buyer_sign,
     }
 
 

@@ -6,6 +6,7 @@ from .greenhouse_block import GreenhouseBlock
 from .firms import ExportFirm, ImportFirm, Customer, DomesticBuyer
 from .role_permissions import RolePagePermission, RoleResourcePermission, RoleFieldPermission
 from .crate_type import CrateType
+from .company_legal_type import CompanyLegalType
 from .config import GreenhouseConfig
 from .operating_day import OperatingDayException
 from .work_session import WorkSession, WorkSessionDaily
@@ -32,6 +33,7 @@ __all__ = [
     'RoleResourcePermission',
     'RoleFieldPermission',
     'CrateType',
+    'CompanyLegalType',
     'GreenhouseConfig',
     'OperatingDayException',
     'WorkSession',

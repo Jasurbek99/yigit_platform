@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Button, Tag, Typography } from 'antd';
-import { BankOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, Button, Tag, Tooltip, Typography } from 'antd';
+import { BankOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
@@ -122,8 +122,15 @@ export default function ExportFirmsPage() {
         scroll={{ x: 'max-content' }}
         onRow={(record) => ({ onClick: () => navigate(`/admin/firms/${record.id}`) })}
         rowHoverable
-        toolBarRender={() =>
-          canCreate
+        toolBarRender={() => [
+          <Tooltip key="legal-forms" title={t('company_legal_types.open')}>
+                  <Button
+                    icon={<SettingOutlined />}
+                    onClick={() => navigate('/admin/legal-forms')}
+                    aria-label={t('company_legal_types.open')}
+                  />
+                </Tooltip>,
+          ...(canCreate
             ? [
                 <Button
                   key="add"
@@ -134,8 +141,8 @@ export default function ExportFirmsPage() {
                   {t('firms_admin.add')}
                 </Button>,
               ]
-            : []
-        }
+            : []),
+        ]}
       />
     </div>
   );

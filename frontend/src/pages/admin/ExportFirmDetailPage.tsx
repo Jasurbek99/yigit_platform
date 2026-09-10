@@ -11,6 +11,7 @@ import {
   Skeleton,
   Space,
   Switch,
+  Tooltip,
   Typography,
   Upload,
 } from 'antd';
@@ -18,6 +19,7 @@ import {
   ArrowLeftOutlined,
   BankOutlined,
   DeleteOutlined,
+  InfoCircleOutlined,
   PlusOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
@@ -33,12 +35,20 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
 import { InlineEdit } from '@/components/InlineEdit';
+import { CompanyLegalTypeSelect } from '@/components/CompanyLegalTypeSelect';
 import { FirmCompletenessAlert } from '@/components/FirmCompletenessTag';
 import { missingExportFirmFields } from '@/utils/firmCompleteness';
 import type { IExportFirm } from '@/types';
 import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
+
+/**
+ * Fixed so the three upload slots line up as equal columns. Without it the flex
+ * item stretches to fit its longest line of text, and the combined-stamp slot's
+ * explanation pushed the other two off to the right across three wrapped lines.
+ */
+const UPLOAD_SLOT_WIDTH = 190;
 
 function FileUploadCard({
   label,
@@ -47,6 +57,8 @@ function FileUploadCard({
   isUploading,
   uploadLabel,
   replaceLabel,
+  hint,
+  tooltip,
 }: {
   label: string;
   currentUrl: string | null;
@@ -54,10 +66,26 @@ function FileUploadCard({
   isUploading: boolean;
   uploadLabel: string;
   replaceLabel: string;
+  /** Short state note under the label, e.g. "covered by the combined photo". */
+  hint?: string;
+  /** Longer explanation — behind an ⓘ so it costs no vertical space. */
+  tooltip?: string;
 }) {
   return (
-    <div>
-      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>{label}</Text>
+    <div style={{ width: UPLOAD_SLOT_WIDTH }}>
+      <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: hint ? 2 : 8 }}>
+        {label}
+        {tooltip && (
+          <Tooltip title={tooltip} trigger={['hover', 'click']}>
+            <InfoCircleOutlined style={{ marginLeft: 4, cursor: 'pointer' }} />
+          </Tooltip>
+        )}
+      </Text>
+      {hint && (
+        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8, fontStyle: 'italic' }}>
+          {hint}
+        </Text>
+      )}
       {currentUrl && (
         <div style={{ marginBottom: 10 }}>
           <img
@@ -96,6 +124,10 @@ interface FirmFormValues {
   name_tk: string;
   name_en: string;
   name_ru: string;
+  legal_type: number | null;
+  name_bare_tk: string;
+  name_bare_ru: string;
+  name_bare_en: string;
   director: string;
   director_tk: string;
   tax_code: string;
@@ -123,9 +155,12 @@ export default function ExportFirmDetailPage() {
   const [drawerOpen, setDrawerOpen] = useState(isNew);
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [sealFile, setSealFile] = useState<File | null>(null);
+  const [stampFile, setStampFile] = useState<File | null>(null);
   const [form] = Form.useForm<FirmFormValues>();
 
   const { data: firm, isLoading } = useExportFirm(firmId);
+  // One photo of seal + signature together makes the separate two optional.
+  const hasCombinedStamp = Boolean(firm?.director_stamp);
 
   const canEdit = canDo(user, 'export_firm', 'edit');
   const canDelete = canDo(user, 'export_firm', 'delete');
@@ -164,12 +199,16 @@ export default function ExportFirmDetailPage() {
 
   async function handleSubmit() {
     const values = await form.validateFields();
-    const payload: Omit<IExportFirm, 'id' | 'director_signature' | 'director_seal'> = {
+    const payload: Omit<IExportFirm, 'id' | 'legal_type_code' | 'legal_type_display' | 'director_signature' | 'director_seal' | 'director_stamp'> = {
       code: values.code,
       name_short: values.name_short || null,
       name_tk: values.name_tk,
       name_en: values.name_en || null,
       name_ru: values.name_ru || null,
+      legal_type: values.legal_type ?? null,
+      name_bare_tk: values.name_bare_tk || null,
+      name_bare_ru: values.name_bare_ru || null,
+      name_bare_en: values.name_bare_en || null,
       director: values.director || null,
       director_tk: values.director_tk || null,
       tax_code: values.tax_code || null,
@@ -185,9 +224,9 @@ export default function ExportFirmDetailPage() {
       is_gapy_satys: values.is_gapy_satys,
     };
     if (isNew) {
-      createMutation.mutate({ ...payload, signatureFile, sealFile });
+      createMutation.mutate({ ...payload, signatureFile, sealFile, stampFile });
     } else if (firm) {
-      updateMutation.mutate({ id: firm.id, ...payload, signatureFile, sealFile });
+      updateMutation.mutate({ id: firm.id, ...payload, signatureFile, sealFile, stampFile });
     }
   }
 
@@ -207,6 +246,7 @@ export default function ExportFirmDetailPage() {
     setDrawerOpen(false);
     setSignatureFile(null);
     setSealFile(null);
+    setStampFile(null);
     if (isNew) navigate('/admin/firms');
   }
 
@@ -284,6 +324,25 @@ export default function ExportFirmDetailPage() {
             <Descriptions.Item label={t('firms_admin.name_ru')}>
               <InlineEdit value={firm.name_ru} editable={canEdit} onSave={(v) => saveField({ name_ru: v || null })} />
             </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.legal_type')} span={2}>
+              <CompanyLegalTypeSelect
+                value={firm.legal_type}
+                countryCode="TM"
+                disabled={!canEdit}
+                style={{ minWidth: 320 }}
+                size="small"
+                onChange={(v) => saveField({ legal_type: v })}
+              />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_bare_tk')}>
+              <InlineEdit value={firm.name_bare_tk} editable={canEdit} onSave={(v) => saveField({ name_bare_tk: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_bare_ru')}>
+              <InlineEdit value={firm.name_bare_ru} editable={canEdit} onSave={(v) => saveField({ name_bare_ru: v || null })} />
+            </Descriptions.Item>
+            <Descriptions.Item label={t('firms_admin.name_bare_en')} span={2}>
+              <InlineEdit value={firm.name_bare_en} editable={canEdit} onSave={(v) => saveField({ name_bare_en: v || null })} />
+            </Descriptions.Item>
             <Descriptions.Item label={t('firms_admin.director')}>
               <InlineEdit value={firm.director} editable={canEdit} onSave={(v) => saveField({ director: v || null })} />
             </Descriptions.Item>
@@ -332,7 +391,16 @@ export default function ExportFirmDetailPage() {
               title={t('firms_admin.signature_and_seal')}
               style={{ borderRadius: 8, marginTop: 24 }}
             >
-              <Space size={32} wrap>
+              <Space size={24} wrap align="start">
+                <FileUploadCard
+                  label={t('firms_admin.director_stamp')}
+                  currentUrl={firm.director_stamp}
+                  onUpload={(file) => uploadFileMutation.mutate({ id: firm.id, field: 'director_stamp', file })}
+                  isUploading={uploadFileMutation.isPending}
+                  uploadLabel={t('firms_admin.upload_file')}
+                  replaceLabel={t('firms_admin.replace_file')}
+                  tooltip={t('firms_admin.director_stamp_hint')}
+                />
                 <FileUploadCard
                   label={t('firms_admin.director_signature')}
                   currentUrl={firm.director_signature}
@@ -340,6 +408,7 @@ export default function ExportFirmDetailPage() {
                   isUploading={uploadFileMutation.isPending}
                   uploadLabel={t('firms_admin.upload_file')}
                   replaceLabel={t('firms_admin.replace_file')}
+                  hint={hasCombinedStamp ? t('firms_admin.not_needed_with_stamp') : undefined}
                 />
                 <FileUploadCard
                   label={t('firms_admin.director_seal')}
@@ -348,15 +417,24 @@ export default function ExportFirmDetailPage() {
                   isUploading={uploadFileMutation.isPending}
                   uploadLabel={t('firms_admin.upload_file')}
                   replaceLabel={t('firms_admin.replace_file')}
+                  hint={hasCombinedStamp ? t('firms_admin.not_needed_with_stamp') : undefined}
                 />
               </Space>
             </Card>
           )}
 
           {/* Read-only view for users without edit */}
-          {!canEdit && (firm.director_signature || firm.director_seal) && (
+          {!canEdit && (firm.director_stamp || firm.director_signature || firm.director_seal) && (
             <Card size="small" title={t('firms_admin.signature_and_seal')} style={{ borderRadius: 8, marginTop: 24 }}>
-              <Space size={32} wrap>
+              <Space size={24} wrap align="start">
+                {firm.director_stamp && (
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                      {t('firms_admin.director_stamp')}
+                    </Text>
+                    <img src={firm.director_stamp} alt="Seal and signature" style={{ maxHeight: 120, maxWidth: 280, objectFit: 'contain', border: '1px solid #f0f0f0', borderRadius: 4, padding: 6 }} />
+                  </div>
+                )}
                 {firm.director_signature && (
                   <div>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
@@ -417,6 +495,9 @@ export default function ExportFirmDetailPage() {
           <Form.Item name="name_ru" label={t('firms_admin.name_ru')}>
             <Input />
           </Form.Item>
+          <Form.Item name="legal_type" label={t('firms_admin.legal_type')}>
+            <CompanyLegalTypeSelect countryCode="TM" style={{ width: '100%' }} />
+          </Form.Item>
           <Form.Item name="director" label={t('firms_admin.director')}>
             <Input />
           </Form.Item>
@@ -451,7 +532,20 @@ export default function ExportFirmDetailPage() {
             <Input.TextArea rows={3} />
           </Form.Item>
 
-          {/* Optional file uploads in drawer */}
+          {/* Optional file uploads in drawer — the combined photo replaces the pair below */}
+          <Form.Item label={t('firms_admin.director_stamp')} extra={t('firms_admin.director_stamp_hint')}>
+            <Upload
+              accept="image/*"
+              maxCount={1}
+              beforeUpload={(file) => { setStampFile(file); return false; }}
+              onRemove={() => setStampFile(null)}
+              fileList={stampFile ? [{ uid: '-1', name: stampFile.name, status: 'done' as const }] : []}
+            >
+              <Button icon={<UploadOutlined />} size="small">
+                {t('firms_admin.upload_file')}
+              </Button>
+            </Upload>
+          </Form.Item>
           <Form.Item label={t('firms_admin.director_signature')}>
             <Upload
               accept="image/*"

@@ -1326,6 +1326,9 @@
     "signature_and_seal": "Gol we möhür",
     "director_signature": "Direktoryň goly",
     "director_seal": "Kompaniýanyň möhri",
+    "director_stamp": "Möhür we gol",
+    "director_stamp_hint": "Möhür bilen goluň bilelikde görünýän bir suraty. Şuny ýükleseňiz, aşakdaky ikisi gerek däl.",
+    "not_needed_with_stamp": "Ýokarky surat ýeterlik",
     "upload_file": "Surat ýükle",
     "replace_file": "Suraty çalyş",
     "toast_file_uploaded": "Faýl ýüklendi",
@@ -1337,7 +1340,11 @@
     "toast_deleted": "Firma pozuldy",
     "toast_error": "Amal başa barmady",
     "subtitle": "Eksport firmalaryny dolandyrmak",
-    "director_tk": "Direktor (türkmençe)"
+    "director_tk": "Direktor (türkmençe)",
+    "legal_type": "Hukuk görnüşi",
+    "name_bare_tk": "Görnüşsiz ady (TK)",
+    "name_bare_ru": "Görnüşsiz ady (RU)",
+    "name_bare_en": "Görnüşsiz ady (EN)"
   },
   "import_firms_admin": {
     "title": "Import firmalary",
@@ -1361,6 +1368,9 @@
     "signature_and_seal": "Gol we möhür",
     "director_signature": "Direktoryň goly",
     "director_seal": "Kompaniýanyň möhüri",
+    "director_stamp": "Möhür we gol",
+    "director_stamp_hint": "Möhür bilen goluň bilelikde görünýän bir suraty. Şuny ýükleseňiz, aşakdaky ikisi gerek däl.",
+    "not_needed_with_stamp": "Ýokarky surat ýeterlik",
     "upload_file": "Surat ýükle",
     "replace_file": "Suraty çalyş",
     "toast_file_uploaded": "Faýl ýüklendi",
@@ -1377,7 +1387,9 @@
     "move_to_our": "Biziň firmalarymyza geçir",
     "confirm_move": "Bu firmanyň görnüşini üýtgetmelimi?",
     "filter_country": "Ähli ýurtlar",
-    "contact_person_tk": "Direktoryň doly ady (türkmençe)"
+    "contact_person_tk": "Direktoryň doly ady (türkmençe)",
+    "legal_type": "Hukuk görnüşi",
+    "name_bare": "Görnüşsiz ady"
   },
   "users_admin": {
     "title": "Ulanyjylar",
@@ -1452,7 +1464,9 @@
     "load_error": "Maglumatlary ýükläp bolmady",
     "select_season": "Möwsüm saýla",
     "select": "Saýla...",
-    "request_in_progress": "Bu haýyş eýýäm işlenip barýar — birsalym garaşyň"
+    "request_in_progress": "Bu haýyş eýýäm işlenip barýar — birsalym garaşyň",
+    "select_legal_type": "Hukuk görnüşini saýlaň",
+    "back": "Yzyna"
   },
   "permissions_admin": {
     "subtitle": "Rol rugsatlaryny dolandyrmak",
@@ -3136,8 +3150,7 @@
         "end_date": "Gutarýan senesi (hökman däl)",
         "customer": "Müşderi (hökman däl)",
         "contract_type": "Şertnama görnüşi",
-        "passport_sdelka": "Geleşik pasporty (hökman däl)",
-        "passport_sdelka_hint": "Bank geleşik pasporty — diňe çarçuwaly şertnamalarda; bir gezeklikde boş."
+        "passport_sdelka": "Geleşik pasporty (hökman däl)"
       },
       "toast": {
         "created": "Şertnama döredildi",
@@ -3609,5 +3622,44 @@
     "rollup": "Rollup",
     "rollup_never": "Bu günler üçin gijeki hasaplama işlemedi",
     "achieved_hint": "Ýerine ýetirilen = daşarky + içerki bazar"
+  },
+  "company_legal_types": {
+    "col_code": "Kody",
+    "col_abbr": "Gysgaltma (TK / RU)",
+    "col_full": "Doly görnüşi",
+    "col_genitive": "Eýelik düşümi",
+    "col_countries": "Ýurtlar",
+    "col_sort": "Tertibi",
+    "genitive_set": "Doldurylan",
+    "genitive_missing": "Doldurylmadyk",
+    "all_countries": "Ähli ýurtlar",
+    "code_hint": "Resminama döretmek üçin hemişelik açar. Soňra üýtgedip bolmaz.",
+    "abbr_tk": "Gysgaltma (TK)",
+    "abbr_ru": "Gysgaltma (RU)",
+    "abbr_en": "Gysgaltma (EN)",
+    "full_tk": "Doly görnüşi (TK)",
+    "full_ru": "Doly görnüşi (RU)",
+    "full_en": "Doly görnüşi (EN)",
+    "gen_tk": "Eýelik düşümi (TK)",
+    "gen_ru": "Eýelik düşümi (RU)",
+    "gen_hint": "Şertnamanyň girişinde ulanylýar, ol ýerde düşüm görnüşi gerek.",
+    "position_tk": "Ýerleşişi (TK)",
+    "position_ru": "Ýerleşişi (RU)",
+    "position_en": "Ýerleşişi (EN)",
+    "position_hint": "Görnüş kompaniýanyň adyndan öň ýa-da soň ýazylýarmy.",
+    "countries_hint": "Ähli ýurtlar üçin elýeterli bolmagy üçin boş goýuň.",
+    "confirm_delete": "Bu hukuk görnüşini pozmalymy?",
+    "confirm_delete_hint": "Firma tarapyndan ulanylýan görnüşi pozup bolmaz. Ony öçüriň.",
+    "error_in_use": "Bu hukuk görnüşi firma tarapyndan ulanylýar, pozup bolmaz.",
+    "title": "Hukuk görnüşleri",
+    "subtitle": "Eksport we import firmalarynyň resminamalarda ulanýan kompaniýa görnüşleri.",
+    "open": "Hukuk görnüşleri",
+    "add": "Goş",
+    "edit": "Üýtget",
+    "col_status": "Ýagdaýy",
+    "toast_created": "Hukuk görnüşi döredildi",
+    "toast_updated": "Hukuk görnüşi täzelendi",
+    "toast_deleted": "Hukuk görnüşi pozuldy",
+    "toast_error": "Ýalňyşlyk ýüze çykdy"
   }
 }

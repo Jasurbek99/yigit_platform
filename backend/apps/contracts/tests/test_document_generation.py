@@ -7,6 +7,7 @@ Three layers:
 
 Reuses the fixture helpers from test_contract_sale_api.
 """
+import base64
 import re
 import zipfile
 from datetime import date
@@ -805,9 +806,91 @@ class ContractContextBuilderTest(SimpleTestCase):
             self.assertIsInstance(out['seller_seal'], ctx.StampImage, mode)
             self.assertIsInstance(out['buyer_seal'], ctx.StampImage, mode)
 
+    # --- Combined seal+signature photo (director_stamp) -------------------
+
+    def test_combined_photo_alone_fills_the_block(self):
+        """A firm that only uploaded the one-photo variant still stamps.
+
+        Before ``director_stamp`` such a firm produced an unstamped contract,
+        because the block reads the seal and signature fields separately.
+        """
+        c = _mock_contract()
+        c.export_firm.director_stamp = SimpleNamespace(name='both.jpg')
+        out = ctx.build_contract_context(c, 'ru', {'stamps': 'export'})
+        self.assertIsInstance(out['seller_seal'], ctx.StampImage)
+        # Signature slot stays blank — the one photo already shows the signature.
+        self.assertEqual(out['seller_signature'], '')
+
+    def test_combined_photo_renders_at_the_width_of_both_stamps(self):
+        c = _mock_contract()
+        c.export_firm.director_stamp = SimpleNamespace(name='both.jpg')
+        out = ctx.build_contract_context(c, 'ru', {'stamps': 'export'})
+        self.assertEqual(out['seller_seal'].width_mm, ctx.COMBINED_STAMP_WIDTH_MM)
+        self.assertGreater(ctx.COMBINED_STAMP_WIDTH_MM, ctx.StampImage(None).width_mm)
+
+    def test_combined_photo_wins_over_a_separate_seal_and_signature(self):
+        """Both variants on file → the combined photo, never both at once."""
+        c = self._both_firms_stamped()
+        c.export_firm.director_stamp = SimpleNamespace(name='both.jpg')
+        out = ctx.build_contract_context(c, 'ru', {'stamps': 'both'})
+        self.assertEqual(out['seller_seal'].file.name, 'both.jpg')
+        self.assertEqual(out['seller_signature'], '')
+        # The buyer has no combined photo → still the two separate images.
+        self.assertEqual(out['buyer_seal'].file.name, 'seal.png')
+        self.assertEqual(out['buyer_signature'].file.name, 'sign.png')
+
+    def test_combined_photo_still_obeys_the_stamps_gate(self):
+        c = _mock_contract()
+        c.export_firm.director_stamp = SimpleNamespace(name='both.jpg')
+        for mode in ('', 'none', 'import'):
+            out = ctx.build_contract_context(c, 'ru', {'stamps': mode})
+            self.assertEqual(out['seller_seal'], '', mode)
+            self.assertEqual(out['seller_signature'], '', mode)
+
 
 class ContractRenderSmokeTest(TestCase):
     """Fill the shipped contract template and assert clean, value-bearing output."""
+
+    @staticmethod
+    def _png_field(name: str):
+        """A stand-in FieldFile serving a real 1x1 PNG — enough for InlineImage."""
+        png = base64.b64decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+        )
+
+        class _Field:
+            def __init__(self):
+                self.name = name
+
+            def open(self, mode='rb'):
+                self._buf = BytesIO(png)
+                return self._buf
+
+            def read(self):
+                return self._buf.getvalue()
+
+            def close(self):
+                self._buf.close()
+
+        return _Field()
+
+    def test_combined_stamp_renders_one_image_at_the_wider_size(self):
+        """The one-photo variant reaches the docx, sized for both stamps.
+
+        Guards the whole chain — model field → context → InlineImage — and the
+        width, which is the only thing separating a readable combined photo
+        from a thumbnail half the block's width.
+        """
+        c = _mock_contract()
+        c.export_firm.director_stamp = self._png_field('both.png')
+        data, _fn, _ct = render.generate(
+            'contract_kz', c, 'docx',
+            {'buyer_director': 'Tuktibaýew Bekjan', 'delivery_deadline': '2026-06-30',
+             'stamps': 'export'},
+        )
+        shapes = Document(BytesIO(data)).inline_shapes
+        self.assertEqual(len(shapes), 1, 'the combined photo must not print twice')
+        self.assertAlmostEqual(shapes[0].width.mm, ctx.COMBINED_STAMP_WIDTH_MM, places=0)
 
     def _text(self, data: bytes) -> str:
         doc = Document(BytesIO(data))
