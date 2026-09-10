@@ -87,9 +87,10 @@ def can_edit_fleet(user) -> bool:
     """True when this user may WRITE the fleet catalog.
 
     The same matrix lookup `CanEditFleet` makes, exposed as a plain function so
-    the driver serializer can ask it too. Passport identity is readable only by
-    the people who maintain the catalog, and `CanEditFleet` cannot express that
-    on its own — it lets every authenticated user through on GET by design.
+    the driver serializer and the document gate can ask it too. Passport
+    identity and document scans are readable only by the people who maintain the
+    catalog, and `CanEditFleet` cannot express that on its own — it lets every
+    authenticated user through on GET by design.
     """
     if not (user and user.is_authenticated):
         return False

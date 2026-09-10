@@ -38,7 +38,7 @@ def detect_mime(uploaded_file) -> str:
 
 
 def validate_fleet_document(uploaded_file) -> None:
-    """Validate one uploaded passport scan for size, extension and magic bytes.
+    """Validate one uploaded scan for size, extension and magic bytes.
 
     Args:
         uploaded_file: A Django InMemoryUploadedFile or TemporaryUploadedFile.

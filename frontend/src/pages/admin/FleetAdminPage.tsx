@@ -22,9 +22,18 @@ import {
   useUpdateTrailer,
   useAdminCreateTruckHead,
   useAdminCreateTrailer,
+  useTruckHeadDocuments,
+  useUploadTruckHeadDocuments,
+  useDeleteTruckHeadDocument,
+  truckHeadDocumentUrl,
 } from '@/hooks/useFleetAdmin';
 import type { IAdminTruckHead } from '@/hooks/useFleetAdmin';
 import type { ITrailer } from '@/hooks/useFleet';
+import {
+  FleetDocumentsPanel,
+  PendingDocumentsPicker,
+} from '@/components/fleet/FleetDocumentsPanel';
+import type { IFleetDocumentLabels } from '@/components/fleet/FleetDocumentsPanel';
 import FleetDriversTab from './FleetDriversTab';
 
 const { Title, Text } = Typography;
@@ -44,6 +53,54 @@ interface ITrailerFormValues {
   is_active?: boolean;
 }
 
+/**
+ * Tech passport (тех паспорт) scans for one saved tractor. Rendered inside the
+ * edit modal only — a file has to hang off an existing truck row, so there is
+ * no id to upload against while the modal is still creating one.
+ */
+function TruckDocumentsPanel({
+  truckHeadId,
+  labels,
+}: {
+  truckHeadId: number;
+  labels: IFleetDocumentLabels;
+}) {
+  const { t } = useTranslation();
+  const { data: documents = [], isLoading } = useTruckHeadDocuments(truckHeadId);
+  const upload = useUploadTruckHeadDocuments();
+  const remove = useDeleteTruckHeadDocument(truckHeadId);
+
+  async function handleUpload(files: File[]) {
+    try {
+      await upload.mutateAsync({ truckHeadId, files });
+      toast.success(t('fleet_admin.toast_document_uploaded'));
+    } catch {
+      toast.error(t('fleet_admin.toast_document_rejected'));
+    }
+  }
+
+  async function handleRemove(documentId: number) {
+    try {
+      await remove.mutateAsync(documentId);
+      toast.success(t('fleet_admin.toast_document_deleted'));
+    } catch {
+      toast.error(t('fleet_admin.toast_error'));
+    }
+  }
+
+  return (
+    <FleetDocumentsPanel
+      labels={labels}
+      documents={documents}
+      isLoading={isLoading}
+      isUploading={upload.isPending}
+      documentUrl={(documentId) => truckHeadDocumentUrl(truckHeadId, documentId)}
+      onUpload={handleUpload}
+      onRemove={handleRemove}
+    />
+  );
+}
+
 export default function FleetAdminPage() {
   const { t } = useTranslation();
 
@@ -55,11 +112,22 @@ export default function FleetAdminPage() {
   const [truckModalOpen, setTruckModalOpen] = useState(false);
   const [editTruck, setEditTruck] = useState<IAdminTruckHead | null>(null);
   const [truckForm] = Form.useForm<ITruckFormValues>();
+  // Scans chosen in the ADD dialog, held here until the truck row exists.
+  // `TruckDocumentsPanel` uploads immediately because it always has an id.
+  const [pendingTruckFiles, setPendingTruckFiles] = useState<File[]>([]);
+  const uploadTruckDocuments = useUploadTruckHeadDocuments();
+  const truckDocumentLabels: IFleetDocumentLabels = {
+    title: t('fleet_admin.tech_passport'),
+    emptyText: t('fleet_admin.tech_passport_empty'),
+    uploadLabel: t('fleet_admin.upload_tech_passport'),
+    hint: t('fleet_admin.passport_upload_hint'),
+  };
 
   function openCreateTruck() {
     setEditTruck(null);
     truckForm.resetFields();
     truckForm.setFieldsValue({ is_active: true });
+    setPendingTruckFiles([]);
     setTruckModalOpen(true);
   }
 
@@ -79,6 +147,7 @@ export default function FleetAdminPage() {
   function closeTruckModal() {
     setTruckModalOpen(false);
     setEditTruck(null);
+    setPendingTruckFiles([]);
     truckForm.resetFields();
   }
 
@@ -96,7 +165,7 @@ export default function FleetAdminPage() {
         });
         toast.success(t('fleet_admin.toast_updated'));
       } else {
-        await createTruck.mutateAsync({
+        const created = await createTruck.mutateAsync({
           plate_number: values.plate_number.toUpperCase(),
           owner_type: values.owner_type ?? '',
           owner_name: values.owner_name ?? '',
@@ -105,6 +174,20 @@ export default function FleetAdminPage() {
           is_active: values.is_active ?? true,
         });
         toast.success(t('fleet_admin.toast_created'));
+        // The truck row is saved either way, so a rejected scan must not read
+        // as "the truck was not created". It is reported on its own line and
+        // the operator re-attaches it from the edit dialog.
+        if (pendingTruckFiles.length > 0) {
+          try {
+            await uploadTruckDocuments.mutateAsync({
+              truckHeadId: created.id,
+              files: pendingTruckFiles,
+            });
+            toast.success(t('fleet_admin.toast_document_uploaded'));
+          } catch {
+            toast.error(t('fleet_admin.toast_document_rejected'));
+          }
+        }
       }
       closeTruckModal();
     } catch {
@@ -142,6 +225,13 @@ export default function FleetAdminPage() {
       dataIndex: 'truck_model',
       key: 'truck_model',
       render: (v?: string | null) => v || <Text type="secondary">—</Text>,
+    },
+    {
+      title: t('fleet_admin.tech_passport'),
+      dataIndex: 'document_count',
+      key: 'document_count',
+      render: (count?: number) =>
+        count ? <Tag color="blue">{count}</Tag> : <Text type="secondary">—</Text>,
     },
     {
       title: t('fleet_admin.capacity'),
@@ -234,6 +324,18 @@ export default function FleetAdminPage() {
             <Switch />
           </Form.Item>
         </Form>
+        {editTruck ? (
+          <TruckDocumentsPanel truckHeadId={editTruck.id} labels={truckDocumentLabels} />
+        ) : (
+          <PendingDocumentsPicker
+            labels={{
+              ...truckDocumentLabels,
+              hint: t('fleet_admin.tech_passport_upload_pending_hint'),
+            }}
+            files={pendingTruckFiles}
+            onChange={setPendingTruckFiles}
+          />
+        )}
       </Modal>
     </div>
   );

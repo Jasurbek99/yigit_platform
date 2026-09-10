@@ -1,21 +1,12 @@
 import { Button, Divider, List, Popconfirm, Space, Typography, Upload } from 'antd';
 import { DeleteOutlined, FileOutlined, UploadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import type { IFleetDocument } from '@/types/fleet';
 
 const { Text } = Typography;
 
 /** The two scan formats the backend validator accepts (`services/files.py`). */
 const ACCEPT = '.jpg,.jpeg,.pdf';
-
-export interface IFleetDocument {
-  id: number;
-  original_filename: string;
-  mime_type: string;
-  size_bytes: number;
-  uploaded_by: number;
-  uploaded_by_name: string;
-  uploaded_at: string;
-}
 
 /** The four strings that differ between a driver passport and a truck tech passport. */
 export interface IFleetDocumentLabels {

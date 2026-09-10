@@ -21,16 +21,17 @@ Two matrix entries, the standard page/resource split — both on `/admin/permiss
 |---|---|---|
 | Sees the screen | **page** `transport.fleet` (Pages tab, *Transport* group) | nav item (`canSeePage`) + route (`<ProtectedRoute pageCode="transport.fleet">`) |
 | May write | **resource** `fleet` (Resources tab) | `CanEditFleet` = `resource_write_permission('fleet')` on `TruckHeadViewSet` / `TrailerViewSet` / `DriverViewSet` — `can_create` for POST, `can_edit` for PATCH |
-| May read driver passports | the same **resource** `fleet` | `CanAccessDriverDocuments` on the three `DriverViewSet` document actions — the one gate here that closes GET too (see [[#Driver passport documents]]) |
+| May read document scans | the same **resource** `fleet` | `CanAccessFleetDocuments` on the three `DriverViewSet` **and** three `TruckHeadViewSet` document actions — the one gate here that closes GET too (see [[#Driver passport documents]] and [[#Truck tech passport documents]]) |
 
 Page code is `transport.fleet`, not `admin.fleet` — AD-15 reserves the `admin.` prefix for
 admin-only pages, and `director` / `export_manager` have every `admin.*` code subtracted from
 their defaults, while warehouse and loading heads hold this one. The resource carries **no
 delete**: none of the three ViewSets expose `destroy` (rows are deactivated), so `can_delete`
 is seeded `False` for every role. Reads are ungated on purpose — the truck / trailer / driver
-pickers on the Sheet and the shipment drawer list the same catalog. The **one exception** is a
-driver's passport (serial, issue date, scans), which only fleet editors may read; that is what
-`CanAccessDriverDocuments` and the split driver serializer are for.
+pickers on the Sheet and the shipment drawer list the same catalog. The **one exception** is
+document scans — a driver's passport (serial, issue date, scans) and a tractor's tech passport —
+which only fleet editors may read; that is what `CanAccessFleetDocuments` and the split driver
+serializer are for.
 
 Registering the code also puts it inside `/admin/staff-access`'s reach: `ManagedPagePermissionsView._grantable_pages`
 delegates every non-`admin.` code a manager's own role can see, so a department head who holds
@@ -69,7 +70,7 @@ which production never runs.
 An Ant Design `Tabs` with three tabs:
 
 - **Trucks** — `useAdminTruckHeads()`. Columns: plate_number, owner_type, owner_name,
-  **truck_model**, capacity, GPS (green/grey tag from `has_gps`), status (active/inactive
+  **truck_model**, **tech passport scan count**, capacity, GPS (green/grey tag from `has_gps`), status (active/inactive
   tag), row actions. `truck_model` is the vehicle's make and model as free text
   (e.g. `MAN TGX`) — the `Z_TIRWEB` import carries no such column, so every seeded row
   starts blank. **Required on every save since 2026-09-10** — see
@@ -181,7 +182,7 @@ keep that from happening:
   `passport_serial`, `passport_issue_date` and `document_count` — only when `can_edit_fleet()`
   passes. Everyone else gets the plain `DriverSerializer`, whose response has no passport keys at
   all.
-- The three document actions are gated by `CanAccessDriverDocuments`, which unlike `CanEditFleet`
+- The three document actions are gated by `CanAccessFleetDocuments`, which unlike `CanEditFleet`
   refuses GET as well. Same `fleet` resource, applied to every method.
 
 Scans are never reachable at a `/media/` path. `frontend/nginx.conf` aliases that directory with
@@ -212,6 +213,37 @@ driver was not created"; the operator re-attaches it from the edit dialog.
 argument, precisely because the Add dialog only learns the id from the create response — a hook
 bound at render time would still be holding `null` when the upload fires.
 
+## Truck tech passport documents
+
+Added 2026-09-10, and deliberately the same shape as [[#Driver passport documents]] — a tractor
+carries one to five scans of its tech passport (тех паспорт), each a JPG or a PDF, attached from
+the Trucks tab's add or edit dialog. There is no scalar field beside them: unlike a driver, a
+truck has no serial or issue date to type in.
+
+Everything that guards a driver passport guards these too, through the same code:
+
+- `CanAccessFleetDocuments` gates all three actions and refuses GET as well as the write verbs.
+- The scan is streamed by an authenticated download action, never a `/media/` URL.
+- `validate_fleet_document` accepts `.jpg`/`.jpeg`/`.pdf` only, confirmed by magic bytes, 10 MB
+  per file, `MAX_FILES_PER_RECORD` (5) per truck. One bad file rejects the whole batch before any
+  row is written.
+
+**The one difference is the serializer.** A driver needs `DriverAdminSerializer` because
+`passport_serial` must not reach the pickers; a truck has nothing of that kind, so
+`document_count` sits on the plain `TruckHeadSerializer` that every authenticated caller already
+reads. A count is not sensitive — the scans behind it are, and they stay gated.
+
+The renames that came with this: `validate_driver_document` → `validate_fleet_document`,
+`MAX_FILES_PER_DRIVER` → `MAX_FILES_PER_RECORD`, `CanAccessDriverDocuments` →
+`CanAccessFleetDocuments`. Nothing behavioural; the old names would simply have lied once trucks
+shared them.
+
+The two dialog panels are shared as well —
+`frontend/src/components/fleet/FleetDocumentsPanel.tsx` exports `FleetDocumentsPanel` (a saved
+record, uploads immediately) and `PendingDocumentsPicker` (an add dialog, files held until the
+row exists). Both are presentational and take a four-string `labels` object, so the Drivers and
+Trucks tabs each own their own hooks and wording.
+
 ## Files
 
 | File | Role |
@@ -221,8 +253,10 @@ bound at render time would still be holding `null` when the upload fires.
 | `frontend/src/hooks/useFleetAdmin.ts` | `useAdminTruckHeads`/`useAdminTrailers`/`useAdminDrivers` (incl. inactive), the three `useAdminCreate*`, the three `useUpdate*`, the `useDriverDocuments`/`useUploadDriverDocuments`/`useDeleteDriverDocument` trio with `driverDocumentUrl()`, and the `IDriver` type |
 | `frontend/src/hooks/useFleet.ts` | Shared `ITruckHead`/`ITrailer` types (extended locally for admin-only fields) |
 | `backend/apps/transport/views.py` | `TruckHeadViewSet` / `TrailerViewSet` / `DriverViewSet` (list/create/update) |
-| `backend/apps/transport/permissions.py` | `CanEditFleet` — write gate, `resource_write_permission('fleet')`; `CanAccessDriverDocuments` + `can_edit_fleet()` — passport read/write gate |
-| `backend/apps/transport/services/files.py` | Passport scan validation — JPG/PDF, magic bytes, 10 MB, 5 per driver |
+| `backend/apps/transport/permissions.py` | `CanEditFleet` — write gate, `resource_write_permission('fleet')`; `CanAccessFleetDocuments` + `can_edit_fleet()` — document-scan read/write gate |
+| `frontend/src/components/fleet/FleetDocumentsPanel.tsx` | The two dialog panels, shared by the Drivers and Trucks tabs |
+| `backend/apps/transport/migrations/0007_truckheaddocument.py` | `TruckHeadDocument` |
+| `backend/apps/transport/services/files.py` | Scan validation for both resources — JPG/PDF, magic bytes, 10 MB, 5 per record |
 | `backend/apps/transport/migrations/0006_driver_passport_issue_date_driver_passport_serial_and_more.py` | `passport_serial`, `passport_issue_date`, `truck_model`, `DriverDocument` |
 | `frontend/src/App.tsx`, `AppLayout.tsx` | Route + nav item (`nav.admin_fleet`), both gated on `transport.fleet` |
 | `backend/apps/core/permission_registry.py`, `seed_permissions.py`, `core/migrations/0039_fleet_page_perms.py`, `0040_fleet_resource.py` | Page code + resource code, seeded defaults, live-DB backfill |

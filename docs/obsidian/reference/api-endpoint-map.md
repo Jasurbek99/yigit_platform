@@ -307,11 +307,14 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
 | GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | `useTruckHeads` (`useFleet`, read-only); `useAdminTruckHeads`/`useAdminCreateTruckHead`/`useUpdateTruckHead` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
+| GET/POST | `/api/v1/transport/truck-heads/{id}/documents/` | TruckHeadViewSet `documents` action — **`CanAccessFleetDocuments`** | `useTruckHeadDocuments`/`useUploadTruckHeadDocuments` (`useFleetAdmin`; the upload takes `{truckHeadId, files}` in its mutate variables) | FleetAdminPage Trucks tab, **add and** edit modal |
+| DELETE | `/api/v1/transport/truck-heads/{id}/documents/{doc_id}/` | TruckHeadViewSet `delete_document` — **`CanAccessFleetDocuments`** | `useDeleteTruckHeadDocument` (`useFleetAdmin`) | FleetAdminPage Trucks tab, edit modal |
+| GET | `/api/v1/transport/truck-heads/{id}/documents/{doc_id}/download/` | TruckHeadViewSet `download_document` — **`CanAccessFleetDocuments`** | `truckHeadDocumentUrl()` (plain link, httpOnly cookie) | FleetAdminPage Trucks tab, edit modal |
 | GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | `useTrailers`/`useCreateTrailer` (`useFleet`); `useAdminTrailers`/`useAdminCreateTrailer`/`useUpdateTrailer` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
 | GET/POST/PATCH | `/api/v1/transport/drivers/` `/drivers/{id}/` | DriverViewSet | `useDrivers` (`useFleet`, active-only picker feed, read-only); `useAdminDrivers`/`useAdminCreateDriver`/`useUpdateDriver` (`useFleetAdmin`, incl. inactive) | `SheetDriverSelectEditor` (Sheet R27), FleetAdminPage Drivers tab (`/admin/fleet`) |
-| GET/POST | `/api/v1/transport/drivers/{id}/documents/` | DriverViewSet `documents` action — **`CanAccessDriverDocuments`** | `useDriverDocuments`/`useUploadDriverDocuments` (`useFleetAdmin`; the upload takes `{driverId, files}` in its mutate variables) | FleetAdminPage Drivers tab, **add and** edit modal |
-| DELETE | `/api/v1/transport/drivers/{id}/documents/{doc_id}/` | DriverViewSet `delete_document` — **`CanAccessDriverDocuments`** | `useDeleteDriverDocument` (`useFleetAdmin`) | FleetAdminPage Drivers tab, edit modal |
-| GET | `/api/v1/transport/drivers/{id}/documents/{doc_id}/download/` | DriverViewSet `download_document` — **`CanAccessDriverDocuments`** | `driverDocumentUrl()` (plain link, httpOnly cookie) | FleetAdminPage Drivers tab, edit modal |
+| GET/POST | `/api/v1/transport/drivers/{id}/documents/` | DriverViewSet `documents` action — **`CanAccessFleetDocuments`** | `useDriverDocuments`/`useUploadDriverDocuments` (`useFleetAdmin`; the upload takes `{driverId, files}` in its mutate variables) | FleetAdminPage Drivers tab, **add and** edit modal |
+| DELETE | `/api/v1/transport/drivers/{id}/documents/{doc_id}/` | DriverViewSet `delete_document` — **`CanAccessFleetDocuments`** | `useDeleteDriverDocument` (`useFleetAdmin`) | FleetAdminPage Drivers tab, edit modal |
+| GET | `/api/v1/transport/drivers/{id}/documents/{doc_id}/download/` | DriverViewSet `download_document` — **`CanAccessFleetDocuments`** | `driverDocumentUrl()` (plain link, httpOnly cookie) | FleetAdminPage Drivers tab, edit modal |
 
 > **Required fields on the fleet writes (2026-09-10).** `POST`/`PATCH` on `/transport/truck-heads/`
 > rejects a blank `truck_model`, and on `/transport/drivers/` a blank `passport_serial` or
@@ -326,19 +329,25 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 > `Model.objects.update_or_create()`, which never touches a serializer. See
 > [[../screens/fleet-admin#Required fields (2026-09-10)]].
 
-**Passport documents are the module's one gated read** (2026-09-09). `CanAccessDriverDocuments`
+**Document scans are the module's one gated read** (drivers 2026-09-09, truck heads 2026-09-10). `CanAccessFleetDocuments`
 closes GET as well as the write verbs, unlike `CanEditFleet` — it delegates to `can_edit_fleet()`,
 the same `fleet` resource lookup, applied to every method. It has to: the driver pickers read the
-very same `/transport/drivers/` route as the Fleet Admin screen, so an open read would hand
-passport scans to every authenticated user. For the same reason `DriverViewSet.get_serializer_class()`
+very same `/transport/drivers/` and `/transport/truck-heads/` routes as the Fleet Admin
+screen, so an open read would hand passport and tech passport scans to every authenticated
+user. For the same reason `DriverViewSet.get_serializer_class()`
 returns `DriverAdminSerializer` (with `passport_serial`, `passport_issue_date`, `document_count`)
 only to fleet editors and the plain `DriverSerializer` to everyone else — a picker response simply
 has no passport keys in it.
 
 No `/media/` URL is ever exposed for a scan. The download action streams the file itself, because
 nginx aliases `/media/` with no auth on this deployment (`frontend/nginx.conf`). Uploads accept
-`.jpg`/`.jpeg`/`.pdf` only, verified by magic bytes, 10 MB per file and 5 files per driver
-(`apps/transport/services/files.py`). A single POST may carry several files under the `files` form
+`.jpg`/`.jpeg`/`.pdf` only, verified by magic bytes, 10 MB per file and 5 files per record
+(`apps/transport/services/files.py`, shared by both resources).
+
+**The truck-head side needs no split serializer.** A tractor has no passport-like scalar to
+hide, so `document_count` simply rides on the shared `TruckHeadSerializer` — a count is not
+sensitive, and the scans themselves are still behind `CanAccessFleetDocuments`. That is the
+one asymmetry with drivers, where `passport_serial` forces `DriverAdminSerializer`. A single POST may carry several files under the `files` form
 key; one bad file rejects the whole batch before any row is written.
 
 `live-positions/` is the one gated **read** in this module: `IsAuthenticated` +

@@ -1018,7 +1018,11 @@
     "delete_document_confirm": "Удалить этот файл?",
     "toast_document_uploaded": "Файл паспорта загружен",
     "toast_document_rejected": "Файл отклонён — только JPG или PDF до 10 МБ",
-    "toast_document_deleted": "Файл удалён"
+    "toast_document_deleted": "Файл удалён",
+    "tech_passport": "Техпаспорт",
+    "tech_passport_empty": "Нет файлов техпаспорта",
+    "upload_tech_passport": "Загрузить техпаспорт",
+    "tech_passport_upload_pending_hint": "JPG или PDF, до 10 МБ, максимум 5 файлов. Загрузятся при сохранении машины."
   },
   "shipment_settings": {
     "placeholder_status_role": "напр. document_team",

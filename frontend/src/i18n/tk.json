@@ -1016,7 +1016,11 @@
     "delete_document_confirm": "Bu faýly pozmaly my?",
     "toast_document_uploaded": "Pasport faýly ýuklendi",
     "toast_document_rejected": "Faýl kabul edilmedi — diňe JPG ýa-da PDF, 10 MB çenli",
-    "toast_document_deleted": "Faýl pozuldy"
+    "toast_document_deleted": "Faýl pozuldy",
+    "tech_passport": "Teh pasport",
+    "tech_passport_empty": "Teh pasport faýly ýok",
+    "upload_tech_passport": "Teh pasport ýukle",
+    "tech_passport_upload_pending_hint": "JPG ýa-da PDF, 10 MB çenli, iň köp 5 faýl. Ulag saklandýgynda ýuklener."
   },
   "shipment_settings": {
     "placeholder_status_role": "myş. document_team",

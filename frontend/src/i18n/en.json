@@ -1016,7 +1016,11 @@
     "delete_document_confirm": "Delete this file?",
     "toast_document_uploaded": "Passport file uploaded",
     "toast_document_rejected": "File rejected — only JPG or PDF up to 10 MB",
-    "toast_document_deleted": "File deleted"
+    "toast_document_deleted": "File deleted",
+    "tech_passport": "Tech Passport",
+    "tech_passport_empty": "No tech passport files",
+    "upload_tech_passport": "Upload tech passport",
+    "tech_passport_upload_pending_hint": "JPG or PDF, up to 10 MB, max 5 files. Uploaded when the truck is saved."
   },
   "shipment_settings": {
     "placeholder_status_role": "e.g. document_team",

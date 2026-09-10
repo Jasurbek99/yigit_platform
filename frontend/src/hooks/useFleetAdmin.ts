@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import type { IFleetDocument } from '@/components/fleet/FleetDocumentsPanel';
+import type { IFleetDocument } from '@/types/fleet';
 import type { ITruckHead, ITrailer, IDriver } from '@/hooks/useFleet';
 
 export type { IDriver };

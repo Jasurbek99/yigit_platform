@@ -15,6 +15,9 @@ import {
   useAdminDrivers,
   useAdminCreateDriver,
   useUpdateDriver,
+  useTruckHeadDocuments,
+  useUploadTruckHeadDocuments,
+  useDeleteTruckHeadDocument,
 } from '@/hooks/useFleetAdmin';
 
 vi.mock('@/hooks/useFleetAdmin', () => ({
@@ -32,6 +35,11 @@ vi.mock('@/hooks/useFleetAdmin', () => ({
   useDeleteDriverDocument: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   driverDocumentUrl: (driverId: number, documentId: number) =>
     `/api/v1/transport/drivers/${driverId}/documents/${documentId}/download/`,
+  useTruckHeadDocuments: vi.fn(() => ({ data: [], isLoading: false })),
+  useUploadTruckHeadDocuments: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useDeleteTruckHeadDocument: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  truckHeadDocumentUrl: (truckHeadId: number, documentId: number) =>
+    `/api/v1/transport/truck-heads/${truckHeadId}/documents/${documentId}/download/`,
 }));
 
 vi.mock('sonner', () => ({
@@ -44,6 +52,8 @@ const updateTruckMutateAsync = vi.fn();
 const updateTrailerMutateAsync = vi.fn();
 const createTruckMutateAsync = vi.fn();
 const createTrailerMutateAsync = vi.fn();
+const uploadTruckDocsMutateAsync = vi.fn();
+const deleteTruckDocMutateAsync = vi.fn();
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -63,11 +73,32 @@ describe('FleetAdminPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    uploadTruckDocsMutateAsync.mockResolvedValue([]);
+    deleteTruckDocMutateAsync.mockResolvedValue(undefined);
+    vi.mocked(useTruckHeadDocuments).mockReturnValue({
+      data: [
+        { id: 70, original_filename: 'tehpasport.pdf', mime_type: 'application/pdf',
+          size_bytes: 307200, uploaded_by: 1, uploaded_by_name: 'mgr',
+          uploaded_at: '2026-09-10T10:00:00+05:00' },
+      ],
+      isLoading: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(useUploadTruckHeadDocuments).mockReturnValue({
+      mutateAsync: uploadTruckDocsMutateAsync,
+      isPending: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    vi.mocked(useDeleteTruckHeadDocument).mockReturnValue({
+      mutateAsync: deleteTruckDocMutateAsync,
+      isPending: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
     createTruckMutateAsync.mockResolvedValue({ id: 99, plate_number: '09NEW999' });
     createTrailerMutateAsync.mockResolvedValue({ id: 98, plate_number: '09TRL998' });
     vi.mocked(useAdminTruckHeads).mockReturnValue({
       data: [
-        { id: 1, plate_number: '01ABC123', owner_type: 'company', owner_name: '', truck_model: 'MAN TGX', status: 'idle', has_gps: true, is_active: true },
+        { id: 1, plate_number: '01ABC123', owner_type: 'company', owner_name: '', truck_model: 'MAN TGX', document_count: 1, status: 'idle', has_gps: true, is_active: true },
         { id: 2, plate_number: '02XYZ456', owner_type: '', owner_name: '', status: '', has_gps: false, is_active: false },
       ],
       isLoading: false,
@@ -224,6 +255,45 @@ describe('FleetAdminPage', () => {
       expect(updateTruckMutateAsync).toHaveBeenCalledWith(
         expect.objectContaining({ id: 1, truck_model: 'DAF XF 480' }),
       ),
+    );
+  });
+
+  it('lists the tech passport scans when editing, linked to the authenticated download', async () => {
+    renderPage();
+    const row = screen.getByText('01ABC123').closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: /Edit/ }));
+
+    const link = await screen.findByRole('link', { name: 'tehpasport.pdf' });
+    // Never a /media/ path: nginx serves that directory with no auth.
+    expect(link).toHaveAttribute(
+      'href',
+      '/api/v1/transport/truck-heads/1/documents/70/download/',
+    );
+  });
+
+  it('holds a scan chosen in the Add dialog and uploads it after the truck is created', async () => {
+    // A file needs a truck id to hang off, and the create form has none yet.
+    createTruckMutateAsync.mockResolvedValue({ id: 99, plate_number: '09NEW999' });
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /Add Truck/i }));
+    expect(screen.queryByRole('link', { name: 'tehpasport.pdf' })).not.toBeInTheDocument();
+
+    const scan = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], 'tehpasport.pdf', {
+      type: 'application/pdf',
+    });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [scan] } });
+    await screen.findByText('tehpasport.pdf');
+
+    fireEvent.change(screen.getByLabelText('Plate Number'), { target: { value: '09new999' } });
+    fireEvent.change(screen.getByLabelText('Truck Model'), { target: { value: 'MAN TGX' } });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    await waitFor(() =>
+      expect(uploadTruckDocsMutateAsync).toHaveBeenCalledWith({
+        truckHeadId: 99,
+        files: [scan],
+      }),
     );
   });
 });
