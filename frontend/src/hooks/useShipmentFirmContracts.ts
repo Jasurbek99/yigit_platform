@@ -51,6 +51,13 @@ interface ILinkPayload {
   export_firm: number;
   mode: 'framework' | 'one_time';
   contract_id?: number;
+  /**
+   * Agreed USD per net kg. REQUIRED for mode 'one_time': a one-time contract has
+   * no framework to inherit its terms from, and the contract .docx prints the
+   * price, the quantity and the total from it. The backend 400s without it.
+   * Ignored for 'framework'.
+   */
+  price_per_kg?: number;
 }
 
 export interface ILinkResult {

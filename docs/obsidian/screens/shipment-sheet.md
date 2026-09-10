@@ -511,6 +511,26 @@ picked a template or created a contract saw no change and had to reopen the pane
 Linking framework-vs-one-time is **not** encoded in the icon — both are "done"; the panel
 shows which. The native `title` tooltip reads `n of m firms`.
 
+**Creating a one-time contract asks for the price** (2026-09-10). The panel's unlinked branch
+now carries a required `Price/kg` field next to *Create one-time*, pre-filled with the split's
+own `amount_usd / weight_kg` to 4 decimals and editable. The button stays disabled until the
+field holds a number above zero, and a tooltip on it says why. Linking a **framework** contract
+is untouched — its price is a term of an agreement already signed.
+
+The field is inline rather than in a modal on purpose: this panel lives inside a Popover that
+dismisses on outside click, and a portal-rendered modal unmounts the Popover (and itself) on the
+first click into it — the same trap the generator button needs `onModalOpenChange` for.
+
+Without a price the new contract's document printed a blank price, quantity and total, so the
+backend refuses the create outright; see [[../reference/contracts-contract-sale-model]].
+
+Two things to know about the field. The suggestion is computed once, in a `useState`
+initializer, so a refetch that changes the split's weight or amount leaves the old suggestion
+sitting in an open panel — reopen it to re-derive. And pressing *Create one-time* a second time
+(the obvious move after a mistyped price) **mints a second contract** and repoints the sale at
+it, consuming another number in the per-firm/per-year sequence; the first is left with no sales,
+which is precisely the case the contract list lets you delete. Pinned by a test.
+
 Where the state comes from:
 - **packing** — `shipment.packing_template` is already on the `/sheet/` payload, so this half
   is frontend-only. Both `useSetShipmentPacking` and `useLinkFirmContract` already invalidate

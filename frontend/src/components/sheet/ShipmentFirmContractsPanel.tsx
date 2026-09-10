@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Select, Space, Tag, Tooltip, Typography } from 'antd';
+import { Button, InputNumber, Select, Space, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -105,6 +105,10 @@ function FirmContractRow({
   const { t } = useTranslation();
   const link = useLinkFirmContract();
   const [selected, setSelected] = useState<number | undefined>(row.framework_options[0]?.id);
+  // A one-time contract carries no framework terms, so this price is the only
+  // source for the price, quantity and total its document prints — required, and
+  // pre-filled from the truck's own money when the split already has an amount.
+  const [price, setPrice] = useState<number | null>(() => suggestedPrice(row));
 
   const onDone = (numberLabel: string, warning: 'bank' | 'cash' | null) => {
     toast.success(t('sheet.firm_contracts.toast_linked', { number: numberLabel }));
@@ -131,8 +135,9 @@ function FirmContractRow({
   };
 
   const createOneTime = () => {
+    if (price == null || price <= 0) return;
     link.mutate(
-      { shipment: shipmentId, export_firm: row.export_firm, mode: 'one_time' },
+      { shipment: shipmentId, export_firm: row.export_firm, mode: 'one_time', price_per_kg: price },
       {
         onSuccess: (r) => onDone(r.contract_number, r.money_warning),
         onError: onLinkError,
@@ -176,9 +181,38 @@ function FirmContractRow({
               </Button>
             </>
           )}
-          <Button size="small" type="dashed" loading={link.isPending} onClick={createOneTime}>
-            {t('sheet.firm_contracts.create_one_time')}
-          </Button>
+          <Space size={4} wrap>
+            <Text style={{ fontSize: 12 }}>{t('sheet.firm_contracts.price_per_kg')}</Text>
+            <InputNumber
+              size="small"
+              min={0.0001}
+              max={9999.9999}
+              step={0.01}
+              precision={4}
+              value={price}
+              onChange={setPrice}
+              prefix="$"
+              style={{ width: 110 }}
+              placeholder={t('sheet.firm_contracts.price_placeholder')}
+            />
+            <Tooltip
+              title={price == null || price <= 0 ? t('sheet.firm_contracts.price_required') : ''}
+            >
+              {/* span wrapper: a disabled button swallows hover, so the Tooltip
+                  needs an element that still receives it. */}
+              <span style={{ display: 'inline-block' }}>
+                <Button
+                  size="small"
+                  type="dashed"
+                  loading={link.isPending}
+                  disabled={price == null || price <= 0}
+                  onClick={createOneTime}
+                >
+                  {t('sheet.firm_contracts.create_one_time')}
+                </Button>
+              </span>
+            </Tooltip>
+          </Space>
         </Space>
       )}
     </div>
@@ -255,3 +289,16 @@ function LinkedContract({
   );
 }
 
+/**
+ * The truck's own implied price for this firm — its split amount over its split
+ * weight, to 4dp. Only a suggestion: the operator can overwrite it, and doing so
+ * does not rewrite the split's amount on the export side.
+ */
+function suggestedPrice(row: IShipmentFirmContractRow): number | null {
+  const amount = Number(row.amount_usd);
+  const weight = Number(row.weight_kg);
+  if (!Number.isFinite(amount) || !Number.isFinite(weight) || weight <= 0 || amount <= 0) {
+    return null;
+  }
+  return Number((amount / weight).toFixed(4));
+}

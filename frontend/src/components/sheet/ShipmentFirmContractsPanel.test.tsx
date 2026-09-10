@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import type { IShipmentFirmContracts } from '@/types/contract';
 import { ShipmentFirmContractsPanel } from './ShipmentFirmContractsPanel';
 
 let mockData: IShipmentFirmContracts;
+const { mockMutate } = vi.hoisted(() => ({ mockMutate: vi.fn() }));
 vi.mock('@/hooks/useShipmentFirmContracts', () => ({
   useShipmentFirmContracts: () => ({ data: mockData, isLoading: false }),
-  useLinkFirmContract: () => ({ mutate: vi.fn(), isPending: false }),
+  useLinkFirmContract: () => ({ mutate: mockMutate, isPending: false }),
 }));
 
 interface IMockUser {
@@ -135,5 +137,90 @@ describe('ShipmentFirmContractsPanel — linked contract', () => {
     expect(screen.getByRole('button', { name: /^link$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create one-time/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /download contract/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A one-time contract inherits no terms from a framework agreement, so its
+ * document has nothing to print in the price, quantity and total placeholders
+ * unless the operator supplies the price here. The panel therefore refuses to
+ * create one without it.
+ */
+describe('ShipmentFirmContractsPanel — one-time price', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    mockMutate.mockClear();
+    mockUser = FULL_ACCESS;
+    mockData = payload({
+      rows: [{ ...payload().rows[0], linked: null, framework_options: [] }],
+    });
+  });
+
+  const createButton = () => screen.getByRole('button', { name: /create one-time/i });
+  const priceInput = () => screen.getByRole('spinbutton');
+
+  it('pre-fills the price from the split amount over its weight', () => {
+    wrap();
+
+    // 12000 / 9000 = 1.3333
+    expect(priceInput()).toHaveValue('1.3333');
+  });
+
+  it('sends the price with the one-time request', async () => {
+    wrap();
+    await userEvent.click(createButton());
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'one_time', price_per_kg: 1.3333 }),
+      expect.anything(),
+    );
+  });
+
+  it('sends the operator’s own price when they overwrite the suggestion', async () => {
+    wrap();
+    await userEvent.clear(priceInput());
+    await userEvent.type(priceInput(), '0.85');
+    await userEvent.click(createButton());
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'one_time', price_per_kg: 0.85 }),
+      expect.anything(),
+    );
+  });
+
+  it('blocks creation while the price is empty', async () => {
+    mockData = payload({
+      rows: [{
+        ...payload().rows[0], linked: null, framework_options: [],
+        amount_usd: null, weight_kg: null,
+      }],
+    });
+    wrap();
+
+    expect(priceInput()).toHaveValue('');
+    expect(createButton()).toBeDisabled();
+
+    await userEvent.click(createButton());
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
+
+  it('leaves the framework link alone — it needs no price', async () => {
+    mockData = payload({
+      rows: [{
+        ...payload().rows[0], linked: null,
+        framework_options: [{ id: 9, contract_number: '12/25' }],
+      }],
+    });
+    wrap();
+    await userEvent.click(screen.getByRole('button', { name: /^link$/i }));
+
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'framework', contract_id: 9 }),
+      expect.anything(),
+    );
+    expect(mockMutate.mock.calls[0][0]).not.toHaveProperty('price_per_kg');
   });
 });

@@ -711,9 +711,10 @@ class ShipmentFirmContractsView(APIView):
     GET ?shipment=<id>  → per firm split: weight/amount, the $10K hint, the
         already-linked contract (if any), and the active framework contracts of
         the (seller, buyer) pair to choose from.
-    POST {shipment, export_firm, mode, contract_id?} → link the split to a
-        framework contract (mode='framework', contract_id required) or create a
-        one_time contract (mode='one_time'); returns the resulting contract.
+    POST {shipment, export_firm, mode, contract_id?, price_per_kg?} → link the
+        split to a framework contract (mode='framework', contract_id required) or
+        create a one_time contract (mode='one_time', price_per_kg required — the
+        new contract's document prints it); returns the resulting contract.
 
     Gated by the 'sale' resource (view for GET, create for POST). Lives in
     contracts (which may read export); the export firm-split code never calls here.
@@ -824,6 +825,7 @@ class ShipmentFirmContractsView(APIView):
                 mode=data.get('mode'),
                 contract_id=data.get('contract_id'),
                 user=request.user,
+                price_per_kg=data.get('price_per_kg'),
             )
         except (KeyError, TypeError, ValueError) as exc:
             return Response({'error': str(exc)}, status=400)

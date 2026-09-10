@@ -103,6 +103,48 @@ template** and copies the firm's share onto the new sale's `gross_kg` / `box_cou
 sale linked after the template was applied kept NULL packing and its Invoice printed no pieces,
 gross or pallet line — see [[packing-template-model]].
 
+### One-time contracts require a price (2026-09-10)
+
+`mode: 'one_time'` on that POST also **requires `price_per_kg`** — agreed USD per net kg, a
+positive number up to `9999.9999`. Omit it and the call is a 400 whose `error` sentence the
+Sheet panel shows verbatim; nothing is created (the whole call is one transaction).
+
+The reason is the contract document. A framework contract carries its own signed terms, but a
+one-time contract is created on the spot with none, and `build_contract_context` reads three of
+its placeholders straight off the contract row:
+
+| Placeholder in `contract_kz.docx` | Source field |
+|---|---|
+| `price` | `Contract.price_per_kg` |
+| `quantity` | `Contract.planned_quantity_kg` |
+| `total_sum`, `total_sum_words_tk`, `total_sum_words_ru` | `Contract.planned_amount_usd` |
+
+All three were NULL on every auto-created one-time contract, so the generated .docx printed a
+blank price, quantity and total. `_create_one_time_contract` now sets all three from the one
+truck: the price the operator typed, the firm split's `weight_kg`, and their product rounded to
+cents. It also stamps `contract_date` (the document header used to fall back to `start_date`).
+
+The price lands on the bridge `ContractSale.price_per_kg` too, so the Invoice's price column
+reads it. `ContractSale.total_usd` still takes the **split's own `amount_usd`** whenever that is
+set — that is the export side's money and this call must not rewrite it; only a split with no
+amount gets `weight × price`. The reverse is true as well: overriding the suggested price does
+**not** rewrite `ShipmentFirmSplit.amount_usd`, so a deliberate override leaves the truck's
+amount and the contract's planned amount describing different things.
+
+> Caveat carried over from the template: `total_sum` prints to 2 decimals but the spelled-out
+> amount voices `int(amount)` only. `weight × price` is rarely a round dollar figure, so the
+> words now commonly omit cents the figure shows. Pre-existing behaviour, unchanged here.
+
+**Fixing a mistyped price.** Calling the endpoint again with `mode: 'one_time'` does **not**
+correct the contract — it mints a second auto-numbered one, repoints the sale at it and leaves
+the first with no sales, consuming a number in the per-firm/per-year sequence. The orphan is
+deletable from the contract list (unused contracts are). Editing the price on the contract
+detail page is the cheaper route. Pinned by
+`test_a_second_create_mints_a_new_contract_and_orphans_the_first`.
+
+Pre-existing one-time contracts created before this date keep their NULL price and still
+generate a blank-price document; fill them in on the contract detail page.
+
 ## Permissions
 
 | Action | Allowed roles |

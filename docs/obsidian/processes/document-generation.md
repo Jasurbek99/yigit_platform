@@ -521,6 +521,15 @@ GET /api/v1/contracts/contracts/{id}/agreement/?fmt=docx|pdf&buyer_director=&del
 - **The unit price** (`{{ price }}`) is `Contract.price_per_kg`, falling back to
   `planned_amount_usd / planned_quantity_kg` for older rows.
 
+> **Where a one-time contract's price, quantity and total come from** (2026-09-10).
+> `price`, `quantity` and `total_sum` (with its spelled-out forms) read
+> `Contract.price_per_kg`, `planned_quantity_kg` and `planned_amount_usd`. All three
+> were NULL on every contract auto-created from the Sheet's contracts cell, so those
+> placeholders rendered blank on the one document type that most needs them. Creating a
+> one-time contract now **requires** the price and fills all three from the truck —
+> see [[../reference/contracts-contract-sale-model]]. Contracts created before that
+> date are not backfilled and still print blank.
+
 **Amount in words.** The total is spelled out in both languages —
 `services/amount_words.py` (`amount_words_ru` / `amount_words_tk`), hand-rolled (no
 `num2words` dependency) for the bounded USD range, with RU thousands

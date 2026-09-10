@@ -15,7 +15,7 @@ firm-split code must never call into contracts (dependency direction).
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 
@@ -39,6 +39,44 @@ NO_TEMPLATE_MESSAGE = (
     'This truck has no packing template. Apply one in the packing panel first — '
     'the invoice needs the per-firm gross, boxes and pallets.'
 )
+
+
+# Contract.price_per_kg is DecimalField(max_digits=8, decimal_places=4), so the
+# agreed unit price has to fit 9999.9999. A tomato price is cents-per-kg; anything
+# near that ceiling is a typo (a total pasted into the price box).
+MAX_PRICE_PER_KG = Decimal('9999.9999')
+
+MISSING_PRICE_MESSAGE = (
+    'Enter the agreed price per kg (USD) — a one-time contract has no framework '
+    'to inherit it from, and the contract document prints the price, the quantity '
+    'and the total.'
+)
+
+BAD_PRICE_MESSAGE = f'Price per kg must be a number above 0 and at most {MAX_PRICE_PER_KG}.'
+
+
+def parse_price_per_kg(value) -> Decimal:
+    """Validate the operator's price for a one-time contract, as a 4-dp Decimal.
+
+    A one-time contract carries no framework terms, so this price is the only
+    source for the ``price``, ``quantity`` and ``total_sum`` the contract .docx
+    prints. Without it those three placeholders render blank and the document is
+    unusable — hence required, not optional.
+
+    Raises:
+        ValueError: value is missing, not a number, or outside (0, MAX_PRICE_PER_KG].
+            Always ValueError — ``Decimal('abc')`` raises ``InvalidOperation``
+            (an ArithmeticError), which the view's except clause would not catch.
+    """
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise ValueError(MISSING_PRICE_MESSAGE)
+    try:
+        price = Decimal(str(value).strip())
+    except (InvalidOperation, ArithmeticError) as exc:
+        raise ValueError(BAD_PRICE_MESSAGE) from exc
+    if not price.is_finite() or price <= 0 or price > MAX_PRICE_PER_KG:
+        raise ValueError(BAD_PRICE_MESSAGE)
+    return price.quantize(Decimal('0.0001'))
 
 
 def money_warning(amount_usd) -> str | None:
@@ -147,6 +185,7 @@ def link_split_to_contract(
     mode: str,
     contract_id: int | None,
     user,
+    price_per_kg=None,
 ) -> ContractSale:
     """Create/update the (shipment, export_firm) → contract bridge sale.
 
@@ -156,10 +195,14 @@ def link_split_to_contract(
         mode: 'framework' (link to ``contract_id``) or 'one_time' (create new).
         contract_id: required when mode == 'framework'.
         user: actor (for one_time created_by).
+        price_per_kg: agreed USD per net kg. REQUIRED for mode='one_time' — it is
+            what the new contract's document prints. Ignored for 'framework',
+            where the price is a term of the contract already signed.
 
     Raises:
-        ValueError: on missing buyer, no packing template, bad mode, or a
-            contract_id that is not an active framework contract for this pair.
+        ValueError: on missing buyer, no packing template, bad mode, a missing or
+            out-of-range one_time price, or a contract_id that is not an active
+            framework contract for this pair.
     """
     if shipment.import_firm_id is None:
         raise ValueError('Shipment has no buyer (import_firm); set it first.')
@@ -171,6 +214,7 @@ def link_split_to_contract(
     if shipment.packing_template_id is None:
         raise ValueError(NO_TEMPLATE_MESSAGE)
 
+    price = None
     if mode == 'framework':
         if not contract_id:
             raise ValueError('contract_id is required for framework mode.')
@@ -182,40 +226,72 @@ def link_split_to_contract(
                 'contract_id is not an active framework contract for this pair.'
             )
     elif mode == 'one_time':
-        contract = _create_one_time_contract(shipment, export_firm_id, user)
+        price = parse_price_per_kg(price_per_kg)
+        contract = _create_one_time_contract(shipment, split, user, price)
     else:
         raise ValueError(f"Unknown mode '{mode}'.")
+
+    defaults = {
+        'contract': contract,
+        'import_firm_id': shipment.import_firm_id,
+        'quantity_kg': split.weight_kg,
+        'total_usd': split.amount_usd,
+        # invoice_number / invoice_date stay NULL — filled later by a person.
+    }
+    if price is not None:
+        # The operator just agreed this price for this truck, so it belongs on the
+        # sale too — that is what the invoice's price column reads. The truck's own
+        # amount_usd stays authoritative when it is set: it is the export side's
+        # money and this call must not rewrite it.
+        defaults['price_per_kg'] = price
+        if split.amount_usd is None:
+            defaults['total_usd'] = _amount_for(split.weight_kg, price)
 
     sale, _created = ContractSale.objects.update_or_create(
         shipment=shipment,
         export_firm_id=export_firm_id,
-        defaults={
-            'contract': contract,
-            'import_firm_id': shipment.import_firm_id,
-            'quantity_kg': split.weight_kg,
-            'total_usd': split.amount_usd,
-            # invoice_number / invoice_date stay NULL — filled later by a person.
-        },
+        defaults=defaults,
     )
     _fill_packing_from_template(sale, shipment)
     return sale
 
 
-def _create_one_time_contract(shipment: Shipment, export_firm_id: int, user) -> Contract:
-    """Create a one_time contract for the pair, auto-numbered, no passport."""
+def _amount_for(weight_kg, price_per_kg) -> Decimal | None:
+    """weight × price, rounded to cents; None when the weight is missing."""
+    if weight_kg is None:
+        return None
+    return (Decimal(weight_kg) * price_per_kg).quantize(Decimal('0.01'))
+
+
+def _create_one_time_contract(
+    shipment: Shipment, split: ShipmentFirmSplit, user, price_per_kg: Decimal,
+) -> Contract:
+    """Create a one_time contract for the pair, auto-numbered, no passport.
+
+    The planned figures come from this one truck: the firm's split weight and the
+    operator's agreed price. All three (``price_per_kg``, ``planned_quantity_kg``,
+    ``planned_amount_usd``) are needed, not just the price — the contract .docx
+    reads quantity from ``planned_quantity_kg``, the total and the spelled-out
+    amount from ``planned_amount_usd``, and blank placeholders in those three
+    make the document unusable.
+    """
     contract_date = shipment.date or datetime.date.today()
-    export_firm = ExportFirm.objects.get(pk=export_firm_id)
+    export_firm = ExportFirm.objects.get(pk=split.export_firm_id)
     seq, year, number = next_contract_no(export_firm, contract_date)
     return Contract.objects.create(
         contract_number=number,
         seq=seq,
         contract_year=year,
         contract_type=Contract.TYPE_ONE_TIME,
-        export_firm_id=export_firm_id,
+        export_firm_id=split.export_firm_id,
         import_firm_id=shipment.import_firm_id,
         season=shipment.season,
+        contract_date=contract_date,
         start_date=contract_date,
         planned_trucks=1,
+        planned_quantity_kg=split.weight_kg,
+        price_per_kg=price_per_kg,
+        planned_amount_usd=_amount_for(split.weight_kg, price_per_kg),
         status=Contract.STATUS_ACTIVE,
         created_by=user,
     )

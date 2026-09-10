@@ -14,6 +14,7 @@ from apps.contracts.services.shipment_firm_contracts import (
     framework_contracts_for_pair,
     link_split_to_contract,
     money_warning,
+    parse_price_per_kg,
 )
 
 
@@ -78,7 +79,7 @@ class LinkServiceTest(TestCase):
     def test_one_time_creates_contract_and_bridge(self) -> None:
         sale = link_split_to_contract(
             shipment=self.shipment, export_firm_id=self.ygt.id,
-            mode='one_time', contract_id=None, user=self.user,
+            mode='one_time', contract_id=None, user=self.user, price_per_kg='0.90',
         )
         self.assertEqual(sale.contract.contract_type, Contract.TYPE_ONE_TIME)
         self.assertEqual(sale.contract.export_firm_id, self.ygt.id)
@@ -144,7 +145,8 @@ class LinkServiceTest(TestCase):
         _split(shipment, self.ygt)
         with self.assertRaises(ValueError):
             link_split_to_contract(shipment=shipment, export_firm_id=self.ygt.id,
-                                   mode='one_time', contract_id=None, user=self.user)
+                                   mode='one_time', contract_id=None, user=self.user,
+                                   price_per_kg='0.90')
 
     def test_bad_framework_contract_raises(self) -> None:
         other_pair = Contract.objects.create(
@@ -181,6 +183,7 @@ class EndpointSmokeTest(TestCase):
     def test_post_one_time_then_get_shows_linked(self) -> None:
         r = self.client.post('/api/v1/contracts/shipment-firm-contracts/', {
             'shipment': self.shipment.id, 'export_firm': self.ygt.id, 'mode': 'one_time',
+            'price_per_kg': '0.90',
         }, format='json')
         self.assertEqual(r.status_code, 201, r.content)
         self.assertEqual(r.json()['contract_type'], 'ONE_TIME')
@@ -214,16 +217,19 @@ class ContractStatusEndpointTest(TestCase):
         self.assertNotIn(str(self.shipment.id), self._get())
 
         link_split_to_contract(shipment=self.shipment, export_firm_id=self.ygt.id,
-                               mode='one_time', contract_id=None, user=self.user)
+                               mode='one_time', contract_id=None, user=self.user,
+                               price_per_kg='0.90')
         self.assertEqual(self._get()[str(self.shipment.id)], 1)
 
         link_split_to_contract(shipment=self.shipment, export_firm_id=self.hj.id,
-                               mode='one_time', contract_id=None, user=self.user)
+                               mode='one_time', contract_id=None, user=self.user,
+                               price_per_kg='0.90')
         self.assertEqual(self._get()[str(self.shipment.id)], 2)
 
     def test_void_sale_does_not_count(self) -> None:
         sale = link_split_to_contract(shipment=self.shipment, export_firm_id=self.ygt.id,
-                                      mode='one_time', contract_id=None, user=self.user)
+                                      mode='one_time', contract_id=None, user=self.user,
+                                      price_per_kg='0.90')
         sale.status = ContractSale.STATUS_VOID
         sale.save()
         self.assertNotIn(str(self.shipment.id), self._get())
@@ -320,7 +326,7 @@ class PackingFromTemplateTest(TestCase):
     def _link(self, firm):
         return link_split_to_contract(
             shipment=self.shipment, export_firm_id=firm.id,
-            mode='one_time', contract_id=None, user=self.user,
+            mode='one_time', contract_id=None, user=self.user, price_per_kg='0.90',
         )
 
     def test_the_firms_own_share_lands_on_its_sale(self) -> None:
@@ -347,7 +353,7 @@ class PackingFromTemplateTest(TestCase):
         with self.assertRaisesRegex(ValueError, 'packing template'):
             link_split_to_contract(
                 shipment=bare, export_firm_id=self.first.id,
-                mode='one_time', contract_id=None, user=self.user,
+                mode='one_time', contract_id=None, user=self.user, price_per_kg='0.90',
             )
 
     def test_the_invoice_document_then_carries_the_packing(self) -> None:
@@ -377,3 +383,145 @@ class PackingFromTemplateTest(TestCase):
         self.assertIsNone(sale.gross_kg)
         self.assertIsNone(sale.box_count)
 
+
+class OneTimePriceTest(TestCase):
+    """A one-time contract must carry the agreed price, because its document prints it.
+
+    A framework contract's price is a term of an agreement already signed; a
+    one-time contract has none, so without the operator's number the .docx
+    renders a blank price, quantity and total. The service therefore refuses to
+    create one without a price.
+    """
+
+    def setUp(self) -> None:
+        self.buyer = _ifirm('B1')
+        self.ygt = _efirm('YGT')
+        self.shipment = _shipment(self.buyer)
+        self.split = _split(self.shipment, self.ygt)
+        self.user = User.objects.create(username='pricer', role='export_manager')
+        _apply_packing(self.shipment, _SHARE_A)
+
+    def _link(self, price):
+        return link_split_to_contract(
+            shipment=self.shipment, export_firm_id=self.ygt.id,
+            mode='one_time', contract_id=None, user=self.user, price_per_kg=price,
+        )
+
+    def test_missing_price_is_refused_and_creates_nothing(self) -> None:
+        before = Contract.objects.count()
+        with self.assertRaisesRegex(ValueError, 'price per kg'):
+            self._link(None)
+        self.assertEqual(Contract.objects.count(), before)
+        self.assertFalse(ContractSale.objects.filter(shipment=self.shipment).exists())
+
+    def test_blank_zero_negative_and_gibberish_are_all_refused(self) -> None:
+        for bad in ('', '   ', '0', '-1', 'abc', '10000'):
+            with self.subTest(price=bad), self.assertRaises(ValueError):
+                self._link(bad)
+
+    def test_the_price_lands_on_the_contract_with_quantity_and_total(self) -> None:
+        """All three, not just the price — the document reads all three."""
+        sale = self._link('0.9000')
+        contract = sale.contract
+        self.assertEqual(contract.price_per_kg, Decimal('0.9000'))
+        self.assertEqual(contract.planned_quantity_kg, Decimal('9000.00'))
+        self.assertEqual(contract.planned_amount_usd, Decimal('8100.00'))
+
+    def test_the_price_lands_on_the_sale_without_rewriting_the_trucks_amount(self) -> None:
+        sale = self._link('0.9000')
+        self.assertEqual(sale.price_per_kg, Decimal('0.9000'))
+        # The split's own amount_usd (8000) is the export side's money and wins
+        # over 9000 × 0.90; this call must not rewrite it.
+        self.assertEqual(sale.total_usd, Decimal('8000.00'))
+
+    def test_a_split_with_no_amount_takes_the_computed_total(self) -> None:
+        ShipmentFirmSplit.objects.filter(pk=self.split.pk).update(amount_usd=None)
+        sale = self._link('0.9000')
+        self.assertEqual(sale.total_usd, Decimal('8100.00'))
+
+    def test_framework_mode_needs_no_price(self) -> None:
+        fw = Contract.objects.create(
+            contract_number='42/25-YGT-EXP', seq=42, contract_year=2025,
+            contract_type=Contract.TYPE_FRAMEWORK,
+            export_firm=self.ygt, import_firm=self.buyer, season=_season(),
+        )
+        sale = link_split_to_contract(
+            shipment=self.shipment, export_firm_id=self.ygt.id,
+            mode='framework', contract_id=fw.id, user=self.user,
+        )
+        self.assertEqual(sale.contract_id, fw.id)
+
+    def test_the_contract_document_then_prints_price_quantity_and_total(self) -> None:
+        """End to end: the four placeholders that were blank before."""
+        from apps.contracts.services.document_context import build_contract_context
+
+        contract = self._link('0.9000').contract
+        contract.refresh_from_db()
+        context = build_contract_context(contract, 'ru')
+        self.assertEqual(context['price'], '0,9')  # RU decimal comma
+        self.assertTrue(context['quantity'])
+        self.assertTrue(context['total_sum'])
+        self.assertTrue(context['total_sum_words_ru'])
+
+    def test_a_second_create_mints_a_new_contract_and_orphans_the_first(self) -> None:
+        """The recovery path for a mistyped price — pinned, not endorsed.
+
+        Nothing used to give an operator a reason to press *Create one-time*
+        twice; a wrong price does. The sale is repointed at the new contract and
+        the first is left with no sales, which is exactly the case the contract
+        list allows deleting. Worth knowing before someone "fixes" a price by
+        clicking again.
+        """
+        first = self._link('0.9000').contract
+        second = self._link('0.8000').contract
+
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertNotEqual(first.contract_number, second.contract_number)
+        # One sale, pointing at the corrected contract.
+        sales = ContractSale.objects.filter(shipment=self.shipment)
+        self.assertEqual(sales.count(), 1)
+        self.assertEqual(sales.first().contract_id, second.pk)
+        # The first is orphaned but deletable — no sales attached.
+        self.assertFalse(ContractSale.objects.filter(contract=first).exists())
+
+    def test_parse_price_quantizes_to_four_places(self) -> None:
+        self.assertEqual(parse_price_per_kg('0.9'), Decimal('0.9000'))
+        self.assertEqual(parse_price_per_kg(1.25), Decimal('1.2500'))
+
+
+class OneTimePriceEndpointTest(TestCase):
+    """The POST refuses a priceless one_time with the message the panel shows."""
+
+    def setUp(self) -> None:
+        self.buyer = _ifirm('B1')
+        self.ygt = _efirm('YGT')
+        self.shipment = _shipment(self.buyer)
+        _split(self.shipment, self.ygt)
+        _apply_packing(self.shipment, _SHARE_A)
+        self.admin = User.objects.create(username='admin3', role='admin', is_superuser=True)
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.admin)
+
+    def _post(self, **extra):
+        body = {'shipment': self.shipment.id, 'export_firm': self.ygt.id, 'mode': 'one_time'}
+        body.update(extra)
+        return self.client.post(
+            '/api/v1/contracts/shipment-firm-contracts/', body, format='json',
+        )
+
+    def test_without_a_price_it_is_400_with_a_readable_error(self) -> None:
+        r = self._post()
+        self.assertEqual(r.status_code, 400, r.content)
+        self.assertIn('price per kg', r.json()['error'])
+
+    def test_gibberish_is_400_not_500(self) -> None:
+        """Decimal('abc') raises InvalidOperation, which is not a ValueError."""
+        r = self._post(price_per_kg='abc')
+        self.assertEqual(r.status_code, 400, r.content)
+
+    def test_with_a_price_it_creates_the_contract(self) -> None:
+        r = self._post(price_per_kg='0.85')
+        self.assertEqual(r.status_code, 201, r.content)
+        contract = Contract.objects.get(pk=r.json()['contract_id'])
+        self.assertEqual(contract.price_per_kg, Decimal('0.8500'))
+        self.assertEqual(contract.planned_amount_usd, Decimal('7650.00'))
