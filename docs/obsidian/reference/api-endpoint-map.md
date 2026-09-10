@@ -306,9 +306,40 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | GET | `/api/v1/transport/shipments/{id}/position/` | ShipmentTruckPositionView | `useShipmentTruckPosition` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |
-| GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | `useTruckHeads`/`useCreateTruckHead` (`useFleet`); `useAdminTruckHeads`/`useAdminCreateTruckHead`/`useUpdateTruckHead` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
+| GET/POST/PATCH | `/api/v1/transport/truck-heads/` `/truck-heads/{id}/` | TruckHeadViewSet | `useTruckHeads` (`useFleet`, read-only); `useAdminTruckHeads`/`useAdminCreateTruckHead`/`useUpdateTruckHead` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
 | GET/POST/PATCH | `/api/v1/transport/trailers/` `/trailers/{id}/` | TrailerViewSet | `useTrailers`/`useCreateTrailer` (`useFleet`); `useAdminTrailers`/`useAdminCreateTrailer`/`useUpdateTrailer` (`useFleetAdmin`) | `ShipmentTruckSelector` (ShipmentDetail + edit drawer), FleetAdminPage (`/admin/fleet`) |
-| GET/POST/PATCH | `/api/v1/transport/drivers/` `/drivers/{id}/` | DriverViewSet | `useDrivers`/`useCreateDriver` (`useFleet`, active-only picker feed); `useAdminDrivers`/`useAdminCreateDriver`/`useUpdateDriver` (`useFleetAdmin`, incl. inactive) | `SheetDriverSelectEditor` (Sheet R27), FleetAdminPage Drivers tab (`/admin/fleet`) |
+| GET/POST/PATCH | `/api/v1/transport/drivers/` `/drivers/{id}/` | DriverViewSet | `useDrivers` (`useFleet`, active-only picker feed, read-only); `useAdminDrivers`/`useAdminCreateDriver`/`useUpdateDriver` (`useFleetAdmin`, incl. inactive) | `SheetDriverSelectEditor` (Sheet R27), FleetAdminPage Drivers tab (`/admin/fleet`) |
+| GET/POST | `/api/v1/transport/drivers/{id}/documents/` | DriverViewSet `documents` action — **`CanAccessDriverDocuments`** | `useDriverDocuments`/`useUploadDriverDocuments` (`useFleetAdmin`; the upload takes `{driverId, files}` in its mutate variables) | FleetAdminPage Drivers tab, **add and** edit modal |
+| DELETE | `/api/v1/transport/drivers/{id}/documents/{doc_id}/` | DriverViewSet `delete_document` — **`CanAccessDriverDocuments`** | `useDeleteDriverDocument` (`useFleetAdmin`) | FleetAdminPage Drivers tab, edit modal |
+| GET | `/api/v1/transport/drivers/{id}/documents/{doc_id}/download/` | DriverViewSet `download_document` — **`CanAccessDriverDocuments`** | `driverDocumentUrl()` (plain link, httpOnly cookie) | FleetAdminPage Drivers tab, edit modal |
+
+> **Required fields on the fleet writes (2026-09-10).** `POST`/`PATCH` on `/transport/truck-heads/`
+> rejects a blank `truck_model`, and on `/transport/drivers/` a blank `passport_serial` or
+> `passport_issue_date`, with a 400 keyed by field name. The check reads the **effective** value,
+> so a PATCH that omits the field does not slip past it — every imported row is blank on these
+> (92 of 92 heads, 153 of 153 drivers) and is filled in as it is edited. The single exempt
+> payload is `is_active` on its own, so a wrongly-imported truck or a duplicate driver can still
+> be deactivated. `useCreateDriver()` and `useCreateTruckHead()` were removed in the same change,
+> along with the pickers' inline "+ Add driver" / "+ Add truck": those calls POSTed a name or a
+> plate alone and would now 400 every time. `useCreateTrailer()` stays — a trailer has no required
+> field beyond its plate. The TIR import is unaffected: it writes through
+> `Model.objects.update_or_create()`, which never touches a serializer. See
+> [[../screens/fleet-admin#Required fields (2026-09-10)]].
+
+**Passport documents are the module's one gated read** (2026-09-09). `CanAccessDriverDocuments`
+closes GET as well as the write verbs, unlike `CanEditFleet` — it delegates to `can_edit_fleet()`,
+the same `fleet` resource lookup, applied to every method. It has to: the driver pickers read the
+very same `/transport/drivers/` route as the Fleet Admin screen, so an open read would hand
+passport scans to every authenticated user. For the same reason `DriverViewSet.get_serializer_class()`
+returns `DriverAdminSerializer` (with `passport_serial`, `passport_issue_date`, `document_count`)
+only to fleet editors and the plain `DriverSerializer` to everyone else — a picker response simply
+has no passport keys in it.
+
+No `/media/` URL is ever exposed for a scan. The download action streams the file itself, because
+nginx aliases `/media/` with no auth on this deployment (`frontend/nginx.conf`). Uploads accept
+`.jpg`/`.jpeg`/`.pdf` only, verified by magic bytes, 10 MB per file and 5 files per driver
+(`apps/transport/services/files.py`). A single POST may carry several files under the `files` form
+key; one bad file rejects the whole batch before any row is written.
 
 `live-positions/` is the one gated **read** in this module: `IsAuthenticated` +
 `CanViewFleetMap` (`apps/transport/permissions.py`), which since 2026-09-03 reads the

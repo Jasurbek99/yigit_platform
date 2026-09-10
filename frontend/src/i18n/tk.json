@@ -998,11 +998,25 @@
     "add_driver": "Sürüji goş",
     "edit_driver": "Sürüjini üýtget",
     "drivers_empty": "Sürüji ýok",
-    "driver_search_placeholder": "Ady ýa-da telefony boýunça gözle",
+    "driver_search_placeholder": "At, telefon ýa-da pasport boýunça gözleg",
     "toast_driver_created": "Sürüji döredildi",
     "toast_driver_updated": "Sürüji üýtgedildi",
     "toast_driver_activated": "Sürüji işjeňleşdirildi",
-    "toast_driver_deactivated": "Sürüji işjeňsizleşdirildi"
+    "toast_driver_deactivated": "Sürüji işjeňsizleşdirildi",
+    "truck_model": "Ulag modeli",
+    "truck_model_placeholder": "mysal: MAN TGX",
+    "passport_serial": "Pasport seriýasy",
+    "passport_serial_placeholder": "mysal: I-AN 1234567",
+    "passport_issue_date": "Pasport berlen senesi",
+    "passport_documents": "Pasport nusgalary",
+    "passport_documents_empty": "Pasport faýly ýok",
+    "upload_passport": "Pasport ýukle",
+    "passport_upload_hint": "JPG ýa-da PDF, 10 MB çenli, iň köp 5 faýl",
+    "passport_upload_pending_hint": "JPG ýa-da PDF, 10 MB çenli, iň köp 5 faýl. Sürüji ýatda saklananda ýüklener.",
+    "delete_document_confirm": "Bu faýly pozmaly my?",
+    "toast_document_uploaded": "Pasport faýly ýuklendi",
+    "toast_document_rejected": "Faýl kabul edilmedi — diňe JPG ýa-da PDF, 10 MB çenli",
+    "toast_document_deleted": "Faýl pozuldy"
   },
   "shipment_settings": {
     "placeholder_status_role": "myş. document_team",
@@ -1271,6 +1285,15 @@
     "open_confirm_title": "{{name}} möwsümi açylsynmy?",
     "open_confirm_body": "Mundan beýläk täze ýükler {{name}} möwsüminde dörediler. Häzirki işjeň möwsüm ýazgy nyşany bolmakdan galýar, ýöne ýapylmaýar.",
     "toast_opened": "Möwsüm açyldy"
+  },
+  "firm_completeness": {
+    "column": "Resminama meýdanlary",
+    "complete": "Doly",
+    "missing_count": "Doldurylmadyk: {{count}}",
+    "tooltip_title": "Doldurylmadyk:",
+    "alert_complete": "Şertnamalar we hasap-fakturalar üçin gerek meýdanlaryň hemmesi doldurylan.",
+    "alert_missing": "Doldurylmadyk meýdan: {{count}}",
+    "alert_hint": "Bu firma üçin döredilen resminamalarda bu ýerler boş galar."
   },
   "firms_admin": {
     "title": "Eksport firmalary",
@@ -2607,7 +2630,8 @@
     "section_notes": "Bellikler",
     "add_truck": "Çekiji goş \"{{plate}}\"",
     "add_trailer": "Tirkeg goş \"{{plate}}\"",
-    "add_driver": "Sürüji goş \"{{name}}\"",
+    "driver_not_found_hint": "Sanawda ýok. Sürüjini Awtoulag dolandyryşynda goşuň — pasport seriýasy we berlen senesi hökman.",
+    "truck_not_found_hint": "Sanawda ýok. Çekijini Awtoulag dolandyryşynda goşuň — modeli hökman.",
     "field": {
       "country": "Ýurt",
       "customer": "Müşderi",
@@ -3116,6 +3140,16 @@
         "error": "Şertnamany döretmek başartmady"
       }
     },
+    "plan_edit": {
+      "button": "Meýilnamany üýtget",
+      "title": "Meýilleşdirilen görkezijiler",
+      "scope_hint": "Şertnama resminamasynda mukdar, baha we jemi şu ýerden çap edilýär. Hasap-fakturada satuwyň öz bahasy çap edilýär, ol «Satuwlar» goşmaça sahypasynda üýtgedilýär.",
+      "amount_hint": "Mukdar × baha görnüşinde hasaplanýar; ylalaşylan jemi görkezmek üçin öz bahaňyzy giriziň.",
+      "incomplete_label": "Şertnama resminamasy",
+      "incomplete_warning": "Baha görkezilmedik — şertnamada baha, mukdar we jemi boş çap ediler. «Meýilnamany üýtget» arkaly dolduryň.",
+      "toast_saved": "Meýilleşdirilen görkezijiler ýatda saklandy",
+      "toast_error": "Meýilleşdirilen görkezijileri ýatda saklap bolmady"
+    },
     "detail": {
       "back_to_list": "Şertnamalar sanawyna gaýt",
       "tab": {
@@ -3156,8 +3190,12 @@
       "format": "Format",
       "country_unsupported": "Bu barmaly ýurt üçin elýeterli däl — şertnama şablonynda entek onuň üçin madda ýazgysy ýok.",
       "buyer_director_extra": "Import firmasynyň «Direktoryň doly ady» meýdanyndan dolduryldy — gerek bolsa üýtgediň.",
-      "with_stamps": "Möhürler bilen",
-      "with_stamps_extra": "Möhürler diňe satyjy/alyjy firmanyň möhri we goly ýüklenen bolsa görüner (Admin → Firmalar)."
+      "with_stamps_extra": "Firmanyň möhüri diňe onuň möhüri we goly üklänen bolsa görüner (Admin → Firmalar).",
+      "stamps": "Möhürler",
+      "stamps_none": "Möhürsiz",
+      "stamps_both": "Iki möhür hem (eksport + import firmasy)",
+      "stamps_export": "Diňe eksport firmasynyň möhüri",
+      "stamps_import": "Diňe import firmasynyň möhüri"
     },
     "delete": {
       "confirm_title": "{{number}} şertnamany pozmaly?",

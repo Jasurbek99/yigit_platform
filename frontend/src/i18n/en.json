@@ -998,11 +998,25 @@
     "add_driver": "Add Driver",
     "edit_driver": "Edit Driver",
     "drivers_empty": "No drivers",
-    "driver_search_placeholder": "Search by name or phone",
+    "driver_search_placeholder": "Search by name, phone or passport",
     "toast_driver_created": "Driver created",
     "toast_driver_updated": "Driver updated",
     "toast_driver_activated": "Driver activated",
-    "toast_driver_deactivated": "Driver deactivated"
+    "toast_driver_deactivated": "Driver deactivated",
+    "truck_model": "Truck Model",
+    "truck_model_placeholder": "e.g. MAN TGX",
+    "passport_serial": "Passport Serial",
+    "passport_serial_placeholder": "e.g. I-AN 1234567",
+    "passport_issue_date": "Passport Issue Date",
+    "passport_documents": "Passport Scans",
+    "passport_documents_empty": "No passport files",
+    "upload_passport": "Upload passport",
+    "passport_upload_hint": "JPG or PDF, up to 10 MB, max 5 files",
+    "passport_upload_pending_hint": "JPG or PDF, up to 10 MB, max 5 files. Uploaded when the driver is saved.",
+    "delete_document_confirm": "Delete this file?",
+    "toast_document_uploaded": "Passport file uploaded",
+    "toast_document_rejected": "File rejected — only JPG or PDF up to 10 MB",
+    "toast_document_deleted": "File deleted"
   },
   "shipment_settings": {
     "placeholder_status_role": "e.g. document_team",
@@ -1271,6 +1285,15 @@
     "open_confirm_title": "Open {{name}}?",
     "open_confirm_body": "New shipments will be created in {{name}} from now on. The current active season stops being the write target but is not closed.",
     "toast_opened": "Season opened"
+  },
+  "firm_completeness": {
+    "column": "Doc Fields",
+    "complete": "Complete",
+    "missing_count": "Missing {{count}}",
+    "tooltip_title": "Not filled in:",
+    "alert_complete": "All fields needed for contracts and invoices are filled.",
+    "alert_missing": "{{count}} field(s) still missing",
+    "alert_hint": "Documents generated for this firm will leave these parts blank."
   },
   "firms_admin": {
     "title": "Export Firms",
@@ -2601,9 +2624,9 @@
     "section_finance": "Finance",
     "section_status": "Operational status",
     "section_notes": "Notes",
-    "add_truck": "Add truck \"{{plate}}\"",
     "add_trailer": "Add trailer \"{{plate}}\"",
-    "add_driver": "Add driver \"{{name}}\"",
+    "driver_not_found_hint": "Not in the registry. Add the driver in Fleet Management — a passport serial and issue date are required.",
+    "truck_not_found_hint": "Not in the registry. Add the truck in Fleet Management — a model is required.",
     "field": {
       "country": "Country",
       "customer": "Customer",
@@ -3112,6 +3135,16 @@
         "error": "Failed to create contract"
       }
     },
+    "plan_edit": {
+      "button": "Edit plan",
+      "title": "Planned figures",
+      "scope_hint": "These are what the contract document prints as its quantity, price and total. The invoice prints the sale’s own price, which is edited on the Sales tab.",
+      "amount_hint": "Filled from quantity × price; type over it to state an agreed total.",
+      "incomplete_label": "Contract document",
+      "incomplete_warning": "No price set — the generated contract will print a blank price, quantity and total. Use Edit plan to fill them in.",
+      "toast_saved": "Planned figures saved",
+      "toast_error": "Could not save the planned figures"
+    },
     "detail": {
       "back_to_list": "Back to contracts list",
       "tab": {
@@ -3152,8 +3185,12 @@
       "format": "Format",
       "country_unsupported": "Not available for this destination country — the contract template has no clause wording for it yet.",
       "buyer_director_extra": "Pre-filled from the Import Firm's “Director's Full Name” — edit if needed.",
-      "with_stamps": "With stamps",
-      "with_stamps_extra": "Stamps appear only if the seller/buyer firm has its seal & signature uploaded (Admin → Firms)."
+      "with_stamps_extra": "A firm's stamp appears only if its seal & signature are uploaded (Admin → Firms).",
+      "stamps": "Stamps",
+      "stamps_none": "No stamps",
+      "stamps_both": "Both stamps (export + import firm)",
+      "stamps_export": "Export firm stamp only",
+      "stamps_import": "Import firm stamp only"
     },
     "delete": {
       "confirm_title": "Delete contract {{number}}?",
