@@ -1,5 +1,11 @@
 # Document Generation
 
+> **The export contract's seller clause is composed in code, not in the template.**
+> `contract_kz.docx` used to hardcode the seller's legal form in nine places, which
+> is why every export firm printed as an HJ. A Hususy telekeçi now gets a
+> certificate sentence instead of a charter sentence — see
+> [[../screens/firms-admin]] for the wording and what is still outstanding.
+
 Auto-fills the export documents that the document team used to fill by hand from
 the `Export_contracts` master sheet (2–3 hrs/day against a 13:00 deadline). P4
 ships this **one document at a time** on a shared, document-agnostic framework.
@@ -431,6 +437,32 @@ is unresolved (a shipment-less invoice fails all four). The frontend downloads v
 `downloadFile()` (axios blob) so that 400 surfaces as a toast instead of dumping
 JSON into a new tab; a successful call saves the file.
 
+## Truck registration and crew on documents
+
+`_truck_plate(shipment)` and `_driver_names(shipment)` in
+`backend/apps/contracts/services/document_context.py` are the single source of
+truth for how a truck's registration and its drivers print. The invoice, the CMR
+context, the CMR xlsx overlay and every request letter all read them, so those
+four can never disagree about a truck.
+
+Both join a first and a second value with `", "` through `_join_rig`, dropping a
+blank half **and its separator** — a one-driver truck prints `Ahmet A.`, never
+`Ahmet A., `. The Sheet renders the same three cells with a `joinRig` of the same
+shape in `frontend/src/components/sheet/getCellValue.ts`; the two must stay in
+step or an operator would read one thing on the Sheet and print another on the
+CMR. See [[../screens/shipment-sheet]] for the second-rig columns.
+
+`truck_plate` already holds the composed `"{head}/{trailer}"` — the Sheet's
+picker builds it that way — and `truck_plate_2` holds the bare second tractor,
+which has no trailer of its own.
+
+**Fixed 2026-09-10:** `_truck_plate` used to append `shipment.trailer_id`, a
+database row id, on top of an already-composed plate. Any shipment carrying both
+printed something like `2189AHF/1485TAG/34` on its CMR and letters. Checked on
+the live DB at the time: 90 shipments carried a slash-composed plate and 8 of
+them also carried a `trailer_id`, so 8 trucks' documents showed the id. The
+helper now returns the stored plates and nothing else.
+
 ## Authority request letters (CT-1 / phyto / customs)
 
 Three request letters, each **single-language** per its source form: CT-1
@@ -576,7 +608,9 @@ page. Four variants (2026-09-10):
 | `import` | — | stamped |
 
 Seal and signature always travel **together per firm** — the choice is which *firm* is
-stamped, never seal-without-signature. An unrecognised value falls through to the clean
+stamped, never seal-without-signature. (A firm's combined seal+signature photo, below, is
+the one case where the signature placeholder is deliberately left blank — because that one
+image already carries both.) An unrecognised value falls through to the clean
 draft rather than erroring, so a stale link can never leak a stamp. The builder emits a
 `StampImage` marker (a deferred FieldFile ref, so builders stay I/O-free) only when that
 firm is selected **and** it has the image; `render_docx` reads the bytes and turns it
@@ -584,11 +618,20 @@ into a docxtpl `InlineImage` (an unreadable/missing file degrades to blank, neve
 the doc). Placeholders `{{ seller_seal }}` / `{{ seller_signature }}` /
 `{{ buyer_seal }}` / `{{ buyer_signature }}`.
 
+**Combined seal+signature photo (2026-09-10).** A firm may instead upload one photo showing
+the seal and the signature together — `ExportFirm.director_stamp` / `ImportFirm.director_stamp`.
+It **wins over** the separate pair: `_stamp_pair()` puts it in that firm's **seal** placeholder at
+`COMBINED_STAMP_WIDTH_MM` (60mm, covering the width two 32mm stamps would have taken side by
+side) and leaves the signature placeholder blank, so the block never prints the same stamp twice.
+The `.docx` is unchanged — no new placeholder — and the `?stamps=` gate still decides *whether*
+a firm is stamped; the combined photo only changes *which file* is used. A firm with no combined
+photo keeps the two separate images at 32mm each.
+
 Frontend: a **"Download contract"** button (`components/ContractAgreementButton.tsx`)
-opens a modal for the director + deadline + format + a four-way **"Stamps"** radio group
+opens a modal for the director + deadline + format + a four-way **"Stamps"** dropdown
 (No stamps / Both / Export firm only / Import firm only, defaulting to no stamps), then
-downloads via `downloadFile()`. Labels `contracts.generate.stamps*` (tk/ru/en). Vertical
-radios rather than a `Segmented`: four translated labels overflow the modal in RU/TK.
+downloads via `downloadFile()`. Labels `contracts.generate.stamps*` (tk/ru/en). A `Select`
+rather than a `Segmented`: four translated labels overflow the modal in RU/TK.
 
 Renamed from **"Generate contract"** on 2026-09-03. The `Contract` row already exists by the
 time this button renders — it is created from the Sheet's contracts cell — and the tk label
