@@ -1,4 +1,4 @@
-import { Modal, Form, Input, InputNumber, DatePicker, Select, Row, Col } from 'antd';
+import { Alert, Modal, Form, Input, InputNumber, DatePicker, Select, Row, Col } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import dayjs from 'dayjs';
@@ -6,6 +6,8 @@ import { useCreateContract } from '@/hooks/useContracts';
 import { ExportFirmSelect } from '@/components/ExportFirmSelect';
 import { ImportFirmSelect } from '@/components/ImportFirmSelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
+import { deriveContractPlan } from '@/utils/contractPlan';
+import type { ContractPlanField } from '@/utils/contractPlan';
 import type { IContractCreatePayload } from '@/types/contract';
 
 // ─── Incoterm options (standard trade terms) ─────────────────────────────────
@@ -15,8 +17,10 @@ const INCOTERM_OPTIONS = ['FCA', 'CIP', 'DAP', 'CIF', 'FOB', 'EXW', 'DDP', 'DAT'
   label: v,
 }));
 
-/** Net kg one truck carries — planned trucks ⇄ planned quantity convert through this. */
-const TRUCK_CAPACITY_KG = 18100;
+/** The four fields deriveContractPlan() reacts to; other edits leave it alone. */
+const PLAN_FIELDS: ContractPlanField[] = [
+  'planned_trucks', 'planned_quantity_kg', 'price_per_kg', 'planned_amount_usd',
+];
 
 // ─── Form shape ───────────────────────────────────────────────────────────────
 
@@ -49,6 +53,12 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
   const { t } = useTranslation();
   const [form] = Form.useForm<IFormValues>();
   const createMutation = useCreateContract();
+  // The type is the FIRST question, because it decides which of the rest apply.
+  // A one-time contract is one export firm's share of one truck (ADR-023): it has
+  // no truck count to plan and no season-long validity window, and asking for
+  // those in framework language is what made this form confusing.
+  const contractType = Form.useWatch('contract_type', form) ?? 'FRAMEWORK';
+  const isOneTime = contractType === 'ONE_TIME';
 
   const handleSubmit = async () => {
     let values: IFormValues;
@@ -62,13 +72,14 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
       export_firm: values.export_firm,
       import_firm: values.import_firm,
       incoterm: values.incoterm,
-      planned_trucks: values.planned_trucks,
+      // One truck by definition, and the field is not shown for it.
+      planned_trucks: isOneTime ? 1 : values.planned_trucks,
       planned_quantity_kg: values.planned_quantity_kg,
       price_per_kg: values.price_per_kg,
       planned_amount_usd: values.planned_amount_usd,
       contract_date: values.contract_date.format('YYYY-MM-DD'),
       start_date: values.start_date.format('YYYY-MM-DD'),
-      end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
+      end_date: isOneTime || !values.end_date ? null : values.end_date.format('YYYY-MM-DD'),
       customer: values.customer ?? null,
     };
     const trimmedNumber = values.contract_number?.trim();
@@ -102,37 +113,29 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
   };
 
   /**
-   * Keep trucks ⇄ quantity ⇄ amount consistent as the user types.
-   *
-   * Trucks and quantity are two views of the same number (1 truck = 18 100 kg),
-   * so editing either fills the other; the amount is always quantity × price.
-   * All three stay editable — a later manual edit is not overwritten until one
-   * of its inputs changes again.
+   * Keep trucks ⇄ quantity ⇄ amount consistent as the user types. The rule lives
+   * in utils/contractPlan so the edit modal on the detail page applies exactly
+   * the same one — two copies would compute different totals for one contract.
    */
   const handleValuesChange = (changed: Partial<IFormValues>) => {
-    const touchesPlan =
-      'planned_trucks' in changed ||
-      'planned_quantity_kg' in changed ||
-      'price_per_kg' in changed;
-    if (!touchesPlan) return;
-
-    const values = form.getFieldsValue();
-    let quantity: number | undefined = values.planned_quantity_kg;
-
-    if ('planned_trucks' in changed) {
-      quantity = values.planned_trucks ? values.planned_trucks * TRUCK_CAPACITY_KG : undefined;
-      form.setFieldValue('planned_quantity_kg', quantity);
-    } else if ('planned_quantity_kg' in changed) {
-      form.setFieldValue(
-        'planned_trucks',
-        quantity ? Math.ceil(quantity / TRUCK_CAPACITY_KG) : undefined,
-      );
+    if ('contract_type' in changed) {
+      // Clear the plan on a type switch. The two types mean different things by
+      // "quantity": a framework plan is truckloads over a season, a one-time
+      // contract is one firm's share of one truck. Carrying 36 200 kg across the
+      // switch would leave a truckload sitting under a label that now reads
+      // "this export firm's share" — a wrong number, silently saved, on a
+      // document that goes to a bank. Cheaper to retype than to catch later.
+      form.setFieldsValue({
+        planned_trucks: undefined,
+        planned_quantity_kg: undefined,
+        planned_amount_usd: undefined,
+      });
+      return;
     }
-
-    const price = values.price_per_kg;
-    form.setFieldValue(
-      'planned_amount_usd',
-      quantity && price ? Number((quantity * price).toFixed(2)) : undefined,
+    const edited = Object.keys(changed)[0] as ContractPlanField | undefined;
+    if (!edited || !PLAN_FIELDS.includes(edited)) return;
+    form.setFieldsValue(
+      deriveContractPlan(form.getFieldsValue(), edited, { linkTrucks: !isOneTime }),
     );
   };
 
@@ -160,6 +163,37 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
         style={{ marginTop: 16 }}
         onValuesChange={handleValuesChange}
       >
+        <Row gutter={16}>
+          {/* Contract type — asked FIRST: it decides which fields below apply. */}
+          <Col span={12}>
+            <Form.Item
+              name="contract_type"
+              label={t('contracts.create.field.contract_type')}
+              initialValue="FRAMEWORK"
+            >
+              <Select
+                options={[
+                  { value: 'FRAMEWORK', label: t('contracts.type.framework') },
+                  { value: 'ONE_TIME', label: t('contracts.type.one_time') },
+                ]}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={t(
+                isOneTime
+                  ? 'contracts.create.type_hint.one_time'
+                  : 'contracts.create.type_hint.framework',
+              )}
+            />
+          </Col>
+        </Row>
+
         <Row gutter={16}>
           {/* Contract number */}
           <Col span={24}>
@@ -212,23 +246,33 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
         </Row>
 
         <Row gutter={16}>
-          {/* Planned trucks — 1 truck = 18 100 kg, kept in sync with the quantity */}
-          <Col span={6}>
-            <Form.Item
-              name="planned_trucks"
-              label={t('contracts.create.field.planned_trucks')}
-              extra={t('contracts.create.field.planned_trucks_hint')}
-              rules={[{ required: true, message: t('common.required') }]}
-            >
-              <InputNumber min={1} precision={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
+          {/* Planned trucks — framework only. A one-time contract is one truck by
+              definition, so asking for a count is the framework question that made
+              this form confusing; the payload sends 1. */}
+          {!isOneTime && (
+            <Col span={6}>
+              <Form.Item
+                name="planned_trucks"
+                label={t('contracts.create.field.planned_trucks')}
+                extra={t('contracts.create.field.planned_trucks_hint')}
+                rules={[{ required: true, message: t('common.required') }]}
+              >
+                <InputNumber min={1} precision={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          )}
 
-          {/* Planned quantity (kg) */}
-          <Col span={6}>
+          {/* Quantity — a season's plan for a framework contract, one export
+              firm's share of one truck for a one-time one (ADR-023). */}
+          <Col span={isOneTime ? 8 : 6}>
             <Form.Item
               name="planned_quantity_kg"
-              label={t('contracts.create.field.planned_quantity_kg')}
+              label={t(
+                isOneTime
+                  ? 'contracts.create.field.one_time_quantity_kg'
+                  : 'contracts.create.field.planned_quantity_kg',
+              )}
+              extra={isOneTime ? t('contracts.create.field.one_time_quantity_hint') : undefined}
               rules={[{ required: true, message: t('common.required') }]}
             >
               <InputNumber min={0} precision={0} style={{ width: '100%' }} />
@@ -236,7 +280,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
           </Col>
 
           {/* Price per kg (USD) */}
-          <Col span={6}>
+          <Col span={isOneTime ? 8 : 6}>
             <Form.Item
               name="price_per_kg"
               label={t('contracts.create.field.price_per_kg')}
@@ -253,10 +297,14 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
           </Col>
 
           {/* Planned amount (USD) — quantity × price */}
-          <Col span={6}>
+          <Col span={isOneTime ? 8 : 6}>
             <Form.Item
               name="planned_amount_usd"
-              label={t('contracts.create.field.planned_amount_usd')}
+              label={t(
+                isOneTime
+                  ? 'contracts.create.field.one_time_amount_usd'
+                  : 'contracts.create.field.planned_amount_usd',
+              )}
               extra={t('contracts.create.field.planned_amount_usd_hint')}
               rules={[{ required: true, message: t('common.required') }]}
             >
@@ -267,7 +315,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
 
         <Row gutter={16}>
           {/* Contract date — printed in the document header after "ş. Asgabat" */}
-          <Col span={8}>
+          <Col span={isOneTime ? 12 : 8}>
             <Form.Item
               name="contract_date"
               label={t('contracts.create.field.contract_date')}
@@ -280,7 +328,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
           </Col>
 
           {/* Start date — printed in §2.6 of the contract */}
-          <Col span={8}>
+          <Col span={isOneTime ? 12 : 8}>
             <Form.Item
               name="start_date"
               label={t('contracts.create.field.start_date')}
@@ -291,15 +339,18 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
             </Form.Item>
           </Col>
 
-          {/* End date (optional) — validity in §8.1 */}
-          <Col span={8}>
-            <Form.Item
-              name="end_date"
-              label={t('contracts.create.field.end_date')}
-            >
-              <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
+          {/* End date — the contract's validity window (§8.1). A framework notion:
+              a one-time contract covers a single shipment, so the payload sends null. */}
+          {!isOneTime && (
+            <Col span={8}>
+              <Form.Item
+                name="end_date"
+                label={t('contracts.create.field.end_date')}
+              >
+                <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          )}
         </Row>
 
         <Row gutter={16}>
@@ -310,23 +361,6 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
               label={t('contracts.create.field.customer')}
             >
               <CustomerSelect />
-            </Form.Item>
-          </Col>
-
-          {/* Contract type */}
-          <Col span={12}>
-            <Form.Item
-              name="contract_type"
-              label={t('contracts.create.field.contract_type')}
-              initialValue="FRAMEWORK"
-            >
-              <Select
-                options={[
-                  { value: 'FRAMEWORK', label: t('contracts.type.framework') },
-                  { value: 'ONE_TIME', label: t('contracts.type.one_time') },
-                ]}
-                style={{ width: '100%' }}
-              />
             </Form.Item>
           </Col>
         </Row>

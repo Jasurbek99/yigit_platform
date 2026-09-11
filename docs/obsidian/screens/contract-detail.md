@@ -29,13 +29,54 @@ Back button (`ArrowLeftOutlined` + "Şertnamalar sanawyna gaýt") → contract_n
 | Group key | Fields shown |
 |---|---|
 | Identity | contract_number, seller (export_firm_name), buyer (import_firm_name), season_name, incoterm, status tag |
-| Planlanan (Planned) | planned_trucks, planned_quantity_kg, planned_amount_usd |
+| Planlanan (Planned) | planned_trucks, planned_quantity_kg, planned_amount_usd, price_per_kg |
 | Eksport edilen | exported_trucks, exported_quantity_kg, exported_amount_usd |
 | Galan (Remaining) | trucks_remaining, quantity_remaining_kg |
 | Tölegler (Payments) | payment_received_usd, ostatok_usd |
 | Dates | start_date → end_date (DD.MM.YYYY) |
 
 Numbers use `fmt()` — `Math.round().toLocaleString('en-US', { maximumFractionDigits: 0 })`.
+
+### Edit plan (2026-09-10)
+
+An **Edit plan** button sits in the header row beside the contract generator and
+opens `ContractPlanEdit`, a modal over the four planned figures —
+`planned_trucks`, `planned_quantity_kg`, `price_per_kg`, `planned_amount_usd`.
+It is the only place any of them can be changed after the contract exists.
+
+It exists because the contract .docx prints its quantity, price and total (and
+the total spelled out in words) straight off those fields, and **every** contract
+auto-created from the Sheet before 2026-09-10 has them NULL — 38 one-time and 59
+of 64 framework contracts, all generating a document that is blank exactly where
+it matters. See [[../processes/document-generation]].
+
+The Descriptions block shows a warning row whenever `price_per_kg` is NULL, since
+a column of dashes does not tell an operator the document will come out blank.
+
+Deliberately narrow:
+
+- **Only those four fields are sent.** The firms, the number and the dates are
+  the contract's identity, and `exported_*` / `remaining_usd` belong to the rollup
+  service ([[../reference/contracts-contract-sale-model]]).
+- **It does not touch the linked `ContractSale.price_per_kg`**, which is what the
+  *invoice* prints. An invoice may already be issued, so a silent push would
+  rewrite a document that has left the building. The modal says so in a hint, and
+  points at the Faktura tab for the other half. This is the one place the two
+  prices can drift, and it is drift a person chose.
+- **Gated twice**: `canDo(user, 'contract', 'edit')` hides the button, and
+  `useSeasonReadOnly()` disables it for a closed season, because the viewset
+  carries `SeasonNotClosed` and would answer `409 season_closed`.
+
+On a **one-time** contract the truck count is hidden and the weight is labelled as
+one export firm's share, matching the create form — the two screens must agree
+about what a one-time contract is. The truck conversion is off there for the same
+reason (`linkTrucks: false`); see [[contract-list]].
+
+Trucks ⇄ quantity ⇄ amount stay consistent as you type: 1 truck = 18 100 kg, and
+the amount is quantity × price to cents. Typing the amount itself derives
+nothing — an operator entering a total is stating the agreed figure. That rule
+lives in `utils/contractPlan.ts` and is shared with the create modal, so the two
+forms cannot compute different totals for the same inputs.
 
 ### Tabs
 
@@ -149,10 +190,17 @@ Admin / superuser only (button hidden for other roles). Popconfirm two-step. On 
 | `frontend/src/pages/contracts/ContractSalesTab.tsx` | Faktura ProTable |
 | `frontend/src/pages/contracts/DocumentsTab.tsx` | Contract PDF attachments (upload / view / delete) |
 | `frontend/src/pages/contracts/ContractSaleCreate.tsx` | Create + Edit modal |
+| `frontend/src/pages/contracts/ContractPlanEdit.tsx` | Edit-plan modal (the four planned figures) |
+| `frontend/src/utils/contractPlan.ts` | `deriveContractPlan()` — trucks ⇄ quantity ⇄ amount, shared with ContractCreate |
 | `frontend/src/hooks/useContractSales.ts` | useContractSales, useContractSale, useCreateContractSale, useUpdateContractSale, useDeleteContractSale |
 | `frontend/src/types/contractSale.ts` | IContractSale, IContractSaleDetail, IContractSaleCreatePayload, IContractSaleUpdatePayload, ContractSaleStatus |
 
 ## API
+
+`PATCH /api/v1/contracts/contracts/{id}/` — edit the planned figures (`ContractCreateSerializer`,
+gated on the `contract` resource's `can_edit` plus `SeasonNotClosed`). A partial body carrying only
+the four planned fields is accepted; `export_firm` / `import_firm` are required on create but not
+on a partial update. Pinned by `ContractPlannedFiguresPatchTest`.
 
 `GET /api/v1/contracts/sales/?contract=<id>` — list (flat, no pagination for now)
 `POST /api/v1/contracts/sales/` — create

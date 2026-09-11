@@ -89,11 +89,48 @@ The DB stores `DECIMAL(12,2)` and DRF returns the value as a string. Frontend pa
 
 `ContractCreate.tsx` — Ant Design Modal + Form with two-column layout.
 
-Fields: contract_number, export_firm (ExportFirmSelect), import_firm (ImportFirmSelect), season (SeasonSelect), incoterm (Select: FCA/CIP/DAP/CIF/FOB/EXW/DDP/DAT, **defaults to FCA**), planned_trucks (InputNumber), planned_quantity_kg, price_per_kg, planned_amount_usd, contract_date (DatePicker, defaults to today), start_date (DatePicker), end_date (optional), customer (optional, CustomerSelect), contract_type (optional Input).
+### The type is the first question (2026-09-10)
 
-Auto-calculation (`onValuesChange`): trucks ⇄ quantity convert through **18 100 kg
-per truck** (editing either fills the other), and `planned_amount_usd` is always
-`planned_quantity_kg × price_per_kg`. All three stay editable.
+`contract_type` sits at the **top** of the form, above everything else, with a
+one-line explanation of what the chosen type means. It used to be the **last**
+field, defaulting to Framework — so an operator answered every question in
+framework terms and only then found the selector that said what they were making.
+The complaint was that creating a one-time contract asked for framework details.
+
+Two fields are **framework-only** and disappear when One-time is picked:
+
+| Field | Why it is framework-only |
+|---|---|
+| `planned_trucks` | A one-time contract is one truck by definition (ADR-023). The payload sends `1`. |
+| `end_date` | The contract's validity window (§8.1). A one-time contract covers a single shipment. The payload sends `null`. |
+
+Two are **relabelled**, because they mean something different: a one-time contract
+covers one export firm's **share** of a truck, so `planned_quantity_kg` reads
+*Weight (kg)* with the hint "This export firm's share of the truck", and
+`planned_amount_usd` reads *Value ($)*.
+
+Switching the type **clears the plan** — trucks, quantity and amount — in both
+directions. The firms, dates, incoterm and number are kept. The two types mean
+different things by "quantity": carrying a framework plan of 36 200 kg into a
+field that now reads *this export firm's share of the truck* is a wrong number
+under a correct label, saved silently onto a document that reaches a bank. A
+firm's share is around 9 000 kg; the truckload is 18 100.
+
+Fields (framework): contract_type, contract_number, export_firm (ExportFirmSelect), import_firm (ImportFirmSelect), season (SeasonSelect), incoterm (Select: FCA/CIP/DAP/CIF/FOB/EXW/DDP/DAT, **defaults to FCA**), planned_trucks (InputNumber), planned_quantity_kg, price_per_kg, planned_amount_usd, contract_date (DatePicker, defaults to today), start_date (DatePicker), end_date (optional), customer (optional, CustomerSelect).
+
+Auto-calculation (`onValuesChange`): the rule lives in `utils/contractPlan.ts`
+(`deriveContractPlan`), shared with the detail page's **Edit plan** modal so the
+two forms cannot compute different totals for one contract. Trucks ⇄ quantity
+convert through **18 100 kg per truck** (editing either fills the other), and
+`planned_amount_usd` is always `planned_quantity_kg × price_per_kg`. All three
+stay editable; typing the amount derives nothing.
+
+**That truck conversion is off for a one-time contract** (`linkTrucks: false`).
+Its weight is one firm's split — often around 9 000 kg, not a multiple of a
+truckload — so converting would overwrite an agreed weight with a truck count the
+operator never meant. The amount is still weight × price. The same rule applies in
+**Edit plan** on the detail page, which also hides the truck count for a one-time
+contract, so the two screens agree about what a one-time contract is.
 
 The **deal passport** (`passport_sdelka`) is no longer asked for here — the bank
 issues it after signing, so the field stays on the model (searchable via `?search=`,

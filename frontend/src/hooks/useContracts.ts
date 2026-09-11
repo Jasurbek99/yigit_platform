@@ -93,6 +93,42 @@ export function useCreateContract() {
   });
 }
 
+// ─── Update ───────────────────────────────────────────────────────────────────
+
+/** The planned block, the only part of a contract the detail page edits. */
+export interface IContractPlanPatch {
+  planned_trucks?: number | null;
+  planned_quantity_kg?: number | null;
+  price_per_kg?: number | null;
+  planned_amount_usd?: number | null;
+}
+
+/**
+ * PATCH a contract's planned figures.
+ *
+ * These four are what the contract document prints as its quantity, price and
+ * total, and every contract auto-created from the Sheet before 2026-09-10 has
+ * them NULL — this is the only way to fill them in. Deliberately narrow: the
+ * detail page has no business rewriting the firms, the number or the dates, and
+ * the exported/remaining totals are owned by the rollup service.
+ */
+export function useUpdateContractPlan(contractId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: IContractPlanPatch): Promise<IContractDetail> => {
+      const { data } = await api.patch<IContractDetail>(
+        `/contracts/contracts/${contractId}/`,
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts', 'detail', contractId] });
+      queryClient.invalidateQueries({ queryKey: ['contracts', 'list'] });
+    },
+  });
+}
+
 // ─── Attachments ────────────────────────────────────────────────────────────
 
 /**

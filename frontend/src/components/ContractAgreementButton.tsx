@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Checkbox, DatePicker, Form, Input, Modal, Radio, Segmented } from 'antd';
+import { Button, Checkbox, DatePicker, Form, Input, Modal, Segmented, Select } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { IconFileText } from '@tabler/icons-react';
 
@@ -151,25 +151,19 @@ export function ContractAgreementButton({
             label={t('contracts.generate.stamps')}
             extra={t('contracts.generate.with_stamps_extra')}
           >
-            {/* Vertical radios, not a Segmented: four translated labels overflow
-                the modal in RU/TK. */}
-            <Radio.Group
+            {/* A dropdown, not a Segmented: four translated labels overflow the
+                modal in RU/TK. */}
+            <Select<TStampMode>
               value={stampMode}
-              onChange={(e) => setStampMode(e.target.value as TStampMode)}
-            >
-              <Radio value="none" style={{ display: 'block' }}>
-                {t('contracts.generate.stamps_none')}
-              </Radio>
-              <Radio value="both" style={{ display: 'block' }}>
-                {t('contracts.generate.stamps_both')}
-              </Radio>
-              <Radio value="export" style={{ display: 'block' }}>
-                {t('contracts.generate.stamps_export')}
-              </Radio>
-              <Radio value="import" style={{ display: 'block' }}>
-                {t('contracts.generate.stamps_import')}
-              </Radio>
-            </Radio.Group>
+              onChange={setStampMode}
+              style={{ width: '100%' }}
+              options={[
+                { label: t('contracts.generate.stamps_none'), value: 'none' },
+                { label: t('contracts.generate.stamps_both'), value: 'both' },
+                { label: t('contracts.generate.stamps_export'), value: 'export' },
+                { label: t('contracts.generate.stamps_import'), value: 'import' },
+              ]}
+            />
           </Form.Item>
           <Form.Item extra={t('documents.highlight_extra')}>
             <Checkbox checked={highlight} onChange={(e) => setHighlight(e.target.checked)}>

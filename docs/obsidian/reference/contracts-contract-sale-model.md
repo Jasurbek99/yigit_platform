@@ -138,9 +138,15 @@ amount and the contract's planned amount describing different things.
 **Fixing a mistyped price.** Calling the endpoint again with `mode: 'one_time'` does **not**
 correct the contract — it mints a second auto-numbered one, repoints the sale at it and leaves
 the first with no sales, consuming a number in the per-firm/per-year sequence. The orphan is
-deletable from the contract list (unused contracts are). Editing the price on the contract
-detail page is the cheaper route. Pinned by
+deletable from the contract list (unused contracts are). Pinned by
 `test_a_second_create_mints_a_new_contract_and_orphans_the_first`.
+
+Use **Edit plan** on the contract detail page instead (added 2026-09-10) — a `PATCH` over the
+four planned figures, and the only way to change any of them once the contract exists. It
+deliberately leaves `ContractSale.price_per_kg` alone: that is what the *invoice* prints, an
+invoice may already be issued, and rewriting a document that has left the building without
+being asked is worse than the drift. Correct the sale on the Faktura tab when it needs it.
+See [[../screens/contract-detail]].
 
 Pre-existing one-time contracts created before this date keep their NULL price and still
 generate a blank-price document; fill them in on the contract detail page.

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -10,12 +11,14 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import { useContract } from '@/hooks/useContracts';
 import { useAuth } from '@/hooks/useAuth';
+import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { ContractAgreementButton } from '@/components/ContractAgreementButton';
+import { ContractPlanEdit } from './ContractPlanEdit';
 import { ContractSalesTab } from './ContractSalesTab';
 import { DocumentsTab } from './DocumentsTab';
 import type { ContractStatus } from '@/types/contract';
@@ -71,6 +74,11 @@ export default function ContractDetail() {
   // the raw matrix here bypassed every frontend permission gate (2026-08-05).
   const canUploadDocument = canDo(user, 'contract', 'create');
   const canDeleteDocument = canDo(user, 'contract', 'delete');
+  // The planned block is a write, so it needs the edit grant AND an open season —
+  // the viewset carries SeasonNotClosed and would 409 on a closed one.
+  const canEditPlan = canDo(user, 'contract', 'edit');
+  const seasonReadOnly = useSeasonReadOnly();
+  const [planEditOpen, setPlanEditOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -157,7 +165,16 @@ export default function ContractDetail() {
             ? t('contracts.type.one_time')
             : t('contracts.type.framework')}
         </Tag>
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          {canEditPlan && (
+            <Button
+              icon={<EditOutlined />}
+              disabled={seasonReadOnly}
+              onClick={() => setPlanEditOpen(true)}
+            >
+              {t('contracts.plan_edit.button')}
+            </Button>
+          )}
           {contract.contract_template_supported ? (
             <ContractAgreementButton
               contractId={contract.id}
@@ -227,6 +244,15 @@ export default function ContractDetail() {
         <Descriptions.Item label={t('contracts.create.field.price_per_kg')}>
           {contract.price_per_kg ? `$${contract.price_per_kg}/kg` : '—'}
         </Descriptions.Item>
+        {contract.price_per_kg == null && (
+          /* The .docx prints price, quantity and total from this block. Blank here
+             means a blank contract document, which is not obvious from the dashes. */
+          <Descriptions.Item label={t('contracts.plan_edit.incomplete_label')} span={3}>
+            <Typography.Text type="warning">
+              {t('contracts.plan_edit.incomplete_warning')}
+            </Typography.Text>
+          </Descriptions.Item>
+        )}
 
         {/* Eksport edilen group */}
         <Descriptions.Item label={`${t('contracts.detail.group.exported')} — ${t('contracts.column.exported_trucks')}`}>
@@ -270,6 +296,13 @@ export default function ContractDetail() {
         items={tabItems}
         destroyInactiveTabPane={false}
       />
+      {canEditPlan && (
+        <ContractPlanEdit
+          open={planEditOpen}
+          contract={contract}
+          onClose={() => setPlanEditOpen(false)}
+        />
+      )}
     </div>
   );
 }
