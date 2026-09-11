@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Tabs,
   Table,
@@ -100,6 +101,9 @@ function TruckDocumentsPanel({
     />
   );
 }
+
+/** Tab keys accepted in `?tab=`; anything else falls back to Trucks. */
+const TABS = ['trucks', 'trailers', 'drivers'];
 
 export default function FleetAdminPage() {
   const { t } = useTranslation();
@@ -483,13 +487,19 @@ export default function FleetAdminPage() {
     </div>
   );
 
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') ?? '';
+
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
         <Title level={4} style={{ margin: 0 }}>{t('fleet_admin.title')}</Title>
         <Text type="secondary">{t('fleet_admin.subtitle')}</Text>
       </div>
+      {/* `?tab=` so the Sheet's fleet-warning marker can land on the tab that
+          holds the incomplete record, instead of always opening on Trucks. */}
       <Tabs
+        defaultActiveKey={TABS.includes(tabParam) ? tabParam : 'trucks'}
         items={[
           { key: 'trucks', label: t('fleet_admin.tab_trucks'), children: trucksTab },
           { key: 'trailers', label: t('fleet_admin.tab_trailers'), children: trailersTab },

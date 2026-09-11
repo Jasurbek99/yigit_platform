@@ -1344,7 +1344,11 @@
     "legal_type": "Hukuk görnüşi",
     "name_bare_tk": "Görnüşsiz ady (TK)",
     "name_bare_ru": "Görnüşsiz ady (RU)",
-    "name_bare_en": "Görnüşsiz ady (EN)"
+    "name_bare_en": "Görnüşsiz ady (EN)",
+    "patent_series": "Tassyknama seriýasy",
+    "patent_number": "Tassyknama belgisi",
+    "patent_date": "Tassyknama senesi",
+    "patent_hint": "Diňe hususy telekeçiler üçin. Şertnamanyň girişi tassyknamanyň seriýasyny, belgisini we senesini görkezýär."
   },
   "import_firms_admin": {
     "title": "Import firmalary",
@@ -2065,6 +2069,16 @@
       "road_border": "🛣 Ýolda / serhet",
       "sales_report": "📊 Satyş & hasabat",
       "other": "📎 Beýlekiler"
+    },
+    "fleet_warning": {
+      "title": "Awtoparkyň maglumaty doly däl",
+      "missing": {
+        "passport_serial": "Pasport seriýasy",
+        "passport_issue_date": "Pasportyň berlen senesi",
+        "passport_scan": "Pasport nusgasy",
+        "truck_model": "Çekijiniň modeli",
+        "tech_passport_scan": "Tehpasport nusgasy"
+      }
     }
   },
   "draft": {
@@ -3150,11 +3164,19 @@
         "end_date": "Gutarýan senesi (hökman däl)",
         "customer": "Müşderi (hökman däl)",
         "contract_type": "Şertnama görnüşi",
-        "passport_sdelka": "Geleşik pasporty (hökman däl)"
+        "passport_sdelka": "Geleşik pasporty (hökman däl)",
+        "passport_sdelka_hint": "Bank geleşik pasporty — diňe çarçuwaly şertnamalarda; bir gezeklikde boş.",
+        "one_time_quantity_kg": "Agram (kg)",
+        "one_time_quantity_hint": "Şu eksport firmasynyň maşyndaky paýy",
+        "one_time_amount_usd": "Bahasy ($)"
       },
       "toast": {
         "created": "Şertnama döredildi",
         "error": "Şertnamany döretmek başartmady"
+      },
+      "type_hint": {
+        "framework": "Çarçuwaly şertnama şu firma jübüti üçin möwsümiň ugradyşlaryny öz içine alýar: maşyn sany bilen meýilleşdirilýär we hereket ediş möhleti bolýar.",
+        "one_time": "Bir gezeklik şertnama bir eksport firmasynyň bir maşyndaky paýyny öz içine alýar. Maşyn sany we hereket ediş möhleti ýok — diňe ylalaşylan agram we baha."
       }
     },
     "plan_edit": {

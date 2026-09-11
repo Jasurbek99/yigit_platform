@@ -803,6 +803,22 @@
   color: #0958d9;
 }
 
+/* Fleet-record warning on the truck-plate / driver cells. Bottom-right, because
+   CommentMarker owns the top-right corner of every cell. */
+.sheet-cell__fleet-warning {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  z-index: 2;
+  font-size: calc(12px * var(--sheet-zoom, 1));
+  line-height: 1;
+  color: #faad14;
+  user-select: none;
+}
+.sheet-cell__fleet-warning:hover {
+  color: #d48806;
+}
+
 /* ═══ ROLE BLOCKS (who-key bands) ═══
    The Sheet is transposed, so one role's fields are a contiguous run of ROWS.
    Each run is headed by a band row: a tinted stripe across the full grid width

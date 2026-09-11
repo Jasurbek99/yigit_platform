@@ -1344,7 +1344,11 @@
     "legal_type": "Legal form",
     "name_bare_tk": "Name without form (TK)",
     "name_bare_ru": "Name without form (RU)",
-    "name_bare_en": "Name without form (EN)"
+    "name_bare_en": "Name without form (EN)",
+    "patent_series": "Certificate series",
+    "patent_number": "Certificate number",
+    "patent_date": "Certificate date",
+    "patent_hint": "Sole proprietors only. The contract preamble cites the certificate by series, number and date."
   },
   "import_firms_admin": {
     "title": "Import Firms",
@@ -2065,6 +2069,16 @@
       "road_border": "🛣 Road & border",
       "sales_report": "📊 Sales & report",
       "other": "📎 Other"
+    },
+    "fleet_warning": {
+      "title": "Fleet record incomplete",
+      "missing": {
+        "passport_serial": "Passport serial",
+        "passport_issue_date": "Passport issue date",
+        "passport_scan": "Passport scan",
+        "truck_model": "Truck model",
+        "tech_passport_scan": "Tech passport scan"
+      }
     }
   },
   "draft": {
@@ -3145,11 +3159,19 @@
         "end_date": "End date (optional)",
         "customer": "Customer (optional)",
         "contract_type": "Contract type",
-        "passport_sdelka": "Deal passport (optional)"
+        "passport_sdelka": "Deal passport (optional)",
+        "passport_sdelka_hint": "Bank deal-passport — framework contracts only; leave blank for one-time.",
+        "one_time_quantity_kg": "Weight (kg)",
+        "one_time_quantity_hint": "This export firm's share of the truck",
+        "one_time_amount_usd": "Value ($)"
       },
       "toast": {
         "created": "Contract created",
         "error": "Failed to create contract"
+      },
+      "type_hint": {
+        "framework": "A framework contract covers a season of shipments for this firm pair: plan it in trucks, and give it a validity window.",
+        "one_time": "A one-time contract covers one export firm’s share of a single truck. No truck count and no validity window — just the agreed weight and price."
       }
     },
     "plan_edit": {

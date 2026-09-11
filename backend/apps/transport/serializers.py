@@ -104,16 +104,31 @@ def require_filled(serializer, validated_data, field_names):
 class TruckHeadSerializer(serializers.ModelSerializer):
     has_gps = serializers.SerializerMethodField()
     document_count = serializers.SerializerMethodField()
+    missing_details = serializers.SerializerMethodField()
 
     class Meta:
         model = TruckHead
         fields = ['id', 'plate_number', 'owner_type', 'owner_name', 'status',
                   'truck_model', 'capacity', 'is_active', 'has_gps',
-                  'document_count']
-        read_only_fields = ['id', 'has_gps', 'document_count']
+                  'document_count', 'missing_details']
+        read_only_fields = ['id', 'has_gps', 'document_count', 'missing_details']
 
     def get_has_gps(self, obj) -> bool:
         return obj.traccar_device_id is not None
+
+    def get_missing_details(self, obj) -> list[str]:
+        """What this tractor still needs before its documents can be issued.
+
+        Drives the Sheet's warning marker on the truck-plate cell. `truck_model`
+        became required on save in 2026-09, so every row imported before then
+        has none; the tech-passport scan has never been enforced.
+        """
+        missing = []
+        if not (obj.truck_model or '').strip():
+            missing.append('truck_model')
+        if self.get_document_count(obj) == 0:
+            missing.append('tech_passport_scan')
+        return missing
 
     def get_document_count(self, obj) -> int:
         # A count, not the documents — safe on the shared picker route, unlike
@@ -172,10 +187,33 @@ class DriverSerializer(serializers.ModelSerializer):
     `BATYROW BAYRAMMYRAT` and only the code separates them.
     """
 
+    missing_details = serializers.SerializerMethodField()
+
     class Meta:
         model = Driver
-        fields = ['id', 'name', 'phone', 'logo_ref', 'driver_logo_code', 'is_active']
-        read_only_fields = ['id', 'logo_ref', 'driver_logo_code']
+        fields = ['id', 'name', 'phone', 'logo_ref', 'driver_logo_code', 'is_active',
+                  'missing_details']
+        read_only_fields = ['id', 'logo_ref', 'driver_logo_code', 'missing_details']
+
+    def get_missing_details(self, obj) -> list[str]:
+        """What this driver's passport record still needs.
+
+        Deliberately on the SHARED serializer, not the admin one: the Sheet
+        shows this marker to every role, while the passport values themselves
+        stay on `DriverAdminSerializer`. It reports the *status* of the fields
+        and never their contents, so it is not the oracle the serializer split
+        exists to close — knowing a serial is absent reveals nothing about a
+        serial that is present.
+        """
+        missing = []
+        if not (obj.passport_serial or '').strip():
+            missing.append('passport_serial')
+        if obj.passport_issue_date is None:
+            missing.append('passport_issue_date')
+        count = getattr(obj, 'document_count_annotated', None)
+        if (count if count is not None else obj.documents.count()) == 0:
+            missing.append('passport_scan')
+        return missing
 
 
 class DriverAdminSerializer(DriverSerializer):

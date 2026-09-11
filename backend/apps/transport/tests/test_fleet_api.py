@@ -840,3 +840,90 @@ class TruckHeadDocumentTests(TestCase):
         row = next(r for r in rows if r['id'] == self.truck.id)
         self.assertEqual(row['document_count'], 1)
         self.assertEqual(self.client.get(self.url).status_code, 403)
+
+
+class MissingDetailsTests(TestCase):
+    """`missing_details` tells the Sheet what a fleet row still needs.
+
+    It ships the *status* of a driver's passport, never its values, so the
+    warning marker can be shown to every role while `DriverSerializer` keeps
+    withholding the passport itself from anyone who cannot edit the fleet.
+    """
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.editor = User.objects.create_user(username='mgr9', password='x', role='export_manager')
+        self.viewer = User.objects.create_user(username='op9', password='x', role='sales_rep')
+
+    def _scan(self, driver):
+        DriverDocument.objects.create(
+            driver=driver, file=SimpleUploadedFile('p.jpg', b'x'),
+            original_filename='p.jpg', mime_type='image/jpeg', size_bytes=1,
+            uploaded_by=self.editor,
+        )
+
+    def _drivers(self, user):
+        self.client.force_authenticate(user)
+        return {r['id']: r for r in self.client.get('/api/v1/transport/drivers/').json()}
+
+    def _heads(self, user):
+        self.client.force_authenticate(user)
+        return {r['id']: r for r in self.client.get('/api/v1/transport/truck-heads/').json()}
+
+    def test_complete_driver_reports_nothing_missing(self):
+        d = Driver.objects.create(id=5, name='TOLY', passport_serial='I-AŞ 1234',
+                                  passport_issue_date='2020-01-01')
+        self._scan(d)
+        self.assertEqual(self._drivers(self.viewer)[5]['missing_details'], [])
+
+    def test_driver_reports_each_missing_piece(self):
+        Driver.objects.create(id=6, name='HIC ZAT')
+        row = self._drivers(self.viewer)[6]
+        self.assertEqual(
+            sorted(row['missing_details']),
+            ['passport_issue_date', 'passport_scan', 'passport_serial'],
+        )
+
+    def test_driver_missing_only_the_scan(self):
+        Driver.objects.create(id=7, name='SKAN YOK', passport_serial='I-AŞ 9',
+                              passport_issue_date='2021-05-05')
+        self.assertEqual(self._drivers(self.viewer)[7]['missing_details'], ['passport_scan'])
+
+    def test_status_reaches_a_role_that_may_not_read_the_passport(self):
+        """The whole point: the marker is visible where the passport is not."""
+        Driver.objects.create(id=8, name='GIZLIN')
+        row = self._drivers(self.viewer)[8]
+        self.assertIn('passport_serial', row['missing_details'])
+        self.assertNotIn('passport_serial', row)
+        self.assertNotIn('passport_issue_date', row)
+
+    def test_fleet_editor_gets_the_same_field_alongside_the_passport(self):
+        Driver.objects.create(id=9, name='ADMIN GORER')
+        row = self._drivers(self.editor)[9]
+        self.assertIn('passport_serial', row.get('missing_details', []))
+        self.assertIn('passport_serial', row)
+
+    def test_truck_head_reports_model_and_tech_passport(self):
+        TruckHead.objects.create(id=21, plate_number='1111AAA', owner_type='company')
+        self.assertEqual(
+            sorted(self._heads(self.viewer)[21]['missing_details']),
+            ['tech_passport_scan', 'truck_model'],
+        )
+
+    def test_complete_truck_head_reports_nothing_missing(self):
+        head = TruckHead.objects.create(id=22, plate_number='2222BBB',
+                                        owner_type='company', truck_model='MAN TGX')
+        TruckHeadDocument.objects.create(
+            truck_head=head, file=SimpleUploadedFile('t.jpg', b'x'),
+            original_filename='t.jpg', mime_type='image/jpeg', size_bytes=1,
+            uploaded_by=self.editor,
+        )
+        self.assertEqual(self._heads(self.viewer)[22]['missing_details'], [])
+
+    def test_blank_model_string_counts_as_missing(self):
+        """`truck_model` defaults to '' rather than NULL — whitespace is not a model."""
+        TruckHead.objects.create(id=23, plate_number='3333CCC', owner_type='company',
+                                 truck_model='   ')
+        self.assertIn('truck_model', self._heads(self.viewer)[23]['missing_details'])

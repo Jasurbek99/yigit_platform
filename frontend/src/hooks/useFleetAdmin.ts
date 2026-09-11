@@ -9,13 +9,12 @@ export type { IDriver };
 // owner_name/capacity/is_active, which aren't on the shared ITruckHead type
 // (that type is scoped to what the shipment-truck selector needs). Extend
 // here rather than widening the shared hook's type.
+//
+// `truck_model` and `document_count` moved onto the shared type in 2026-09:
+// the Sheet's fleet-warning marker reads them from the same picker payload,
+// and they were never optional on the wire.
 export interface IAdminTruckHead extends ITruckHead {
   owner_name?: string | null;
-  /** Vehicle make and model, free text — e.g. 'MAN TGX'. */
-  truck_model?: string;
-  /** How many tech passport scans are attached. A count is not sensitive,
-   *  so it rides on the shared picker serializer. */
-  document_count?: number;
   capacity?: number | string | null;
   is_active: boolean;
 }
@@ -222,8 +221,13 @@ export function useUploadDriverDocuments() {
     },
     onSuccess: (_data, { driverId }) => {
       qc.invalidateQueries({ queryKey: ['transport', 'driver-documents', driverId] });
-      // document_count rides on the driver row, so the table is stale too.
+      // document_count rides on the driver row, so the table is stale too — and
+      // so is the picker list `useDrivers` serves, whose `missing_details` the
+      // Sheet's fleet-warning marker reads. Without that second key the operator
+      // attaches the passport scan, returns to the Sheet and still sees amber
+      // for the five minutes that hook stays fresh.
       qc.invalidateQueries({ queryKey: ['transport', 'admin-drivers'] });
+      qc.invalidateQueries({ queryKey: ['transport', 'drivers'] });
     },
   });
 }
@@ -237,6 +241,9 @@ export function useDeleteDriverDocument(driverId: number | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transport', 'driver-documents', driverId] });
       qc.invalidateQueries({ queryKey: ['transport', 'admin-drivers'] });
+      // Same reason as the upload above — removing the last scan must make the
+      // Sheet's warning reappear.
+      qc.invalidateQueries({ queryKey: ['transport', 'drivers'] });
     },
   });
 }
@@ -291,8 +298,11 @@ export function useUploadTruckHeadDocuments() {
     },
     onSuccess: (_data, { truckHeadId }) => {
       qc.invalidateQueries({ queryKey: ['transport', 'truck-head-documents', truckHeadId] });
-      // document_count rides on the truck row, so the table is stale too.
+      // document_count rides on the truck row, so the table is stale too — and
+      // so is the picker list `useTruckHeads` serves, whose `missing_details`
+      // the Sheet's fleet-warning marker reads (see the driver upload above).
       qc.invalidateQueries({ queryKey: ['transport', 'admin-truck-heads'] });
+      qc.invalidateQueries({ queryKey: ['transport', 'truck-heads'] });
     },
   });
 }
@@ -306,6 +316,8 @@ export function useDeleteTruckHeadDocument(truckHeadId: number | null) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transport', 'truck-head-documents', truckHeadId] });
       qc.invalidateQueries({ queryKey: ['transport', 'admin-truck-heads'] });
+      // Same reason as the upload above.
+      qc.invalidateQueries({ queryKey: ['transport', 'truck-heads'] });
     },
   });
 }

@@ -6,7 +6,12 @@ export interface ITruckHead {
   plate_number: string;
   owner_type: string;
   status: string;
+  truck_model: string;
   has_gps: boolean;
+  document_count: number;
+  /** Codes for what this tractor still lacks — '' when nothing. Drives the
+   *  Sheet's warning marker; see SheetFleetWarning. */
+  missing_details: string[];
 }
 
 export interface ITrailer {
@@ -35,6 +40,12 @@ export interface IDriver {
   passport_serial?: string;
   passport_issue_date?: string | null;
   document_count?: number;
+  /**
+   * Codes for what this driver's passport record still lacks. Unlike the fields
+   * above this reaches EVERY role — it carries the status, never the passport —
+   * so the Sheet can warn the people who cannot read the passport itself.
+   */
+  missing_details: string[];
 }
 
 export function useTruckHeads(search?: string) {

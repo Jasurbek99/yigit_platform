@@ -931,6 +931,82 @@ The same picker (`components/DriverSelect.tsx`) also backs the ShipmentDetail tr
 the edit drawer via `ShipmentDriverSelector`, so the three surfaces cannot disagree about
 `driver_id` — see [[../processes/fleet-map#Shipment driver selector (2026-08-20)]].
 
+**Fleet-record warning marker (2026-09-10).** The plate cell (R23) and the driver
+cell (R27) carry a small amber warning in their bottom-right corner when the
+fleet record behind the row is incomplete — no truck model, no tech-passport
+scan, no driver passport serial / issue date / scan. Those gaps used to surface
+only when a document was being issued, which is far too late. The corner is
+chosen because `CommentMarker` owns the top-right of every cell.
+
+`SheetFleetWarning` is rendered **only** for those two field keys, which is also
+why `useDrivers` / `useTruckHeads` live inside it rather than in `SheetCell` —
+the grid mounts ~900 cells and this keeps the fleet subscriptions to the two
+rows that need them. It uses a **native `title`**, not an AntD `Tooltip`, for the
+same reason the truncation hint does: a Tooltip per cell was the dominant
+scroll-jank cost.
+
+Completeness comes from `missing_details`, a list of codes on both
+`DriverSerializer` and `TruckHeadSerializer` — **not** from the passport fields.
+Those reach fleet editors only (`DriverAdminSerializer`), so computing it in the
+browser would show every driver as incomplete to everyone else. The field ships
+the *status* without the values, which is why it can sit on the shared serializer
+without re-opening the oracle the serializer split exists to close: knowing a
+serial is absent reveals nothing about a serial that is present.
+
+Both rig slots are checked, so a second driver with no passport is not silently
+fine because the first one is in order. A row the picker list does not carry — a
+deactivated driver, say — produces **no** warning: silence beats inventing one
+about a record that cannot be seen. Gapy Satyş rows are skipped entirely, same
+rule as the pickers.
+
+Clicking the marker opens Fleet Management on the matching tab
+(`/admin/fleet?tab=drivers|trucks` — `FleetAdminPage` reads `?tab=`). For a role
+that cannot open that page the marker stays visible with the same tooltip but
+does not navigate: they still need to know, and a dead link is worse than none.
+
+Expect it to be loud at first — every tractor imported before `truck_model`
+became required has none, and most drivers have no passport scan yet.
+
+**Second rig — two truck heads, two drivers (2026-09-10).** A truck runs the long
+legs with two drivers, and the tractor can be exchanged mid-route (a
+transshipment, or a swap at the border) while the trailer stays with the load.
+Migration `export/0067_shipment_second_rig` adds five nullable columns:
+`truck_head_2_id`, `truck_plate_2`, `driver_2_id`, `driver_2_name`,
+`driver_2_phone`. There is deliberately **no** second trailer — the second head
+takes over the first one's trailer, which is also why `truck_plate_2` holds a
+bare tractor plate where `truck_plate` holds the composed `"{head}/{trailer}"`.
+
+None of the five has a Sheet row of its own:
+
+- The **R23 `truck_plate` overlay** grew a second head select (after the
+  trailer, so the common head → trailer path stays first) and commits all five
+  truck fields in one PATCH. Its payload is fully derived from fleet ids, so it
+  always sends every key.
+- The **R27 `driver_name` overlay** grew a second driver select. Its payload is
+  **per-slot**: a slot that did not change is left out entirely. The driver name
+  arrives from `DriverSelect`'s callback rather than a lookup, so an untouched
+  slot holds an empty name and sending it would write a blank over the driver
+  already on the shipment.
+- **R23, R27 and R28 each render both values**, comma-separated, via `joinRig`
+  in `getCellValue.ts`. That mirrors the backend's `_join_rig` in
+  `document_context.py`, so the Sheet and the CMR cannot disagree about how a
+  two-driver truck is written.
+
+Writes are gated through `_REVERSE_FIELD_DELEGATES` exactly as `truck_head_id` /
+`driver_id` already were: the head pair answers to the `truck_plate` row, the
+driver identity pair to `driver_name`, and `driver_2_phone` to `driver_phone` —
+the same row its first-driver counterpart answers to. Verified on the live DB
+that R27 and R28 carry identical role triggers, so this adds no mixed-verdict
+surface; `ShipmentPatchSerializer` rejects the **whole** body when any one field
+is denied, so a future divergence between those two rows would break the driver
+picker for whoever holds only one of them.
+
+**Swap** moves `truck_plate_2`, `driver_2_name` and `driver_2_phone` — the
+display strings, matching the first rig. The fleet id columns
+(`truck_head_id` / `trailer_id` / `driver_id`, and now `truck_head_2_id` /
+`driver_2_id`) are **not** swappable and stay with their own row. That gap is
+pre-existing and this change neither widens nor fixes it.
+
 **Both overlays share `useAnchoredCellPanel` (2026-09-10).** The panel is portaled to
 `document.body` and positioned `fixed` at the anchor's rect, so it does not ride the grid's
 scroll container. Two dismissal rules live in that hook, and both deliberately ignore anything

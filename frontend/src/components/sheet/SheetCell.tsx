@@ -13,6 +13,7 @@ import { useShipmentOptions } from '@/hooks/useAdmin';
 import { useSetCellColor } from '@/hooks/useShipmentSheet';
 import { useShipmentContractStatus } from '@/hooks/useShipmentFirmContracts';
 import { useAuth } from '@/hooks/useAuth';
+import { SheetFleetWarning } from './SheetFleetWarning';
 import { canDo } from '@/utils/permissions';
 import { SHEET_PRESET_COLORS } from '@/constants/sheetOptions';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
@@ -633,6 +634,12 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
         >
           <EnvironmentOutlined />
         </span>
+      )}
+      {/* The row is filled in but the fleet record behind it is not — no truck
+          model, no tech passport, no driver passport. Only these two cells
+          mount it, which is what keeps the fleet hooks off the other ~900. */}
+      {(fieldKey === 'truck_plate' || fieldKey === 'driver_name') && !isGapy && (
+        <SheetFleetWarning shipment={shipment} fieldKey={fieldKey} />
       )}
       <CommentMarker
         count={commentCount}
