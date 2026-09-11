@@ -96,6 +96,59 @@ uploaded, so adding `legal_type` turns no row from green to amber and the thirte
 distinguishable without hovering every one. Until the stamp backlog is cleared, the list above is
 the way to find them.
 
+## Sole proprietors on the export contract
+
+A **Hususy telekeçi** acts on a certificate (*Tassyknama*), not on a charter, so
+the contract's opening sentence about the seller is a *different sentence*, not
+the same sentence with different words:
+
+```
+HJ    “Ak Bulut” HJ-iň (Türkmenistan), Tertipnama laýyklykda
+      hereket edýän Direktor Çaryýew A.
+
+HT    07.12.2022ý. senesindäki A seriýaly №0037564 Tassyknama
+      esasynda hereket edýän Hususy Telekeçi Döwranow J.A.
+```
+
+Three fields on `ExportFirm` carry the certificate — `patent_series`,
+`patent_number`, `patent_date` (migration `core.0047`). They appear on the firm
+detail page **only when the legal form is HT**, and are required by the
+doc-readiness rule only for that form. Series and number are stored apart
+because the joining word belongs to the language: Turkmen writes
+`A seriýaly №0037564`, Russian `серии A №0037564`. One combined field could only
+ever be right in one of the contract's two columns.
+
+### What the template no longer hardcodes
+
+`contract_kz.docx` used to spell the seller's legal form into nine places. Those
+are now single placeholders, composed in `document_context.py`:
+
+| Placeholder | Where | Built by |
+|---|---|---|
+| `seller_clause_tk` / `_ru` | preamble, p6 / p8 | `_seller_clause()` |
+| `seller_block_tk` / `_ru` | signature headings, p137 / p148 | `_seller_block()` |
+| `seller_footer` | appendix footer, p230 | `_seller_footer()` |
+| `seller_title_tk` / `_ru` | signature labels, p162/163 and p240/241 | `_seller_title()` |
+
+A sole proprietor gets the certificate sentence and a `Hususy Telekeçi` / `И.П.`
+label instead of *Direktor*, and the signature line prints the person rather than
+the `director` column, which stores the firm name with the form already in it.
+**Every other form, and a firm whose form is not set, produces exactly the
+wording the template carried before, character for character** — pinned by
+`apps/contracts/tests/test_sole_proprietor_contract.py`.
+
+### Still outstanding
+
+Two things this deliberately did not touch, both pre-existing:
+
+- **The buyer's form is still hardcoded Kazakh** (`TOO` / `JÇB`) across all seven
+  contract-eligible countries, and the buyer name is never stripped, so a buyer
+  stored as `ТОО «Нур-Алем»` still renders `TOO «ТОО «Нур-Алем»»`.
+- **A quoted stored name doubles its quotes.** `_bare_seller_name` strips the
+  legal form but never the quote marks, so a firm stored as `“Ak Bulut” HJ`
+  prints `““Ak Bulut””`. Eleven firms are stored that way. Fixing it changes what
+  18 firms print, so it needs its own decision.
+
 ## Document-readiness indicator
 
 Both lists carry a **Doc Fields** column and both detail pages open with a matching banner:

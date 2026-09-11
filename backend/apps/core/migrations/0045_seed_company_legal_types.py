@@ -19,8 +19,8 @@ LEGAL_TYPES = [
         'SUFFIX', 'PREFIX', 'SUFFIX', 10, ['TM'],
     ),
     (
-        'HT', 'HT', 'ИП', 'IE',
-        'Hususy telekeçi', 'Индивидуальный предприниматель', 'Individual entrepreneur',
+        'HT', 'HT', 'И.П.', 'IE',
+        'Hususy Telekeçi', 'Индивидуальный предприниматель', 'Individual entrepreneur',
         'hususy telekeçiniň', 'Индивидуального предпринимателя',
         'PREFIX', 'PREFIX', 'PREFIX', 20, ['TM'],
     ),

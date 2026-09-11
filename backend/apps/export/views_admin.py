@@ -231,6 +231,7 @@ class ExportFirmSerializer(serializers.ModelSerializer):
             'address_tk', 'address_en', 'address_ru',
             'bank_details_tk', 'bank_details_en', 'bank_details_ru',
             'director', 'director_tk', 'director_signature', 'director_seal', 'director_stamp',
+            'patent_series', 'patent_number', 'patent_date',
             'tax_code', 'swift_code', 'one_c_code',
             'color', 'sort_order',
             'is_active', 'is_gapy_satys',

@@ -927,6 +927,173 @@ def _seller_director(firm) -> str:
     return _DIRECTOR_TITLE.sub('', getattr(firm, 'director', '') or '').strip()
 
 
+# A Hususy telekeçi acts on a certificate (Tassyknama), not on a charter, so the
+# contract's opening sentence about the seller is a different sentence — not the
+# same sentence with different words. Every other form keeps the wording the
+# template carried before, character for character, including a firm whose legal
+# form has not been set yet.
+_SOLE_PROPRIETOR = 'HT'
+
+
+def _seller_form(firm):
+    """The firm's legal form row, or None when it has not been set."""
+    return getattr(firm, 'legal_type', None)
+
+
+def _is_sole_proprietor(firm) -> bool:
+    form = _seller_form(firm)
+    return bool(form) and getattr(form, 'code', '') == _SOLE_PROPRIETOR
+
+
+def _seller_person(firm, lang: str) -> str:
+    """"Hususy Telekeçi Döwranow J.A." — legal form followed by the bare name.
+
+    Falls back to the stored name when the bare name is empty, so a firm whose
+    name was never split still prints something.
+    """
+    form = _seller_form(firm)
+    if lang == 'ru':
+        bare = getattr(firm, 'name_bare_ru', '') or getattr(firm, 'name_bare_tk', '') or ''
+        label = getattr(form, 'full_ru', '') if form else ''
+        stored = getattr(firm, 'name_ru', '') or getattr(firm, 'name_tk', '') or ''
+    else:
+        bare = getattr(firm, 'name_bare_tk', '') or ''
+        label = getattr(form, 'full_tk', '') if form else ''
+        stored = getattr(firm, 'name_tk', '') or ''
+    bare = bare.strip()
+    if not bare:
+        return stored.strip()
+    return f'{label.strip()} {bare}'.strip()
+
+
+def _patent_reference(firm, lang: str) -> str:
+    """"A seriýaly №0037564" / "серии A №0037564".
+
+    The joining word belongs to the language, which is why the series and the
+    number are stored apart. Either half may be blank; both blank gives ''.
+    """
+    series = (getattr(firm, 'patent_series', '') or '').strip()
+    number = (getattr(firm, 'patent_number', '') or '').strip()
+    parts = []
+    if series:
+        parts.append(f'серии {series}' if lang == 'ru' else f'{series} seriýaly')
+    if number:
+        parts.append(f'№{number}')
+    return ' '.join(parts)
+
+
+def _patent_date(firm) -> str:
+    """The certificate's date as the contract prints it, "07.12.2022"."""
+    value = getattr(firm, 'patent_date', None)
+    return value.strftime('%d.%m.%Y') if value else ''
+
+
+def _seller_clause(firm, lang: str) -> str:
+    """The preamble's whole description of the seller, minus the trailing comma.
+
+    Turkmen, sole proprietor:
+        07.12.2022ý. senesindäki A seriýaly №0037564 Tassyknama esasynda
+        hereket edýän Hususy Telekeçi Döwranow J.A.
+    Turkmen, anything else (unchanged):
+        “Ak Bulut” HJ-iň (Türkmenistan), Tertipnama laýyklykda hereket edýän
+        Direktor Çaryýew A.
+    """
+    if _is_sole_proprietor(firm):
+        return _sole_proprietor_clause(firm, lang)
+    name = _bare_seller_name(
+        (getattr(firm, 'name_ru', '') or getattr(firm, 'name_tk', '') or '')
+        if lang == 'ru' else (getattr(firm, 'name_tk', '') or '')
+    )
+    director = _seller_director_for(firm, lang)
+    if lang == 'ru':
+        return (
+            f'Хозяйственное общество «{name}» (Туркменистан), в лице Директора '
+            f'{director}, действующего на основании Устава'
+        )
+    return (
+        f'“{name}” HJ-iň (Türkmenistan), Tertipnama laýyklykda hereket edýän '
+        f'Direktor {director}'
+    )
+
+
+def _sole_proprietor_clause(firm, lang: str) -> str:
+    """The certificate half of ``_seller_clause``, kept separate for length.
+
+    A certificate with neither a date nor a number degrades to naming the
+    person alone rather than printing "senesindäki  Tassyknama esasynda".
+    """
+    person = _seller_person(firm, lang)
+    reference = _patent_reference(firm, lang)
+    date = _patent_date(firm)
+    if lang == 'ru':
+        if not (reference or date):
+            return person
+        basis = ' '.join(part for part in ['Свидетельства', reference] if part)
+        if date:
+            basis = f'{basis} от {date} г.'
+        return f'{person}, действующий на основании {basis}'
+    if not (reference or date):
+        return person
+    lead = f'{date}ý. senesindäki' if date else ''
+    basis = ' '.join(part for part in [lead, reference, 'Tassyknama'] if part)
+    return f'{basis} esasynda hereket edýän {person}'
+
+
+def _seller_block(firm, lang: str) -> str:
+    """The seller's name as the signature block heads it."""
+    if _is_sole_proprietor(firm):
+        return _seller_person(firm, lang)
+    if lang == 'ru':
+        name = _bare_seller_name(
+            getattr(firm, 'name_ru', '') or getattr(firm, 'name_tk', '') or ''
+        )
+        return f'Хозяйственное общество «{name}»'
+    return f'"{_bare_seller_name(getattr(firm, "name_tk", "") or "")}" hojalyk jemgyýeti'
+
+
+def _seller_footer(firm) -> str:
+    """The appendix footer, which names the seller in both languages at once."""
+    if _is_sole_proprietor(firm):
+        return f'{_seller_person(firm, "ru")}/{_seller_person(firm, "tk")}'
+    name_ru = _bare_seller_name(
+        getattr(firm, 'name_ru', '') or getattr(firm, 'name_tk', '') or ''
+    )
+    name_tk = _bare_seller_name(getattr(firm, 'name_tk', '') or '')
+    return f'ХО «{name_ru}»/"{name_tk}" HJ'
+
+
+def _seller_title(firm, lang: str) -> str:
+    """The word above the signature. A sole proprietor has no director."""
+    if _is_sole_proprietor(firm):
+        form = _seller_form(firm)
+        if lang == 'ru':
+            return getattr(form, 'abbr_ru', '') or 'И.П.'
+        return getattr(form, 'full_tk', '') or 'Hususy Telekeçi'
+    return 'Директор' if lang == 'ru' else 'Direktor'
+
+
+def _seller_director_for(firm, lang: str) -> str:
+    """The name printed on the signature line.
+
+    For a sole proprietor that is the person themselves — their ``director``
+    column repeats the firm name, form included, so using it would print the
+    form twice.
+    """
+    if _is_sole_proprietor(firm):
+        bare = (
+            getattr(firm, 'name_bare_ru', '') if lang == 'ru'
+            else getattr(firm, 'name_bare_tk', '')
+        )
+        if (bare or '').strip():
+            return bare.strip()
+    if lang == 'ru':
+        return _seller_director(firm)
+    return (
+        _DIRECTOR_TITLE.sub('', getattr(firm, 'director_tk', '') or '').strip()
+        or _seller_director(firm)
+    )
+
+
 def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = None) -> dict:
     """Build the Jinja context for the bilingual TK/RU export contract.
 
@@ -1028,11 +1195,18 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
         'seller_address_ru': getattr(seller, 'address_ru', '') or getattr(seller, 'address_tk', '') or '',
         # Director: RU/Cyrillic from `director`; TK/Latin from `director_tk` (falling
         # back to the RU form when the Turkmen spelling isn't filled).
-        'seller_director_ru': _seller_director(seller),
-        'seller_director_tk': (
-            _DIRECTOR_TITLE.sub('', getattr(seller, 'director_tk', '') or '').strip()
-            or _seller_director(seller)
-        ),
+        'seller_director_ru': _seller_director_for(seller, 'ru'),
+        'seller_director_tk': _seller_director_for(seller, 'tk'),
+        # The template used to hardcode the seller's legal form around the name
+        # in nine places. A sole proprietor needs a different sentence, not
+        # different words, so the whole clause is composed here instead.
+        'seller_clause_tk': _seller_clause(seller, 'tk'),
+        'seller_clause_ru': _seller_clause(seller, 'ru'),
+        'seller_block_tk': _seller_block(seller, 'tk'),
+        'seller_block_ru': _seller_block(seller, 'ru'),
+        'seller_footer': _seller_footer(seller),
+        'seller_title_tk': _seller_title(seller, 'tk'),
+        'seller_title_ru': _seller_title(seller, 'ru'),
         'seller_bank_tk': _lines(getattr(seller, 'bank_details_tk', '') or ''),
         'seller_bank_ru': _lines(
             getattr(seller, 'bank_details_ru', '') or getattr(seller, 'bank_details_tk', '') or ''

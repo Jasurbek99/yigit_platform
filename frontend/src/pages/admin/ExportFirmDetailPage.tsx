@@ -128,6 +128,9 @@ interface FirmFormValues {
   name_bare_tk: string;
   name_bare_ru: string;
   name_bare_en: string;
+  patent_series: string;
+  patent_number: string;
+  patent_date: string;
   director: string;
   director_tk: string;
   tax_code: string;
@@ -209,6 +212,9 @@ export default function ExportFirmDetailPage() {
       name_bare_tk: values.name_bare_tk || null,
       name_bare_ru: values.name_bare_ru || null,
       name_bare_en: values.name_bare_en || null,
+      patent_series: values.patent_series || null,
+      patent_number: values.patent_number || null,
+      patent_date: values.patent_date || null,
       director: values.director || null,
       director_tk: values.director_tk || null,
       tax_code: values.tax_code || null,
@@ -343,6 +349,19 @@ export default function ExportFirmDetailPage() {
             <Descriptions.Item label={t('firms_admin.name_bare_en')} span={2}>
               <InlineEdit value={firm.name_bare_en} editable={canEdit} onSave={(v) => saveField({ name_bare_en: v || null })} />
             </Descriptions.Item>
+            {firm.legal_type_code === 'HT' && (
+              <>
+                <Descriptions.Item label={t('firms_admin.patent_series')}>
+                  <InlineEdit value={firm.patent_series} editable={canEdit} onSave={(v) => saveField({ patent_series: v || null })} />
+                </Descriptions.Item>
+                <Descriptions.Item label={t('firms_admin.patent_number')}>
+                  <InlineEdit value={firm.patent_number} editable={canEdit} onSave={(v) => saveField({ patent_number: v || null })} />
+                </Descriptions.Item>
+                <Descriptions.Item label={t('firms_admin.patent_date')} span={2}>
+                  <InlineEdit value={firm.patent_date} editable={canEdit} onSave={(v) => saveField({ patent_date: v || null })} />
+                </Descriptions.Item>
+              </>
+            )}
             <Descriptions.Item label={t('firms_admin.director')}>
               <InlineEdit value={firm.director} editable={canEdit} onSave={(v) => saveField({ director: v || null })} />
             </Descriptions.Item>
@@ -497,6 +516,15 @@ export default function ExportFirmDetailPage() {
           </Form.Item>
           <Form.Item name="legal_type" label={t('firms_admin.legal_type')}>
             <CompanyLegalTypeSelect countryCode="TM" style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="patent_series" label={t('firms_admin.patent_series')} extra={t('firms_admin.patent_hint')}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="patent_number" label={t('firms_admin.patent_number')}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="patent_date" label={t('firms_admin.patent_date')}>
+            <Input placeholder="YYYY-MM-DD" />
           </Form.Item>
           <Form.Item name="director" label={t('firms_admin.director')}>
             <Input />

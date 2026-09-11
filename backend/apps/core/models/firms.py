@@ -46,6 +46,17 @@ class ExportFirm(models.Model):
     # single image. When this is filled it REPLACES the two above on the document
     # (see document_context._stamp_pair) and they become optional for the firm.
     director_stamp = models.FileField(upload_to='export_firms/stamps/', null=True, blank=True)
+    # === Sole-proprietor certificate (Tassyknama) ===
+    # A Hususy telekeçi acts on a certificate, not a charter, and the export
+    # contract's preamble cites it: "07.12.2022ý. senesindäki A seriýaly
+    # №0037564 Tassyknama esasynda hereket edýän". Series and number are stored
+    # apart because the joining word belongs to the language — Turkmen writes
+    # "A seriýaly №0037564", Russian "серии A №0037564" — so one combined field
+    # could only ever be right in one of the contract's two columns.
+    # Blank on every other legal form, which acts on a charter.
+    patent_series = models.CharField(max_length=10, blank=True, null=True)
+    patent_number = models.CharField(max_length=40, blank=True, null=True)
+    patent_date = models.DateField(null=True, blank=True)
     tax_code = models.CharField(max_length=50, blank=True, null=True)
     swift_code = models.CharField(max_length=20, blank=True, null=True)
     one_c_code = models.CharField(max_length=50, blank=True, null=True)

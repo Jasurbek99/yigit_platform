@@ -24,6 +24,11 @@ import type { IExportFirm, IImportFirm } from '@/types';
  * labels every seller an HJ regardless. This is how the firms whose stored
  * Turkmen and Russian names named different forms surface for staff to resolve.
  *
+ * The three `patent_*` fields are required ONLY on a firm whose legal form is
+ * `HT`. A sole proprietor's contract preamble cites their certificate by series,
+ * number and date, so a blank one leaves a gap mid-sentence on a signed
+ * contract. Every other form acts on a charter and has no certificate to give.
+ *
  * Deliberately NOT required, and why:
  *   - `*_en` (name/address/bank_details) — `_firm_attr()` falls back ru→en→tk,
  *     so an English invoice still renders; it just renders in Russian.
@@ -60,7 +65,16 @@ export const REQUIRED_IMPORT_FIRM_FIELDS = [
   'director_seal',
 ] as const;
 
-export type ExportFirmRequiredField = (typeof REQUIRED_EXPORT_FIRM_FIELDS)[number];
+/** Certificate fields the contract preamble cites for a sole proprietor. */
+export const SOLE_PROPRIETOR_FIELDS = [
+  'patent_series',
+  'patent_number',
+  'patent_date',
+] as const;
+
+export type ExportFirmRequiredField =
+  | (typeof REQUIRED_EXPORT_FIRM_FIELDS)[number]
+  | (typeof SOLE_PROPRIETOR_FIELDS)[number];
 export type ImportFirmRequiredField = (typeof REQUIRED_IMPORT_FIRM_FIELDS)[number];
 
 /** The seal/signature pair, dropped from the required set once a combined photo is on file. */
@@ -89,7 +103,13 @@ function isBlank(value: unknown): boolean {
 
 /** Required ExportFirm fields that are still empty, in display order. */
 export function missingExportFirmFields(firm: IExportFirm): ExportFirmRequiredField[] {
-  return requiredFieldsFor(REQUIRED_EXPORT_FIRM_FIELDS, firm).filter((key) => isBlank(firm[key]));
+  const missing: ExportFirmRequiredField[] = requiredFieldsFor(
+    REQUIRED_EXPORT_FIRM_FIELDS,
+    firm,
+  ).filter((key) => isBlank(firm[key]));
+  // Only a sole proprietor has a certificate; see the module comment.
+  if (firm.legal_type_code !== 'HT') return missing;
+  return [...missing, ...SOLE_PROPRIETOR_FIELDS.filter((key) => isBlank(firm[key]))];
 }
 
 /** Required ImportFirm fields that are still empty, in display order. */

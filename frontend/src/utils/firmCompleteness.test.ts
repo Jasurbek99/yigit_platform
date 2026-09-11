@@ -21,6 +21,9 @@ function exportFirm(overrides: Partial<IExportFirm> = {}): IExportFirm {
     name_bare_tk: 'Ýigit',
     name_bare_ru: 'Йигит',
     name_bare_en: null,
+    patent_series: null,
+    patent_number: null,
+    patent_date: null,
     address_tk: 'Aşgabat',
     address_ru: 'Ашхабад',
     address_en: null,
@@ -198,5 +201,45 @@ describe('missingImportFirmFields', () => {
       director_seal: null,
     });
     expect(missingImportFirmFields(blank)).toEqual([...REQUIRED_IMPORT_FIRM_FIELDS]);
+  });
+});
+
+describe('the sole-proprietor certificate', () => {
+  // A Hususy telekeçi's contract preamble cites the certificate by series,
+  // number and date, so a blank one leaves a gap mid-sentence. No other legal
+  // form has a certificate at all.
+  it('is required on a sole proprietor', () => {
+    const firm = exportFirm({ legal_type_code: 'HT' });
+    expect(missingExportFirmFields(firm)).toEqual([
+      'patent_series',
+      'patent_number',
+      'patent_date',
+    ]);
+  });
+
+  it('is not required on any other legal form', () => {
+    for (const code of ['HJ', 'HK', null]) {
+      const firm = exportFirm({ legal_type_code: code });
+      expect(missingExportFirmFields(firm)).toEqual([]);
+    }
+  });
+
+  it('is satisfied once all three are filled', () => {
+    const firm = exportFirm({
+      legal_type_code: 'HT',
+      patent_series: 'A',
+      patent_number: '0037564',
+      patent_date: '2022-12-07',
+    });
+    expect(missingExportFirmFields(firm)).toEqual([]);
+  });
+
+  it('names only the halves that are missing', () => {
+    const firm = exportFirm({
+      legal_type_code: 'HT',
+      patent_series: 'A',
+      patent_number: '0037564',
+    });
+    expect(missingExportFirmFields(firm)).toEqual(['patent_date']);
   });
 });

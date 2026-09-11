@@ -114,6 +114,11 @@ export interface IExportFirm {
   name_bare_tk: string | null;
   name_bare_ru: string | null;
   name_bare_en: string | null;
+  /** Sole-proprietor certificate the contract preamble cites. Blank on every
+   *  other legal form, which acts on a charter instead. */
+  patent_series: string | null;
+  patent_number: string | null;
+  patent_date: string | null;
   address_tk: string | null;
   address_en: string | null;
   address_ru: string | null;
