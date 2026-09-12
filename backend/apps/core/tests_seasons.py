@@ -257,7 +257,13 @@ class ClosedSeasonResourceTests(TestCase):
             ).values_list('role', flat=True)
         )
         self.assertEqual(
-            granted, {'admin', 'director', 'boss', 'export_manager', 'finansist'},
+            granted,
+            {
+                'admin', 'director', 'boss', 'export_manager', 'finansist',
+                # document_team holds export_manager's grants since Sep 2026 —
+                # EXPORT_MANAGER_LIKE in apps/core/roles.py.
+                'document_team',
+            },
         )
 
     def test_seed_grants_no_write_actions(self):

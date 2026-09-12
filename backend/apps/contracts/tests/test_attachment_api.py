@@ -5,7 +5,7 @@ Covers:
   2. Non-PDF content (magic-byte mismatch) → 400, nothing persisted
   3. Download streams the file inline (Content-Disposition: inline)
   4. Delete removes the attachment → 204, gone from detail
-  5. Read-only role (boss) cannot upload → 403
+  5. Role with no contract grant (transport) cannot upload → 403
 """
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -156,10 +156,15 @@ class ContractAttachmentPermissionTest(_SeededPermsMixin, TestCase):
         self.client = APIClient()
         owner = _make_user('att_owner', 'export_manager')
         self.contract = _make_contract(owner)
-        self.boss = _make_user('att_boss', 'boss')  # view-only on contract
-        self.client.force_authenticate(user=self.boss)
+        # `transport` holds no `contract` row at all: RESOURCE_DEFAULTS grants
+        # that resource to five roles only, each with full CRUD, so no role is
+        # view-only on it. boss used to be, until the 2026-08-05 process-
+        # visibility change gave him CRUD on every resource and moved his
+        # read-only mode into the frontend view/edit toggle.
+        self.outsider = _make_user('att_transport', 'transport')
+        self.client.force_authenticate(user=self.outsider)
 
-    def test_readonly_role_cannot_upload(self) -> None:
+    def test_role_without_contract_access_cannot_upload(self) -> None:
         url = f'/api/v1/contracts/contracts/{self.contract.pk}/attachments/'
         resp = self.client.post(url, {'files': _pdf()}, format='multipart')
         self.assertEqual(resp.status_code, 403)
