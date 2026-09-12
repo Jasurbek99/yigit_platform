@@ -1947,6 +1947,8 @@
       "freeze_through_section": "{{section}} bölümine çenli",
       "show_who_column": "“Kim” sütünini görkez",
       "show_who_column_hint": "B sütüni — her hatara jogapkär adam. Gizlenende onuň giňligi ýük sütünlerine geçýär; jogapkärçilik we rugsatlar üýtgemeýär.",
+      "group_by_role": "Hatarlary rol boýunça topla",
+      "group_by_role_hint": "Açyk — hatarlar jogapkärler boýunça bloklara bölünýär, her blogyň rol ady bar. Ýapyk — hatarlar admin tertibinde (# sütüni), ady ýok.",
       "ios_order_section": "Hatar tertibi (iOS dizaýny)",
       "ios_order_hint": "Siz mowzuk tertibini üýtgetdiňiz. Ol diňe şu brauzerde saklanýar we Klassiki dizaýna täsir etmeýär.",
       "ios_order_reset": "Deslapky mowzuk tertibine dolan"

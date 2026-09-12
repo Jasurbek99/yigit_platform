@@ -183,6 +183,7 @@ export function SheetGrid({
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
   const sheetVariant = useSheetStore((s) => s.sheetVariant);
   const whoColumnHidden = useSheetStore((s) => s.whoColumnHidden);
+  const groupRowsByRole = useSheetStore((s) => s.groupRowsByRole);
   const iosRowOrder = useSheetStore((s) => s.iosRowOrder);
   const setIosRowOrder = useSheetStore((s) => s.setIosRowOrder);
   const joinMode = useSheetStore((s) => s.joinMode);
@@ -336,12 +337,16 @@ export function SheetGrid({
   // design and markRoleBands would (correctly) suppress every band. Use the
   // topic sections as the bands instead — same IRoleBand shape, so
   // SheetRoleBandRow renders them unchanged.
+  // The user's grouping switch only reaches the classic variant: in the iOS one
+  // the bands ARE the topic sections, so suppressing them would gut the variant.
   const roleBands = useMemo(
     () =>
       topicOrder
         ? topicOrder.bands
-        : markRoleBands(rows, Math.max(pinnedPrefixLength(rows), safeFrozenRowCount)),
-    [topicOrder, rows, safeFrozenRowCount],
+        : groupRowsByRole
+          ? markRoleBands(rows, Math.max(pinnedPrefixLength(rows), safeFrozenRowCount))
+          : rows.map(() => null),
+    [topicOrder, rows, safeFrozenRowCount, groupRowsByRole],
   );
 
   // Own-block highlight. `can_current_user_edit` is an edit right, not role

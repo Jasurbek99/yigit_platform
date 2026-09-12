@@ -66,9 +66,16 @@ export default function ShipmentSheet() {
   // Until it settles (and on a prefs fetch error) we keep the server order, which
   // already has their positions applied, so a drag there persists the right thing.
   const hasPersonalRowOrder = (userPrefs?.row_order?.length ?? 0) > 0;
+  // `groupRowsByRole` is the user's own switch (Sheet settings → grouping). Off
+  // means "show the admin order, no blocks"; the bands are suppressed to match
+  // in SheetGrid. Browser-local, so it costs no round-trip and never reaches
+  // UserSheetRowPref — a user with a personal order is unaffected here, their
+  // positions already won the condition above.
+  const groupRowsByRole = useSheetStore((s) => s.groupRowsByRole);
   const orderedRows = useMemo(
-    () => (prefsLoaded && !hasPersonalRowOrder ? groupRowsByOwner(rows) : rows),
-    [rows, prefsLoaded, hasPersonalRowOrder],
+    () =>
+      prefsLoaded && !hasPersonalRowOrder && groupRowsByRole ? groupRowsByOwner(rows) : rows,
+    [rows, prefsLoaded, hasPersonalRowOrder, groupRowsByRole],
   );
 
   // Phase 2b: subscribe to cross-tab BroadcastChannel pulses. A save in

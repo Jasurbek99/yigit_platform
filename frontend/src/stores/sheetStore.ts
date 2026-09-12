@@ -184,6 +184,31 @@ function persistWhoHidden(value: boolean): void {
   }
 }
 
+// ─── Role grouping ──────────────────────────────────────────────────────────
+// The classic sheet reorders rows so each role's fields sit in one block, with
+// a labelled band above each (sheetRoleBlocks.ts). Switching this off shows the
+// rows in the admin order with no bands at all. Per browser, like zoom/freeze.
+// Absent key = on, so the grouped view stays the default for everyone.
+const GROUP_BY_ROLE_STORAGE_KEY = 'ygt-sheet-group-by-role';
+
+function loadGroupByRole(): boolean {
+  if (typeof localStorage === 'undefined') return true;
+  try {
+    return localStorage.getItem(GROUP_BY_ROLE_STORAGE_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function persistGroupByRole(value: boolean): void {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(GROUP_BY_ROLE_STORAGE_KEY, value ? '1' : '0');
+  } catch {
+    // localStorage may throw in private mode or when full — ignore
+  }
+}
+
 // ─── iOS-variant row order ──────────────────────────────────────────────────
 // The topic order is a fixed preset, but the user can still rearrange it — and
 // that rearrangement must NOT reach `UserSheetRowPref`, which is the classic
@@ -276,6 +301,10 @@ interface ISheetState {
 
   whoColumnHidden: boolean;
   setWhoColumnHidden: (hidden: boolean) => void;
+
+  // ─── Role grouping (classic variant only — the iOS variant groups by topic) ─
+  groupRowsByRole: boolean;
+  setGroupRowsByRole: (grouped: boolean) => void;
 
   // ─── Design variant (visual skin only — same rows/columns/permissions) ───
   sheetVariant: TSheetVariant;
@@ -423,6 +452,13 @@ export const useSheetStore = create<ISheetState>((set) => ({
   setWhoColumnHidden: (hidden) => {
     persistWhoHidden(hidden);
     set({ whoColumnHidden: hidden });
+  },
+
+  // ─── Role grouping ────────────────────────────────────────────────────────
+  groupRowsByRole: loadGroupByRole(),
+  setGroupRowsByRole: (grouped) => {
+    persistGroupByRole(grouped);
+    set({ groupRowsByRole: grouped });
   },
 
   // ─── Design variant ───────────────────────────────────────────────────────

@@ -130,6 +130,8 @@ export function SheetToolbar({
   const iosRowOrder = useSheetStore((s) => s.iosRowOrder);
   const resetIosRowOrder = useSheetStore((s) => s.resetIosRowOrder);
   const setWhoColumnHidden = useSheetStore((s) => s.setWhoColumnHidden);
+  const groupRowsByRole = useSheetStore((s) => s.groupRowsByRole);
+  const setGroupRowsByRole = useSheetStore((s) => s.setGroupRowsByRole);
   const setSheetVariant = useSheetStore((s) => s.setSheetVariant);
   const zoomIn = useSheetStore((s) => s.zoomIn);
   const zoomOut = useSheetStore((s) => s.zoomOut);
@@ -742,6 +744,24 @@ export function SheetToolbar({
               {t('sheet.settings.freeze_cols_hint')}
             </Text>
           </div>
+          {/* Grouping is a classic-variant concept: the iOS variant orders rows by
+              topic and heads each section with its own band, so the switch is
+              hidden there rather than shown doing nothing. */}
+          {!topicOrder && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Switch
+                  size="small"
+                  checked={groupRowsByRole}
+                  onChange={(checked) => setGroupRowsByRole(checked)}
+                />
+                <Text>{t('sheet.settings.group_by_role')}</Text>
+              </div>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {t('sheet.settings.group_by_role_hint')}
+              </Text>
+            </div>
+          )}
           <div>
             {/* Column B ("Who") names the row's owner. Hiding it hands its width
                 back to the shipment columns; ownership data is untouched, and

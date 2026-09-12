@@ -104,3 +104,29 @@ describe('who column visibility', () => {
     expect(scaleSheetLayout(1, 'classic')).toEqual(scaleSheetLayout(1, 'classic', false));
   });
 });
+
+describe('role grouping', () => {
+  const STORAGE = 'ygt-sheet-group-by-role';
+
+  beforeEach(() => {
+    localStorage.clear();
+    useSheetStore.getState().setGroupRowsByRole(true);
+  });
+
+  it('groups rows by role by default', () => {
+    expect(useSheetStore.getState().groupRowsByRole).toBe(true);
+  });
+
+  it('persists a switch-off to localStorage', () => {
+    useSheetStore.getState().setGroupRowsByRole(false);
+    expect(useSheetStore.getState().groupRowsByRole).toBe(false);
+    expect(localStorage.getItem(STORAGE)).toBe('0');
+  });
+
+  it('persists a switch back on, so the default is not re-inferred from an absent key', () => {
+    useSheetStore.getState().setGroupRowsByRole(false);
+    useSheetStore.getState().setGroupRowsByRole(true);
+    expect(useSheetStore.getState().groupRowsByRole).toBe(true);
+    expect(localStorage.getItem(STORAGE)).toBe('1');
+  });
+});
