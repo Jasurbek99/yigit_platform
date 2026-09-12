@@ -23,13 +23,15 @@ const VARIANTS = [
 ] as const;
 
 // The CMR prints onto the pre-printed customs form. Word is the office's own
-// form and backs both outputs; PDF is converted from it and is the slow path
-// (LibreOffice). The spreadsheet overlay is still served for `fmt=xlsx` but is
-// not offered here — re-add 'xlsx' (label key 'excel') to bring it back.
-const FORMATS = ['docx', 'pdf'] as const;
+// form and is the default; PDF is converted from it and is the slow path
+// (LibreOffice). Excel serves the separate spreadsheet print-overlay, whose
+// geometry predates the Word rebuild — check one printed sample against the
+// pre-printed form before relying on it.
+const FORMATS = ['docx', 'pdf', 'xlsx'] as const;
 const FMT_LABEL_KEY: Record<(typeof FORMATS)[number], string> = {
   docx: 'word',
   pdf: 'pdf',
+  xlsx: 'excel',
 };
 
 /**

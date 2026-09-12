@@ -78,6 +78,10 @@ export function DocumentOptionsModal({
   }, [open]);
 
   const canTuneLayout = Boolean(documentKey) && !LAYOUT_LOCKED_KEYS.has(documentKey!);
+  // Box 4 of the CMR and the invoice's loading line both come from this, and
+  // the server refuses a document without it — so block here rather than let
+  // the operator fill the form and collect a 400.
+  const missingPlaceLoading = withPlaceLoading && !placeLoading;
 
   return (
     <Modal
@@ -91,6 +95,7 @@ export function DocumentOptionsModal({
       onOk={() => onConfirm({ placeLoading, tirCarnet, highlight })}
       onCancel={onCancel}
       okText={t('documents.download')}
+      okButtonProps={{ disabled: missingPlaceLoading }}
       confirmLoading={isGenerating}
       maskClosable={!isGenerating}
       cancelButtonProps={{ disabled: isGenerating }}
@@ -99,7 +104,12 @@ export function DocumentOptionsModal({
     >
       <Form layout="vertical">
         {withPlaceLoading && (
-          <Form.Item label={t('documents.place_loading')}>
+          <Form.Item
+            label={t('documents.place_loading')}
+            required
+            validateStatus={missingPlaceLoading ? 'error' : undefined}
+            help={missingPlaceLoading ? t('documents.place_loading_required') : undefined}
+          >
             <Select
               value={placeLoading}
               onChange={setPlaceLoading}

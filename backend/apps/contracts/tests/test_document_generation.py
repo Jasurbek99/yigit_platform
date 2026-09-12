@@ -24,7 +24,7 @@ from rest_framework.test import APIClient
 from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase, TestCase
 
-from apps.core.models import Country, ShipmentStatusType
+from apps.core.models import Country, LoadingLocation, ShipmentStatusType
 from apps.export.models import Shipment, ShipmentFirmSplit
 from apps.contracts.document_templates import registry as tpl_registry
 from apps.contracts.document_templates.registry import get_spec
@@ -367,11 +367,9 @@ class CmrContextBuilderTest(SimpleTestCase):
         self.assertIn('119', c['invoice_refs'])
 
     def test_generate_time_overrides(self):
-        c = ctx.build_cmr_context(
-            _mock_shipment(), 'ru',
-            {'place_loading': 'Dusak', 'tir_carnet': 'RU 82345678'},
-        )
-        self.assertEqual(c['place_loading'], 'Dusak')
+        # The loading place is resolved against the LoadingLocation table, so it
+        # is covered by CmrLoadingPlaceTest; here only the TIR carnet is pure.
+        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {'tir_carnet': 'RU 82345678'})
         self.assertEqual(c['tir_carnet'], 'RU 82345678')
 
     def test_en_cmr_localization(self):
@@ -390,6 +388,84 @@ class CmrContextBuilderTest(SimpleTestCase):
         c = ctx.build_cmr_context(ship, 'ru')
         self.assertIn('118', c['invoice_refs'])
         self.assertNotIn('None', c['invoice_refs'])
+
+
+class CmrLoadingPlaceTest(TestCase):
+    """The loading place: region + etrap, in the document's own alphabet.
+
+    The office form splits box 4 across two cells — a fixed region and the
+    etrap beside it — and the Russian CMR must print the etrap in Cyrillic,
+    which is why ``LoadingLocation`` carries ``name_ru``.
+    """
+
+    def setUp(self) -> None:
+        LoadingLocation.objects.create(name='Kaka', name_ru='Кака')
+
+    def test_ru_splits_region_from_etrap_in_cyrillic(self):
+        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {'place_loading': 'Kaka'})
+        self.assertEqual(c['place_region'], 'Ахалский велаят')
+        self.assertEqual(c['place_district'], 'этрап Кака')
+        # The joined form is what the Word CMR prints from its single tag.
+        self.assertEqual(c['place_loading'], 'Ахалский велаят этрап Кака')
+
+    def test_en_keeps_the_latin_name_and_the_office_comma(self):
+        c = ctx.build_cmr_context(_mock_shipment(), 'en', {'place_loading': 'Kaka'})
+        self.assertEqual(c['place_region'], 'Ahal region,')
+        self.assertEqual(c['place_district'], 'Kaka district')
+        self.assertEqual(c['place_loading'], 'Ahal region, Kaka district')
+
+    def test_ru_falls_back_to_latin_when_no_russian_name_is_typed(self):
+        """A location added before anyone fills name_ru still prints."""
+        LoadingLocation.objects.create(name='Owadandepe')
+        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {'place_loading': 'Owadandepe'})
+        self.assertEqual(c['place_district'], 'этрап Owadandepe')
+
+    def test_unknown_place_is_printed_as_given(self):
+        """A value that is not in the table is still the operator's intent."""
+        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {'place_loading': 'Mary'})
+        self.assertEqual(c['place_district'], 'этрап Mary')
+
+    def test_no_place_leaves_both_cells_empty(self):
+        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {})
+        self.assertEqual(c['place_region'], '')
+        self.assertEqual(c['place_district'], '')
+        self.assertEqual(c['place_loading'], '')
+
+    def test_overlay_puts_the_two_halves_in_both_cells(self):
+        for lang, region_cell, etrap_cell in (('ru', 'D18', 'E18'), ('en', 'D17', 'E17')):
+            cells = ctx.build_cmr_overlay(_mock_shipment(), lang, {'place_loading': 'Kaka'})
+            self.assertTrue(cells[region_cell].startswith('Ahal') or
+                            cells[region_cell].startswith('Ахал'), cells[region_cell])
+            self.assertIn('Kaka' if lang == 'en' else 'Кака', cells[etrap_cell])
+
+
+class CmrSecondSenderBoxTest(SimpleTestCase):
+    """The form has two consignor boxes; the overlay must use both.
+
+    The Word CMR already fills ``sender1_*`` / ``sender2_*``; the spreadsheet
+    overlay used to join every firm into box 1 with '; '.
+    """
+
+    def _two_firm_cells(self, lang):
+        firms = [_mock_firm('Х.О «Датлы миве»', 'Datly miwe LLC', 'г. Ашгабат', 'Ashgabat'),
+                 _mock_firm('Х.О «Ёлотан»', 'Yolotan LLC', 'г. Мары', 'Mary')]
+        return ctx.build_cmr_overlay(_mock_shipment(firms=firms), lang)
+
+    def test_each_firm_gets_its_own_box(self):
+        cells = self._two_firm_cells('ru')
+        self.assertEqual(cells['E2'], 'Х.О «Датлы миве»')
+        self.assertEqual(cells['E5'], 'Х.О «Ёлотан»')
+        self.assertEqual(cells['B3'], 'г. Ашгабат')
+        self.assertEqual(cells['B6'], 'г. Мары')
+
+    def test_box_one_no_longer_carries_the_joined_string(self):
+        self.assertNotIn(';', self._two_firm_cells('ru')['E2'])
+        self.assertNotIn(';', self._two_firm_cells('en')['E2'])
+
+    def test_one_firm_leaves_the_second_box_empty(self):
+        cells = ctx.build_cmr_overlay(_mock_shipment(), 'ru')
+        self.assertNotIn('E5', cells)
+        self.assertNotIn('B6', cells)
 
 
 class CmrPresetTest(SimpleTestCase):
@@ -446,6 +522,15 @@ class LetterContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['country'], 'Узбекистан')
 
 
+def _xlsx_text(data: bytes) -> str:
+    """Every non-empty cell value of a filled .xlsx, newline-joined."""
+    wb = openpyxl.load_workbook(BytesIO(data))
+    ws = wb.active
+    return '\n'.join(
+        str(c.value) for row in ws.iter_rows() for c in row if c.value is not None
+    )
+
+
 class InvoiceRenderSmokeTest(TestCase):
     """Fill the shipped templates and assert clean, value-bearing output.
 
@@ -488,13 +573,6 @@ class InvoiceRenderSmokeTest(TestCase):
         self.assertIn('Pomidor B', text)
         self.assertIn('8 200,00', text)   # summed total
 
-    def _xlsx_text(self, data: bytes) -> str:
-        wb = openpyxl.load_workbook(BytesIO(data))
-        ws = wb.active
-        return '\n'.join(
-            str(c.value) for row in ws.iter_rows() for c in row if c.value is not None
-        )
-
     def test_render_cmr_ru_and_en(self):
         # CMR is an xlsx print-overlay (not docx). Two firms on the truck → both
         # sender names must survive into the filled sheet (joined in the sender box).
@@ -504,7 +582,7 @@ class InvoiceRenderSmokeTest(TestCase):
         ]
         for key, names in (('cmr_ru', ('Датлы миве', 'Ýigit')), ('cmr_en', ('Datly miwe', 'Yigit'))):
             data, filename, content_type = render.generate(key, _mock_shipment(firms=firms), 'docx')
-            text = self._xlsx_text(data)
+            text = _xlsx_text(data)
             self.assertIn('CMR_', filename)
             self.assertTrue(filename.endswith('.xlsx'), f'{key}: {filename}')
             for name in names:
@@ -1364,7 +1442,7 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         self.invoice.save(update_fields=['shipment'])
 
     def test_default_docx_download(self):
-        resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/')
+        resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/?place_loading=Kaka')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
         self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
         self.assertIn('attachment;', resp['Content-Disposition'])
@@ -1373,7 +1451,7 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
 
     def test_invoice_en_type(self):
         resp = self.client.get(
-            f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type=invoice_en'
+            f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type=invoice_en&place_loading=Kaka'
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn('_EN.docx', resp['Content-Disposition'])
@@ -1396,7 +1474,7 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         # clear a required packing cell → generation is blocked with a clear error
         self.invoice.shipment.pallet_count = None
         self.invoice.shipment.save(update_fields=['pallet_count'])
-        resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/')
+        resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/?place_loading=Kaka')
         self.assertEqual(resp.status_code, 400)
         self.assertIn('pallet_count', resp.json()['missing_packing'])
 
@@ -1405,6 +1483,23 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
         resp = self.client.get(f'/api/v1/contracts/sales/{invoice.pk}/document/')
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(len(resp.json()['missing_packing']), 4)
+
+    def test_without_a_loading_point_returns_400(self):
+        resp = self.client.get(f'/api/v1/contracts/sales/{self.invoice.pk}/document/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('loading point', resp.json()['error'])
+
+    def test_the_letters_still_download_without_a_loading_point(self):
+        """CT-1 / phyto / customs share this endpoint but show no picker.
+
+        Guarding every type here would 400 each letter for every user, and the
+        happy-path tests would not notice because they pass the param.
+        """
+        for doc_type in ('ct1_ru', 'fito_ru', 'customs_tk'):
+            resp = self.client.get(
+                f'/api/v1/contracts/sales/{self.invoice.pk}/document/?type={doc_type}'
+            )
+            self.assertEqual(resp.status_code, 200, f'{doc_type}: {resp.content[:200]}')
 
     def test_unknown_type_returns_400(self):
         resp = self.client.get(
@@ -1415,7 +1510,7 @@ class InvoiceDocumentEndpointTest(_SeededPermsMixin, TestCase):
     def test_pdf_without_libreoffice_returns_503(self):
         with mock.patch.object(render, '_libreoffice_bin', return_value=None):
             resp = self.client.get(
-                f'/api/v1/contracts/sales/{self.invoice.pk}/document/?fmt=pdf'
+                f'/api/v1/contracts/sales/{self.invoice.pk}/document/?fmt=pdf&place_loading=Kaka'
             )
         self.assertEqual(resp.status_code, 503)
 
@@ -1429,6 +1524,7 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
         self.client.force_authenticate(user=self.user)
         self.season = _make_season()
         self.imp = _make_import_firm('IMPCMR')
+        LoadingLocation.objects.create(name='Kaka', name_ru='Кака')
         self.shipment = _make_packed_shipment(self.season, self.imp)
         # Two export firms on the one truck → both are senders on the CMR.
         for code in ('YGTA', 'YGTB'):
@@ -1439,32 +1535,50 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
 
     def test_truck_cmr_defaults_to_word(self):
         # The office's Word form is the default CMR output.
-        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?place_loading=Kaka')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
         self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
         self.assertIn('CMR_', resp['Content-Disposition'])
 
     def test_en_lang_filename(self):
         resp = self.client.get(
-            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang=en'
+            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang=en&place_loading=Kaka'
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn('_EN.docx', resp['Content-Disposition'])
 
-    def test_xlsx_overlay_still_served(self):
-        """The spreadsheet overlay is off the UI but still reachable via fmt=xlsx."""
+    def test_xlsx_overlay_served(self):
+        """fmt=xlsx returns the spreadsheet overlay — the menu's Excel variant."""
         resp = self.client.get(
-            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?fmt=xlsx'
+            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?fmt=xlsx&place_loading=Kaka'
         )
         self.assertEqual(resp.status_code, 200, resp.content[:200])
         self.assertEqual(resp['Content-Type'], render.XLSX_CONTENT_TYPE)
         self.assertIn('.xlsx', resp['Content-Disposition'])
 
+    def test_xlsx_overlay_carries_generate_time_options(self):
+        """The modal's loading point and TIR carnet reach the Excel overlay too.
+
+        The xlsx and Word CMRs run different context builders, so the overrides
+        the endpoint collects have to be proven on both paths — otherwise the
+        office fills the modal and silently gets boxes 4 and 17 blank.
+        """
+        for lang in ('ru', 'en'):
+            resp = self.client.get(
+                f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/'
+                f'?fmt=xlsx&lang={lang}&place_loading=Kaka&tir_carnet=XZ12345678'
+            )
+            self.assertEqual(resp.status_code, 200, resp.content[:200])
+            text = _xlsx_text(resp.content)
+            self.assertIn('Kaka' if lang == 'en' else 'Кака', text,
+                          f'{lang}: place_loading missing')
+            self.assertIn('XZ12345678', text, f'{lang}: tir_carnet missing')
+
     def test_word_variant(self):
         """fmt=docx returns the editable Word overlay (same values, .docx)."""
         for lang, badge in (('ru', '_RU.docx'), ('en', '_EN.docx')):
             resp = self.client.get(
-                f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang={lang}&fmt=docx'
+                f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?lang={lang}&fmt=docx&place_loading=Kaka'
             )
             self.assertEqual(resp.status_code, 200, resp.content[:200])
             self.assertEqual(resp['Content-Type'], render.DOCX_CONTENT_TYPE)
@@ -1480,13 +1594,43 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
     def test_incomplete_packing_returns_400(self):
         self.shipment.box_count = None
         self.shipment.save(update_fields=['box_count'])
-        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?place_loading=Kaka')
         self.assertEqual(resp.status_code, 400)
         self.assertIn('box_count', resp.json()['missing_packing'])
 
     def test_missing_shipment_returns_404(self):
         resp = self.client.get('/api/v1/contracts/shipments/999999/cmr/')
         self.assertEqual(resp.status_code, 404)
+
+    def test_without_a_loading_point_returns_400(self):
+        """Box 4 is not something the office should fill in by hand."""
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('loading point', resp.json()['error'])
+
+    def test_the_404_still_wins_over_the_loading_point(self):
+        """A shipment that does not exist is the more useful answer."""
+        resp = self.client.get('/api/v1/contracts/shipments/999999/cmr/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_the_packing_guard_still_wins_over_the_loading_point(self):
+        self.shipment.box_count = None
+        self.shipment.save(update_fields=['box_count'])
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('missing_packing', resp.json())
+
+    def test_the_russian_cmr_prints_the_etrap_in_cyrillic(self):
+        """End to end: the picker sends 'Kaka', the sheet must show 'Кака'."""
+        resp = self.client.get(
+            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/'
+            f'?fmt=xlsx&place_loading=Kaka'
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        text = _xlsx_text(resp.content)
+        self.assertIn('Ахалский велаят', text)
+        self.assertIn('этрап Кака', text)
+        self.assertNotIn('этрап Kaka', text)
 
 
 class ShipmentPacketZipEndpointTest(_SeededPermsMixin, TestCase):
@@ -1512,7 +1656,7 @@ class ShipmentPacketZipEndpointTest(_SeededPermsMixin, TestCase):
 
     def test_zip_bundles_cmr_invoice_and_letters(self):
         import zipfile
-        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip')
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip?place_loading=Kaka')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
         self.assertEqual(resp['Content-Type'], 'application/zip')
         self.assertIn('.zip', resp['Content-Disposition'])
@@ -1526,7 +1670,7 @@ class ShipmentPacketZipEndpointTest(_SeededPermsMixin, TestCase):
         import zipfile
         from apps.contracts.models import ContractSale
         ContractSale.objects.filter(shipment=self.shipment).update(status=ContractSale.STATUS_VOID)
-        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip')
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip?place_loading=Kaka')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
         names = zipfile.ZipFile(BytesIO(resp.content)).namelist()
         # voided sale → no invoice/letters; only the truck CMR remains
@@ -1536,12 +1680,19 @@ class ShipmentPacketZipEndpointTest(_SeededPermsMixin, TestCase):
     def test_incomplete_packing_returns_400(self):
         self.shipment.box_count = None
         self.shipment.save(update_fields=['box_count'])
-        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip')
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip?place_loading=Kaka')
         self.assertEqual(resp.status_code, 400)
 
     def test_missing_shipment_returns_404(self):
         resp = self.client.get('/api/v1/contracts/shipments/999999/packet.zip')
         self.assertEqual(resp.status_code, 404)
+
+    def test_without_a_loading_point_returns_400(self):
+        resp = self.client.get(
+            f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip'
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('loading point', resp.json()['error'])
 
 
 class ContractSaleLineItemApiTest(_SeededPermsMixin, TestCase):

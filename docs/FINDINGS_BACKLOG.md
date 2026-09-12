@@ -649,6 +649,102 @@ what failed is that two cells the spec names as triggers — `peregruz_date` and
   cells unclickable under the sticky frozen band; datetime cells discard a typed value and
   stamp *now*.
 
+## F35-F40 — the CMR Excel overlay vs the office's own CMR sheet (added 2026-09-11)
+
+Cell-by-cell diff of what `build_cmr_overlay` writes against the filled `CMR RU` / `CMR EN`
+sheets in `data/Export_contracts_2025-2026.xlsx` — the same workbook `build_cmr_xlsx.py`
+built the templates from. Prompted by re-adding the Excel variant to the CMR menu.
+
+**Geometry is exact and needs no work.** Merged ranges (8 RU / 7 EN), every column width
+A-N, every row height 1-60, page scale 60% and A4 paper are identical between the office
+sheet and the committed template. The one difference is deliberate: the template declares
+print area `$A$1:$N$54`, which the office sheet leaves unset (commit `f8b5fe2`, so EN truck
+plates on row 54 are not clipped). **The overlay registers on the pre-printed form.** The
+gap is in which boxes get filled, not where they sit.
+
+The office sheet fills **36** cells in columns A-N. The template keeps **9** as fixed
+labels and the overlay writes **18**. The remainder is below. Excluded as data rather than
+code: cells left blank only because the sampled shipment had no driver, plates, pallet
+weight or sales rows.
+
+- **~~F35~~ — CLOSED 2026-09-11.** `E2`/`B3` now take `sender1_*` and `E5`/`B6` take
+  `sender2_*`; a third firm still appends to box 2. Original finding: **HIGH: the second
+  export firm has its own box on the form, and we overwrite neither.** The office puts firm 1 in `E2`/`B3` and firm 2 in **`E5`/`B6`**. Our
+  coordinate map has no `E5`/`B6` at all, so `build_cmr_overlay` joins every firm on the
+  truck into `E2` with `; ` and does the same to the addresses in `B3`. On live shipment 718
+  (Tel CH + YGT) that produces `И.П. Хемидов Ч.А.; Йигит Х.Дж.` crammed into a
+  single-firm box, and an address string reading
+  `…дом 40, кв. 81.; Адрес: Туркменистан, Ахалская область…` — the second firm's stored
+  address carries its own `Адрес:` prefix, so the joined line repeats the word mid-sentence.
+  **The fix is small and the data already exists**: `build_cmr_overlay_values` already
+  returns `sender1_name` / `sender2_name` / `sender1_address` / `sender2_address` — built
+  for the Word CMR's two consignor blocks — and the xlsx map simply does not use them. Point
+  `E2`/`B3` at the `sender1_*` keys and `E5`/`B6` at the `sender2_*` keys.
+  **Note the office has separate sheets for wider trucks** — `CMR RU (3 exporters)` and
+  `CMR RU (3 sellers)` lay the senders out differently again (`B6`, `B7`). Two slots on the
+  base form is a genuine limit of that form, not an oversight, so a 3rd+ firm still has to
+  append to slot 2 the way the Word CMR does.
+- **~~F36~~ — CLOSED 2026-09-11.** Box 4 is now two cells (`place_region` +
+  `place_district`), the Russian CMR prints the etrap in Cyrillic from the new
+  `LoadingLocation.name_ru` (migration `core.0048`), and the loading point became a
+  required parameter on the invoice, CMR and packet endpoints. The region is hardcoded to
+  Ahal by decision. Original finding: **MEDIUM: the loading place is two cells on the
+  form, and we fill one.** The office
+  writes the region in `D18` (RU) / `D17` (EN) and the district **beside it** in `E18` / `E17`
+  — `Ахалский велаят` + `этрап Кака`, `Ahal region,` + `Kaka district`. The generate-time
+  `place_loading` is one free-text field landing in the first cell only, so a chosen location
+  containing both parts has to fit one box.
+- **F37 — LOW: the invoice date is printed, but in the wrong box and with different
+  wording.** The date is **not** missing — `invoice_ref` is `'Инвойс № {num}, {date}'` /
+  `'Invoice № {num}, {date}'`, so `D22` already carries both. The office splits the phrase
+  across two cells instead: `D22` holds `Инвойс №391, 299 от` — ending on the dangling
+  preposition *от* — and **`E22`** holds `02.06.2026 г.`. `E22` is merged `E22:F22` in RU,
+  so the form reserves real width for the date that our single string does not use, and a
+  multi-invoice truck therefore stretches `D22` further than the office's version ever does.
+  Two sub-decisions if this is taken: adding `E22` to the map, and whether to restore the
+  *от* / trailing-comma wording, which is cosmetic but is what the office prints.
+- **F38 — MEDIUM: the driver's passport is printed on the office CMR, and we hardcode it
+  blank.** `G49` carries `KP0060131/ 15.12.2025` (RU) and `A2809727/ 24.08.2024` (EN) —
+  serial/number and issue date, slash-joined. `build_cmr_overlay_values` sets
+  `'driver_passport': ''` outright, with the comment that `Shipment` has no passport column
+  and the crew completes it by hand. **That comment is now out of date**: the fleet
+  `Driver` record carries `passport_serial` and `passport_issue_date`, and
+  `document_context._driver_passports()` — written for the TIR carnet — already reads them
+  per driver with a typed-override fallback. The CMR can call the same helper. The
+  coordinate map would also need `G49`, which it does not currently have. Both CMR formats
+  read one values function, so filling it once fixes Word and Excel together.
+- **F39 — MEDIUM: the truck make is printed, and we hardcode it blank.** `C53` (RU) /
+  `C54` (EN) carries `VOLVO`, and `'truck_model': ''` sits beside the passport line under
+  the same stale comment. The value exists as **`TruckHead.truck_model`** (not on `Truck`,
+  which has no make column); the shipment reaches it through the plain `truck_head_id`
+  column. `C53`/`C54` are likewise absent from the coordinate map.
+- **F40 — LOW, but check it on a print: we write pre-formatted strings where the office
+  writes numbers.** The office's weight and box cells hold real numbers under `General` /
+  `0.0` / `0.00` formats (`3600`, `600`, `20840`); we write text with a thousands separator
+  applied by language — `9 480` in RU and **`9,480` in EN**. Alignment does not shift:
+  every one of these boxes carries an explicit `center` style and we only set values, never
+  styles. (Checked separately for the cells F35-F39 propose writing to — `E5`, `B6`,
+  `E18`/`E17`, `E22`, `G49`, `C53`/`C54` — where the template's horizontal alignment equals
+  the office sheet's on every cell, and the office's own value is text in each, so a string
+  written there lands exactly where theirs did.) So this is legibility, not registration. Two things to decide on a printed sample: whether the
+  separator is wanted on a customs form at all, and whether the **EN comma** is safe, since a
+  reader on Russian or European convention can take `9,480` for a decimal. Writing numbers
+  instead of strings would also make the template's `0.0` / `0.00` formats take effect, which
+  is what the office's own sheet prints.
+
+Reproduce: `backend/apps/contracts/services/document_context.py::_CMR_OVERLAY_CELLS` is the
+map under test; the office sheets are `CMR RU` and `CMR EN` in
+`data/Export_contracts_2025-2026.xlsx`.
+
+- **F41 — LOW: the customs letter prints a loading point it is never asked for.**
+  `build_customs_context` inserts `overrides['place_loading']` into the Turkmen
+  boilerplate, but `InvoiceDocumentsButton`'s `takesLoading()` is
+  `type.startsWith('invoice')`, so `customs_tk` never shows the picker and the value
+  is always blank. Found while scoping the 2026-09-11 required-loading-point guard,
+  which is why that guard covers invoice keys only. Predates the guard; fixing it
+  means either offering the picker for `customs_tk` or dropping the placeholder from
+  the letter.
+
 ## Verified clean — do not re-investigate
 
 - `core/team-kpi/`, `core/worklog/team/` open to everyone — ADR-020's locked "radical

@@ -464,8 +464,9 @@ def generate_packet_zip(
         ValueError / DocumentRenderError: propagated from ``generate`` (e.g. PDF
         requested but LibreOffice missing) — the whole packet fails as one.
     """
-    # The Word CMR (``cmr_*_docx``) is the form the office uses — same as the CMR
-    # button; the xlsx overlay (``cmr_*``) is not offered in the UI.
+    # The Word CMR (``cmr_*_docx``) is the form the office uses, so the packet
+    # always bundles that one; the xlsx overlay (``cmr_*``) is a single-document
+    # download only.
     cmr_key = 'cmr_en_docx' if lang == 'en' else 'cmr_ru_docx'
     invoice_key = 'invoice_en' if lang == 'en' else 'invoice_ru'
 

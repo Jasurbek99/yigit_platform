@@ -76,15 +76,41 @@ describe('DocumentOptionsModal', () => {
     expect(screen.getByRole('checkbox', { name: /red/i })).toBeChecked();
   });
 
+  /** Download is gated on the loading point, so every confirm test picks one. */
+  async function pickLoadingPoint() {
+    await userEvent.click(screen.getByRole('combobox'));
+    await userEvent.click(await screen.findByTitle('Kaka'));
+  }
+
   it('reports highlight:false once the operator unticks it', async () => {
     const onConfirm = vi.fn();
     renderModal({ onConfirm });
 
+    await pickLoadingPoint();
     await userEvent.click(screen.getByRole('checkbox', { name: /red/i }));
     await userEvent.click(screen.getByRole('button', { name: /download/i }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalled());
     expect(onConfirm.mock.calls[0][0]).toMatchObject({ highlight: false });
+  });
+
+  it('refuses to download until a loading point is chosen', async () => {
+    const onConfirm = vi.fn();
+    renderModal({ onConfirm });
+
+    // The server returns 400 without it; blocking here saves the round trip.
+    expect(screen.getByRole('button', { name: /download/i })).toBeDisabled();
+
+    await pickLoadingPoint();
+    expect(screen.getByRole('button', { name: /download/i })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: /download/i }));
+    await waitFor(() => expect(onConfirm).toHaveBeenCalled());
+    expect(onConfirm.mock.calls[0][0]).toMatchObject({ placeLoading: 'Kaka' });
+  });
+
+  it('does not gate documents that take no loading point', () => {
+    renderModal({ withPlaceLoading: false });
+    expect(screen.getByRole('button', { name: /download/i })).toBeEnabled();
   });
 
   it('hides the TIR carnet field unless the document takes one', () => {

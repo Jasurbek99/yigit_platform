@@ -11,10 +11,12 @@ the `Export_contracts` master sheet (2–3 hrs/day against a 13:00 deadline). P4
 ships this **one document at a time** on a shared, document-agnostic framework.
 
 **Shipped:** per-firm **Invoice** (RU/EN) + the **CT-1 / FITO / Customs** request
-letters, and the truck-level **CMR** (RU/EN). Most documents download as `.docx`
-(editable) and PDF; the **CMR is the exception** — it is an **xlsx print-overlay**
-(see [[#CMR (road consignment note) — truck-level]]) so its native download is
-`.xlsx`. Template layouts mirror the office Excel sheets: e.g. the Invoice renders
+letters, and the truck-level **CMR** (RU/EN) and **TIR carnet** (RU, two crew
+variants). Most documents download as `.docx` (editable) and PDF; the **CMR and
+the TIR carnet are the exceptions** — both are **xlsx print-overlays** (see
+[[#CMR (road consignment note) — truck-level]] and
+[[#TIR carnet — truck-level]]) so their native download is `.xlsx`. The carnet has
+no Word variant at all. Template layouts mirror the office Excel sheets: e.g. the Invoice renders
 **two pages** — the invoice and the `Упаковочный лист` / `Packing List` (weights
 only, no prices), matching the `InvoiceRU` / `InvoiceEN` sheets. Documents are
 produced from the **Documents page** (`/documents`), a
@@ -50,7 +52,7 @@ context builder", never "wire a new endpoint stack".
 | Template files | `apps/contracts/document_templates/*.docx` / `*.xlsx` | docx: authored Word layouts with Jinja tags (static labels baked per language, only data as `{{ }}`), built by `build_templates.py`. xlsx: the CMR overlay sheets (geometry-preserving), built by `build_cmr_xlsx.py`. |
 | Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. docx builders return a Jinja context; the xlsx CMR builder (`build_cmr_overlay`) returns a `{cell: value}` map. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
 | Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_xlsx` (openpyxl cell-fill→bytes); `render_pdf` (LibreOffice headless→bytes, any source ext); `generate(key, obj, fmt)` branches on `spec.engine`. |
-| API views | `ContractSaleViewSet.document` (per-firm docs), `ShipmentCmrView` (truck CMR), `DocumentPacketListView` (page list) — all in `apps/contracts/views.py` | Thin; run the packing guard, then return the file as an attachment (or the packet list). |
+| API views | `ContractSaleViewSet.document` (per-firm docs), `ShipmentCmrView` (truck CMR), `ShipmentTirView` (truck TIR carnet), `DocumentPacketListView` (page list) — all in `apps/contracts/views.py` | Thin; run the packing guard, then return the file as an attachment (or the packet list). |
 | Highlight pass | `apps/contracts/services/document_highlight.py` | Renders every database-filled value red, boilerplate black. `wrap_context` sentinel-wraps values before the docxtpl render, `colorize` splits the runs afterwards. Touches **no template and no context builder**. |
 | Layout adjustments | `apps/contracts/models/document_layout.py` + `document_render.apply_layout` | Per-document-type margin/font/line-spacing **adjustments** (deltas and a percentage, never absolutes), saved by the office instead of edited into the `.docx`. |
 | Audit model | *(deferred)* | `GeneratedDocument` for the 13:00 board — not needed to generate. |
@@ -72,13 +74,24 @@ GET /api/v1/contracts/sales/{id}/document/?type=<key>&fmt=docx|pdf&place_loading
 ```
 - `type`: `invoice_ru` (default), `invoice_en`, `ct1_ru`, `fito_ru`, `customs_tk`.
   **Rejects `cmr_*`** (truck-scope) with `400`.
-- `place_loading` (invoice) is an optional generate-time value; `tir_carnet` is ignored here.
+- `place_loading` (invoice) is **required** — `400` without it; `tir_carnet` is ignored here.
 
 **Truck CMR** — from a `Shipment`, all firms as senders:
 ```
 GET /api/v1/contracts/shipments/{id}/cmr/?lang=ru|en&fmt=docx|pdf&place_loading=&tir_carnet=
 ```
-- `place_loading` + `tir_carnet` (Uzbekistan transit) are optional generate-time values.
+- `place_loading` is **required** (`400` without it); `tir_carnet` (Uzbekistan transit) is optional.
+
+**Truck TIR carnet** — from a `Shipment`, all firms as holder:
+```
+GET /api/v1/contracts/shipments/{id}/tir/?fmt=xlsx|pdf&drivers=1|2
+    &border_point=&cmr_number=&driver_passport=&driver_2_passport=
+```
+- **No Word variant** — `fmt` is `xlsx` (default) or `pdf`, and the PDF converts from
+  the spreadsheet. `border_point` is only a fallback for a truck whose Sheet column
+  is empty; the others are printed values with no home in the database. `drivers`
+  picks the crew variant and defaults to the two-driver carnet whenever the truck
+  has a second driver.
 
 **Whole-packet ZIP** — the truck's entire packet in one download:
 ```
@@ -268,11 +281,11 @@ sections (0.8849 where 0.9402 was right). Covered by
 The popover shows an inline note on the contract saying so, rather than letting staff
 drag a slider that does nothing.
 
-### Excluded: the four CMR keys
+### Excluded: the four CMR keys and the two TIR carnet keys
 
-`cmr_ru`, `cmr_en`, `cmr_ru_docx`, `cmr_en_docx` are refused by
-`registry.supports_layout()` and by the API (400). Their geometry registers onto the
-pre-printed official form — the Word CMR's page margins are all zeros on a
+`cmr_ru`, `cmr_en`, `cmr_ru_docx`, `cmr_en_docx`, `tir_ru` and `tir_ru_2drivers` are
+refused by `registry.supports_layout()` and by the API (400). Their geometry
+registers onto a pre-printed official form — the Word CMR's page margins are all zeros on a
 non-standard 11918×16858 page, derived from the xlsx overlay so both formats land
 every value in the same box.
 
@@ -323,6 +336,10 @@ PDF (8 entries) and downloads via `utils/fileDownload.ts::downloadFile()`; the h
 auth cookie rides the same-origin GET (same mechanism as the Boss report exports).
 Labels are `documents.*` i18n keys (tk/ru/en).
 
+The truck-level `CmrDocumentsButton` on the **Documents** page offers a third
+format the per-sale dropdown does not: **Excel** (`fmt=xlsx`), the spreadsheet
+print-overlay — 6 entries (Word / PDF / Excel x RU / EN).
+
 **Shared pieces** (`CmrDocumentsButton`, `PacketZipButton` and `InvoiceDocumentsButton`
 were ~90% identical before):
 
@@ -351,8 +368,8 @@ clean-copy toggle. One extra click.
 CMR is a per-**truck** document: one `Shipment` == one truck, which may carry 1–3
 export firms (`firm_splits`) selling to a single buyer (`shipment.import_firm`).
 So the CMR is `scope=shipment` (not invoice) — `build_cmr_context(shipment, …)`
-aggregates **all** export firms on the truck into the single sender box
-(`;`-joined — a bare newline won't line-break in a docx run), uses the one buyer
+gives **each** export firm its own consignor box (the form has two; a third firm
+is appended to the second), uses the one buyer
 as consignee, whole-truck cargo/weights, and
 references every invoice on the truck (`shipment.sales`). Computes
 `gross_without_pallet = weight_gross − pallet_weight` (BRUT is gross WITH pallet).
@@ -381,8 +398,14 @@ construction, so the CMR keeps the Excel geometry:
   maps** (the two sheets sit data on slightly different rows/cols).
 - **Engine** `TemplateSpec.engine='xlsx'` → `render_xlsx` fills cells by coordinate
   (openpyxl), preserving geometry untouched; PDF still goes through LibreOffice.
-- Known simplification: multiple firms are joined into one sender box (matches
-  single-firm trucks exactly; per-cell firm1/firm2 split is a future refinement).
+- **Two consignor boxes.** `E2`/`B3` carry firm 1 and `E5`/`B6` carry firm 2, from
+  the `sender1_*` / `sender2_*` values the Word CMR already used. Until 2026-09-11
+  the overlay joined every firm into box 1 with `'; '`, which crammed two names
+  into a single-firm box and repeated the word *Адрес* mid-address. A third firm
+  still appends to box 2 — the printed form has only two slots.
+- **Box 4 is two cells.** `place_region` holds a fixed region and `place_district`
+  the etrap beside it (`D18`/`E18` in RU, `D17`/`E17` in EN), matching the office
+  sheet. See *Generate-time inputs* below for how the etrap is resolved.
 
 **CMR outputs** (`?fmt=`), all carrying the same values in the same boxes:
 
@@ -390,7 +413,7 @@ construction, so the CMR keeps the Excel geometry:
 |-------|--------|-------|
 | `docx` *(default)* | `.docx` Word form | **The office's own CMR form.** ~65 ms. Keys `cmr_ru_docx` / `cmr_en_docx`. |
 | `pdf` | `.pdf` | Converted **from the Word form** via LibreOffice — the slow path (~6 s). |
-| `xlsx` | `.xlsx` overlay | Spreadsheet overlay. **Not offered in the UI** (Word supersedes it) but still wired — re-add `'xlsx'` to `FORMATS` in `CmrDocumentsButton.tsx` to bring it back. |
+| `xlsx` | `.xlsx` overlay | Spreadsheet overlay, offered in the UI as the **Excel** variant. Its geometry predates the Word rebuild, so confirm one printed sample against the pre-printed form before relying on it. |
 
 PDF renders from the **Word** form, not the xlsx: converting the spreadsheet
 would emit the older overlay layout rather than the office document.
@@ -421,9 +444,37 @@ document is generated and passed through as `?place_loading=&tir_carnet=` query
 params to `generate(..., overrides)`. The frontend `InvoiceDocumentsButton` opens
 a small modal for invoice/CMR downloads: `place_loading` is a dropdown from the
 `core.LoadingLocation` list (`GET /core/loading-locations/`), `tir_carnet` a free
-text field. Both optional → blank on the document when left empty. The CT-1 /
-phyto / customs letters accept the `overrides` arg (uniform signature) but ignore
-it and download immediately with no modal.
+text field. The CT-1 / phyto / customs letters accept the `overrides` arg
+(uniform signature) but ignore it and download immediately with no modal.
+
+**`place_loading` is REQUIRED** (2026-09-11) for the invoice, the CMR and the
+packet zip, each returning `400` with `PLACE_LOADING_REQUIRED_MESSAGE` when it is
+blank. The guard sits **last** in each validation chain, so a missing shipment
+still answers `404` and an unpacked truck still answers with `missing_packing`.
+The modal disables its Download button until a point is chosen, so the 400 is a
+backstop rather than the normal path. `tir_carnet` stays optional.
+
+**The letters are deliberately exempt.** CT-1, phyto and customs share the
+`sales/{id}/document/` endpoint, but their modal shows no picker
+(`takesLoading()` in `InvoiceDocumentsButton.tsx` is `type.startsWith('invoice')`),
+so guarding every type there would `400` every letter download. `views.py`
+mirrors that rule in `_requires_place_loading()`, and
+`test_the_letters_still_download_without_a_loading_point` pins it. Note the
+customs letter *does* print a loading point in its boilerplate and is never
+offered one — a gap that predates this guard, recorded as F41.
+
+**The Russian CMR prints the etrap in Cyrillic.** The picker sends the location's
+Latin `name`, so `_loading_place_name()` looks the row up and takes
+`LoadingLocation.name_ru` for `lang='ru'` (migration `core.0048`, seeded Дусак /
+Кака / Овадандепе and editable in Django admin at `/admin/`). A row with no
+Russian name typed, and a value absent from the table, both fall back to the
+string as given rather than printing nothing. The two halves are then composed
+per language: RU `Ахалский велаят` + `этрап {name}`, EN `Ahal region,` +
+`{name} district` — the English comma is the office sheet's own. `place_loading`
+remains the joined phrase, which is what the **Word** CMR prints from its single
+`{{ place_loading }}` tag. **The region is hardcoded**: every loading point the
+platform knows is in Ahal, so a greenhouse outside it would need this to become
+data. The invoice still prints the raw chosen name, not the composed phrase.
 
 **Packing guard (poka-yoke).** No document — invoice, CMR, or letter — generates
 until the truck's whole-truck packing is **resolvable**: `weight_gross`,

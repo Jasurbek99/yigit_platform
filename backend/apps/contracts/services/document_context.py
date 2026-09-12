@@ -405,14 +405,41 @@ _CMR_LOCALE = {
         'packing': 'ящик',
         'country_dispatch': 'Туркменистан',
         'invoice_ref': 'Инвойс № {num}, {date}',
+        # Box 4 is two cells on the form: a region and the etrap beside it.
+        # Every loading point the platform knows is in Ahal, so the region is
+        # fixed — a greenhouse outside Ahal would need this to become data.
+        'place_region': 'Ахалский велаят',
+        'place_district': 'этрап {name}',
     },
     'en': {
         'cargo_name': 'FRESH TOMATOES',
         'packing': 'plastic boxes',
         'country_dispatch': 'Turkmenistan',
         'invoice_ref': 'Invoice № {num}, {date}',
+        # The trailing comma is the office sheet's own, kept so the printed
+        # line reads exactly as theirs does.
+        'place_region': 'Ahal region,',
+        'place_district': '{name} district',
     },
 }
+
+
+def _loading_place_name(chosen: str, lang: str) -> str:
+    """The chosen loading point's name in the document's alphabet.
+
+    The picker sends the location's Latin ``name``; the Russian CMR has to print
+    Cyrillic, which lives in ``LoadingLocation.name_ru``. A location with no
+    Russian name typed yet, and a value that is not in the table at all, both
+    fall back to the string as given rather than printing nothing.
+    """
+    if not chosen:
+        return ''
+    from apps.core.models import LoadingLocation
+
+    location = LoadingLocation.objects.filter(name=chosen).first()
+    if location is None:
+        return chosen
+    return (location.name_ru or location.name) if lang == 'ru' else location.name
 
 
 def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
@@ -450,6 +477,10 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     # TODO(docs): make the CMR/invoice/letter templates editable from the admin
     # (upload/swap the .xlsx/.docx at runtime) so the office can tweak the layout
     # without a code change — see the DocumentTemplate note in registry.py.
+    place_name = _loading_place_name(overrides.get('place_loading', ''), lang)
+    place_region = loc['place_region'] if place_name else ''
+    place_district = loc['place_district'].format(name=place_name) if place_name else ''
+
     firms = [split.export_firm for split in shipment.firm_splits.all()]
     sender_name = '; '.join(_firm_attr(firm, 'name', lang) for firm in firms)
     sender_address = '; '.join(
@@ -495,7 +526,11 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
         'consignee_name': getattr(buyer, 'name_company', '') or '',
         'consignee_address': getattr(buyer, 'address', '') or '',
         'country_dispatch': loc['country_dispatch'],
-        'place_loading': overrides.get('place_loading', ''),  # picked at generate-time
+        # Box 4, split the way the form splits it. ``place_loading`` keeps the
+        # joined phrase because the Word CMR prints it from a single tag.
+        'place_region': place_region,
+        'place_district': place_district,
+        'place_loading': ' '.join(p for p in (place_region, place_district) if p),
         'forwarder': sender_name,  # the export firm(s) act as forwarder
         'doc_date': _date(shipment.date),
         'invoice_refs': invoice_refs,
@@ -538,18 +573,22 @@ _CMR_OVERLAY_LOCALE = {
 # two source sheets sit the same data on slightly different rows/columns.
 _CMR_OVERLAY_CELLS = {
     'ru': {
-        'E2': 'sender_name', 'B3': 'sender_address',
+        'E2': 'sender1_name', 'B3': 'sender1_address',
+        'E5': 'sender2_name', 'B6': 'sender2_address',
         'B8': 'consignee_name', 'B9': 'consignee_address', 'B15': 'country_destination',
-        'D18': 'place_loading', 'D19': 'country_dispatch', 'C20': 'doc_date',
+        'D18': 'place_region', 'E18': 'place_district',
+        'D19': 'country_dispatch', 'C20': 'doc_date',
         'D22': 'invoice_refs', 'D23': 'tir_line',
         'G26': 'cargo_name', 'D27': 'boxes', 'E27': 'packing', 'D28': 'pallets_line',
         'L27': 'pallet_weight', 'L28': 'gross_without_pallet', 'L29': 'gross_with_pallet',
         'N29': 'net_line', 'G46': 'doc_date', 'G48': 'driver_name', 'F53': 'plates',
     },
     'en': {
-        'E2': 'sender_name', 'B3': 'sender_address',
+        'E2': 'sender1_name', 'B3': 'sender1_address',
+        'E5': 'sender2_name', 'B6': 'sender2_address',
         'B8': 'consignee_name', 'B9': 'consignee_address', 'C15': 'country_destination',
-        'D17': 'place_loading', 'D18': 'country_dispatch', 'D19': 'doc_date',
+        'D17': 'place_region', 'E17': 'place_district',
+        'D18': 'country_dispatch', 'D19': 'doc_date',
         'D22': 'invoice_refs', 'D23': 'tir_line',
         'G26': 'cargo_name', 'D27': 'boxes', 'E27': 'packing', 'D28': 'pallets_line',
         'L27': 'pallet_weight', 'L28': 'gross_without_pallet', 'L29': 'gross_with_pallet',
@@ -612,6 +651,8 @@ def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None 
         'consignee_address': ctx['consignee_address'],
         'country_destination': _dest_country_name(shipment, lang),
         'place_loading': ctx['place_loading'],
+        'place_region': ctx['place_region'],
+        'place_district': ctx['place_district'],
         'country_dispatch': ctx['country_dispatch'],
         'doc_date': ctx['doc_date'],
         'invoice_refs': ctx['invoice_refs'],

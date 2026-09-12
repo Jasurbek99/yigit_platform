@@ -6,6 +6,12 @@ class LoadingLocation(models.Model):
     """Greenhouse loading points (Dusak, Kaka, Owadandepe)."""
 
     name = models.CharField(max_length=100, unique=True)
+    # Cyrillic spelling for the Russian CMR, which must print the loading point
+    # in Russian letters. Not unique and not required: a location added before
+    # anyone types a Russian name still works, falling back to `name`.
+    name_ru = models.CharField(
+        max_length=100, blank=True, default='', **cyrillic_collation()
+    )
 
     class Meta:
         db_table = schema_table('core', 'loading_locations')

@@ -514,6 +514,9 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
                 status=400,
             )
 
+        if _requires_place_loading(doc_type) and _place_loading_missing(request):
+            return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
+
         try:
             data, filename, content_type = generate(
                 doc_type, invoice, fmt, overrides, _wants_highlight(request),
@@ -526,6 +529,30 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+
+# Box 4 of the CMR and the loading line of the invoice both come from this
+# generate-time choice; an empty one prints a document with a blank box that
+# the office then fills by hand. Required on every endpoint that offers it.
+PLACE_LOADING_REQUIRED_MESSAGE = (
+    'Choose the loading point before generating the document.'
+)
+
+
+def _place_loading_missing(request) -> bool:
+    """Whether the request omitted the generate-time loading point."""
+    return not request.query_params.get('place_loading', '').strip()
+
+
+# Only these ask the operator for a loading point in the UI, so only these may
+# refuse without one. The CT-1 / phyto / customs letters share this endpoint but
+# their modal shows no picker — guarding them would 400 every letter download.
+# (The customs letter does print a loading point in its boilerplate and is never
+# offered one; that gap predates this guard — see F41 in FINDINGS_BACKLOG.md.)
+def _requires_place_loading(doc_type: str) -> bool:
+    """Whether this document key must carry a generate-time loading point."""
+    return doc_type.startswith('invoice')
 
 
 class ShipmentCmrView(APIView):
@@ -554,8 +581,8 @@ class ShipmentCmrView(APIView):
 
         # The Word form is the CMR the office actually uses, so it backs BOTH the
         # .docx download and the PDF (converting the xlsx instead would emit the
-        # older overlay layout). `fmt=xlsx` still serves the spreadsheet overlay —
-        # it is no longer offered in the UI but is kept wired for future use.
+        # older overlay layout). `fmt=xlsx` serves the spreadsheet overlay, which
+        # the UI offers as the Excel variant alongside Word and PDF.
         # NOTE: for the xlsx-engine spec, generate()'s 'docx' means "the engine's
         # native format" — i.e. the .xlsx itself.
         lang = 'en' if request.query_params.get('lang') == 'en' else 'ru'
@@ -577,6 +604,80 @@ class ShipmentCmrView(APIView):
             return Response(
                 {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing}, status=400,
             )
+
+        if _place_loading_missing(request):
+            return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
+
+        try:
+            data, filename, content_type = generate(
+                doc_type, shipment, fmt, overrides, _wants_highlight(request),
+            )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        except DocumentRenderError as exc:
+            return Response({'error': str(exc)}, status=503)
+
+        response = HttpResponse(data, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class ShipmentTirView(APIView):
+    """Truck-level TIR carnet — one per shipment, every export firm as holder.
+
+    ``GET /api/v1/contracts/shipments/{pk}/tir/?fmt=xlsx|pdf``. An xlsx print
+    overlay onto the pre-printed carnet booklet page, so there is no Word variant
+    and the PDF converts from the spreadsheet.
+
+    The haulier block's middle line is the border crossing, read from the Sheet
+    (``Shipment.border_point``) in Russian; ``border_point`` is a typed fallback
+    for the many trucks whose column is still empty. ``cmr_number`` and
+    ``driver_passport`` / ``driver_2_passport`` are not stored at all. The
+    passports fall back to the fleet ``Driver`` record; none is filled in today,
+    so the typed value is what normally prints.
+
+    ``drivers=1|2`` picks the carnet variant. It defaults to the two-driver sheet
+    whenever the truck carries a second driver — forgetting the param would
+    otherwise silently drop that driver, since boxes 5/6 exist on one sheet only.
+
+    Gated by the 'sale' resource; the packing guard applies (the carnet prints
+    the whole-truck box count and gross weight).
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'sale'
+
+    def get(self, request, pk=None):
+        from apps.export.models import Shipment
+
+        shipment = (
+            Shipment.objects.filter(pk=pk)
+            .select_related('import_firm', 'packing_template', 'border_point')
+            .prefetch_related('firm_splits__export_firm', 'sales')
+            .first()
+        )
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+
+        missing = missing_packing_on(shipment)
+        if missing:
+            return Response(
+                {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing}, status=400,
+            )
+
+        requested = request.query_params.get('drivers', '')
+        two_drivers = (requested == '2') if requested in ('1', '2') else bool(
+            (shipment.driver_2_name or '').strip()
+        )
+        doc_type = 'tir_ru_2drivers' if two_drivers else 'tir_ru'
+        # For an xlsx-engine spec, generate()'s 'docx' means "the engine's native
+        # format" — i.e. the .xlsx itself.
+        fmt = 'pdf' if request.query_params.get('fmt') == 'pdf' else 'docx'
+        overrides = {
+            key: value
+            for key in ('border_point', 'cmr_number', 'driver_passport', 'driver_2_passport')
+            if (value := request.query_params.get(key, '').strip())
+        }
 
         try:
             data, filename, content_type = generate(
@@ -636,6 +737,9 @@ class ShipmentPacketZipView(APIView):
 
         # Skip voided sales — no invoice/letters for a cancelled firm share.
         active_sales = [s for s in shipment.sales.all() if s.status != ContractSale.STATUS_VOID]
+        if _place_loading_missing(request):
+            return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
+
         try:
             data = generate_packet_zip(
                 shipment, active_sales, lang, fmt, overrides, _wants_highlight(request),
