@@ -1081,7 +1081,9 @@
     "category_export_firm": "Export Firm",
     "category_variety": "Variety",
     "category_border_point": "Border Point",
-    "category_block": "Block"
+    "category_block": "Block",
+    "name_ru_missing": "not set",
+    "name_ru_extra": "Printed on the TIR carnet. Leave blank to print the name above instead."
   },
   "sheet_rows": {
     "placeholder_field_key": "kz_remarks",
@@ -3284,7 +3286,17 @@
     "tir_carnet_ph": "Uzbekistan transit only — leave blank otherwise",
     "download_failed": "Document download failed",
     "highlight": "Print filled values in red",
-    "highlight_extra": "Values from the database print red, boilerplate stays black, so a blank field is obvious before printing. Uncheck for a clean copy for the customer."
+    "highlight_extra": "Values from the database print red, boilerplate stays black, so a blank field is obvious before printing. Uncheck for a clean copy for the customer.",
+    "tir": "TIR carnet",
+    "tir_options_title": "TIR carnet options",
+    "tir_cmr_number": "CMR №",
+    "tir_cmr_number_ph": "e.g. DA1301245",
+    "tir_driver_passport": "Driver passport №",
+    "tir_driver_2_passport": "Second driver passport №",
+    "tir_passport_extra": "Taken from the driver record when it is filled in. None is on file yet, so type it here.",
+    "tir_border_point": "Border point",
+    "tir_border_point_ph": "Only if the Sheet has none",
+    "tir_border_point_extra": "Read from the Sheet in Russian. Fill it in on the Sheet and this can stay empty."
   },
   "sales": {
     "title": "Contract Sales",

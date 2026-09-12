@@ -686,6 +686,192 @@ def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None)
     return {coord: val for coord, val in cells.items() if val not in (None, '')}
 
 
+# ─── TIR carnet overlay (print-overlay onto the pre-printed carnet page) ─────
+#
+# Like the CMR, the TIR carnet is filled by printing ON TOP of a pre-printed
+# page — here the carnet booklet the office already holds. The source sheets
+# carry no rules or boxes of their own, only the geometry (A4 portrait @ 90%)
+# that lands each value in its printed box. See build_tir_xlsx.py.
+#
+# The carnet's box NUMBERS are prepended here rather than stored in the template.
+# The source workbook baked them into the data strings ('1. Х.О "Йигит"'), which
+# would have left data in a stripped template; doing it in code keeps the
+# committed templates entirely empty, the way ``tir_line`` prepends CARNET TIR.
+#
+# The carnet prints country names in caps, unlike the CMR's title case.
+
+_TIR_LOCALE = {
+    'ru': {
+        'cmr_prefix': 'CMR № ',
+        'invoice_prefix': 'Инвойс №',
+        'invoice_suffix': ' от',
+        'date_suffix': ' г.',
+        'packing': ' пл.ящ.',
+        'kg_suffix': ' кг.',
+        'country_dispatch': 'ТУРКМЕНИСТАН',
+    },
+}
+
+# Coordinates shared by both variants. Boxes 5/6 (the second driver) exist only
+# on the two-driver sheet and are added by _TIR_CELLS_2DRIVERS — writing them on
+# the one-driver template would print a name into blank paper.
+_TIR_CELLS = {
+    # B2 / B4 / B5 are fixed labels in the template; only the border-point line
+    # is data, so only it is written (and only it prints red).
+    'B3': 'border_point',
+    'C2': 'holder',
+    'C3': 'destination_box',
+    'C4': 'driver1_name', 'C5': 'driver1_passport',
+    'G11': 'country_dispatch', 'H11': 'country_destination',
+    'C12': 'plates',
+    'G12': 'cmr_line',
+    'F13': 'invoice_refs', 'H13': 'invoice_date',
+    'C18': 'boxes_packing', 'D18': 'cargo_name', 'G18': 'gross',
+    # Row 44 is the counterfoil, which restates two values the source sheet drove
+    # with =H11 / =C18.
+    'C44': 'country_destination', 'D44': 'boxes_packing',
+}
+
+_TIR_CELLS_2DRIVERS = {**_TIR_CELLS, 'D4': 'driver2_name', 'D5': 'driver2_passport'}
+
+def _boxed(number: int, value: str) -> str:
+    """``'3. Ahmet A.'``, or '' for a blank value.
+
+    A bare '3. ' would print a box number over the carnet's own, so an unknown
+    value yields nothing at all rather than a naked prefix.
+    """
+    value = (value or '').strip()
+    return f'{number}. {value}' if value else ''
+
+
+def _border_point_name(shipment, overrides: dict) -> str:
+    """The border crossing, in Russian, for the haulier block's middle line.
+
+    The block reads down column B as one organisation name — a fixed first line,
+    the crossing, then a fixed ``awto`` / ``ýollary`` — so the crossing is the only
+    part that changes per truck. It comes from the Sheet
+    (``Shipment.border_point``), falling back to a value typed at generate time:
+    most shipments still have the column empty.
+
+    ``BorderPoint.name`` is the Latin Turkmen form ('Garabogaz'), which a Russian
+    customs document cannot use, so ``name_ru`` wins. An unfilled ``name_ru``
+    degrades to the Latin name rather than printing nothing — the office corrects
+    it on the border-points admin screen.
+    """
+    point = getattr(shipment, 'border_point', None)
+    if point is not None:
+        name = (getattr(point, 'name_ru', '') or '').strip() or (point.name or '').strip()
+        if name:
+            return name
+    return (overrides.get('border_point', '') or '').strip()
+
+
+def _driver_passports(shipment, overrides: dict) -> tuple[str, str]:
+    """Both drivers' passport numbers, preferring the fleet record.
+
+    ``Shipment.driver_id``/``driver_2_id`` are loose integers, not ForeignKeys,
+    so the Driver rows are fetched explicitly. Every driver on record currently
+    has a blank ``passport_serial``, which makes the typed fallback the live path
+    rather than the edge case — but the record wins the moment one is entered.
+    """
+    ids = [getattr(shipment, 'driver_id', None), getattr(shipment, 'driver_2_id', None)]
+    stored: dict[int, str] = {}
+    if any(ids):
+        from apps.transport.models import Driver
+        stored = {
+            driver.pk: (driver.passport_serial or '').strip()
+            for driver in Driver.objects.filter(pk__in=[i for i in ids if i])
+        }
+    typed = (overrides.get('driver_passport', ''), overrides.get('driver_2_passport', ''))
+    return tuple(
+        stored.get(driver_id) or (typed[slot] or '').strip()
+        for slot, driver_id in enumerate(ids)
+    )
+
+
+def build_tir_overlay_values(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """The TIR carnet overlay's field values keyed by NAME (not coordinate).
+
+    Reuses ``build_cmr_context`` for everything both documents state about the
+    same truck — firms, destination, plates, cargo, boxes, gross weight — so the
+    carnet and the CMR can never disagree about the load they describe.
+
+    Two values have no home in the database and arrive through ``overrides``:
+    ``cmr_number`` and the driver passports. A third, ``border_point``, is only a
+    fallback for a truck whose Sheet column is still empty.
+
+    Args:
+        shipment: A ``Shipment`` (same prefetch expectations as ``build_cmr_context``).
+        lang: Only ``'ru'`` — the carnet form is Russian.
+        overrides: Generate-time values typed into the dialog.
+
+    Returns:
+        ``{field_name: str}`` — the keys the coordinate maps reference.
+    """
+    overrides = overrides or {}
+    loc = _TIR_LOCALE['ru']
+    ctx = build_cmr_context(shipment, lang, overrides)
+
+    destination = _dest_country_name(shipment, lang).upper()
+    passport1, passport2 = _driver_passports(shipment, overrides)
+
+    # The carnet splits the invoice reference across two boxes (F13 / H13), where
+    # the CMR states it in one — so the numbers and the date are composed here
+    # instead of reusing the CMR's joined ``invoice_refs``.
+    sales = list(shipment.sales.all())
+    numbers = ', '.join(
+        str(sale.invoice_number) for sale in sales if sale.invoice_number is not None
+    )
+    ref_date = _date(sales[0].invoice_date) if sales and sales[0].invoice_date else _date(shipment.date)
+
+    cmr_number = (overrides.get('cmr_number', '') or '').strip()
+    boxes = ctx['boxes']
+
+    return {
+        'border_point': _border_point_name(shipment, overrides),
+        'holder': _boxed(1, ctx['sender_name'].replace('; ', ' / ')),
+        'destination_box': _boxed(2, destination),
+        'driver1_name': _boxed(3, getattr(shipment, 'driver_name', '')),
+        'driver1_passport': _boxed(4, passport1),
+        'driver2_name': _boxed(5, getattr(shipment, 'driver_2_name', '')),
+        'driver2_passport': _boxed(6, passport2),
+        'country_dispatch': loc['country_dispatch'],
+        'country_destination': destination,
+        'plates': _truck_plate(shipment),
+        'cmr_line': f"{loc['cmr_prefix']}{cmr_number}" if cmr_number else '',
+        'invoice_refs': (f"{loc['invoice_prefix']}{numbers}{loc['invoice_suffix']}"
+                         if numbers else ''),
+        'invoice_date': f"{ref_date}{loc['date_suffix']}" if ref_date else '',
+        'boxes_packing': f"{boxes}{loc['packing']}" if boxes else '',
+        'cargo_name': ctx['cargo_name'],
+        'gross': f"{ctx['gross_with_pallet']}{loc['kg_suffix']}" if ctx['gross_with_pallet'] else '',
+    }
+
+
+def _tir_overlay(shipment, lang: str, overrides: dict | None, cells: dict) -> dict:
+    """Place the carnet values onto one variant's coordinates.
+
+    Empty values are dropped so a blank never overwrites the carnet's own
+    pre-printed content.
+    """
+    values = build_tir_overlay_values(shipment, lang, overrides)
+    return {coord: values[key] for coord, key in cells.items() if values[key] not in (None, '')}
+
+
+def build_tir_overlay(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """``{cell: value}`` for the one-driver TIR carnet (``tir_ru``)."""
+    return _tir_overlay(shipment, lang, overrides, _TIR_CELLS)
+
+
+def build_tir_overlay_2drivers(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
+    """``{cell: value}`` for the two-driver TIR carnet (``tir_ru_2drivers``).
+
+    A separate builder rather than a flag because the registry resolves exactly
+    one builder per document key.
+    """
+    return _tir_overlay(shipment, lang, overrides, _TIR_CELLS_2DRIVERS)
+
+
 # ─── Authority request letters (CT-1, phyto, customs) ────────────────────────
 
 def _contract_line(contract) -> str:

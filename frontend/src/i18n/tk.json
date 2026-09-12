@@ -1081,7 +1081,9 @@
     "category_export_firm": "Eksport firma",
     "category_variety": "Sort",
     "category_border_point": "Gümrük geçelgesi",
-    "category_block": "Blok"
+    "category_block": "Blok",
+    "name_ru_missing": "bellenmedik",
+    "name_ru_extra": "TIR depderçesinde çap edilýär. Boş bolsa ýokarky ady çap edilýär."
   },
   "sheet_rows": {
     "placeholder_field_key": "kz_remarks",
@@ -3265,7 +3267,17 @@
     "tir_carnet_ph": "Diňe Özbegistan üstaşyry — beýleki halatda boş goýuň",
     "download_failed": "Resminamany ýükläp bolmady",
     "highlight": "Doldurylan bahalary gyzyl reňkde çap et",
-    "highlight_extra": "Maglumat bazasyndan gelen bahalar gyzyl, hemişelik tekst gara bolar — boş öýjükleri çap etmezden öň görmek üçin. Müşderä iberilýän nusga üçin aýryň."
+    "highlight_extra": "Maglumat bazasyndan gelen bahalar gyzyl, hemişelik tekst gara bolar — boş öýjükleri çap etmezden öň görmek üçin. Müşderä iberilýän nusga üçin aýryň.",
+    "tir": "TIR depderçesi",
+    "tir_options_title": "TIR depderçesiniň sazlamalary",
+    "tir_cmr_number": "CMR №",
+    "tir_cmr_number_ph": "meselem DA1301245",
+    "tir_driver_passport": "Sürüjiniň pasporty №",
+    "tir_driver_2_passport": "Ikinji sürüjiniň pasporty №",
+    "tir_passport_extra": "Doldurylan bolsa sürüjiniň kartasyndan alynýar. Häzir hiç biri doldurylmady — şu ýere ýazyň.",
+    "tir_border_point": "Serhet nokady",
+    "tir_border_point_ph": "Diňe Sheet-de ýok bolsa",
+    "tir_border_point_extra": "Sheet-den rusça alynýar. Sheet-de dolduryň — onda bu ýer boş galyp biler."
   },
   "sales": {
     "title": "Şertnama satyşlary",

@@ -189,7 +189,8 @@ class TruckDestinationSerializer(serializers.ModelSerializer):
 class BorderPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = BorderPoint
-        fields = ['id', 'name', 'route_description', 'typical_transit_days', 'color', 'sort_order', 'is_active']
+        fields = ['id', 'name', 'name_ru', 'route_description', 'typical_transit_days',
+                  'color', 'sort_order', 'is_active']
 
 
 class CompanyLegalTypeSerializer(serializers.ModelSerializer):

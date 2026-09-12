@@ -72,7 +72,7 @@ flowchart LR
 | [[customs-expense-ledger]] | Customs/document cash-float expenses (money-out) + advances balance | AdvancesTracker (Customs expenses tab), ShipmentDetail |
 | [[domestic-sales]] | Greenhouse domestic sales records | DomesticSales |
 | [[quality-documents]] | Quality certificates and document tracking | ShipmentDetail (Document tab) |
-| [[document-generation]] | Auto-fill export documents (Invoice + CMR, RU/EN, .docx + PDF) from contract/sale/shipment data | ContractSaleList (Generate) |
+| [[document-generation]] | Auto-fill export documents (Invoice + CMR RU/EN .docx/PDF, TIR carnet .xlsx/PDF) from contract/sale/shipment data | ContractSaleList (Generate) |
 | [[sales-report]] | Rich structured sales report with line items + itemized expenses + Kurs | ShipmentDetail (Sales Report section) |
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
 | [[realtime-presence]] | WebSocket presence avatars showing who is on the Sheet right now (Channels + Redis + uvicorn workers) | ShipmentSheet (toolbar) |

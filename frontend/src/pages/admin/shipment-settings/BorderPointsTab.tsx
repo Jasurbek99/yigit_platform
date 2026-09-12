@@ -17,6 +17,7 @@ interface IProps {
 
 interface IFormValues {
   name: string;
+  name_ru: string;
   route_description: string | null;
   typical_transit_days: number | null;
   is_active: boolean;
@@ -59,6 +60,7 @@ export default function BorderPointsTab({ canWrite }: IProps) {
     setEditTarget(record);
     form.setFieldsValue({
       name: record.name,
+      name_ru: record.name_ru,
       route_description: record.route_description,
       typical_transit_days: record.typical_transit_days,
       is_active: record.is_active,
@@ -89,6 +91,14 @@ export default function BorderPointsTab({ canWrite }: IProps) {
       sorter: (a: IBorderPoint, b: IBorderPoint) => a.name.localeCompare(b.name),
       defaultSortOrder: 'ascend' as const,
       render: (v: string) => <strong>{v}</strong>,
+    },
+    {
+      // The TIR carnet prints the crossing in Russian; `name` is Latin Turkmen.
+      title: t('shipment_settings.col_name_ru'),
+      dataIndex: 'name_ru',
+      key: 'name_ru',
+      render: (v: string) =>
+        v || <Tag color="orange">{t('shipment_settings.name_ru_missing')}</Tag>,
     },
     {
       title: t('shipment_settings.col_route'),
@@ -172,6 +182,13 @@ export default function BorderPointsTab({ canWrite }: IProps) {
             name="name"
             label={t('shipment_settings.col_name')}
             rules={[{ required: true, message: t('common.required') }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="name_ru"
+            label={t('shipment_settings.col_name_ru')}
+            extra={t('shipment_settings.name_ru_extra')}
           >
             <Input />
           </Form.Item>

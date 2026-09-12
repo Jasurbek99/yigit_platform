@@ -201,6 +201,8 @@ export interface IShipmentStatusType {
 export interface IBorderPoint {
   id: number;
   name: string;
+  /** Russian spelling, printed on the TIR carnet. Blank falls back to `name`. */
+  name_ru: string;
   route_description: string | null;
   typical_transit_days: number | null;
   color?: string | null;

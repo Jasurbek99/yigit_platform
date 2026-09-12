@@ -122,6 +122,33 @@ REGISTRY: dict[str, TemplateSpec] = {
         context_builder='apps.contracts.services.document_context.build_cmr_overlay_values',
         out_pattern='CMR_{shipment_code}_EN',
     ),
+    # TIR carnet — truck-level, like the CMR, and likewise an xlsx print-overlay
+    # (here onto the pre-printed carnet booklet page rather than the CMR form).
+    # The two variants differ only in crew size: the second sheet adds boxes 5/6
+    # for a second driver AND sizes rows 10/12 differently, shifting everything
+    # below row 12 by ~4pt. That shift is why they are two templates, not one
+    # with conditional cells — a single grid cannot register both on paper.
+    # Russian only: the carnet form has no other language.
+    'tir_ru': TemplateSpec(
+        key='tir_ru',
+        filename='tir_ru.xlsx',
+        scope=SCOPE_SHIPMENT,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_tir_overlay',
+        out_pattern='TIR_{shipment_code}',
+        engine='xlsx',
+    ),
+    'tir_ru_2drivers': TemplateSpec(
+        key='tir_ru_2drivers',
+        filename='tir_ru_2drivers.xlsx',
+        scope=SCOPE_SHIPMENT,
+        language='ru',
+        version='1.0',
+        context_builder='apps.contracts.services.document_context.build_tir_overlay_2drivers',
+        out_pattern='TIR_{shipment_code}',
+        engine='xlsx',
+    ),
     # Authority request letters — single-language (per the source forms).
     'ct1_ru': TemplateSpec(
         key='ct1_ru',
@@ -168,9 +195,12 @@ REGISTRY: dict[str, TemplateSpec] = {
 # Documents whose geometry registers onto a pre-printed official form. Page-layout
 # adjustments are refused for these: the xlsx overlay prints into the 24 boxes of
 # the physical CMR, and the Word CMR's geometry is derived from that same overlay
-# so both formats land every value in the same box. Nudging a margin here means
-# the print no longer lines up with the paper.
-LAYOUT_LOCKED_KEYS = frozenset({'cmr_ru', 'cmr_en', 'cmr_ru_docx', 'cmr_en_docx'})
+# so both formats land every value in the same box. The TIR carnet overlays print
+# onto the carnet booklet page the same way. Nudging a margin here means the print
+# no longer lines up with the paper.
+LAYOUT_LOCKED_KEYS = frozenset({
+    'cmr_ru', 'cmr_en', 'cmr_ru_docx', 'cmr_en_docx', 'tir_ru', 'tir_ru_2drivers',
+})
 
 
 def supports_layout(document_key: str) -> bool:

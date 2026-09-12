@@ -13,6 +13,7 @@ from apps.contracts.views import (
     ShipmentFirmContractsView,
     ShipmentPacketZipView,
     ShipmentPackingView,
+    ShipmentTirView,
 )
 
 router = DefaultRouter()
@@ -39,6 +40,11 @@ urlpatterns = [
         'shipments/<int:pk>/cmr/',
         ShipmentCmrView.as_view(),
         name='shipment-cmr',
+    ),
+    path(
+        'shipments/<int:pk>/tir/',
+        ShipmentTirView.as_view(),
+        name='shipment-tir',
     ),
     path(
         'shipments/<int:pk>/packet.zip',

@@ -49,7 +49,7 @@ context builder", never "wire a new endpoint stack".
 | Piece | Where | Role |
 |-------|-------|------|
 | Template registry | `apps/contracts/document_templates/registry.py` | Plain dict (not a DB model) keyed by document key → template file, scope, language, context-builder, filename pattern, **`engine`** (`docx` \| `xlsx`). One entry per concrete document/variant. |
-| Template files | `apps/contracts/document_templates/*.docx` / `*.xlsx` | docx: authored Word layouts with Jinja tags (static labels baked per language, only data as `{{ }}`), built by `build_templates.py`. xlsx: the CMR overlay sheets (geometry-preserving), built by `build_cmr_xlsx.py`. |
+| Template files | `apps/contracts/document_templates/*.docx` / `*.xlsx` | docx: authored Word layouts with Jinja tags (static labels baked per language, only data as `{{ }}`), built by `build_templates.py`. xlsx: the CMR overlay sheets (geometry-preserving) built by `build_cmr_xlsx.py`, and the two TIR carnet sheets built by `build_tir_xlsx.py`. |
 | Context builders | `apps/contracts/services/document_context.py` | Pure `(obj, lang) → dict`. docx builders return a Jinja context; the xlsx CMR builder (`build_cmr_overlay`) returns a `{cell: value}` map. Owns date/money/kg formatting, firm-language fallback, shipment-vs-invoice fallback. Unit-tested without rendering. |
 | Render service | `apps/contracts/services/document_render.py` | `render_docx` (docxtpl→bytes); `render_xlsx` (openpyxl cell-fill→bytes); `render_pdf` (LibreOffice headless→bytes, any source ext); `generate(key, obj, fmt)` branches on `spec.engine`. |
 | API views | `ContractSaleViewSet.document` (per-firm docs), `ShipmentCmrView` (truck CMR), `ShipmentTirView` (truck TIR carnet), `DocumentPacketListView` (page list) — all in `apps/contracts/views.py` | Thin; run the packing guard, then return the file as an attachment (or the packet list). |
@@ -487,6 +487,100 @@ Both endpoints return **400** with `{error, missing_packing: [...]}` when a fiel
 is unresolved (a shipment-less invoice fails all four). The frontend downloads via
 `downloadFile()` (axios blob) so that 400 surfaces as a toast instead of dumping
 JSON into a new tab; a successful call saves the file.
+
+## TIR carnet — truck-level
+
+Like the CMR, the TIR carnet is a per-**truck** document built from a `Shipment`:
+all export firms on the truck are named together as the carnet **holder** (box 1),
+the one buyer's country is the destination (box 2), and the cargo figures are the
+whole truck's. It is **not** split per firm.
+
+Endpoint: **`GET /api/v1/contracts/shipments/{id}/tir/?fmt=xlsx|pdf`**
+(`ShipmentTirView`, gated by the `sale` resource, packing guard applies — the
+carnet prints the box count and gross weight).
+
+**It is an XLSX print-overlay onto the carnet booklet page.** The source sheets
+carry **no borders or frames at all** in the printed region (columns A–I): every
+line the operator sees comes from the pre-printed carnet itself. The workbook
+supplies only the geometry — A4 portrait @ **90%** scale — that lands each value
+in its printed box. Because there is no frame to derive a Word table from, the
+carnet has **no `.docx` variant**, and PDF converts from the spreadsheet.
+
+- **Templates** `tir_ru.xlsx` / `tir_ru_2drivers.xlsx` — the two source sheets
+  stripped of every value except the **three fixed haulier lines** (`B2`, `B4`,
+  `B5`), given an explicit `print_area` of `A1:I44`, and with the operator's
+  green/yellow input block (columns K onward) cleared of values, fills and borders.
+  Rebuilt by `build_tir_xlsx.py` from `data/tir_carnet.xlsx`.
+- **Builders** `build_tir_overlay` / `build_tir_overlay_2drivers` return a
+  `{cell_coordinate: value}` map, both delegating to `build_tir_overlay_values`.
+  That shared values function reuses `build_cmr_context` for everything the two
+  documents say about the same truck — firms, destination, plates, cargo, boxes,
+  gross weight — so the carnet and the CMR can never disagree about the load.
+
+### Why two templates and not one
+
+The two source sheets differ in exactly two printed respects: the second carries a
+**second driver pair** (boxes 5/6 at `D4`/`D5`), and its **rows 10 and 12 are sized
+differently** (22.5/18.8 vs 12.0/25.5), shifting everything below row 12 by about
+4pt on paper. A single grid cannot register both layouts, so each is its own
+committed template and its own registry key. The endpoint picks between them from
+the truck's crew (`drivers=1|2` overrides), because writing boxes 5/6 on the
+one-driver sheet would print a name into blank paper.
+
+### Box numbers live in code
+
+The source workbook baked the carnet's printed box numbers into the data strings
+(`1. Х.О "Йигит"`, `3. Annamuhammedov Ahmet`). Keeping them would have left data in
+a stripped template, so `_boxed(n, value)` prepends them at build time instead — the
+way `tir_line` prepends its `CARNET TIR` prefix. A blank value yields **nothing**
+rather than a naked `3. `, which would otherwise print over the carnet's own number.
+The carnet also prints country names in caps, unlike the CMR's title case.
+
+### The haulier block (`B2:B5`)
+
+Reads **down column B as one organisation name**: a fixed first line, the **border
+crossing**, then a fixed `авто` / `йоллары`. Only the crossing changes per truck, so
+the other three are template labels — which also means they print black while the
+filled line prints red.
+
+The crossing comes from the Sheet (`Shipment.border_point`) in Russian.
+`BorderPoint.name` holds the Latin Turkmen form (`Garabogaz`), useless on a Russian
+customs document, so **`BorderPoint.name_ru`** was added (`core.0049`, seeded by
+`core.0050`) and wins; a blank `name_ru` degrades to the Latin name rather than
+printing nothing. It is editable from *Admin → Shipment settings → Border points*,
+because two of the five seeded spellings are transliterations rather than values
+taken from the office workbook.
+
+**104 of 171 shipments have no border point set**, so the `border_point` query param
+is a routine fallback, not an edge case. Filling the Sheet column is the real fix.
+
+### Two values with no home in the database
+
+| Printed as | Source |
+|---|---|
+| CMR № (`G12`) | Typed at generate time (`cmr_number`). |
+| Driver passports (`C5`, `D5`) | `transport.Driver.passport_serial`, falling back to the typed `driver_passport` / `driver_2_passport`. **Every driver on record currently has a blank passport**, so the typed value is what normally prints. |
+
+Reading `passport_serial` is why `backend/CLAUDE.md` now records that `contracts/`
+may **read** `transport/` reference rows. The two apps are otherwise siblings in the
+dependency graph; this is the single documented exception, read-only, and it exists
+because the passport lives on `transport.Driver` and nowhere else. The longer-term
+fix is to fill those passports in, after which nothing needs typing.
+
+### Frontend
+
+`TirCarnetButton.tsx` sits next to the CMR button in `DocumentPacketPanel`, with the
+same ready/packing gating. It keeps its **own** modal rather than extending
+`DocumentOptionsModal`: none of that modal's fields (loading point, TIR carnet №)
+appear on the carnet, and none of the carnet's four appear on the CMR or invoice.
+The border-point field there is labelled as a fallback, since the Sheet is the
+intended source.
+
+### Not yet verified
+
+Registration on paper cannot be checked from the spreadsheet — it needs **one test
+print onto a real carnet page**. The LibreOffice PDF path must also be confirmed to
+preserve the 90% scale.
 
 ## Truck registration and crew on documents
 

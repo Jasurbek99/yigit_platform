@@ -5,6 +5,7 @@ import { IconLink, IconScale } from '@tabler/icons-react';
 import { CmrDocumentsButton } from '@/components/CmrDocumentsButton';
 import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
 import { PacketZipButton } from '@/components/PacketZipButton';
+import { TirCarnetButton } from '@/components/TirCarnetButton';
 import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
 import { ShipmentPackingPanel } from '@/components/sheet/ShipmentPackingPanel';
 import type { IDocumentPacket } from '@/types';
@@ -15,9 +16,10 @@ interface IDocumentPacketPanelProps {
 
 /**
  * One truck's document packet (the expanded row on the Documents page): a
- * readiness banner listing anything still to fill, the truck-level CMR, then a
- * row per export firm with that firm's invoice / letters. The CMR is disabled
- * until the truck is ready (setup + packing done).
+ * readiness banner listing anything still to fill, the truck-level CMR and TIR
+ * carnet, then a row per export firm with that firm's invoice / letters. Both
+ * truck-level documents are disabled until the truck is ready (setup + packing
+ * done), since each prints the whole-truck box count and weights.
  */
 export function DocumentPacketPanel({ packet }: IDocumentPacketPanelProps) {
   const { t } = useTranslation();
@@ -40,6 +42,7 @@ export function DocumentPacketPanel({ packet }: IDocumentPacketPanelProps) {
         <PacketZipButton shipmentId={packet.id} disabled={!packet.is_ready} />
         <Typography.Text strong>{t('documents.cmr')}:</Typography.Text>
         <CmrDocumentsButton shipmentId={packet.id} disabled={!packet.is_ready} />
+        <TirCarnetButton shipmentId={packet.id} disabled={!packet.is_ready} />
         {!packet.packing_complete && (
           // Packing not settled → generation is blocked. Reuse the Sheet's packing
           // panel here (its mutation invalidates 'document-packets'), so the truck

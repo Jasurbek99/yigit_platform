@@ -16,6 +16,11 @@ core → greenhouse → export → contracts → finance
 - `greenhouse/` can import from `core/`. Never from `export/` or downstream. (Temporary exception: `Notification`/`AuditLog` imports from `export` until those move to `core`.)
 - `export/` can import from `core/` and `greenhouse/`. Never from `contracts/` or `finance/`.
 - `contracts/` can import from `core/`, `greenhouse/`, and `export/`. Never from `finance/`.
+- `contracts/` may also READ `transport/` reference rows (fleet `Truck`/`Trailer`/`Driver`) where a
+  document has to print fleet data — e.g. the TIR carnet prints a driver's passport number, which
+  lives on `transport.Driver` and nowhere else. Read-only: never write a transport row from
+  `contracts/`, and never import a transport *service*. Added 2026-09-11 for the TIR carnet; the two
+  apps are otherwise siblings, so this is the single documented exception, not a general licence.
 - `finance/` can import from all upstream apps.
 - `transport/` can import from `core/` and `export/`.
 - **Circular imports = architectural bug. Fix immediately.**

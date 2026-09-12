@@ -51,6 +51,11 @@ class BorderPoint(models.Model):
     """Border crossing points used in shipment routing."""
 
     name = models.CharField(max_length=100, unique=True, **cyrillic_collation())
+    # Russian spelling, printed on the TIR carnet's haulier block. `name` holds
+    # the Latin Turkmen form ('Garabogaz'), which a Russian customs document
+    # cannot use. Blank falls back to `name` at render time, so an unfilled row
+    # degrades to the Latin name rather than printing nothing.
+    name_ru = models.CharField(max_length=100, blank=True, default='', **cyrillic_collation())
     route_description = models.CharField(max_length=500, blank=True, null=True, **cyrillic_collation())
     typical_transit_days = models.IntegerField(blank=True, null=True)
     color = models.CharField(max_length=7, blank=True, null=True)

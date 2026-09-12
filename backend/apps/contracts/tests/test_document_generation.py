@@ -100,7 +100,7 @@ def _mock_invoice(*, with_shipment=True, truck_template=None,
         weight_net=Decimal('9000'), weight_gross=Decimal('10720'), box_count=1800,
         pallet_count=16, packaging_kg=Decimal('300'), pallet_weight_kg=Decimal('300'),
         truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.', country=country,
-        truck_plate_2=None, driver_2_name=None,
+        truck_plate_2=None, driver_2_name=None, driver_id=None, driver_2_id=None, border_point=None,
         packing_template=truck_template,
     ) if with_shipment else None
     contract = SimpleNamespace(
@@ -165,7 +165,7 @@ def _mock_shipment(*, firms=None, truck_template=None):
         weight_net=Decimal('9000'), weight_gross=Decimal('10720'), box_count=1800,
         pallet_count=16, packaging_kg=Decimal('300'), pallet_weight_kg=Decimal('300'),
         truck_plate='BR1427LB', trailer_id=5311, driver_name='Ahmet A.', date=date(2026, 3, 16),
-        truck_plate_2=None, driver_2_name=None,
+        truck_plate_2=None, driver_2_name=None, driver_id=None, driver_2_id=None, border_point=None,
     )
 
 
@@ -2193,3 +2193,294 @@ class TruckPlateAndDriverPrintingTests(TestCase):
         v = ctx.build_cmr_overlay_values(ship, 'ru')
         self.assertEqual(v['driver_name'], 'Ahmet A., Bayram B.')
         self.assertEqual(v['plates'], 'BR1427LB, 2596AHF')
+
+
+# ─── TIR carnet overlay ──────────────────────────────────────────────────────
+
+class TirOverlayValuesTest(SimpleTestCase):
+    """Pure builder: box-number prefixes, generate-time inputs, driver slots."""
+
+    def test_box_numbers_are_prepended_by_the_builder(self):
+        """The carnet's printed box numbers live in code, not in the template.
+
+        The source workbook baked them into the data strings ('1. Х.О "Йигит"'),
+        which would have made the stripped template carry data. The builder
+        prepends them instead, the way ``tir_line`` prepends its CARNET prefix.
+        """
+        v = ctx.build_tir_overlay_values(_mock_shipment(), 'ru')
+        self.assertTrue(v['holder'].startswith('1. '))
+        self.assertTrue(v['destination_box'].startswith('2. '))
+        self.assertTrue(v['driver1_name'].startswith('3. '))
+
+    def test_every_firm_on_the_truck_is_named_as_holder(self):
+        """A truck carries 1-3 export firms; box 1 lists all of them."""
+        firms = [_mock_firm('Х.О «Йигит»', 'Yigit LLC', 'г. Ашгабат', 'Ashgabat'),
+                 _mock_firm('Х.О «Мивели атыз»', 'Miweli atyz LLC', 'г. Мары', 'Mary')]
+        v = ctx.build_tir_overlay_values(_mock_shipment(firms=firms), 'ru')
+        self.assertEqual(v['holder'], '1. Х.О «Йигит» / Х.О «Мивели атыз»')
+
+    def test_cmr_number_comes_from_generate_time_input(self):
+        """Not stored anywhere - the operator types it into the dialog."""
+        v = ctx.build_tir_overlay_values(
+            _mock_shipment(), 'ru', {'cmr_number': 'DA1301245'},
+        )
+        self.assertEqual(v['cmr_line'], 'CMR № DA1301245')
+
+    def test_border_point_prints_its_russian_name(self):
+        """`name` is the Latin Turkmen form, which a Russian customs document
+        cannot use, so `name_ru` wins."""
+        ship = _mock_shipment()
+        ship.border_point = SimpleNamespace(name='Garabogaz', name_ru='Гарабогаз')
+        self.assertEqual(ctx.build_tir_overlay_values(ship, 'ru')['border_point'], 'Гарабогаз')
+
+    def test_border_point_without_a_russian_name_falls_back_to_the_latin_one(self):
+        """Better a Latin crossing than a blank line in the middle of the block."""
+        ship = _mock_shipment()
+        ship.border_point = SimpleNamespace(name='Sarahs', name_ru='')
+        self.assertEqual(ctx.build_tir_overlay_values(ship, 'ru')['border_point'], 'Sarahs')
+
+    def test_typed_border_point_is_used_when_the_sheet_has_none(self):
+        """Most shipments still have the Sheet column empty, so this is the
+        common path rather than the edge case."""
+        v = ctx.build_tir_overlay_values(
+            _mock_shipment(), 'ru', {'border_point': 'Фарап'},
+        )
+        self.assertEqual(v['border_point'], 'Фарап')
+
+    def test_the_sheet_wins_over_a_typed_border_point(self):
+        ship = _mock_shipment()
+        ship.border_point = SimpleNamespace(name='Farap', name_ru='Фарап')
+        v = ctx.build_tir_overlay_values(ship, 'ru', {'border_point': 'Дашогуз'})
+        self.assertEqual(v['border_point'], 'Фарап')
+
+    def test_invoice_number_and_date_land_in_separate_boxes(self):
+        """Unlike the CMR, the carnet splits the reference across F13 and H13."""
+        v = ctx.build_tir_overlay_values(_mock_shipment(), 'ru')
+        self.assertEqual(v['invoice_refs'], 'Инвойс №118 от')
+        self.assertEqual(v['invoice_date'], '16.03.2026 г.')
+
+    def test_second_driver_fills_boxes_five_and_six(self):
+        ship = _mock_shipment()
+        ship.driver_2_name = 'Bayram B.'
+        v = ctx.build_tir_overlay_values(ship, 'ru', {'driver_2_passport': 'A3459551'})
+        self.assertEqual(v['driver2_name'], '5. Bayram B.')
+        self.assertEqual(v['driver2_passport'], '6. A3459551')
+
+    def test_single_driver_leaves_boxes_five_and_six_empty(self):
+        v = ctx.build_tir_overlay_values(_mock_shipment(), 'ru')
+        self.assertEqual(v['driver2_name'], '')
+        self.assertEqual(v['driver2_passport'], '')
+
+    def test_typed_passport_is_used_when_the_driver_record_has_none(self):
+        """Every driver on record currently has a blank passport_serial, so the
+        typed fallback is the live path, not the edge case."""
+        v = ctx.build_tir_overlay_values(
+            _mock_shipment(), 'ru', {'driver_passport': 'A3192661'},
+        )
+        self.assertEqual(v['driver1_passport'], '4. A3192661')
+
+    def test_cargo_figures_match_the_cmr(self):
+        """Both documents describe the same truck - the numbers cannot diverge."""
+        ship = _mock_shipment()
+        v = ctx.build_tir_overlay_values(ship, 'ru')
+        c = ctx.build_cmr_context(ship, 'ru')
+        self.assertEqual(v['boxes_packing'], '1800 пл.ящ.')
+        self.assertEqual(v['gross'], c['gross_with_pallet'] + ' кг.')
+        self.assertEqual(v['cargo_name'], c['cargo_name'])
+
+    def test_counterfoil_repeats_destination_and_box_count(self):
+        """Row 44 restates two values the source drove with =H11 / =C18."""
+        cells = ctx.build_tir_overlay(_mock_shipment())
+        self.assertEqual(cells['C44'], cells['H11'])
+        self.assertEqual(cells['D44'], cells['C18'])
+
+    def test_empty_values_are_dropped_from_the_cell_map(self):
+        """A blank must not overwrite the carnet's own pre-printed content."""
+        cells = ctx.build_tir_overlay(_mock_shipment())
+        self.assertNotIn('', cells.values())
+        self.assertNotIn('B3', cells)  # no border point on the Sheet, none typed
+
+    def test_single_driver_variant_has_no_boxes_five_and_six(self):
+        """The one-driver sheet has no D4/D5 at all - writing there would print
+        a driver into empty space on the paper carnet."""
+        ship = _mock_shipment()
+        ship.driver_2_name = 'Bayram B.'
+        cells = ctx.build_tir_overlay(ship, 'ru', {'driver_2_passport': 'A3459551'})
+        self.assertNotIn('D4', cells)
+        self.assertNotIn('D5', cells)
+
+    def test_two_driver_variant_places_the_second_crew(self):
+        ship = _mock_shipment()
+        ship.driver_2_name = 'Bayram B.'
+        cells = ctx.build_tir_overlay_2drivers(ship, 'ru', {'driver_2_passport': 'A3459551'})
+        self.assertEqual(cells['D4'], '5. Bayram B.')
+        self.assertEqual(cells['D5'], '6. A3459551')
+
+
+class TirTemplateGeometryTest(SimpleTestCase):
+    """The committed templates are print overlays - geometry IS the contract."""
+
+    VARIANTS = ('tir_ru', 'tir_ru_2drivers')
+
+    def test_templates_keep_only_the_fixed_haulier_lines(self):
+        """The haulier block reads down column B as one organisation name: a fixed
+        first line, the border point, then a fixed 'awto' / 'yollary'. Only those
+        three fixed lines may survive the strip - any other leftover would print a
+        previous truck's details onto the carnet."""
+        for key in self.VARIANTS:
+            with self.subTest(key=key):
+                ws = openpyxl.load_workbook(get_spec(key).template_path).active
+                kept = {c.coordinate: (c.value or '').strip()
+                        for row in ws.iter_rows(max_row=120)
+                        for c in row if c.value not in (None, '')}
+                self.assertEqual(kept, {'B2': 'Ахал вел', 'B4': 'авто', 'B5': 'йоллары'})
+
+    def test_the_operator_input_block_is_gone(self):
+        """The source sheets marked columns K+ with green and yellow fills as cells
+        the operator typed into. Nothing is typed into this sheet any more, so the
+        block carries no values, no fills and no borders."""
+        for key in self.VARIANTS:
+            with self.subTest(key=key):
+                ws = openpyxl.load_workbook(get_spec(key).template_path).active
+                helpers = [c for row in ws.iter_rows(max_row=120, min_col=11) for c in row]
+                self.assertTrue(helpers, 'expected helper columns to exist')
+                for cell in helpers:
+                    self.assertIn(cell.value, (None, ''), cell.coordinate)
+                    self.assertNotEqual(
+                        getattr(cell.fill, 'fill_type', None), 'solid', cell.coordinate,
+                    )
+                    sides = (cell.border.left, cell.border.right,
+                             cell.border.top, cell.border.bottom)
+                    self.assertFalse(
+                        any(side is not None and side.style for side in sides),
+                        cell.coordinate,
+                    )
+
+    def test_print_area_is_constrained_to_the_carnet_grid(self):
+        """The source sheets define no print area and size rows out to 999, so an
+        unconstrained export spans pages of blank rows and never registers."""
+        for key in self.VARIANTS:
+            with self.subTest(key=key):
+                ws = openpyxl.load_workbook(get_spec(key).template_path).active
+                self.assertTrue(ws.print_area.endswith('$A$1:$I$44'), ws.print_area)
+
+    def test_page_setup_is_preserved_for_registration(self):
+        """A4 portrait at 90%. fitToPage must stay off - it overrides the scale."""
+        for key in self.VARIANTS:
+            with self.subTest(key=key):
+                ws = openpyxl.load_workbook(get_spec(key).template_path).active
+                self.assertEqual(ws.page_setup.scale, 90)
+                self.assertEqual(ws.page_setup.paperSize, 9)
+                self.assertEqual(ws.page_setup.orientation, 'portrait')
+                props = ws.sheet_properties.pageSetUpPr
+                self.assertFalse(props and props.fitToPage)
+
+    def test_margins_are_preserved_for_registration(self):
+        """Margins decide whether columns A-I fit the A4 width at 90%. They
+        survive only because the builder touches nothing but values and the print
+        area, so pin them: a future edit there must not silently shift the grid."""
+        for key in self.VARIANTS:
+            with self.subTest(key=key):
+                margins = openpyxl.load_workbook(get_spec(key).template_path).active.page_margins
+                self.assertEqual(
+                    (margins.left, margins.right, margins.top, margins.bottom),
+                    (0.7, 0.7, 0.75, 0.75),
+                )
+
+    def test_the_two_variants_keep_their_distinct_row_heights(self):
+        """Rows 10 and 12 differ between the sheets, shifting everything below
+        row 12 by ~4pt. That shift is the whole reason there are two templates."""
+        one = openpyxl.load_workbook(get_spec('tir_ru').template_path).active
+        two = openpyxl.load_workbook(get_spec('tir_ru_2drivers').template_path).active
+        self.assertEqual((one.row_dimensions[10].height, two.row_dimensions[10].height),
+                         (22.5, 12.0))
+        self.assertNotEqual(one.row_dimensions[12].height, two.row_dimensions[12].height)
+
+    def test_layout_adjustments_are_refused(self):
+        """Nudging a margin means the print no longer lines up with the paper."""
+        for key in self.VARIANTS:
+            with self.subTest(key=key):
+                self.assertFalse(tpl_registry.supports_layout(key))
+
+    def test_render_fills_the_overlay_without_disturbing_geometry(self):
+        data = render.render_xlsx(
+            get_spec('tir_ru').template_path,
+            ctx.build_tir_overlay(_mock_shipment(), 'ru', {'cmr_number': 'DA1301245'}),
+        )
+        ws = openpyxl.load_workbook(BytesIO(data)).active
+        self.assertEqual(ws['G12'].value, 'CMR № DA1301245')
+        self.assertEqual(ws.page_setup.scale, 90)
+        self.assertTrue(ws.print_area.endswith('$A$1:$I$44'))
+
+
+class ShipmentTirEndpointTest(_SeededPermsMixin, TestCase):
+    """API: GET /api/v1/contracts/shipments/{id}/tir/ - truck-level TIR carnet."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.user = _make_user('tir_doc', 'export_manager')
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.imp = _make_import_firm('IMPTIR')
+        self.shipment = _make_packed_shipment(self.season, self.imp)
+        # Two export firms on the one truck - both are named in box 1.
+        for code in ('TIRA', 'TIRB'):
+            ShipmentFirmSplit.objects.create(
+                shipment=self.shipment, export_firm=_make_export_firm(code),
+                weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
+            )
+
+    def _get(self, query=''):
+        return self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/tir/{query}')
+
+    def test_carnet_is_served_as_a_spreadsheet_overlay(self):
+        """There is no Word variant - the carnet prints onto pre-printed paper."""
+        resp = self._get()
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertEqual(resp['Content-Type'], render.XLSX_CONTENT_TYPE)
+        self.assertIn('TIR_', resp['Content-Disposition'])
+
+    def test_generate_time_inputs_reach_the_overlay(self):
+        """Border point, CMR number and passport all reach the sheet - if the
+        endpoint drops them the office prints a carnet with blank boxes."""
+        resp = self._get(
+            '?border_point=%D0%A4%D0%B0%D1%80%D0%B0%D0%BF&cmr_number=DA1301245&driver_passport=A3192661'
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        text = _xlsx_text(resp.content)
+        self.assertIn('DA1301245', text)
+        self.assertIn('A3192661', text)
+        self.assertIn('Фарап', text)
+
+    def test_second_driver_selects_the_two_driver_carnet(self):
+        """Boxes 5/6 exist on one sheet only, so the variant follows the crew
+        rather than waiting for a param the operator may forget."""
+        self.shipment.driver_2_name = 'Bayram B.'
+        self.shipment.save(update_fields=['driver_2_name'])
+        resp = self._get('?driver_2_passport=A3459551')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        text = _xlsx_text(resp.content)
+        self.assertIn('Bayram B.', text)
+        self.assertIn('A3459551', text)
+
+    def test_drivers_param_overrides_the_detected_variant(self):
+        self.shipment.driver_2_name = 'Bayram B.'
+        self.shipment.save(update_fields=['driver_2_name'])
+        resp = self._get('?drivers=1')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.assertNotIn('Bayram B.', _xlsx_text(resp.content))
+
+    def test_unpacked_truck_is_refused(self):
+        """The carnet prints the box count and gross weight, so the same packing
+        guard as the CMR applies."""
+        self.shipment.box_count = None
+        self.shipment.weight_gross = None
+        self.shipment.packing_template = None
+        self.shipment.save(update_fields=['box_count', 'weight_gross', 'packing_template'])
+        resp = self._get()
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('missing_packing', resp.json())
+
+    def test_missing_shipment_is_404(self):
+        resp = self.client.get('/api/v1/contracts/shipments/99999999/tir/')
+        self.assertEqual(resp.status_code, 404)
