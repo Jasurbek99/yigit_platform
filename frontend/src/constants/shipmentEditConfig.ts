@@ -130,7 +130,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
       { key: 'weight_net', labelKey: 'shipment_edit_drawer.field.weight_net', inputType: 'number', min: 0, suffix: 'kg' },
       { key: 'weight_gross', labelKey: 'shipment_edit_drawer.field.weight_gross', inputType: 'number', min: 0, suffix: 'kg' },
       { key: 'packaging_kg', labelKey: 'shipment_edit_drawer.field.packaging_kg', inputType: 'number', min: 0, suffix: 'kg' },
-      { key: 'rejected_weight_kg', labelKey: 'shipment_edit_drawer.field.rejected_weight_kg', inputType: 'number', min: 0, suffix: 'kg' },
+      { key: 'weight_to_load_kg', labelKey: 'shipment_edit_drawer.field.weight_to_load_kg', inputType: 'number', min: 0, suffix: 'kg' },
       { key: 'pallet_count', labelKey: 'shipment_edit_drawer.field.pallet_count', inputType: 'number', min: 0 },
       { key: 'box_count', labelKey: 'shipment_edit_drawer.field.box_count', inputType: 'number', min: 0 },
     ],

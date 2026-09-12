@@ -109,7 +109,11 @@ class Shipment(models.Model):
     pallet_count = models.IntegerField(null=True, blank=True)
     pallet_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     box_count = models.IntegerField(null=True, blank=True)
-    rejected_weight_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # Sheet R36 — the (unofficial) tonnage the warehouse must load. Named
+    # rejected_weight_kg until 2026-09-12; the old name was legacy from a
+    # rejection field and never described what operators type here. Actual
+    # rejections live on SalesReport.weight_rejected_kg.
+    weight_to_load_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     # Whole-truck packing template picked pre-loading → feeds the CMR. Its firm
     # shares are copied onto each firm's ContractSale when applied.
     packing_template = models.ForeignKey(

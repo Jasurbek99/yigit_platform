@@ -85,7 +85,7 @@ ALTER DATABASE [YIGIT_PLATFROM_NEW] SET MULTI_USER;
 Run as `export_manager` (Gadam) unless noted:
 
 1. **Login** — open the login URL on a fresh browser session. Land on `/dashboard`.
-2. **Sheet** — open `/export/shipments/sheet`. Edit a number cell (try `0` in `rejected_weight_kg` — must persist as 0, not vanish to `—`). Edit one date cell + one datetime cell. Reload — values persist.
+2. **Sheet** — open `/export/shipments/sheet`. Edit a number cell (try `0` in `weight_to_load_kg` — must persist as 0, not vanish to `—`). Edit one date cell + one datetime cell. Reload — values persist.
 3. **Transition** — pick a `yuklenme` shipment, transition to `gumruk_girish`. Confirm a `ShipmentStatusLog` row exists and an `AuditLog` row was written.
 4. **Auto-advance** — edit a target field that has a TaskRule. Task auto-resolves; timeline shows the new "Auto" tag.
 5. **Comments + Tasks** — leave a comment with `@user:N` mention on a sheet cell. Log in as user N — task shows on `/me/board`. Click the card — drawer opens (not navigation). Mark done.

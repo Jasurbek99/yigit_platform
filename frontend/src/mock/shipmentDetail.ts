@@ -130,7 +130,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
     kalibrowka_analiz: false,
   },
   sales_report: null,
-  rejected_weight_kg: null,
+  weight_to_load_kg: null,
   vehicle_responsible: null,
   country: 1,
   customer: 1,

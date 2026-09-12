@@ -120,9 +120,9 @@ A representative sample, not exhaustive. Source-of-truth: [serializers.py](../..
 | FK refs | `country_name`, `customer_name`, `border_point_name` | ✓ | ✓ | ✓ |
 | FK refs | `country` / `customer` / `city` IDs (for form dropdowns) | — | ✓ | ✓ |
 | Weights | `weight_net`, `weight_gross` | ✓ | ✓ | ✓ |
-| Weights | `box_count`, `pallet_count`, `packaging_kg`, `rejected_weight_kg` | — | ✓ | ✓ |
+| Weights | `box_count`, `pallet_count`, `packaging_kg`, `weight_to_load_kg` | — | ✓ | ✓ |
 
-> **Note:** `rejected_weight_kg` is a legacy column name — it actually holds the (unofficial) tonnage that **must be loaded** and is displayed as **"Weight to load" / "Ýüklemeli tonna"** everywhere (Sheet row 36, List column, Detail field row). There is no "rejected weight" concept on the shipment. (The separate sales-report `weight_rejected_kg`, db_column `waste_kg`, is unrelated — it is waste recorded during the sale.)
+> **Note:** `weight_to_load_kg` holds the (unofficial) tonnage that **must be loaded** and is displayed as **"Weight to load" / "Ýüküň agramy"** everywhere (Sheet row 36, List column, Detail field row). It was called `rejected_weight_kg` until 2026-09-12 (export migrations 0068/0069 renamed the column, the API field and the Sheet `field_key`); there is no "rejected weight" concept on the shipment. (The separate sales-report `weight_rejected_kg`, db_column `waste_kg`, is unrelated — it is waste recorded during the sale.)
 | Timestamps | `departed_at`, `arrived_at` | ✓ | ✓ | ✓ |
 | Timestamps | `loading_started_at`, `customs_entry_at`, `customs_exit_at`, `border_crossed_at`, `sale_started_at`, `sale_ended_at` | — | ✓ | ✓ |
 | Quality | `quality` (nested object) | — | ✓ | — |

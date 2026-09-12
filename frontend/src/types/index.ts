@@ -298,7 +298,7 @@ export interface IShipmentListItem {
   packaging_kg: number | null;
   pallet_count: number | null;
   box_count: number | null;
-  rejected_weight_kg: number | null;
+  weight_to_load_kg: number | null;
   // Transport
   vehicle_responsible: string | null;
   vehicle_responsible_display: string | null;
@@ -421,7 +421,7 @@ export interface IShipmentSheetItem {
   packaging_kg: number | null;
   pallet_count: number | null;
   box_count: number | null;
-  rejected_weight_kg: number | null;
+  weight_to_load_kg: number | null;
   // Transport
   vehicle_responsible: string | null;
   vehicle_responsible_display: string | null;
@@ -1645,7 +1645,7 @@ export interface IShipmentDetail extends IShipmentListItem {
   variety_confidence: 'high' | 'low' | 'none';
   variety_confidence_display: string;
   varieties_dominant: IVarietyInline[];
-  rejected_weight_kg: number | null;
+  weight_to_load_kg: number | null;
   vehicle_responsible: string | null;
   // FK ids â€” exposed for the Edit drawer's dropdowns. Names are inherited from IShipmentListItem.
   country: number | null;

@@ -484,7 +484,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'export_firms_display',
             'variety', 'variety_code',
             # Weight detail
-            'packaging_kg', 'pallet_count', 'box_count', 'rejected_weight_kg',
+            'packaging_kg', 'pallet_count', 'box_count', 'weight_to_load_kg',
             # Transport
             'vehicle_responsible', 'vehicle_responsible_display',
             'trailer_id',
@@ -699,7 +699,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'variety', 'variety_name', 'variety_code', 'variety_color', 'variety_confidence',
             # Weight
             'weight_gross', 'weight_net', 'packaging_kg',
-            'pallet_count', 'box_count', 'rejected_weight_kg',
+            'pallet_count', 'box_count', 'weight_to_load_kg',
             # Whole-truck packing config (gross-net catalog) → CMR
             'packing_template', 'packing_template_name',
             # Transport
@@ -1466,7 +1466,7 @@ _ALL_PATCHABLE_FIELDS = {
     'export_code',
     # Weight / packaging
     'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
-    'weight_net', 'weight_gross', 'rejected_weight_kg',
+    'weight_net', 'weight_gross', 'weight_to_load_kg',
     # Whole-truck packing template → CMR (applied via the packing panel)
     'packing_template',
     # Geography / customer

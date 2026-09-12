@@ -51,7 +51,7 @@ SHEET_FIELD_KEYS: frozenset[str] = frozenset([
     'has_peregruz',
     'peregruz_date',
     'arrived_at',
-    'rejected_weight_kg',
+    'weight_to_load_kg',
     'weight_net',
     'variety',
     'harvest_date',

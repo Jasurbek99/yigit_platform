@@ -19,7 +19,7 @@ export const SWAPPABLE_FIELD_KEYS = new Set<string>([
   'warehouse_note',
   'loading_started_at',
   'loading_ended_at',
-  'rejected_weight_kg',
+  'weight_to_load_kg',
   'variety',
   'harvest_date',
   // Transport
@@ -109,7 +109,7 @@ export const GROUP_CONFIGS: ISwapFieldGroup[] = [
       'warehouse_note',
       'loading_started_at',
       'loading_ended_at',
-      'rejected_weight_kg',
+      'weight_to_load_kg',
       'variety',
       'harvest_date',
       // Weight fields also shown under Soltanmyrat

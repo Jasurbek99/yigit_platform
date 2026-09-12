@@ -119,7 +119,7 @@ const HIDDEN_BY_DEFAULT: ReadonlyArray<string> = [
   'border_point_name', 'price_per_kg', 'total_amount_usd', 'is_gapy_satys',
   // Sheet-parity opt-in columns
   'import_firm_name', 'export_firms_display', 'variety_code',
-  'packaging_kg', 'pallet_count', 'box_count', 'rejected_weight_kg',
+  'packaging_kg', 'pallet_count', 'box_count', 'weight_to_load_kg',
   'vehicle_responsible_display', 'truck_plate', 'driver_name', 'driver_phone',
   'transport_temp_c', 'transit_days', 'has_peregruz', 'peregruz_city', 'peregruz_date',
   'customs_clearance_planned_day',
@@ -606,7 +606,7 @@ export default function ShipmentList() {
     { title: t('shipments.packaging_kg'), dataIndex: 'packaging_kg', key: 'packaging_kg', width: 120, align: 'right', render: (_, r) => renderNumber(r.packaging_kg) },
     { title: t('shipments.pallet_count'), dataIndex: 'pallet_count', key: 'pallet_count', width: 90, align: 'right', render: (_, r) => renderNumber(r.pallet_count) },
     { title: t('shipments.box_count'), dataIndex: 'box_count', key: 'box_count', width: 90, align: 'right', render: (_, r) => renderNumber(r.box_count) },
-    { title: t('shipments.rejected_weight_kg'), dataIndex: 'rejected_weight_kg', key: 'rejected_weight_kg', width: 120, align: 'right', render: (_, r) => renderNumber(r.rejected_weight_kg) },
+    { title: t('shipments.weight_to_load_kg'), dataIndex: 'weight_to_load_kg', key: 'weight_to_load_kg', width: 120, align: 'right', render: (_, r) => renderNumber(r.weight_to_load_kg) },
     // Transport
     { title: t('shipments.vehicle_responsible'), dataIndex: 'vehicle_responsible_display', key: 'vehicle_responsible_display', width: 150, render: (_, r) => renderText(r.vehicle_responsible_display) },
     { title: t('shipments.truck_plate'), dataIndex: 'truck_plate', key: 'truck_plate', width: 120, render: (_, r) => renderMono(r.truck_plate) },

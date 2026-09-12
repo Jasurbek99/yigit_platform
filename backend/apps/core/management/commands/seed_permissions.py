@@ -380,7 +380,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'loading_ended_at',
             'departed_at',
             # R34: post-loading rejected weight adjustment
-            'rejected_weight_kg',
+            'weight_to_load_kg',
             # R39: harvest day, operator-entered
             'harvest_date',
         ],
@@ -452,7 +452,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     'sales_rep': {
         'shipment': [
             'city', 'has_peregruz', 'peregruz_city', 'peregruz_date',
-            'rejected_weight_kg', 'price_per_kg', 'total_amount_usd',
+            'weight_to_load_kg', 'price_per_kg', 'total_amount_usd',
             # R43: Aganazar logs the date the sales report was filed.
             'sales_report_date',
             # R31: Arap logs destination-country entry time.

@@ -37,7 +37,7 @@ SWAPPABLE_FIELDS: frozenset[str] = frozenset({
     'warehouse_note',
     'loading_started_at',
     'loading_ended_at',
-    'rejected_weight_kg',
+    'weight_to_load_kg',
     'variety',          # FK — swaps variety_id
     'harvest_date',
     # Transport

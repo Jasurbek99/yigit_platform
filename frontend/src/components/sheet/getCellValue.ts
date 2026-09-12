@@ -64,8 +64,8 @@ export function getCellValue(
       return shipment.border_point_name ?? '—';
     case 'weight_net':
       return shipment.weight_net != null ? Number(shipment.weight_net).toLocaleString() : '—';
-    case 'rejected_weight_kg':
-      return shipment.rejected_weight_kg != null ? Number(shipment.rejected_weight_kg).toLocaleString() : '—';
+    case 'weight_to_load_kg':
+      return shipment.weight_to_load_kg != null ? Number(shipment.weight_to_load_kg).toLocaleString() : '—';
     case 'transit_days':
       return shipment.transit_days != null ? `${shipment.transit_days}d` : '—';
     case 'has_peregruz':

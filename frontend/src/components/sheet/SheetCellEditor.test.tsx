@@ -300,7 +300,7 @@ describe('SheetCellEditor — firm_splits quota link', () => {
 
 // Locks the B.1 fix: typing literal `0` in a number cell MUST persist as 0,
 // not get coerced to null. Previously `Number(value) || null` was treating
-// rejected_weight_kg=0 ("no rejection") as null ("not measured yet").
+// weight_to_load_kg=0 ("no rejection") as null ("not measured yet").
 describe('SheetCellEditor — design variant sizing', () => {
   // The editor is also rendered OUTSIDE the Sheet (SelfBoardShipmentFieldList),
   // where the `.sheet-grid--ios` skin does not apply. It must therefore take the

@@ -26,7 +26,7 @@ const MOCK_DEFAULTS = {
   packaging_kg: null,
   pallet_count: null,
   box_count: null,
-  rejected_weight_kg: null,
+  weight_to_load_kg: null,
   vehicle_responsible: null,
   vehicle_responsible_display: null,
   trailer_id: null,

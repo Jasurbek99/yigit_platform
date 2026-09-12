@@ -2310,7 +2310,7 @@ class ShipmentViewSet(ModelViewSet):
         - Source block_sources are re-pointed to target.
         - Source firm_splits are moved to target if target has none.
         - variety and export_code are copied from source if target has none.
-        - harvest_date, harvest_status and rejected_weight_kg are copied from source
+        - harvest_date, harvest_status and weight_to_load_kg are copied from source
           if target has none (F25 — before this they were lost with the source row).
         - target.weight_net is recomputed from all its block_sources.
         - A ShipmentStatusLog audit row is written on target (status unchanged).
@@ -2496,13 +2496,13 @@ class ShipmentViewSet(ModelViewSet):
             #   harvest_date        — nullable CharField (free text: "5-10 oktýabr"),
             #                         so unset is None OR '' — test truthiness, not None
             #   harvest_status      — nullable CharField, same
-            #   rejected_weight_kg  — Decimal, null when unset
+            #   weight_to_load_kg  — Decimal, null when unset
             if not target.harvest_date and source.harvest_date:
                 update_fields['harvest_date'] = source.harvest_date
             if not target.harvest_status and source.harvest_status:
                 update_fields['harvest_status'] = source.harvest_status
-            if target.rejected_weight_kg is None and source.rejected_weight_kg is not None:
-                update_fields['rejected_weight_kg'] = source.rejected_weight_kg
+            if target.weight_to_load_kg is None and source.weight_to_load_kg is not None:
+                update_fields['weight_to_load_kg'] = source.weight_to_load_kg
 
             # Recompute weight_net from all block_sources now on target.
             # If any moved block is still unweighed (supply draft not yet

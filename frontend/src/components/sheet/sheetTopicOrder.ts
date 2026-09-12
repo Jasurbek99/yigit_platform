@@ -21,7 +21,7 @@
  *
  * Ordering rule INSIDE a section: follow the reference screen's sequence exactly
  * for the fields it has, and place a YGT-only field next to its nearest sibling
- * there (`customs_entry_at` after `dest_entry_at`, `rejected_weight_kg` after
+ * there (`customs_entry_at` after `dest_entry_at`, `weight_to_load_kg` after
  * `weight_net`) or, when it has no sibling, at the end of its section. Each
  * section's comment quotes the reference sequence it mirrors, so a future edit
  * can be checked against it without opening the other app.
@@ -118,7 +118,7 @@ export const TOPIC_SECTIONS: readonly ITopicSection[] = [
     fields: [
       'weight_net',
       // YGT-only; kept beside weight_net, its nearest sibling.
-      'rejected_weight_kg',
+      'weight_to_load_kg',
       'variety',
       'harvest_date',
       'sale_started_at',

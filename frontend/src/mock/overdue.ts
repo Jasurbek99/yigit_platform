@@ -26,7 +26,7 @@ const DEFAULTS = {
   packaging_kg: null as number | null,
   pallet_count: null as number | null,
   box_count: null as number | null,
-  rejected_weight_kg: null as number | null,
+  weight_to_load_kg: null as number | null,
   vehicle_responsible: null as string | null,
   vehicle_responsible_display: null as string | null,
   trailer_id: null as number | null,
