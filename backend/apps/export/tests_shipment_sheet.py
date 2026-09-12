@@ -24,8 +24,8 @@ from apps.core.models import (
     Country, ExportFirm, GreenhouseBlock, Season, ShipmentStatusType, User,
 )
 from apps.export.models import (
-    AuditLog, FinansistAdvance, FinansistAdvanceShipment,
-    QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource,
+    AuditLog, FinansistAdvance, FinansistAdvanceShipment, PackingTemplate,
+    PackingTemplateShare, QuotaUsageRecord, SalesReport, Shipment, ShipmentBlockSource,
     ShipmentFirmSplit, SheetRowSetting, TruckSplitDefault, invalidate_truck_split_cache,
 )
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
@@ -381,6 +381,28 @@ class SheetJunctionEndpointTests(TestCase):
             shipment_code=f'JCT-{id(self) % 10000}', date='2026-02-01',
             season=self.season, status=self.status_loading,
         )
+        self._fund_quota(self.firm_a, self.firm_b)
+
+    def _fund_quota(self, *firms):
+        """Give each firm live quota.
+
+        The firm-splits endpoint hard-blocks a firm with no remaining quota
+        before it ever looks at weights, so every test here needs this first.
+        Issued TODAY so the balance service's expiry window can't lapse it
+        mid-suite.
+        """
+        from django.core.cache import cache
+        from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
+        issuance = QuotaIssuance.objects.create(
+            issue_date=timezone.localdate(), product_type='tomato', season=self.season,
+        )
+        QuotaIssuanceFirmAllocation.objects.bulk_create([
+            QuotaIssuanceFirmAllocation(
+                issuance=issuance, export_firm=firm, kg_quota=Decimal('100000'),
+            )
+            for firm in firms
+        ], batch_size=500)
+        cache.clear()  # the balances service caches per season
 
     def test_block_sources_replaces_existing(self):
         ShipmentBlockSource.objects.create(
@@ -436,6 +458,88 @@ class SheetJunctionEndpointTests(TestCase):
             .values_list('export_firm_id', 'kg_used')
         )
         self.assertEqual(usage_kg, split_kg)
+
+    def _packing_template(self, *share_nets, net_kg='19000.00'):
+        """A whole-truck template plus one share per net value, in order."""
+        template = PackingTemplate.objects.create(name=f'T{id(self)}', net_kg=net_kg)
+        PackingTemplateShare.objects.bulk_create([
+            PackingTemplateShare(template=template, share_order=i + 1, net_kg=net)
+            for i, net in enumerate(share_nets)
+        ], batch_size=500)
+        return template
+
+    def test_firm_splits_auto_weight_comes_from_packing_template(self):
+        """Template picked → each firm's weight is its share net, not TruckSplitDefault."""
+        self.shipment.packing_template = self._packing_template('10000.00', '9000.00')
+        self.shipment.save(update_fields=['packing_template'])
+
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
+            {'firms': [
+                {'export_firm_id': self.firm_a.id},
+                {'export_firm_id': self.firm_b.id},
+            ]},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        kg_by_firm = dict(self.shipment.firm_splits.values_list('export_firm_id', 'weight_kg'))
+        self.assertEqual(kg_by_firm[self.firm_a.id], Decimal('10000.00'))
+        self.assertEqual(kg_by_firm[self.firm_b.id], Decimal('9000.00'))
+
+    def test_firm_splits_auto_weight_falls_back_without_template(self):
+        """No template on the shipment → the old TruckSplitDefault value still applies."""
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
+            {'firms': [
+                {'export_firm_id': self.firm_a.id},
+                {'export_firm_id': self.firm_b.id},
+            ]},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        weights = set(self.shipment.firm_splits.values_list('weight_kg', flat=True))
+        self.assertEqual(weights, {Decimal('9000.00')})
+
+    def test_firm_splits_auto_weight_falls_back_when_share_count_differs(self):
+        """A 3-share template on a 2-firm truck can't be mapped → TruckSplitDefault."""
+        self.shipment.packing_template = self._packing_template(
+            '6000.00', '6000.00', '6000.00',
+        )
+        self.shipment.save(update_fields=['packing_template'])
+
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
+            {'firms': [
+                {'export_firm_id': self.firm_a.id},
+                {'export_firm_id': self.firm_b.id},
+            ]},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        weights = set(self.shipment.firm_splits.values_list('weight_kg', flat=True))
+        self.assertEqual(weights, {Decimal('9000.00')})
+
+    def test_firm_splits_explicit_weight_still_wins_over_template(self):
+        """An explicit weight_kg from the client overrides the template share."""
+        self.shipment.packing_template = self._packing_template('10000.00', '9000.00')
+        self.shipment.save(update_fields=['packing_template'])
+
+        resp = self.client.post(
+            f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
+            {'firms': [
+                {'export_firm_id': self.firm_a.id, 'weight_kg': 12345},
+                {'export_firm_id': self.firm_b.id},
+            ]},
+            format='json',
+        )
+
+        self.assertEqual(resp.status_code, 200, resp.data)
+        kg_by_firm = dict(self.shipment.firm_splits.values_list('export_firm_id', 'weight_kg'))
+        self.assertEqual(kg_by_firm[self.firm_a.id], Decimal('12345.00'))
+        self.assertEqual(kg_by_firm[self.firm_b.id], Decimal('9000.00'))
 
     def test_block_sources_auto_split_uses_weight_net(self):
         """R8: when caller omits weight_kg, server splits weight_net evenly."""
@@ -507,6 +611,7 @@ class SheetJunctionEndpointTests(TestCase):
         """R9: 3 firms with no weight → all rows = 6000 (seed value)."""
         from apps.core.models import ExportFirm
         firm_c = ExportFirm.objects.create(code='OY3', name_tk='OY3', name_en='OY3')
+        self._fund_quota(firm_c)
         resp = self.client.post(
             f'/api/v1/export/shipments/{self.shipment.id}/firm-splits/',
             {'firms': [

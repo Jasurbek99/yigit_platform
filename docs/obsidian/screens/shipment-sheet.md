@@ -767,7 +767,7 @@ When the user picks blocks (R8) or firms (R9) in the multiselect, the frontend s
 | Cell | Rule |
 |---|---|
 | **R8 `block_sources`** (Soltanmyrat) | `(shipment.weight_net or 18,100) / N`, last entry gets the rounding remainder. Real harvest weight, no cap. |
-| **R9 `firm_splits`** (Şulgun) | Lookup by N in `TruckSplitDefault` (admin-configurable). Defaults: 1→18,100 · 2→9,000 · 3→6,000. The OFFICIAL kg written on export documents — capped at 18,100 kg total per truck even though real trucks carry 20,000–21,000 kg. |
+| **R9 `firm_splits`** (Şulgun) | The truck's packing template first: when `shipment.packing_template` is set and its share count equals the firm count, each firm gets its share's `net_kg` by `share_order` (2026-09-12 — the shares carry the per-firm net that also prints on the invoices, so picking firms after choosing a template no longer overwrites it). Otherwise lookup by N in `TruckSplitDefault` (admin-configurable). Defaults: 1→18,100 · 2→9,000 · 3→6,000. Either way this is the OFFICIAL kg written on export documents — capped at 18,100 kg total per truck even though real trucks carry 20,000–21,000 kg. |
 
 Director changes the per-firm-count amounts at `/admin/shipment-settings` → "Truck Split Defaults" tab. Cache invalidates on save so the next firm-split save uses the new value.
 

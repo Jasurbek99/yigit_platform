@@ -125,6 +125,26 @@ ROLE_PHASE_MAP = {
 }
 
 
+def _packing_template_share_nets(shipment, num_firms: int) -> list[Decimal] | None:
+    """Per-firm net kg from the truck's packing template, in share order.
+
+    Returns None when the template can't answer for this truck — no template
+    picked, a different number of shares than firms, or a share with no net —
+    and the caller falls back to TruckSplitDefault. Mapping is positional:
+    share_order N goes to the Nth firm, the same order the packing panel uses
+    when it applies a template.
+    """
+    if num_firms < 1 or shipment.packing_template_id is None:
+        return None
+    nets = list(
+        shipment.packing_template.shares.order_by('share_order')
+        .values_list('net_kg', flat=True)
+    )
+    if len(nets) != num_firms or any(n is None for n in nets):
+        return None
+    return [Decimal(n) for n in nets]
+
+
 class ShipmentViewSet(ModelViewSet):
     """
     GET    /api/v1/export/shipments/                 — paginated list (all roles)
@@ -3183,9 +3203,15 @@ class ShipmentViewSet(ModelViewSet):
                 )
 
             num_firms = len(valid_entries)
-            # Official per-firm kg from TruckSplitDefault (admin-configurable).
-            # ShipmentFirmSplit.weight_kg is the OFFICIAL export number, not the
-            # real truck weight — see ADR-016.
+            # Auto-fill weights. The packing template is the authority when the
+            # truck has one: its shares carry the per-firm net that also prints
+            # on the invoices, so taking the number from anywhere else would let
+            # picking firms after choosing a template silently overwrite it.
+            # Without a template (or when the share count doesn't match the firm
+            # count and the shares can't be mapped) fall back to the official
+            # per-firm kg from TruckSplitDefault — ShipmentFirmSplit.weight_kg is
+            # the OFFICIAL export number, not the real truck weight, see ADR-016.
+            template_nets = _packing_template_share_nets(shipment, num_firms)
             official_kg = (
                 get_default_truck_weight(num_firms) if num_firms > 0 else Decimal('0')
             )
@@ -3197,7 +3223,7 @@ class ShipmentViewSet(ModelViewSet):
                 weight = (
                     Decimal(str(override))
                     if override not in (None, 0, '0', '0.00')
-                    else official_kg
+                    else (template_nets[i] if template_nets else official_kg)
                 )
                 split_rows.append(ShipmentFirmSplit(
                     shipment=shipment,
