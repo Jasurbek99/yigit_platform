@@ -48,6 +48,7 @@ import { useSeasonStore } from '@/stores/seasonStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { pickMenuComposition } from '@/utils/menuComposition';
+import '@/pages/sera/sera.css';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import { useProcessTour } from '@/hooks/useProcessTour';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
@@ -444,6 +445,12 @@ export default function AppLayout() {
     })
     .filter(Boolean);
 
+  // Routes that render `.sera-page`. They carry their own visual language, and
+  // the header goes with them — a white bar above a green page is the mismatch
+  // the design was meant to avoid. Keep this in step with the routes that
+  // actually mount a sera page; nothing else in the app reads it.
+  const isSeraPage = location.pathname === '/tir-takip';
+
   const selectedKey = location.pathname.startsWith('/shipments/')
     ? '/export/shipments'
     : location.pathname;
@@ -583,9 +590,12 @@ export default function AppLayout() {
       <Layout style={{ marginLeft: collapsed ? 0 : 220, transition: 'margin-left 0.2s' }}>
         {/* ── Header ──────────────────────────────────────────────────── */}
         <Header
+          className={isSeraPage ? 'sera-header' : undefined}
           style={{
-            background: COLORS.white,
-            borderBottom: '1px solid #f0f0f0',
+            // Left undefined on a sera route so `.sera-header` applies — an
+            // inline background would outrank the class.
+            background: isSeraPage ? undefined : COLORS.white,
+            borderBottom: isSeraPage ? undefined : '1px solid #f0f0f0',
             padding: '0 16px',
             height: 56,
             lineHeight: '56px',
@@ -639,6 +649,13 @@ export default function AppLayout() {
             )}
             <ConnectionStatus />
             <WorklogChip />
+            {/* Shown everywhere, the sera pages included. It was hidden there
+                while every tab was a placeholder — "no season-scoped data, so
+                the picker offers a choice that changes nothing". Tır Takip's
+                Önümçilik tab now renders the Weekly Plan grid, which reads the
+                selected season, so hiding the control would let someone browse
+                a closed season on /export/plan, open the tab, and find a
+                read-only grid with the fix nowhere on screen. */}
             <SeasonSwitcher />
             <Segmented
               size="small"

@@ -12,8 +12,11 @@
  *
  *   1. Custom properties live on `.sera-page`, never on `:root`. A `:root`
  *      declaration would be in scope for every antd component in the app.
- *   2. Every selector is a descendant of `.sera-page`. No bare element
- *      selectors, no `body`, no `#root`.
+ *   2. Every selector is scoped to one of two opt-in classes — `.sera-page`
+ *      (the page itself) or `.sera-header` (the app header, while a sera page
+ *      is open). No bare element selectors, no `body`, no `#root`. That is
+ *      what makes it safe for AppLayout to import this file directly: the
+ *      rules reach nothing that has not asked for them.
  *   3. The page background is painted on the page's own root div. The sera
  *      source puts its gradient on the app shell (`min-h-screen`); inside our
  *      AppLayout that translates to bleeding out of `<Content>`'s padding on
@@ -22,10 +25,17 @@
  *      App.tsx is the platform's, and stays the platform's.
  */
 
+/* The one gradient, declared once and shared by the page and by the header
+   above it. Both surfaces must resolve the identical value or the join
+   between them shows. */
+.sera-page,
+.sera-header {
+  --sera-bg: linear-gradient(135deg, #f0f9f0 0%, #e3f3e6 45%, #d9eee0 100%);
+}
+
 .sera-page {
   /* Tailwind stone/emerald/amber values, resolved. Names match the source
      classes so a diff against App.jsx stays readable. */
-  --sera-bg: linear-gradient(135deg, #f0f9f0 0%, #e3f3e6 45%, #d9eee0 100%);
   --sera-accent: #065f46; /* emerald-800 — active tab, primary button */
   --sera-accent-hover: #047857; /* emerald-700 */
   --sera-card-bg: rgba(236, 253, 245, 0.4); /* emerald-50/40 */
@@ -71,6 +81,7 @@
   bottom: 0;
   left: 0;
   background: var(--sera-bg);
+  background-size: 100vw 100vh;
 }
 
 /* <Content> renders <ClosedSeasonBanner /> directly above us, but only while a
@@ -88,6 +99,21 @@
   position: relative;
 }
 
+/* ── App header ─────────────────────────────────────────────────────────
+   AppLayout puts this class on its <Header> while a sera route is open, and
+   drops the inline white background so this one wins. Same gradient as the
+   page, and no bottom rule, so the header and the page read as a single
+   surface rather than a white bar sitting on a green one. `background-size`
+   pins the gradient to the viewport in both places, so the colour at the
+   header's bottom edge is the colour at the page's top edge — without it the
+   two elements resolve their own 135deg ramps over different heights and the
+   join shows as a step. */
+.sera-header {
+  background: var(--sera-bg);
+  background-size: 100vw 100vh;
+  border-bottom: none;
+}
+
 /* ── Tab strip ──────────────────────────────────────────────────────────
    Ported from the `Tabs` component at App.jsx:2472. Hand-rolled rather than
    antd <Tabs> on purpose: matching this underline treatment would mean
@@ -99,6 +125,18 @@
   gap: 4px;
   border-bottom: 1px solid var(--sera-border);
   margin-bottom: 16px;
+  /* Claw back most of <Content>'s 24px top padding. That padding is the
+     platform's page chrome, and with the header now sharing this page's
+     gradient there is no bar to sit clear of — it just read as a gap between
+     the header and the tabs. 8px of it is left, plus the tab's own 8px, so the
+     strip has room to breathe without floating. */
+  margin-top: -18px;
+}
+
+/* Except when <ClosedSeasonBanner /> is above us: its 16px bottom margin IS
+   the spacing there, and pulling into it would crowd the warning. */
+.sera-page:not(:first-child) .sera-tabs {
+  margin-top: 0;
 }
 
 .sera-tab {
