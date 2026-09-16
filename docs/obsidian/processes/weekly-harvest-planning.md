@@ -251,7 +251,7 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 |------|-------|-------|
 | Total Plan | Sum of `plan_value` across all entries in the week | Decimal sum |
 | Total Forecast | Sum of `forecast_value` if non-null else `plan_value` | Falls back to plan |
-| Total Actual | Sum of `actual_value` (NULL-skipped) | May be 0 for current/future weeks |
+| ~~Total Actual~~ | Sum of `actual_value` (NULL-skipped) | **Commented out 2026-09-16** — the grid is plan-only; the tile, the per-day green sub-total and the transposed "Total Actual" row are all `{/* … */}` in place, not deleted |
 | Est. Trucks | Sum of "most-current value per cell" / `truck_capacity_kg` | actual → forecast → plan chain |
 
 **Cell rendering** uses `<HarvestCell>` (`frontend/src/components/HarvestCell.tsx`) — context-determined display via cell date relative to today:
@@ -263,20 +263,34 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 | Tomorrow forecast submitted | Forecast value, yellow background, locked |
 | Today | Forecast value (yellow, locked) + editable Actual input next to it |
 | Past days (admin) | Actual value (green, em-dash if NULL) + a grey retroactive-edit "Plan: …" line. |
-| Every day (`boss`) | **Plan value only** (blue) — one value per cell, past and future alike. The actual is not rendered and not reachable; `canEditActualForEntry` returns `false` for him. See `planOnly` below. |
-| Past days (`greenhouse_manager`) | **Plan value only** (blue) — the planning grid is single-value for managers; they never see/edit the actual. Click-to-edit when the day is in the **current week** (lets them enter/fix past-day plans this week); older weeks are read-only (click → history). |
+| Every day, **every role** (since 2026-09-16) | **Plan value only** (blue) — one value per cell, past and future alike. The actual is not rendered and not reachable by anyone; `canEditActualForEntry` returns `false` for every role. See `planOnly` below. The `boss` / `greenhouse_manager` rows this replaces described the pre-2026-09-16 rendering, still reachable by restoring one line. **The three forecast rows above this block are stale for an older reason** — `HarvestCell` has rendered no forecast input since May 2026 (see its header comment); forecast entry lives on `FallbackForecastView`. |
+| Past days of an **earlier** week, non-admin | Locked — click opens the read-only history modal. Days of the **current** week stay editable (managers enter/fix this week's past-day plans); admin/boss are never locked. |
 
 **Empty-vs-zero**: `value === null` → em-dash; `value === 0 && *_submitted_at` → italic `0 ✓`.
 
 **Click any cell** → opens `<CellHistoryModal>` showing current values + AuditLog history + admin overrides with reason text.
 
-### `planOnly` — why boss's cell shows one value (2026-08-20)
+### `planOnly` — why the cell shows one value (2026-08-20, widened to every role 2026-09-16)
 
 A manual `actual` is an **override, not an entry**: it stamps `actual_source='admin_override'`, and `rollup_actuals_for_date` then skips that row on every subsequent run unless someone passes `--force` ("admin manual edits win"). One click permanently detaches that block-day from the nightly rollup, and the reason modal never says so.
 
 The default admin cell puts that value under the **large** click target with the plan on a small line beneath. That ordering is right for `admin`/`director` — overriding a bad rollup value is genuinely their job. It is wrong for `boss`, who is on this page to set plans: the second value is both clutter and a trap.
 
-`HarvestCell` therefore takes a `planOnly` prop (`WeeklyPlanGrid` passes `user?.role === 'boss'`). When set, a single branch **above** the `past_actual` / `today_actual` / `future_plan` mode switch renders the plan value alone for every day of the week — the same rendering `future_plan` always used. `WeeklyPlanGrid.canEditActualForEntry` returns `false` for the same role, so the capability is not left live with no deliberate UI path to it.
+`HarvestCell` therefore takes a `planOnly` prop. When set, a single branch **above** the `past_actual` / `today_actual` / `future_plan` mode switch renders the plan value alone for every day of the week — the same rendering `future_plan` always used. `canEditActualForEntry` returns `false` for the same role, so the capability is not left live with no deliberate UI path to it.
+
+**2026-09-16 — widened from boss to everyone.** The owner asked for the actual input to be removed from the weekly plan outright, leaving only the plan. One line does it, in `WeeklyPlanGrid.roles.ts`:
+
+```ts
+// const planOnlyCells = role === 'boss';   ← kept, commented, to restore
+const planOnlyCells = true;
+```
+
+`canEditActual` is defined as `isAdminLike && !planOnlyCells`, so it falls to `false` for admin too with no second edit. Both grids that read this file — `pages/export/WeeklyPlanGrid.tsx` and its verbatim sera copy `pages/sera/OnumcilikTab.tsx` — change together.
+
+Two consequences worth knowing:
+
+- **Frontend only.** `PATCH /greenhouse/day-entries/{id}/` still accepts `actual_value`, and `set_actual_value` still authorises admin-like roles. Nothing was removed from the backend — the field simply has no UI.
+- **The past-week lock moved.** It used to live in the `past_actual` branch (`canEditPlan && (isEmpty || inCurrentWeek)`), which non-admin roles no longer reach. It is restated inside the `planOnly` branch, so a block manager still cannot retroactively edit an older week's plan without a `grant-late-edit` extension. Pinned by `HarvestCell.planOnly.test.tsx` → "planOnly past-week lock (non-admin)".
 
 An intermediate `planFirst` variant (both values kept, click targets swapped) was built and rejected on testing — the owner wanted the second field gone, not relocated.
 
@@ -325,7 +339,7 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 |------|------|------|----------|--------|----------------|
 | `greenhouse_manager` | Own blocks (highlighted) | Own blocks through that week's own Sunday 23:59:59 (incl. already-passed days of the current week; extendable by admin via `grant-late-edit` for past weeks) | Own blocks during primary window only | No | No |
 | `loading_dept_head` (Soltanmyrat) | All blocks | No | Any block, 00:00 day-before through 12:00 day-of (`LOADING_HEAD_FORECAST_DAY_OF_CLOSE`) | No (computed daily from shipments) | No |
-| `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Anytime, any block, with required reason | Yes (all paths) |
+| `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Authorised in the backend, but **no UI** since 2026-09-16 — every cell is `planOnly` | Yes (all paths); plan overrides only, from this screen |
 | `boss` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Authorised in the backend, but **no UI** — his cell is `planOnly` | Yes at the service layer (`is_admin_like`); plan overrides only, from this screen |
 | `export_manager` (Gadam) | All blocks | View only | View only | View only | No |
 | `director` | All blocks | View only | View only | View only | No |

@@ -97,3 +97,69 @@ describe('HarvestCell — planOnly (boss layout)', () => {
     expect(screen.getByText('14,250')).toBeInTheDocument();
   });
 });
+
+/**
+ * Since 2026-09-16 `planOnly` is on for EVERY role, not just boss. That routes
+ * block managers through the branch above instead of `past_actual`, so the
+ * past-week lock that used to live there (older weeks are read-only; reopening
+ * one goes through a late-edit extension) has to be restated inside `planOnly`.
+ * These pin it.
+ */
+const managerProps = { ...bossProps, isAdmin: false };
+
+/** Monday of the current ISO week — always "in the current week". */
+function thisWeekMonday(): string {
+  const d = new Date();
+  const back = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - back);
+  return d.toISOString().slice(0, 10);
+}
+
+describe('HarvestCell — planOnly past-week lock (non-admin)', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('locks a filled plan on a day from an earlier week — click opens history', () => {
+    const onCellClick = vi.fn();
+    const { container } = render(
+      <HarvestCell {...managerProps} onCellClick={onCellClick} entry={entryOn('2020-01-06')} />,
+    );
+    expect(container.querySelector('[data-edit-cell]')).toBeNull();
+    fireEvent.click(screen.getByTitle('plan.click_for_history'));
+    expect(onCellClick).toHaveBeenCalledWith(42);
+    expect(container.querySelector('input')).toBeNull();
+  });
+
+  it('leaves an empty cell in an old week editable (nothing to overwrite)', () => {
+    const { container } = render(
+      <HarvestCell
+        {...managerProps}
+        entry={entryOn('2020-01-06', { plan_value: null, actual_value: null })}
+      />,
+    );
+    fireEvent.click(container.querySelector('[data-edit-cell]')!);
+    expect(container.querySelector('input')).toBeInTheDocument();
+  });
+
+  it('keeps a past day of the CURRENT week editable', () => {
+    const { container } = render(
+      <HarvestCell {...managerProps} entry={entryOn(thisWeekMonday())} />,
+    );
+    fireEvent.click(container.querySelector('[data-edit-cell]')!);
+    expect(container.querySelector('input')).toHaveValue('12000');
+  });
+
+  it('keeps a future day editable', () => {
+    const { container } = render(
+      <HarvestCell {...managerProps} entry={entryOn('2999-01-06')} />,
+    );
+    fireEvent.click(container.querySelector('[data-edit-cell]')!);
+    expect(container.querySelector('input')).toHaveValue('12000');
+  });
+
+  it('an admin is not locked out of an earlier week', () => {
+    const { container } = render(
+      <HarvestCell {...bossProps} entry={entryOn('2020-01-06')} />,
+    );
+    expect(container.querySelector('[data-edit-cell]')).not.toBeNull();
+  });
+});
