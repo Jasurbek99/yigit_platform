@@ -127,7 +127,8 @@
     "admin_expense_template": "Expense Template",
     "admin_packing_templates": "Packing Templates",
     "documents": "Documents",
-    "pomidor_dukany": "Pomidor Dükany"
+    "pomidor_dukany": "Pomidor Dükany",
+    "tir_takip": "Truck Tracking"
   },
   "expense_template": {
     "title": "Expense Category Template",
@@ -3693,5 +3694,21 @@
     "toast_updated": "Legal form updated",
     "toast_deleted": "Legal form deleted",
     "toast_error": "Something went wrong"
+  },
+  "tir_takip": {
+    "title": "Truck Tracking (Tır Takip)",
+    "no_tabs": "You do not have access to any section of this page.",
+    "tab_pending": "This section has no content yet.",
+    "tabs": {
+      "onumcilik": "Production",
+      "gaplama": "Packing",
+      "tirlar": "Trucks",
+      "export_rapor": "Export Report",
+      "hasabat": "Reports",
+      "gumruk_ewrak": "Customs Documents",
+      "kwota_takibi": "Quota Tracking",
+      "sertnamalar": "Foreign Contracts",
+      "datalar": "Data"
+    }
   }
 }

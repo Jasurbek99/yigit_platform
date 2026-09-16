@@ -95,7 +95,7 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks',
   '/export/weightmaster',
   '/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard',
-  '/transport/map',
+  '/transport/map', '/tir-takip',
   '/documents', '/admin/packing-templates',
   '/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices',
   '/export/advances', '/export/overdue', '/admin/expense-template',
@@ -118,7 +118,7 @@ const EXPECTED_STAFF_ORDERED_KEYS = [
   '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
   '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
   '/export/my-reports', '/export/advances', '/transport/map',
-  '/export/domestic-sales', '/export/prices',
+  '/export/domestic-sales', '/export/prices', '/tir-takip',
   '/contracts', '/sales', '/documents',
   '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
   '/admin/users', '/admin/truck-destinations', '/admin/fleet', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links',
@@ -236,12 +236,12 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss menu renders exactly the expected 46 route keys, in order', () => {
+  it('boss menu renders exactly the expected 47 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_BOSS_ORDERED_KEYS);
   });
 
-  it('staff menu renders exactly the expected 46 route keys, in order', () => {
+  it('staff menu renders exactly the expected 47 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_STAFF_ORDERED_KEYS);
   });
@@ -261,7 +261,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('staff and boss reach the same 46-key set, grouped differently, and neither surfaces the removed pages', () => {
+  it('staff and boss reach the same 47-key set, grouped differently, and neither surfaces the removed pages', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -276,8 +276,8 @@ describe('AppLayout menu composition', () => {
     // grouped by process-phase (boss) vs. module (staff).
     const REMOVED_EVERYWHERE = ['/export/drafts', '/export/assign'];
 
-    expect(bossKeys).toHaveLength(46);
-    expect(staffKeys).toHaveLength(46);
+    expect(bossKeys).toHaveLength(47);
+    expect(staffKeys).toHaveLength(47);
     for (const key of REMOVED_EVERYWHERE) {
       expect(staffKeys).not.toContain(key);
       expect(bossKeys).not.toContain(key);

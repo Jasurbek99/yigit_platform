@@ -127,7 +127,8 @@
     "admin_expense_template": "Çykdajy şablony",
     "admin_packing_templates": "Gaplaýyş şablonlary",
     "documents": "Resminamalar",
-    "pomidor_dukany": "Pomidor Dükany"
+    "pomidor_dukany": "Pomidor Dükany",
+    "tir_takip": "Maşyn Yzarlamasy"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -3698,5 +3699,21 @@
     "toast_updated": "Hukuk görnüşi täzelendi",
     "toast_deleted": "Hukuk görnüşi pozuldy",
     "toast_error": "Ýalňyşlyk ýüze çykdy"
+  },
+  "tir_takip": {
+    "title": "Maşyn Yzarlamasy (Tır Takip)",
+    "no_tabs": "Bu sahypanyň hiç bir bölümine rugsadyňyz ýok.",
+    "tab_pending": "Bu bölümiň mazmuny heniz goşulmady.",
+    "tabs": {
+      "onumcilik": "Önümçilik",
+      "gaplama": "Gaplama",
+      "tirlar": "Tırlar",
+      "export_rapor": "Export Raporu",
+      "hasabat": "Hasabat",
+      "gumruk_ewrak": "Gümrük Ewraklary",
+      "kwota_takibi": "Kwota Takibi",
+      "sertnamalar": "Yurtdışı Sertnamaları",
+      "datalar": "Datalar"
+    }
   }
 }

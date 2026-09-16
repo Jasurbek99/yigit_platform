@@ -127,7 +127,8 @@
     "admin_expense_template": "Шаблон расходов",
     "admin_packing_templates": "Шаблоны упаковки",
     "documents": "Документы",
-    "pomidor_dukany": "Pomidor Dükany"
+    "pomidor_dukany": "Pomidor Dükany",
+    "tir_takip": "Отслеживание машин"
   },
   "expense_template": {
     "title": "Шаблон категорий расходов",
@@ -3695,5 +3696,21 @@
     "toast_updated": "Правовая форма обновлена",
     "toast_deleted": "Правовая форма удалена",
     "toast_error": "Произошла ошибка"
+  },
+  "tir_takip": {
+    "title": "Отслеживание машин (Tır Takip)",
+    "no_tabs": "У вас нет доступа ни к одному разделу этой страницы.",
+    "tab_pending": "Содержимое этого раздела ещё не добавлено.",
+    "tabs": {
+      "onumcilik": "Производство",
+      "gaplama": "Упаковка",
+      "tirlar": "Фуры",
+      "export_rapor": "Отчёт по экспорту",
+      "hasabat": "Отчётность",
+      "gumruk_ewrak": "Таможенные документы",
+      "kwota_takibi": "Учёт квот",
+      "sertnamalar": "Зарубежные контракты",
+      "datalar": "Данные"
+    }
   }
 }

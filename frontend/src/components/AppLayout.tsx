@@ -27,6 +27,7 @@ import {
   IconMapPin,
   IconReportAnalytics,
   IconRoute,
+  IconTruckDelivery,
   IconScale,
   IconTrophy,
 } from '@tabler/icons-react';
@@ -332,6 +333,14 @@ export default function AppLayout() {
     // stays server-side: GET /transport/live-positions/ reads the same row via
     // CanViewFleetMap (backend/apps/transport/permissions.py).
     '/transport/map': { key: '/transport/map', icon: <IconMapPin size={15} />, label: t('nav.fleet_map') },
+    // Tır Takip (Maşyn Yzarlamasy) — the sera-design tab shell.
+    // Deliberately NO `roles` array: the filter below short-circuits on
+    // `item.roles` BEFORE consulting canSeePage, so a roles list would make
+    // this entry ignore every admin toggle forever while the route guard
+    // obeyed them — the sidebar would contradict the permission screen. The
+    // `tir_takip` code is granted to all 15 roles by core migration 0051, so
+    // everyone sees it today and an admin can revoke it without a deploy.
+    '/tir-takip': { key: '/tir-takip', icon: <IconTruckDelivery size={15} />, label: t('nav.tir_takip') },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
     '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
     '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
@@ -375,7 +384,7 @@ export default function AppLayout() {
     group('nav.group_prep', ['/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
-      '/export/shipments/dashboard', '/transport/map',
+      '/export/shipments/dashboard', '/transport/map', '/tir-takip',
     ]),
     group('nav.group_docs', ['/documents', '/admin/packing-templates']),
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
@@ -398,7 +407,7 @@ export default function AppLayout() {
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
       '/export/my-reports', '/export/advances', '/transport/map',
-      '/export/domestic-sales', '/export/prices',
+      '/export/domestic-sales', '/export/prices', '/tir-takip',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
