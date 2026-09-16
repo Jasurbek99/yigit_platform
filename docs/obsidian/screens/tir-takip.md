@@ -500,7 +500,7 @@ Statuses, border points and option lists use the `REFERENCE_DATA_WRITE` role lis
 ## Permissions
 
 Ten codes: one container (`tir_takip`) plus one per tab. **All ten are granted to
-all 15 roles** by `core/0051_tir_takip_page_perms` — the owner asked for the page
+all 15 roles** by `core/0052_tir_takip_page_perms` — the owner asked for the page
 to be open to everyone *and* configurable, so access is matrix rows rather than a
 hardcoded list, and the first revoke is an admin's checkbox in
 [[permissions-admin]] instead of a deploy.
@@ -543,7 +543,7 @@ Two consequences worth knowing:
 | Route→code | `frontend/src/utils/permissions.ts` — `ROUTE_PAGE_MAP` |
 | Codes | `backend/apps/core/permission_registry.py` |
 | Defaults | `backend/apps/core/management/commands/seed_permissions.py` — `_TIR_TAKIP` |
-| Migration | `backend/apps/core/migrations/0051_tir_takip_page_perms.py` |
+| Migration | `backend/apps/core/migrations/0052_tir_takip_page_perms.py` |
 | i18n | `frontend/src/i18n/{tk,en,ru}.json` — `tir_takip.*` (incl. `tab_no_access`), `nav.tir_takip` |
 
 ## Design containment

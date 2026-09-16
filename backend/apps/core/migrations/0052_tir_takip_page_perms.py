@@ -22,7 +22,7 @@ toggle.
 Post-deploy verification:
     RolePagePermission.objects.filter(page_code__startswith='tir_takip').count()
 must equal 150 (15 roles x 10 codes). If it comes back 0, this ran as a no-op
-against a `test_`-prefixed database: delete the ('core', '0051_tir_takip_page_perms')
+against a `test_`-prefixed database: delete the ('core', '0052_tir_takip_page_perms')
 row from django_migrations and re-run `migrate core` against the real database.
 """
 from django.db import migrations
@@ -106,7 +106,7 @@ def remove_tir_takip_pages(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0050_seed_border_point_ru_names'),
+        ('core', '0051_worklog_team_kpi_page_perms'),
     ]
 
     operations = [

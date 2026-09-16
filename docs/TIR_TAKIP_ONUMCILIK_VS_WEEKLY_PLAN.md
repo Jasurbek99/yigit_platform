@@ -202,7 +202,7 @@ serves any window.)*
 ### Q4. Who may type in the cell?
 
 `tir_takip.onumcilik` is currently granted to **all 15 roles** (migration
-`core/0051_tir_takip_page_perms`) — that is a *visibility* grant. Sera has no
+`core/0052_tir_takip_page_perms`) — that is a *visibility* grant. Sera has no
 write gate at all. Our plan cells are gated at four separate points (frontend
 capability, two backend field checks, resource check). **An editable grid behind
 a visibility-only permission is a hole**; it needs its own write code
