@@ -17,11 +17,25 @@ type InputNumberRef = ComponentRef<typeof InputNumber>;
 type DisplayMode = 'past_actual' | 'today_actual' | 'future_plan';
 
 export interface IHarvestCellProps {
-  entry: IHarvestDayEntry;
+  /**
+   * `null` when this block/date has no `HarvestDayEntry` yet — the week was
+   * never initialised. Create-on-write: the first value typed here creates the
+   * row on the server (`POST .../write-cell/`, no `id`) via `onSave` below with
+   * a `null` entryId.
+   */
+  entry: IHarvestDayEntry | null;
+  /**
+   * Identifies this cell for the `savingKey` spinner comparison. A real entry
+   * uses `String(entry.id)`; a missing cell has no id, so the caller passes
+   * `${block}-${entry_date}` instead — it already has both from the row/column
+   * it is rendering, cheaper than plumbing two more props through here.
+   */
+  cellKey: string;
   canEditPlan: boolean;
   canEditActual: boolean;
+  /** `entryId` is `null` for a missing cell — create-on-write, nothing to PATCH. */
   onSave: (
-    entryId: number,
+    entryId: number | null,
     field: 'plan_value' | 'actual_value',
     value: number | null,
     reason?: string,
@@ -129,7 +143,8 @@ interface IPendingOverride {
 }
 
 export function HarvestCell({
-  entry,
+  entry: entryOrNull,
+  cellKey,
   canEditPlan,
   canEditActual,
   onSave,
@@ -158,8 +173,60 @@ export function HarvestCell({
     if (editingActual) actualInputRef.current?.focus({ cursor: 'all' });
   }, [editingActual]);
 
+  const isSaving = savingKey === cellKey;
+
+  // ── Missing cell (create-on-write) ──────────────────────────────────────
+  // No HarvestDayEntry exists yet for this block/date — the week was never
+  // initialised. It is, by definition, empty (nothing to conflict with), so it
+  // always satisfies the "empty cell" clause the filled-row `planOnly` branch
+  // below applies via `plan_value == null && actual_value == null` — that
+  // clause alone makes the rest of that formula's OR (isAdmin / isPastDay /
+  // isInCurrentWeek) moot. Editability therefore reduces to exactly
+  // `canEditPlan`, and there is no old value to conflict with, so an admin
+  // never sees the override-reason modal here: filling an empty cell is a
+  // create, not an override (matches the backend — write-cell needs no
+  // `reason` for a create).
+  if (!entryOrNull) {
+    if (!canEditPlan) {
+      return <ValueOrEmpty valueStr={null} submittedAt={null} />;
+    }
+    if (editingPlan) {
+      return (
+        <div style={{ minHeight: 24 }}>
+          <InputNumber
+            ref={planInputRef}
+            min={0}
+            step={100}
+            keyboard={false}
+            placeholder="—"
+            disabled={isSaving}
+            onBlur={(e) => {
+              const raw = e.target.value.replace(/,/g, '');
+              setEditingPlan(false);
+              if (raw === '') return; // nothing typed — nothing to create
+              onSave(null, 'plan_value', Number(raw) || 0);
+            }}
+            onKeyDown={handleCellKeyDown}
+            size="small"
+            style={{ width: 84 }}
+          />
+        </div>
+      );
+    }
+    return (
+      <div
+        data-edit-cell="true"
+        onClick={() => setEditingPlan(true)}
+        style={{ cursor: 'text', minHeight: 24, padding: '2px 0' }}
+        title={t('plan.admin_click_edit_plan')}
+      >
+        <ValueOrEmpty valueStr={null} submittedAt={null} />
+      </div>
+    );
+  }
+
+  const entry = entryOrNull;
   const mode = computeDisplayMode(entry, today);
-  const isSaving = savingKey === String(entry.id);
 
   // ── Admin override gate ────────────────────────────────────────────────────
 

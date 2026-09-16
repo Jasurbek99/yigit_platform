@@ -423,6 +423,10 @@ export function useUpsertDayEntry() {
   return useMutation({
     mutationFn: async (payload: {
       id?: number;
+      /** Required when `id` is absent: the cell to create on first write. */
+      block?: number;
+      /** `YYYY-MM-DD`. Required when `id` is absent. */
+      entry_date?: string;
       plan_value?: number | null;
       forecast_value?: number | null;
       actual_value?: number | null;
@@ -435,11 +439,23 @@ export function useUpsertDayEntry() {
         );
         return data;
       }
-      const { data } = await api.post<IHarvestDayEntry>('/greenhouse/day-entries/', payload);
+      // Create-on-write: the cell has no row yet (its week was never
+      // initialised), so it is addressed by block + date instead of id. The
+      // server creates the week's rows and then applies exactly the same gates
+      // a PATCH would; a refused write leaves no rows behind. This branch used
+      // to POST to the collection, which has always answered 405.
+      const { data } = await api.post<IHarvestDayEntry>(
+        '/greenhouse/day-entries/write-cell/',
+        payload,
+      );
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['day-entries'] });
+      // A first write can create the week's plan container, which is what
+      // `useHarvestPlans` lists — refetch it so the row picks up its plan id,
+      // manager names and late-edit state.
+      queryClient.invalidateQueries({ queryKey: ['harvest-plans'] });
       // Refetch /me/tasks/ so the backend's lazy resolver re-evaluates the
       // block manager's "fill weekly plan" task — it flips to done once the
       // week's plan cells are filled (an explicit 0 counts as a filled value).

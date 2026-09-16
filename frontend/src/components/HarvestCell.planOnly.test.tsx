@@ -38,6 +38,7 @@ function entryOn(entry_date: string, overrides: Partial<IHarvestDayEntry> = {}):
 
 /** Boss: one value, and no path to the actual. */
 const bossProps = {
+  cellKey: 'k',
   canEditPlan: true,
   canEditActual: false, // WeeklyPlanGrid returns false for boss when planOnly
   onSave: vi.fn(),
