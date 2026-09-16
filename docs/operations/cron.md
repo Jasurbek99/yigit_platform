@@ -1,5 +1,13 @@
 # Cron Jobs — YGT Platform
 
+> **Docker deploys:** the host-crontab recipes below assume a bare-metal install with a
+> host virtualenv at `/opt/ygt/backend/venv`. Under the Docker deploy that path does not
+> exist, so a line copy-pasted verbatim fails silently every run — this is exactly what
+> happened to `run_weekly_plan_setup` (moved to Celery beat 2026-09-16). **`run_harvest_dispatcher`
+> and `rollup_actuals` are still crontab-only and have NOT been verified on the beta server.**
+> Check with `ls /opt/ygt/backend/venv/bin/python` and `tail /var/log/ygt/dispatcher.log`
+> before assuming they run.
+
 ## Harvest Dispatcher (run_harvest_dispatcher)
 
 Evaluates and fires time-based harvest forecast and plan submission notifications.
@@ -61,7 +69,7 @@ Register-ScheduledTask `
     -Force
 ```
 
-## Weekly Plan Setup (run_weekly_plan_setup)
+## Weekly Plan Setup (run_weekly_plan_setup) — Celery beat, NOT crontab
 
 Runs **once a day** (not on the 5-minute dispatcher cadence). For the current and
 next ISO week of the active season it (1) `initialize_upcoming_weeks` — ensures
@@ -71,10 +79,36 @@ weekly plan" task per (active manager, block). Both idempotent, so re-running is
 cheap no-op. This is what guarantees a block manager always opens a complete grid
 (historically weeks were only initialized ad-hoc → future weeks were empty).
 
-### Ubuntu/Linux cron entry
+### Scheduling — nothing to install
 
-```cron
-0 6 * * * cd /opt/ygt/backend && /opt/ygt/backend/venv/bin/python manage.py run_weekly_plan_setup >> /var/log/ygt/weekly_plan_setup.log 2>&1
+Since 2026-09-16 this is a **Celery beat entry**, already running in the
+`celery-beat` container. No crontab, no per-server paths:
+
+```python
+# config/settings.py — CELERY_BEAT_SCHEDULE
+'weekly-plan-setup': {
+    'task': 'apps.export.tasks.run_weekly_plan_setup',   # apps/export/tasks.py
+    'schedule': crontab(hour=6, minute=0),               # 06:00 CELERY_TIMEZONE (Asia/Ashgabat)
+    'options': {'expires': 3600},
+},
+```
+
+**Remove any host crontab line for this command.** It previously shipped as
+`0 6 * * * cd /opt/ygt/backend && venv/bin/python manage.py run_weekly_plan_setup`;
+on the Docker deploy that path does not exist, so the job silently never ran and
+weekly-plan tasks appeared only when someone pressed "Generate plan tasks".
+
+Verify after a deploy:
+
+```bash
+docker compose logs celery-beat | grep weekly-plan-setup      # beat picked up the schedule
+docker compose logs celery-worker | grep 'Weekly-plan setup'  # the 06:00 run happened
+```
+
+Force a run now (no need to wait for 06:00):
+
+```bash
+docker compose exec backend python manage.py run_weekly_plan_setup
 ```
 
 The manual buttons ("Initialize Week" admin/director, "Generate plan tasks"

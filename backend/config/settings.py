@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 
+from celery.schedules import crontab
 from corsheaders.defaults import default_headers as cors_default_headers
 from dotenv import load_dotenv
 
@@ -474,6 +475,15 @@ CELERY_BEAT_SCHEDULE = {
     'purge-expired-idempotency-keys': {
         'task': 'apps.core.tasks.purge_expired_idempotency_keys',
         'schedule': 86400.0,
+        'options': {'expires': 3600},
+    },
+    # Initializes the current+next plan weeks and generates the block managers'
+    # "fill weekly plan" tasks. Fires 06:00 local (CELERY_TIMEZONE), i.e. before
+    # the working day. Idempotent, so a missed run self-heals the next morning;
+    # `expires` keeps a queued run from firing hours late after an outage.
+    'weekly-plan-setup': {
+        'task': 'apps.export.tasks.run_weekly_plan_setup',
+        'schedule': crontab(hour=6, minute=0),
         'options': {'expires': 3600},
     },
 }

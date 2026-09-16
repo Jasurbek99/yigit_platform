@@ -61,6 +61,21 @@ class RunWeeklyPlanSetupCommandTests(TestCase):
         )
         self.assertEqual(tasks.count(), 2)
 
+    def test_celery_task_runs_the_same_setup(self):
+        """The beat entry ('apps.export.tasks.run_weekly_plan_setup') must reach
+        the command — a typo'd task path fails silently in beat, which is the
+        exact failure mode this schedule was added to replace."""
+        from apps.export.tasks import run_weekly_plan_setup
+
+        run_weekly_plan_setup()  # eager: CELERY_TASK_ALWAYS_EAGER under tests
+
+        self.assertEqual(
+            Task.objects.filter(
+                kind=TaskKind.WEEKLY_PLAN, assignee_user=self.mgr, scope_block=self.block_a,
+            ).count(),
+            2,
+        )
+
     def test_rerun_is_idempotent(self):
         call_command('run_weekly_plan_setup')
         call_command('run_weekly_plan_setup')

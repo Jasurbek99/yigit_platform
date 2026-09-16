@@ -214,10 +214,15 @@ In-app notifications only this iteration. SMS / Telegram / WhatsApp deferred. Th
 
 ### Daily weekly-plan setup (`run_weekly_plan_setup`)
 
-A **separate daily cron** (not the 5-min dispatcher — week setup needs no 5-min cadence) auto-prepares the grid so block managers always open something complete:
+A **separate daily job** (not the 5-min dispatcher — week setup needs no 5-min cadence) auto-prepares the grid so block managers always open something complete. It runs from **Celery beat**, not a host crontab:
 
-```
-0 6 * * * cd /opt/ygt/backend && venv/bin/python manage.py run_weekly_plan_setup
+```python
+# config/settings.py — CELERY_BEAT_SCHEDULE
+'weekly-plan-setup': {
+    'task': 'apps.export.tasks.run_weekly_plan_setup',   # apps/export/tasks.py
+    'schedule': crontab(hour=6, minute=0),               # 06:00 CELERY_TIMEZONE
+    'options': {'expires': 3600},
+},
 ```
 
 For the **current and next ISO week** of the active season it runs, in order:
@@ -226,7 +231,9 @@ For the **current and next ISO week** of the active season it runs, in order:
 
 Both steps are idempotent (only insert what's missing). The command lives in **export** (not greenhouse) because it also calls the export-owned task generator — export may import greenhouse, not vice-versa. The manual buttons ("Initialize Week" admin/director, "Generate plan tasks" admin/export_manager/director) remain for ad-hoc back-fills.
 
-**Why this exists:** previously weeks were only initialized ad-hoc, so an under-initialized week showed a **block manager only the blocks that already had rows** while past/closed weeks looked complete — confirmed on the live DB, where past+current weeks carry all active blocks but **future weeks were 0 blocks** (and early-season weeks were partial, e.g. a single block). **Caveat:** it only helps where this daily cron is actually scheduled, and only covers current+next week — back-filling far-future or historical partial weeks still needs a manual "Initialize Week".
+**Why this exists:** previously weeks were only initialized ad-hoc, so an under-initialized week showed a **block manager only the blocks that already had rows** while past/closed weeks looked complete — confirmed on the live DB, where past+current weeks carry all active blocks but **future weeks were 0 blocks** (and early-season weeks were partial, e.g. a single block). **Caveat:** it covers current+next week only — back-filling far-future or historical partial weeks still needs a manual "Initialize Week".
+
+**Why beat and not crontab (2026-09-16):** it shipped as a documented host crontab line, installed on the beta server verbatim from the docs — pointing at `/opt/ygt/backend/venv/bin/python`, which is a bare-metal path while that server runs the platform under Docker out of `~/yigit_platform`. `CELERY_BEAT_SCHEDULE` carried no entry for it either, so nothing in the deployed system generated these tasks on a schedule and the "Generate plan tasks" button was the only creator. (That the crontab line failed on *every* run since deploy is inferred, not measured on the host — check `ls /opt/ygt/backend/venv/bin/python` and the `created_at` spread of existing `weekly_plan` tasks.) Beat already runs as its own container, ships with the code and needs no per-server path, so the schedule moved into `CELERY_BEAT_SCHEDULE`. The management command stays as the manual/backfill entry point. **Any host crontab line for `run_weekly_plan_setup` must be removed** or the job runs twice (harmless — idempotent — but misleading).
 
 ### Daily actual rollup
 
@@ -333,6 +340,7 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 | `useHarvestPlans({year, week})` | `GET /greenhouse/harvest-plans/?year=&week=` | `IApiListResponse<IWeeklyHarvestPlan>` |
 | `useDayEntries({season, block, from_date, to_date})` | `GET /greenhouse/day-entries/...` | `IApiListResponse<IHarvestDayEntry>` |
 | `useUpsertDayEntry()` | `PATCH /greenhouse/day-entries/{id}/` | mutation; body: `{plan_value? \| forecast_value? \| actual_value?, reason?}` |
+| `useUpsertDayEntry()` *(no `id`)* | `POST /greenhouse/day-entries/write-cell/` | Create-on-write: called with `{block, entry_date, plan_value?, reason?}` and no `id`. Same response and cache invalidation as the PATCH branch, plus `harvest-plans`, since a first write can create the week's plan. The old no-id branch POSTed to the collection, which always answered 405. |
 | `useDayEntryHistory(id)` | `GET /greenhouse/day-entries/{id}/history/` | `IDayEntryHistoryItem[]` |
 | `useGreenhouseConfig()` | `GET /core/greenhouse-config/` | `IGreenhouseConfig` (singleton) |
 | `useUpdateGreenhouseConfig()` | `PATCH /core/greenhouse-config/` | mutation, admin only |
@@ -340,7 +348,6 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 | `useSubmitHarvestPlan()` | `POST /greenhouse/harvest-plans/{id}/submit_week/` | mutation |
 | `useInitializeWeek()` | `POST /greenhouse/harvest-plans/initialize-week/` | mutation, admin / greenhouse_manager |
 
-| `useUpsertDayEntry()` *(no `id`)* | `POST /greenhouse/day-entries/write-cell/` | Create-on-write: called with `{block, entry_date, plan_value?, reason?}` and no `id`. Same response and cache invalidation as the PATCH branch, plus `harvest-plans`, since a first write can create the week's plan. The old no-id branch POSTed to the collection, which always answered 405. |
 **Removed**: `useApproveHarvestPlan`, `useRejectHarvestPlan`, `useBulkSubmitHarvestPlans`, `useBulkApproveHarvestPlans`, `useBulkRejectHarvestPlans` — those endpoints no longer exist.
 
 ### TypeScript types
