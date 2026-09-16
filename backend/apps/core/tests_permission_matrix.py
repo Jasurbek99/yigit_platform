@@ -12,7 +12,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.core.models import User
+from apps.core.models import RolePagePermission, RoleResourcePermission, User
 
 
 def _create_user(username: str, role: str, *, is_superuser: bool = False) -> User:
@@ -100,6 +100,62 @@ class PermissionMatrixGatesTests(TestCase):
         self._auth(sysop)
         resp = self.client.get('/api/v1/core/admin/page-permissions/')
         self.assertEqual(resp.status_code, 200, resp.data)
+
+
+class MatrixSaveKeepsUnknownCodesTests(TestCase):
+    """A matrix Save must not delete rows for codes this code doesn't register.
+
+    Every branch shares one database. A branch that registers extra codes (e.g.
+    Copy_Gadams_UI's `tir_takip*` pages) must keep its rows when an admin saves
+    the matrix from a server whose registry lacks them — on 2026-09-16 one Save
+    from main wiped all 150 `tir_takip` rows.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=_create_user('admin1', 'admin'))
+
+    def _round_trip(self, path: str) -> None:
+        """GET the matrix and PUT it straight back, as the admin screen does."""
+        matrix = self.client.get(path).data['matrix']
+        resp = self.client.put(path, {'matrix': matrix}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_page_save_keeps_unregistered_page_rows(self):
+        RolePagePermission.objects.create(role='admin', page_code='other_branch.page', is_visible=True)
+        registered_before = RolePagePermission.objects.exclude(page_code='other_branch.page').count()
+
+        self._round_trip('/api/v1/core/admin/page-permissions/')
+
+        self.assertTrue(RolePagePermission.objects.filter(
+            role='admin', page_code='other_branch.page', is_visible=True,
+        ).exists())
+        self.assertEqual(
+            RolePagePermission.objects.exclude(page_code='other_branch.page').count(),
+            registered_before,
+        )
+
+    def test_resource_save_keeps_unregistered_resource_rows(self):
+        RoleResourcePermission.objects.create(
+            role='admin', resource_code='other_branch_resource', can_view=True,
+        )
+        registered_before = RoleResourcePermission.objects.exclude(
+            resource_code='other_branch_resource',
+        ).count()
+
+        self._round_trip('/api/v1/core/admin/resource-permissions/')
+
+        self.assertTrue(RoleResourcePermission.objects.filter(
+            role='admin', resource_code='other_branch_resource', can_view=True,
+        ).exists())
+        self.assertEqual(
+            RoleResourcePermission.objects.exclude(resource_code='other_branch_resource').count(),
+            registered_before,
+        )
 
 
 class UserManagementGatesTests(TestCase):

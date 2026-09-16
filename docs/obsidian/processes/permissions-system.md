@@ -287,6 +287,8 @@ Same pattern, same reasoning, on the frontend: `/admin/process-links` is gated w
 
 The permissions endpoint returns/accepts all 3 levels for a given user's role. Backend gate is `_AdminOnlyPermission` (predicate: `is_superuser OR role=='admin'`).
 
+> **Save replaces only registered codes (2026-09-16).** The page and resource PUTs delete rows for the codes in this code's `PAGE_REGISTRY` / `RESOURCE_REGISTRY`, then recreate them from the payload. Rows for any other code are left alone. Before this they ran `objects.all().delete()`. All branches share one database, so one Save from `main` wiped all 150 of `Copy_Gadams_UI`'s `tir_takip*` rows. A server still on the old code (the beta until its next deploy) keeps that behaviour and will drop `worklog`/`team_kpi` rows on Save. After deploying, check that `RolePagePermission.objects.filter(page_code__in=['worklog','team_kpi']).count()` is 30. The field PUT was already scoped to one resource. Pinned by `MatrixSaveKeepsUnknownCodesTests` in `apps/core/tests_permission_matrix.py`.
+
 **Bootstrap admin:** `python manage.py bootstrap_admin` — idempotent, promotes every `is_superuser` user to `role='admin'`. Run on every deploy / staging refresh / restore-from-backup. Replaces the previous `manage.py shell -c "..."` one-liner.
 
 ## Frontend Implementation

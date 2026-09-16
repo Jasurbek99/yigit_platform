@@ -53,9 +53,18 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
   python manage.py shell -c "from apps.export.models import Shipment; print(Shipment.objects.count())"
 # Must print a non-zero count matching prod expectations (>= 1959)
+
+# Confirm the Work Hours / Team Leaderboard page rows survived (added 2026-09-16).
+# A Permissions-page Save on code older than 9c51d63 deletes them, which hides
+# both pages from every non-superuser on the new code.
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
+  python manage.py shell -c "from apps.core.models import RolePagePermission as R; print(R.objects.filter(page_code__in=['worklog','team_kpi']).count())"
+# Must print 30. If not, re-create them (only missing rows are created, nothing is changed):
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml exec backend \
+  python manage.py shell -c "from importlib import import_module; from apps.core.models import RolePagePermission as R; print(import_module('apps.core.migrations.0051_worklog_team_kpi_page_perms').seed_team_pages(R))"
 ```
 
-If any of those checks fails, **stop**. Do not invite staff in.
+If any of those checks fails, **stop**. Do not invite staff in. Do NOT use `seed_permissions` to repair page rows: it also re-grants field permissions an admin removed on purpose.
 
 ## Pre-beta DB backup
 

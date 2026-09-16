@@ -112,8 +112,10 @@ class PagePermissionMatrixView(APIView):
                     is_visible=bool(is_visible),
                 ))
 
+        # Delete only codes this code registers. Every branch shares one
+        # database; a blanket delete wiped another branch's page rows.
         with transaction.atomic():
-            RolePagePermission.objects.all().delete()
+            RolePagePermission.objects.filter(page_code__in=list(PAGE_REGISTRY)).delete()
             RolePagePermission.objects.bulk_create(objs, batch_size=500)
 
         _invalidate_perm_cache()
@@ -174,8 +176,9 @@ class ResourcePermissionMatrixView(APIView):
                     can_delete=bool(perms.get('delete', False)),
                 ))
 
+        # Same scoping as the page matrix: keep other branches' resource rows.
         with transaction.atomic():
-            RoleResourcePermission.objects.all().delete()
+            RoleResourcePermission.objects.filter(resource_code__in=list(RESOURCE_REGISTRY)).delete()
             RoleResourcePermission.objects.bulk_create(objs, batch_size=500)
 
         _invalidate_perm_cache()
