@@ -42,14 +42,19 @@ carries the identical gradient and the two surfaces read as one. Both pin it wit
 ramp over a different height and the join shows as a step (measured: 1/255 per
 channel with the pin, across the full width).
 
-The **season switcher is shown** here, like everywhere else. It was hidden on sera
-routes while every tab was a placeholder — no season-scoped data meant the picker
-offered a choice that changed nothing. That stopped being true the moment
-`onumcilik` started rendering the Weekly Plan grid, which reads the selected
-season: hiding the control would let someone browse a closed season on
-`/export/plan`, open this tab, and find a read-only grid with the fix nowhere on
-screen. `isSeraPage` still drives the header's gradient; it no longer drives the
-switcher.
+> [!caution] No season picker, and the Önümçilik grid is season-scoped
+> The season switcher was removed from the header **app-wide** on 2026-09-16 by
+> owner request. It had first been hidden on sera routes only, on the grounds that
+> they carried no season-scoped data — true while all nine tabs were placeholders,
+> and false from the moment `onumcilik` started rendering the Weekly Plan grid,
+> which resolves its season through `useSelectedSeason`.
+>
+> With no control anywhere, the grid falls back to the active season, which is the
+> right answer almost always. The gap is `?season=<id>` in the URL: a bookmark or a
+> shared link pins a different season, `useSeasonReadOnly` turns the grid read-only
+> if that season is closed, and there is now nothing on screen to switch back —
+> only editing the URL. Worth knowing before someone reports "the tab won't let me
+> type". Restoring the control is two uncomments in `AppLayout.tsx`, marked there.
 
 ## The nine tabs
 
