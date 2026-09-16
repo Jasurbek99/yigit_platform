@@ -234,7 +234,6 @@ rather than inline in the column renderer: the grid needs the Query and Router
 stacks to render at all, so a pure module is the only part of this that can be
 tested without standing up both.
 
-### Known cosmetic state
 ### Every block, every week (create-on-write)
 
 The grid's rows come from the **block list**, not the plan list —
@@ -270,6 +269,7 @@ click handler, because there is no row whose history could open.
 - **Block column** shows the location, small and muted, between the block name
   and the manager names; nothing is shown for a block with no location.
 
+### Known cosmetic state
 
 The tab still renders its own `Weekly Plan` heading under a tab already labelled
 *Önümçilik* — a duplicate title, kept pending the owner's call. The header tiles,
