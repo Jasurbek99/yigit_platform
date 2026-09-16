@@ -5,17 +5,32 @@ import { handleCellKeyDown } from '@/utils/tableNavigation';
 import { AdminOverrideReasonModal } from '@/components/AdminOverrideReasonModal';
 import type { IHarvestDayEntry } from '@/types';
 
+/** What `OnumcilikCell` hands back to the tab on blur — enough to either PATCH
+ * an existing row (`entryId` set) or create one via write-cell (`entryId`
+ * absent, `block` + `entryDate` used instead). */
+export interface IOnumcilikCellSavePayload {
+  entryId?: number;
+  block: number;
+  entryDate: string;
+  value: number | null;
+  reason?: string;
+}
+
 export interface IOnumcilikCellProps {
-  entry: IHarvestDayEntry;
+  /** `null`/`undefined` when this block+day has no row yet — the week was
+   * never written to, so there is nothing to key a PATCH off. */
+  entry?: IHarvestDayEntry | null;
+  /** The cell's block. Read off `entry.block` when a row exists, but still
+   * needed when it doesn't — it is what create-on-write addresses the new
+   * row by. */
+  block: number;
+  /** `YYYY-MM-DD`. Same reasoning as `block`. */
+  entryDate: string;
   /** Already resolved by the grid: role, block ownership and the week cutoff. */
   canEdit: boolean;
-  onSave: (
-    entryId: number,
-    field: 'plan_value',
-    value: number | null,
-    reason?: string,
-  ) => void;
-  /** Read-only cells fall back to this — the history modal. */
+  onSave: (payload: IOnumcilikCellSavePayload) => void;
+  /** Read-only cells with a row fall back to this — the history modal. A
+   * read-only cell with no row has no history to open (see `entry` above). */
   onCellClick: (entryId: number) => void;
   /** Admin-like roles must supply a reason before overwriting a filled value. */
   isAdmin: boolean;
@@ -43,9 +58,18 @@ export interface IOnumcilikCellProps {
  * A cell the user may not edit renders as plain text, not a disabled box. Sera
  * has no read-only state to copy because it has no permissions; showing an
  * input nobody can use would promise an edit the backend would refuse.
+ *
+ * `entry` is optional (create-on-write, 2026-09-16): a block's week may not
+ * have a row for this day yet, and the grid now shows every active block
+ * regardless. A missing + editable cell is still an input — it just creates
+ * its row on first save instead of PATCHing one. A missing + read-only cell
+ * has neither a value nor a history to show, so it renders the same em-dash
+ * with no click handler (there is no id to open history for).
  */
 export function OnumcilikCell({
   entry,
+  block,
+  entryDate,
   canEdit,
   onSave,
   onCellClick,
@@ -58,10 +82,21 @@ export function OnumcilikCell({
     oldValue: number | null;
   } | null>(null);
 
-  const isSaving = savingKey === String(entry.id);
-  const planNum = entry.plan_value != null ? Number(entry.plan_value) : null;
+  const savingKeyForThisCell = entry ? String(entry.id) : `${block}-${entryDate}`;
+  const isSaving = savingKey === savingKeyForThisCell;
+  const planNum = entry?.plan_value != null ? Number(entry.plan_value) : null;
 
   if (!canEdit) {
+    if (!entry) {
+      // No row and no permission to create one — nothing to show or click.
+      // Keeps the wrapper (not a bare span) so this cell matches the 36px
+      // height of every editable/read-only cell around it in the same row.
+      return (
+        <div className="sera-cell sera-cell--readonly">
+          <span className="sera-cell-empty">—</span>
+        </div>
+      );
+    }
     return (
       <div
         className="sera-cell sera-cell--readonly"
@@ -87,8 +122,8 @@ export function OnumcilikCell({
    * Blur is the only save trigger, as in `HarvestCell`. An admin overwriting a
    * value that was already there routes through the reason modal first: the
    * backend demands a reason from admin-like roles and would otherwise 400.
-   * An admin filling an EMPTY cell is an entry, not an override, so it saves
-   * straight through.
+   * An admin filling an EMPTY cell — including one with no row yet — is an
+   * entry, not an override, so it saves straight through.
    */
   function commit(raw: string) {
     const cleaned = raw.replace(/,/g, '');
@@ -98,7 +133,7 @@ export function OnumcilikCell({
       setPendingOverride({ value: next, oldValue: planNum });
       return;
     }
-    onSave(entry.id, 'plan_value', next);
+    onSave({ entryId: entry?.id, block, entryDate, value: next });
   }
 
   return (
@@ -111,8 +146,9 @@ export function OnumcilikCell({
         controls={false}
         // Uncontrolled, keyed on the value the server last gave us: typing must
         // not re-render the grid on every keystroke, but a value that changed
-        // underneath (another user's save, a week switch) has to reach the box.
-        key={entry.plan_value ?? 'empty'}
+        // underneath (another user's save, a week switch, or this exact cell's
+        // row being created by the save below) has to reach the box.
+        key={entry ? (entry.plan_value ?? 'empty') : 'new'}
         defaultValue={planNum ?? undefined}
         placeholder="—"
         disabled={isSaving}
@@ -126,7 +162,7 @@ export function OnumcilikCell({
         newValue={pendingOverride?.value ?? null}
         onConfirm={(reason) => {
           if (pendingOverride) {
-            onSave(entry.id, 'plan_value', pendingOverride.value, reason);
+            onSave({ entryId: entry?.id, block, entryDate, value: pendingOverride.value, reason });
           }
           setPendingOverride(null);
         }}

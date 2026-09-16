@@ -13,50 +13,51 @@ import {
   Collapse,
   Statistic,
   Modal,
+  Tooltip,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { toast } from 'sonner';
 import {
-  LeftOutlined,
-  RightOutlined,
   SwapOutlined,
   ThunderboltOutlined,
-  CalendarOutlined,
   ClockCircleOutlined,
   UndoOutlined,
-  BulbOutlined,
   UserOutlined,
+  PlusOutlined,
+  MinusOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import {
   useHarvestPlans,
-  useInitializeWeek,
   useDayEntries,
   useUpsertDayEntry,
   useBulkGrantLateEdit,
   useBulkRevokeLateEdit,
 } from '@/hooks/usePlanning';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
-import { useSeasons } from '@/hooks/useAdmin';
+import { useSeasons, useGreenhouseBlocks } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useUiStore } from '@/stores/uiStore';
-import api from '@/services/api';
 import { OnumcilikCell } from './OnumcilikCell';
+import type { IOnumcilikCellSavePayload } from './OnumcilikCell';
 import { getCurrentForecastWindow, num, fmtKg } from '@/components/HarvestCell.helpers';
 import { CellHistoryModal } from '@/components/CellHistoryModal';
 import { GrantExtensionModal } from '@/components/GrantExtensionModal';
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from '@/pages/export/TruckAllocationTable';
 import { planGridCapabilities } from '@/pages/export/WeeklyPlanGrid.roles';
+import { buildPlanGridRows } from '@/pages/export/WeeklyPlanGrid.rows';
+import type { IPlanGridRow } from '@/pages/export/WeeklyPlanGrid.rows';
 import { sumBlockWeek, sumAllBlocks } from './OnumcilikTab.totals';
+import { filterPlansByBlock } from './OnumcilikTab.blockFilter';
+import { BlockFilterSelect } from './BlockFilterSelect';
 import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
@@ -67,30 +68,30 @@ const { Title, Text } = Typography;
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 type Day = (typeof DAYS)[number];
 
-interface IGenerateTasksResponse {
-  created: number;
-}
-
-
 /**
  * Önümçilik — the first tab of Tır Takip.
  *
  * This is a **deliberate verbatim copy** of `pages/export/WeeklyPlanGrid.tsx`,
  * not an accidental duplicate. Do not de-duplicate it back into a shared
  * component: the sera pages carry their own visual language by owner request
- * ("new pages have another design, don't change ours"), so this file is about
- * to be restyled away from antd while `/export/plan` stays exactly as it is.
- * A shared component with a `variant` prop would put both designs in one file
+ * ("new pages have another design, don't change ours"), so this file is
+ * restyled away from antd while `/export/plan` stays exactly as it is. A
+ * shared component with a `variant` prop would put both designs in one file
  * and make every future change to either one a risk to the other.
  *
- * What is shared and NOT copied: the hooks, `HarvestCell`, `CellHistoryModal`,
- * `GrantExtensionModal`, `TruckAllocationTable`, `WeeklyPlanGrid.roles`, and
- * the `plan.*` i18n keys. Those are logic and data, which both designs agree
- * on; fork one only when the restyle actually reaches it.
+ * What is shared and NOT copied: the hooks, `CellHistoryModal`,
+ * `GrantExtensionModal`, `TruckAllocationTable`, `WeeklyPlanGrid.roles`,
+ * `WeeklyPlanGrid.rows` (`buildPlanGridRows`/`IPlanGridRow`), and the `plan.*`
+ * i18n keys. Those are logic and data, which both designs agree on; fork one
+ * only when the restyle actually reaches it. `HarvestCell` is NOT shared —
+ * this tab renders `OnumcilikCell` instead (plan-only, always an input; see
+ * that file's header).
  *
- * Step 1 changed nothing but the function name and two import paths — so a
- * diff against `WeeklyPlanGrid.tsx` still reads as the restyle, and nothing
- * else.
+ * Create-on-write (2026-09-16): rows come from the block list
+ * (`buildPlanGridRows`), not from the plan list, so every active block shows
+ * up whether or not its week has been written to yet. There is no more
+ * "Initialize Week" step — the first value typed into any cell creates that
+ * week's rows via `POST .../write-cell/`.
  */
 export default function OnumcilikTab() {
   const { t } = useTranslation();
@@ -123,23 +124,30 @@ export default function OnumcilikTab() {
   const [historyEntry, setHistoryEntry] = useState<IHarvestDayEntry | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [extensionModalOpen, setExtensionModalOpen] = useState(false);
+  // Task 3 — `null` means "no filter, show every block", the grid's default
+  // so it looks unchanged until someone touches the dropdown.
+  const [selectedBlockIds, setSelectedBlockIds] = useState<number[] | null>(null);
 
   const weekNumber = selectedWeek?.isoWeek();
   const year = selectedWeek?.isoWeekYear();
+  // Task 1 — the middle nav button is "primary" only when the browsed week IS
+  // this actual calendar week, not merely "no offset from a default": the
+  // default lands on NEXT week after Thursday (see selectedWeek's initialiser
+  // above), so comparing ISO week/year is the only correct test.
+  const isCurrentWeek = weekNumber === dayjs().isoWeek() && year === dayjs().isoWeekYear();
 
   // `activeSeason` (the TRUE active/write-target season, never the browsed
-  // one) is kept ONLY for the initialize-week mutation and its availability
-  // gate below — both create rows, which always target the active season
-  // regardless of what's being browsed. It is deliberately NOT passed into
-  // useHarvestPlans/useDayEntries: those are reads, and the hooks now own
-  // season selection internally via the global store (useSelectedSeason()),
-  // so the switcher (Task 15/16) actually has an effect on this page.
+  // one) is used only for `TruckAllocationTable`'s `seasonId` prop below. It
+  // is deliberately NOT passed into useHarvestPlans/useDayEntries: those are
+  // reads, and the hooks own season selection internally via the global store
+  // (useSelectedSeason()), so the season switcher actually has an effect on
+  // this page.
   const { data: seasonsData } = useSeasons();
   const activeSeason = seasonsData?.find((s) => s.is_active);
   // The season the grid's DATA actually belongs to (`useHarvestPlans` /
   // `useDayEntries` read via the global switcher) — used only for the header
-  // label. Was `activeSeason.name` before Task 15; once a switcher exists
-  // that shows the wrong season's name beside browsed-season figures.
+  // label, so it never shows the wrong season's name beside browsed-season
+  // figures.
   const { seasonId: browsedSeasonId } = useSelectedSeason();
   const browsedSeason = seasonsData?.find((s) => s.id === browsedSeasonId);
   const isReadOnly = useSeasonReadOnly();
@@ -154,22 +162,20 @@ export default function OnumcilikTab() {
 
   // ─── Data fetching ─────────────────────────────────────────────────────────
 
+  const { data: blocksData, isLoading: blocksLoading } = useGreenhouseBlocks();
   const { data: plansData, isLoading: plansLoading, isError } = useHarvestPlans({ year, week: weekNumber });
   const { data: dayEntries = [], isLoading: entriesLoading } = useDayEntries({
     date_from: dateFrom,
     date_to: dateTo,
   });
 
-  const initWeek = useInitializeWeek();
   const upsertEntry = useUpsertDayEntry();
   const bulkGrant = useBulkGrantLateEdit();
   const bulkRevoke = useBulkRevokeLateEdit();
 
-  const isLoading = plansLoading || entriesLoading;
+  const isLoading = blocksLoading || plansLoading || entriesLoading;
 
   // ─── Derived data ──────────────────────────────────────────────────────────
-
-  const queryClient = useQueryClient();
 
   const myBlockIds = useMemo(() => new Set(user?.managed_block_ids ?? []), [user?.managed_block_ids]);
   const isBlockManager = user?.role === 'greenhouse_manager' && myBlockIds.size > 0;
@@ -177,37 +183,7 @@ export default function OnumcilikTab() {
   // unit-tested without rendering this component; every rationale comment moved
   // with them. `hasBlockPermission` stayed here — it is the one rule keyed on
   // data (managed_block_ids) rather than on role.
-  // `planOnlyCells` and `canEditActual` are not read here: every cell on this
-  // tab is plan-only by construction (see `OnumcilikCell`), so there is no
-  // branch left for either to select. Both still drive /export/plan.
-  const {
-    isAdminLike,
-    canEditHarvest,
-    canEditTrucks,
-    canGenerateTasks,
-  } = planGridCapabilities({ role: user?.role, isReadOnly });
-  const isManager = canEditHarvest;
-
-  const generateTasksMutation = useMutation<
-    IGenerateTasksResponse,
-    unknown,
-    { year: number; week: number }
-  >({
-    mutationFn: async ({ year: y, week: w }) => {
-      const { data } = await api.post<IGenerateTasksResponse>(
-        '/export/tasks/generate-weekly-plan/',
-        { year: y, week: w },
-      );
-      return data;
-    },
-    onSuccess: (data) => {
-      toast.success(t('plan.generate_tasks_toast', { count: data.created }));
-      void queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
-    },
-    onError: () => {
-      toast.error(t('common.error'));
-    },
-  });
+  const { isAdminLike, canEditHarvest, canEditTrucks } = planGridCapabilities({ role: user?.role, isReadOnly });
 
   const plans: IWeeklyHarvestPlan[] = useMemo(() => {
     const raw = plansData?.results ?? [];
@@ -216,6 +192,33 @@ export default function OnumcilikTab() {
     const rest = raw.filter((p) => !myBlockIds.has(p.block));
     return [...mine, ...rest];
   }, [plansData, isBlockManager, myBlockIds]);
+
+  /**
+   * Row source (Task 2) — one row per active top-level block, whether or not
+   * its week has a plan yet; `buildPlanGridRows` is shared with `/export/plan`
+   * (`WeeklyPlanGrid.rows.ts`). Reordered mine-first the same way `plans`
+   * above is: `buildPlanGridRows` sorts by the admin-defined block order and
+   * has no notion of "the current user", so that reorder stays a display
+   * concern of this list.
+   */
+  const rows: IPlanGridRow[] = useMemo(() => {
+    const built = buildPlanGridRows(blocksData ?? [], plans);
+    if (!isBlockManager) return built;
+    const mine = built.filter((r) => myBlockIds.has(r.block));
+    const rest = built.filter((r) => !myBlockIds.has(r.block));
+    return [...mine, ...rest];
+  }, [blocksData, plans, isBlockManager, myBlockIds]);
+
+  /** Task 3 — display-only filter over `rows`. Everything that isn't a block
+   * ROW/COLUMN in one of the two table views keeps reading the full `plans`
+   * (real plan objects only exist for blocks with one): `activeExtensionPlans`
+   * / `allPlanIds` (bulk late-edit grant targets) and `TruckAllocationTable`'s
+   * `plans` prop. The filter narrows what the grid shows, not what a bulk
+   * action reaches. */
+  const visibleRows = useMemo(
+    () => filterPlansByBlock(rows, selectedBlockIds),
+    [rows, selectedBlockIds],
+  );
 
   /** Map keyed by `${blockId}-${YYYY-MM-DD}` → IHarvestDayEntry */
   const entriesByBlockDay = useMemo((): Map<string, IHarvestDayEntry> => {
@@ -243,6 +246,10 @@ export default function OnumcilikTab() {
 
   // ─── KPI totals from day entries ───────────────────────────────────────────
 
+  // Deliberately summed over ALL of `dayEntries`, not `visibleRows` — these
+  // feed TruckAllocationTable's `totalPlanKg`/`dayTotals`, which need the true
+  // week figure regardless of the block filter above the grid.
+  //
   // 2026-09-16 — the grid is plan-only: every actual total below is commented
   // out rather than deleted, so the rollup numbers can be restored in one pass.
   // The late/critical-late counters went with the "Late submissions" tile they
@@ -291,9 +298,12 @@ export default function OnumcilikTab() {
     return false;
   }
 
-  function canEditPlanForEntry(entry: IHarvestDayEntry): boolean {
+  /** Keyed on the block id directly (not on an entry) so it works whether or
+   * not this block+day has a row yet — a missing cell needs the same
+   * editability answer an existing one would get. */
+  function canEditPlanForBlock(blockId: number): boolean {
     if (isReadOnly) return false;
-    if (!hasBlockPermission(entry.block)) return false;
+    if (!hasBlockPermission(blockId)) return false;
     // Both admin and greenhouse_manager can edit any plan cell at any time.
     // Lateness is tracked via entry.plan_state and surfaces as a cell badge;
     // late/critical_late submissions notify admin + director.
@@ -302,48 +312,40 @@ export default function OnumcilikTab() {
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
-  function handleCellSave(
-    entryId: number,
-    field: 'plan_value' | 'actual_value',
-    value: number | null,
-    reason?: string,
-  ) {
-    const key = String(entryId);
+  function handleCellSave(payload: IOnumcilikCellSavePayload) {
+    // Task 2 — a missing cell has no id, so it needs a saving key that still
+    // identifies it uniquely: the block+date it's about to create.
+    const key = payload.entryId != null ? String(payload.entryId) : `${payload.block}-${payload.entryDate}`;
     setSavingKey(key);
-    upsertEntry.mutate(
-      { id: entryId, [field]: value, ...(reason ? { reason } : {}) },
-      {
-        onSuccess: () => {
-          toast.success(
-            t(field === 'plan_value' ? 'plan.toast_plan_saved' : 'plan.toast_actual_saved'),
-          );
-          setSavingKey(null);
-        },
-        onError: (err: unknown) => {
-          const apiErr = err as { response?: { data?: { error?: string } } };
-          const serverMsg = apiErr?.response?.data?.error ?? '';
-          if (serverMsg.includes('Plan edits')) {
-            toast.error(t('plan.edit_window_closed_toast'));
-          } else {
-            toast.error(t('plan.toast_save_error'));
-          }
-          setSavingKey(null);
-        },
+    const mutationPayload = payload.entryId != null
+      ? { id: payload.entryId, plan_value: payload.value, ...(payload.reason ? { reason: payload.reason } : {}) }
+      : { block: payload.block, entry_date: payload.entryDate, plan_value: payload.value };
+    upsertEntry.mutate(mutationPayload, {
+      onSuccess: () => {
+        toast.success(t('plan.toast_plan_saved'));
+        setSavingKey(null);
       },
-    );
-  }
-
-  function handleGenerateTasks() {
-    if (!weekNumber || !year) return;
-    generateTasksMutation.mutate({ year, week: weekNumber });
-  }
-
-  function handleInitializeWeek() {
-    if (!activeSeason || !weekNumber || !year) return;
-    initWeek.mutate(
-      { season: activeSeason.id, week_number: weekNumber, year },
-      { onSuccess: () => toast.success(t('plan.toast_initialized')) },
-    );
+      onError: (err: unknown) => {
+        // A refusal from write-cell/PATCH is HTTP 400 keyed by field —
+        // `{"plan_value": "..."}` — not `{"error": "..."}`. Tolerate DRF's
+        // list-wrapped form too so this doesn't silently regress if the
+        // backend ever normalizes it.
+        const apiErr = err as {
+          response?: { data?: { plan_value?: string | string[]; error?: string } };
+        };
+        const rawField = apiErr?.response?.data?.plan_value;
+        const fieldMsg = Array.isArray(rawField) ? rawField[0] : rawField;
+        const serverMsg = fieldMsg ?? apiErr?.response?.data?.error ?? '';
+        if (serverMsg.includes('Plan edits')) {
+          toast.error(t('plan.edit_window_closed_toast'));
+        } else if (serverMsg) {
+          toast.error(serverMsg);
+        } else {
+          toast.error(t('plan.toast_save_error'));
+        }
+        setSavingKey(null);
+      },
+    });
   }
 
   function handleBulkGrant(granted_until: string) {
@@ -397,6 +399,27 @@ export default function OnumcilikTab() {
 
   const todayKey = dayjs().format('YYYY-MM-DD');
 
+  /** Task 2 — the Sunday show/hide control, moved from the toolbar `Button`
+   * into the table itself. Shared between the normal view's last day-column
+   * header and the pivot view's last day-row label (see transposedColumns
+   * below) so there is exactly one control, rendered wherever the currently
+   * active view puts it. */
+  function renderSundayToggle() {
+    const label = showSunday ? t('plan.hide_sunday') : t('plan.show_sunday');
+    return (
+      <Tooltip title={label}>
+        <button
+          type="button"
+          className="sera-sunday-toggle"
+          aria-label={label}
+          onClick={() => setShowSunday(!showSunday)}
+        >
+          {showSunday ? <MinusOutlined /> : <PlusOutlined />}
+        </button>
+      </Tooltip>
+    );
+  }
+
   const dayColumns = activeDays.map((day, di) => {
     const colDate = weekMonday.add(di, 'day');
     const colDateStr = colDate.format('YYYY-MM-DD');
@@ -404,7 +427,14 @@ export default function OnumcilikTab() {
       // Amber today column, ported from sera — highlight and caption both.
       className: colDateStr === todayKey ? 'sera-today-col' : undefined,
       title: (
-        <div style={{ textAlign: 'center', lineHeight: '16px' }}>
+        <div style={{ textAlign: 'center', lineHeight: '16px', position: 'relative' }}>
+          {/* Task 2 — anchored to the LAST visible day column, which is always
+              "immediately left of Total" regardless of which day that is
+              (Saturday when hidden, Sunday when shown). Absolutely positioned
+              so it never shifts the other columns' centered text. */}
+          {di === activeDays.length - 1 && (
+            <span style={{ position: 'absolute', top: -4, right: -4 }}>{renderSundayToggle()}</span>
+          )}
           <div>{t(`plan.${day}`)}</div>
           <div style={{ fontSize: 10, color: COLORS.textSecondary, fontWeight: 400 }}>
             {colDate.format('DD.MM')}
@@ -417,13 +447,14 @@ export default function OnumcilikTab() {
       ),
       key: `${day}_cell`,
       width: 120,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => {
+      render: (_: unknown, row: IPlanGridRow) => {
         const entry = entriesByBlockDay.get(`${row.block}-${colDateStr}`);
-        if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
         return (
           <OnumcilikCell
-            entry={entry}
-            canEdit={canEditPlanForEntry(entry)}
+            entry={entry ?? null}
+            block={row.block}
+            entryDate={colDateStr}
+            canEdit={canEditPlanForBlock(row.block)}
             onSave={handleCellSave}
             onCellClick={(id) => {
               const found = dayEntries.find((e) => e.id === id);
@@ -437,13 +468,13 @@ export default function OnumcilikTab() {
     };
   });
 
-  const columns: TableColumnsType<IWeeklyHarvestPlan> = [
+  const columns: TableColumnsType<IPlanGridRow> = [
     {
       title: t('plan.block'),
       key: 'block',
       fixed: 'left',
       width: 160,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => {
+      render: (_: unknown, row: IPlanGridRow) => {
         const isLinked =
           !!deepLinkBlock &&
           (String(row.block) === deepLinkBlock || row.block_code === deepLinkBlock);
@@ -455,16 +486,22 @@ export default function OnumcilikTab() {
               : undefined
           }
         >
-          {/* The block_code tag is deliberately gone (owner request, step 2):
-              the name alone identifies the row here. It also carried the
-              gold/blue "this is one of my blocks" marker for a block manager —
-              that signal survives on the row itself, which `onRow` gives a
-              yellow background and an inset gold left bar. */}
+          {/* The block_code tag is deliberately gone (owner request): the name
+              alone identifies the row here. It also carried the gold/blue
+              "this is one of my blocks" marker for a block manager — that
+              signal survives on the row itself, which `onRow` gives a yellow
+              background and an inset gold left bar. */}
           <span className="sera-block-name">{row.block_name}</span>
           {row.late_edit_active && (
             <Tag color="orange" style={{ marginLeft: 6, fontSize: 10 }}>
               <ClockCircleOutlined />
             </Tag>
+          )}
+          {/* Task 3 — the block's location (Dusak / Kaka / Owadandepe), now
+              that `/core/blocks/` carries it. Nothing rendered for a block
+              with none, rather than a placeholder line. */}
+          {row.location_name && (
+            <div className="sera-block-location">{row.location_name}</div>
           )}
           {row.block_manager_names.length > 0 && (
             <div style={{ color: COLORS.textMuted, fontSize: 10, marginTop: 1 }}>
@@ -485,7 +522,7 @@ export default function OnumcilikTab() {
       key: 'week_total',
       width: 110,
       className: 'sera-total-col',
-      render: (_: unknown, row: IWeeklyHarvestPlan) => {
+      render: (_: unknown, row: IPlanGridRow) => {
         // Plan only, because the day-total row below it is plan only — its
         // actual line is commented out. A row total that showed a second figure
         // the column it terminates does not show would read as a discrepancy.
@@ -521,36 +558,44 @@ export default function OnumcilikTab() {
       key: 'day',
       fixed: 'left',
       width: 100,
-      render: (text: string) => <strong>{text}</strong>,
+      // Task 2, pivot mirror — no day-column header exists in this view
+      // (days are rows here), so the same toggle sits beside the last
+      // visible day's row label instead. Still one control; only its
+      // position changes with the view.
+      render: (text: string, row: ITransposedRow) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <strong>{text}</strong>
+          {row.day === activeDays[activeDays.length - 1] && renderSundayToggle()}
+        </span>
+      ),
     },
-    ...plans.map((p) => {
-      const isMine = isBlockManager && myBlockIds.has(p.block);
+    ...visibleRows.map((blockRow) => {
+      const isMine = isBlockManager && myBlockIds.has(blockRow.block);
       return {
         title: (
           <div style={{ textAlign: 'center' as const }}>
-            <Tag color={isMine ? 'gold' : 'blue'}>{p.block_code}</Tag>
-            {p.block_manager_names.length > 0 && (
+            <Tag color={isMine ? 'gold' : 'blue'}>{blockRow.block_code}</Tag>
+            {blockRow.block_manager_names.length > 0 && (
               <div style={{ color: COLORS.textMuted, fontSize: 10, fontWeight: 400, marginTop: 1 }}>
-                {p.block_manager_names.join(', ')}
+                {blockRow.block_manager_names.join(', ')}
               </div>
             )}
           </div>
         ),
-        key: p.block_code,
+        key: blockRow.block_code,
         width: 130,
         onCell: () => ({ style: isMine ? { backgroundColor: COLORS.bgYellow } : undefined }),
         onHeaderCell: () => ({ style: isMine ? { backgroundColor: COLORS.bgYellow } : undefined }),
         render: (_: unknown, row: ITransposedRow) => {
-          const entry = entriesByBlockDay.get(`${p.block}-${row.dateStr}`);
-          if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
+          const entry = entriesByBlockDay.get(`${blockRow.block}-${row.dateStr}`);
           return (
             /* Same cell as the normal view. A pivot toggle changes which axis
-               is which, not what a cell means — leaving HarvestCell here would
-               make the actual reachable through a button that is supposed to
-               only rotate the table. */
+               is which, not what a cell means. */
             <OnumcilikCell
-              entry={entry}
-              canEdit={canEditPlanForEntry(entry)}
+              entry={entry ?? null}
+              block={blockRow.block}
+              entryDate={row.dateStr}
+              canEdit={canEditPlanForBlock(blockRow.block)}
               onSave={handleCellSave}
               onCellClick={(id) => {
                 const found = dayEntries.find((e) => e.id === id);
@@ -574,12 +619,12 @@ export default function OnumcilikTab() {
         {activeDays.map((day, di) => {
           const colDate = weekMonday.add(di, 'day');
           const colDateStr = colDate.format('YYYY-MM-DD');
-          const planTotal = plans.reduce((s, p) => {
-            const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
+          const planTotal = visibleRows.reduce((s, r) => {
+            const e = entriesByBlockDay.get(`${r.block}-${colDateStr}`);
             return s + num(e?.plan_value);
           }, 0);
-          // const actualTotal = plans.reduce((s, p) => {
-          //   const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
+          // const actualTotal = visibleRows.reduce((s, r) => {
+          //   const e = entriesByBlockDay.get(`${r.block}-${colDateStr}`);
           //   return s + num(e?.actual_value);
           // }, 0);
           return (
@@ -595,12 +640,13 @@ export default function OnumcilikTab() {
         })}
         {/* Where the Total column meets the total row. Summed from the same
             per-block function as the column above, so the corner can never
-            disagree with it. */}
+            disagree with it — and both read from `visibleRows`, so the
+            block filter narrows this the same way it narrows the table. */}
         <Table.Summary.Cell key="sum_week" index={1 + activeDays.length} className="sera-total-col">
           <div className="sera-total-plan">
             {fmtKg(
-              sumAllBlocks(entriesByBlockDay, plans.map((p) => p.block), visibleDateKeys).plan ||
-                null,
+              sumAllBlocks(entriesByBlockDay, visibleRows.map((r) => r.block), visibleDateKeys)
+                .plan || null,
             )}
           </div>
         </Table.Summary.Cell>
@@ -615,51 +661,24 @@ export default function OnumcilikTab() {
           <Table.Summary.Cell index={0}>
             <span style={{ color: COLORS.primary }}>{t('plan.total')} {t('plan.plan')}</span>
           </Table.Summary.Cell>
-          {plans.map((p, i) => {
+          {visibleRows.map((blockRow, i) => {
             const blockTotal = activeDays.reduce((s, _, di) => {
               const colDate = weekMonday.add(di, 'day');
-              const e = entriesByBlockDay.get(`${p.block}-${colDate.format('YYYY-MM-DD')}`);
+              const e = entriesByBlockDay.get(`${blockRow.block}-${colDate.format('YYYY-MM-DD')}`);
               return s + num(e?.plan_value);
             }, 0);
             return (
-              <Table.Summary.Cell key={`tp_${p.id}`} index={1 + i}>
+              <Table.Summary.Cell key={`tp_${blockRow.key}`} index={1 + i}>
                 <span style={{ color: COLORS.primary }}>{fmtKg(blockTotal || null)}</span>
               </Table.Summary.Cell>
             );
           })}
         </Table.Summary.Row>
-        {/* <Table.Summary.Row style={{ fontWeight: 600 }}>
-          <Table.Summary.Cell index={0}>
-            <span style={{ color: COLORS.success }}>{t('plan.total')} {t('plan.actual')}</span>
-          </Table.Summary.Cell>
-          {plans.map((p, i) => {
-            const blockTotal = activeDays.reduce((s, _, di) => {
-              const colDate = weekMonday.add(di, 'day');
-              const e = entriesByBlockDay.get(`${p.block}-${colDate.format('YYYY-MM-DD')}`);
-              return s + num(e?.actual_value);
-            }, 0);
-            return (
-              <Table.Summary.Cell key={`ta_${p.id}`} index={1 + i}>
-                <span style={{ color: COLORS.success }}>{fmtKg(blockTotal || null)}</span>
-              </Table.Summary.Cell>
-            );
-          })}
-        </Table.Summary.Row> */}
       </>
     );
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
-
-  // Show Initialize Week when plans are missing OR plans exist but day-entry cells
-  // were never created (legacy data created before initialize_harvest_week backfilled
-  // HarvestDayEntry rows). The endpoint is idempotent.
-  const expectedDayEntries = plans.length * DAYS.length;
-  const showInitialize =
-    !isLoading &&
-    !!isManager &&
-    !!activeSeason &&
-    (plans.length === 0 || dayEntries.length < expectedDayEntries);
 
   return (
     <div>
@@ -667,44 +686,24 @@ export default function OnumcilikTab() {
         <div>
           <Title level={4} style={{ margin: 0 }}>{t('plan.title')}</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
+            {t('plan.week')} {weekNumber} · {year} · {rows.length} {t('plan.blocks')}
             {browsedSeason && <span> · {browsedSeason.name}</span>}
           </Text>
         </div>
         <Space wrap>
-          <Button
-            icon={<LeftOutlined />}
-            onClick={() => setSelectedWeek((w) => (w ?? dayjs()).subtract(1, 'week'))}
-            aria-label={t('plan.prev_week')}
-          />
-          <DatePicker
-            picker="week"
-            value={selectedWeek}
-            onChange={(d) => setSelectedWeek(d)}
-            allowClear={false}
-            style={{ width: 180 }}
-          />
-          <Button
-            icon={<RightOutlined />}
-            onClick={() => setSelectedWeek((w) => (w ?? dayjs()).add(1, 'week'))}
-            aria-label={t('plan.next_week')}
-          />
-          {plans.length > 0 && (
+          {/* Task 3 — block-row filter; built from the FULL `rows` (not
+              `visibleRows`) so a block removed from view stays pickable to
+              bring back. */}
+          {rows.length > 0 && (
+            <BlockFilterSelect rows={rows} value={selectedBlockIds} onChange={setSelectedBlockIds} />
+          )}
+          {rows.length > 0 && (
             <Button
               icon={<SwapOutlined />}
               onClick={() => setTransposed(!transposed)}
               type={transposed ? 'primary' : 'default'}
             >
               {t('plan.pivot')}
-            </Button>
-          )}
-          {plans.length > 0 && (
-            <Button
-              icon={<CalendarOutlined />}
-              onClick={() => setShowSunday(!showSunday)}
-              type={showSunday ? 'primary' : 'default'}
-            >
-              {showSunday ? t('plan.hide_sunday') : t('plan.show_sunday')}
             </Button>
           )}
           {isAdminLike && plans.length > 0 && (
@@ -729,33 +728,6 @@ export default function OnumcilikTab() {
               {t('plan.bulk_revoke_button')}
             </Button>
           )}
-          {canGenerateTasks && (
-            <Button
-              icon={<BulbOutlined />}
-              loading={generateTasksMutation.isPending}
-              onClick={handleGenerateTasks}
-              disabled={!weekNumber || !year || isReadOnly}
-            >
-              {t('plan.generate_tasks')}
-            </Button>
-          )}
-          {showInitialize && (
-            <Button
-              type="primary"
-              loading={initWeek.isPending}
-              // Initialize Week always creates rows in the TRUE active season
-              // (see the `activeSeason` comment above), never the browsed one,
-              // so a click here can't 409. Disabled anyway while browsing a
-              // closed season: the button reacts to the BROWSED season's empty
-              // grid (plans.length === 0), so leaving it live would let someone
-              // "initialize" what looks like the season they're looking at
-              // while it silently writes into a different one.
-              disabled={isReadOnly}
-              onClick={handleInitializeWeek}
-            >
-              {t('plan.initialize_week')}
-            </Button>
-          )}
           {canSeeFallbackMode && isInFallbackWindow && (
             <Button
               type="primary"
@@ -766,11 +738,38 @@ export default function OnumcilikTab() {
               {t('plan.fallback_mode')}
             </Button>
           )}
+          {/* Task 1 — sera's three-button week nav (App.jsx:13389-13391),
+              labelled prev / this-week / next, plus the week DatePicker
+              immediately to its left, both moved to the right-hand end of
+              the toolbar — the slot the removed Generate/Initialize buttons
+              used to occupy. Every other control above keeps its position. */}
+          <DatePicker
+            picker="week"
+            value={selectedWeek}
+            onChange={(d) => setSelectedWeek(d)}
+            allowClear={false}
+            style={{ width: 180 }}
+          />
+          <Space size={4} className="sera-week-nav">
+            <Button size="small" onClick={() => setSelectedWeek((w) => (w ?? dayjs()).subtract(1, 'week'))}>
+              ◀ {t('plan.prev_week')}
+            </Button>
+            <Button
+              size="small"
+              type={isCurrentWeek ? 'primary' : 'default'}
+              onClick={() => setSelectedWeek(dayjs())}
+            >
+              {t('plan.this_week')}
+            </Button>
+            <Button size="small" onClick={() => setSelectedWeek((w) => (w ?? dayjs()).add(1, 'week'))}>
+              {t('plan.next_week')} ▶
+            </Button>
+          </Space>
         </Space>
       </Flex>
 
       {/* KPI stat cards */}
-      {plans.length > 0 && (
+      {rows.length > 0 && (
         <Flex gap={12} wrap style={{ marginBottom: 16 }}>
           <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
@@ -799,8 +798,8 @@ export default function OnumcilikTab() {
             />
           </Card>
           {/* The "Late submissions" tile is deliberately absent here (owner
-              request, step 2). It still exists on /export/plan, where chasing
-              late block managers is the job; this tab is for reading the week's
+              request). It still exists on /export/plan, where chasing late
+              block managers is the job; this tab is for reading the week's
               tonnage. `plan_state` is unaffected — the backend still records
               on_time/late/critical_late and the dispatcher still notifies. */}
         </Flex>
@@ -863,8 +862,6 @@ export default function OnumcilikTab() {
 
       {isLoading ? (
         <Skeleton active />
-      ) : plans.length === 0 && !showInitialize ? (
-        <Alert type="info" message={t('plan.empty_week')} style={{ marginBottom: 16 }} />
       ) : transposed ? (
         <Table<ITransposedRow>
           columns={transposedColumns}
@@ -877,10 +874,10 @@ export default function OnumcilikTab() {
           summary={renderTransposedSummary}
         />
       ) : (
-        <Table<IWeeklyHarvestPlan>
+        <Table<IPlanGridRow>
           columns={columns}
-          dataSource={plans}
-          rowKey="id"
+          dataSource={visibleRows}
+          rowKey="key"
           bordered
           size="small"
           scroll={{ x: 'max-content' }}

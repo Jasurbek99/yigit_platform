@@ -262,6 +262,16 @@
   white-space: nowrap;
 }
 
+/* Task 3 — the block's location (Dusak / Kaka / Owadandepe), one muted line
+   under the name. Absent entirely (no empty line reserved) when a block has
+   no location, so blocks with and without one don't visibly misalign — the
+   manager-names line below still opens with its own icon either way. */
+.sera-page .sera-block-location {
+  color: var(--sera-text-faint);
+  font-size: 10px;
+  margin-top: 1px;
+}
+
 /* ── The cell itself ────────────────────────────────────────────────────
    Ported from `NumInput` at App.jsx:2300 as the Önümçilik table uses it
    (App.jsx:13438): `w-full px-2 py-1.5 rounded-md border border-stone-200
@@ -391,6 +401,64 @@
    the body but wrong under the emerald total row. */
 .sera-page .ant-table-summary .ant-table-cell-fix-left {
   background: #ecfdf5;
+}
+
+/* ── Week navigation (Task 1) ──────────────────────────────────────────
+   Ported from the three-button toolbar at App.jsx:13389-13391 (`Btn`,
+   App.jsx:2282: outline default, emerald-800 primary). Scoped to
+   `.sera-week-nav` rather than every `.ant-btn` on the page: the same
+   toolbar also carries Pivot / Initialize Week / Fallback Mode buttons,
+   which keep antd's own blue theme — only the week-nav trio is meant to
+   read as sera's `Btn` here. */
+.sera-page .sera-week-nav .ant-btn {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.sera-page .sera-week-nav .ant-btn-default {
+  border-color: var(--sera-border);
+  color: var(--sera-text-soft);
+}
+
+.sera-page .sera-week-nav .ant-btn-default:hover {
+  border-color: var(--sera-accent);
+  color: var(--sera-accent);
+}
+
+.sera-page .sera-week-nav .ant-btn-primary {
+  background: var(--sera-accent);
+  border-color: var(--sera-accent);
+}
+
+.sera-page .sera-week-nav .ant-btn-primary:hover {
+  background: var(--sera-accent-hover);
+  border-color: var(--sera-accent-hover);
+}
+
+/* ── Sunday show/hide (Task 2) ──────────────────────────────────────────
+   Moved out of the toolbar into the table itself: a small +/- sitting at the
+   right-hand end of the day columns (normal view) or beside the last day row
+   label (pivot view — see OnumcilikTab.tsx's renderSundayToggle). Deliberately
+   NOT sized or coloured like a data cell — this is chrome, not a number. */
+.sera-page .sera-sunday-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--sera-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sera-text-faint);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sera-page .sera-sunday-toggle:hover {
+  border-color: var(--sera-accent);
+  color: var(--sera-accent);
 }
 
 /* ── Tırlar: the trucks sheet ───────────────────────────────────────────
