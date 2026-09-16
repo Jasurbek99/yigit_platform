@@ -453,3 +453,19 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ── Datalar: Shipment Settings ─────────────────────────────────────────
+   The tab mounts the admin page unchanged; its tables already pick up the
+   data-table block above. Only its antd <Tabs> strip still carries the
+   platform's blue, so the active label and ink bar take the sera accent.
+   Scoped to `.sera-settings` (the Datalar wrapper): the Sheet's comment
+   composer also renders antd <Tabs> and can sit inside `.sera-page`. */
+
+.sera-page .sera-settings .ant-tabs-tab:hover,
+.sera-page .sera-settings .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--sera-accent);
+}
+
+.sera-page .sera-settings .ant-tabs-ink-bar {
+  background: var(--sera-accent);
+}

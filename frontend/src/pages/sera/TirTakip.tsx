@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeePage } from '@/utils/permissions';
@@ -15,14 +16,20 @@ import './sera.css';
  * top of `sera.css`.
  *
  * Tab bodies arrive one at a time — the owner is supplying the contents tab by
- * tab, and each placeholder is replaced as its spec does. Two are filled:
- * `onumcilik` (a copy of the Weekly Plan grid) and `tirlar` (a copy of the
- * Shipment Sheet page wrapper); the other seven still render the placeholder.
+ * tab, and each placeholder is replaced as its spec does. Three are filled:
+ * `onumcilik` (a copy of the Weekly Plan grid), `tirlar` (a copy of the
+ * Shipment Sheet page wrapper) and `datalar` (the Shipment Settings page); the
+ * other six still render the placeholder.
  *
  * Whether a tab eventually stays a tab or becomes its own route is still open,
  * and costs nothing to decide later: `tir_takip.gaplama` gates the tab today
  * and would be that route's `pageCode` unchanged tomorrow.
  */
+
+// Lazy, as in App.tsx: most roles only ever see Datalar's no-access panel, so
+// they should not download the settings page. The local Suspense keeps a load
+// from falling through to App's route-level boundary and blanking the layout.
+const ShipmentSettingsPage = lazy(() => import('@/pages/admin/ShipmentSettingsPage'));
 
 interface ISeraTab {
   /** Tab id; also the i18n key suffix. */
@@ -57,7 +64,7 @@ interface ISeraTabBody {
 
 /**
  * Bodies for the tabs that have one. A key missing here falls through to the
- * placeholder, which is what the remaining eight tabs still want.
+ * placeholder, which is what the remaining tabs still want.
  *
  * Önümçilik needs `export.plan` on top of its own `tir_takip.onumcilik`.
  * The tab code is granted to all 15 roles (the owner asked for the page to be
@@ -81,6 +88,23 @@ const TAB_BODIES: Record<string, ISeraTabBody> = {
   // underneath — SheetGrid is reused, not forked — but page-level reach is a
   // decision for the permission matrix, not for this copy.
   tirlar: { requires: 'export.shipments_sheet', node: <TirlarTab /> },
+  // Datalar is the source app's reference-data table — here, the Shipment
+  // Settings page, mounted as-is so its inner `canDo` write gates and the
+  // conditional Row Access tab stay the admin page's own. Unlike the two
+  // above, this body WRITES: statuses, border points, dropdown options, truck
+  // split defaults and Sheet row access. The tab code is granted to all 15
+  // roles, `admin.shipment_settings` to four by default (admin, boss,
+  // export_manager, document_team).
+  datalar: {
+    requires: 'admin.shipment_settings',
+    node: (
+      <div className="sera-settings">
+        <Suspense fallback={<Spin />}>
+          <ShipmentSettingsPage />
+        </Suspense>
+      </div>
+    ),
+  },
 };
 
 export default function TirTakip() {

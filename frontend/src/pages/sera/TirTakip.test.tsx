@@ -26,6 +26,12 @@ vi.mock('./TirlarTab', () => ({
   default: () => <div data-testid="tirlar-body" />,
 }));
 
+// And for the Shipment Settings page behind Datalar: six sub-tabs of queries
+// and mutations.
+vi.mock('@/pages/admin/ShipmentSettingsPage', () => ({
+  default: () => <div data-testid="datalar-body" />,
+}));
+
 const ALL_TAB_CODES = [
   'tir_takip.onumcilik', 'tir_takip.gaplama', 'tir_takip.tirlar',
   'tir_takip.export_rapor', 'tir_takip.hasabat', 'tir_takip.gumruk_ewrak',
@@ -127,6 +133,32 @@ describe('TirTakip', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Trucks' }));
 
     expect(screen.queryByTestId('tirlar-body')).toBeNull();
+    expect(
+      screen.getByText(
+        'You do not have access to this data. An administrator can grant it in the permission matrix.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the Shipment Settings body on Datalar when that page is granted', async () => {
+    grant([...ALL_TAB_CODES, 'admin.shipment_settings']);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Data' }));
+
+    expect(await screen.findByTestId('datalar-body')).toBeInTheDocument();
+    expect(screen.queryByText('This section has no content yet.')).toBeNull();
+  });
+
+  it('withholds the Shipment Settings body from a role that cannot see that page', async () => {
+    // The body edits statuses, dropdown options and Sheet row access:
+    // `admin.shipment_settings` is held by four roles, the tab code by fifteen.
+    grant(ALL_TAB_CODES);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Data' }));
+
+    expect(screen.queryByTestId('datalar-body')).toBeNull();
     expect(
       screen.getByText(
         'You do not have access to this data. An administrator can grant it in the permission matrix.',
