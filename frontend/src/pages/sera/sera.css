@@ -195,3 +195,200 @@
   font-size: 14px;
   text-align: center;
 }
+
+/* ── Data table ─────────────────────────────────────────────────────────
+   Ported from the Önümçilik table at App.jsx:13412–13500. That table is a
+   plain `<table class="w-full text-xs border-collapse">`; ours is an antd
+   <Table>, kept because it already carries the sticky first column, the
+   horizontal scroll, the summary row and the editable cell — none of which the
+   restyle changes. So this block is antd's DOM wearing sera's typography and
+   palette, not a reimplementation.
+
+   Every selector starts at `.sera-page`, so `/export/plan` — the same grid,
+   one route away — is untouched. That containment is the whole reason the copy
+   exists; see the header of this file.
+
+   Tailwind values, resolved: text-xs 12px, text-sm 14px, text-[9px] 9px;
+   stone-50 #fafaf9, stone-100 #f5f5f4, stone-200 #e7e5e4, stone-300 #d6d3d1,
+   stone-400 #a8a29e, stone-700 #44403c; emerald-50 #ecfdf5, emerald-700
+   #047857, emerald-800 #065f46; amber-100 #fef3c7, amber-50 #fffbeb. */
+
+.sera-page .ant-table {
+  font-size: 12px;
+  background: transparent;
+}
+
+/* antd's own cell borders are heavier and warmer-grey than sera's. Redraw
+   them: a single left rule per cell, the way `border-l border-stone-100`
+   does, instead of antd's full box. */
+.sera-page .ant-table-bordered .ant-table-container,
+.sera-page .ant-table-bordered .ant-table-container table > thead > tr > th,
+.sera-page .ant-table-bordered .ant-table-container table > tbody > tr > td,
+.sera-page .ant-table-bordered .ant-table-container table > tfoot > tr > td {
+  border-color: #f5f5f4;
+}
+
+.sera-page .ant-table-thead > tr > th {
+  background: var(--sera-surface);
+  border-bottom: 1px solid var(--sera-border);
+  color: var(--sera-text-faint);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px;
+}
+
+/* antd draws a vertical divider pseudo-element between header cells on top of
+   the border we just set, in a different colour. */
+.sera-page .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+.sera-page .ant-table-tbody > tr > td {
+  padding: 4px;
+  border-bottom: 1px solid #f5f5f4;
+}
+
+/* The block column. `px-3 py-2` on the sera side, and the name carries the row
+   now that the block-code tag is gone — so it takes stone-700 at the table's
+   own size rather than the muted 11px it had as a subtitle. */
+.sera-page .ant-table-tbody > tr > td:first-child {
+  padding: 8px 12px;
+}
+
+.sera-block-name {
+  color: var(--sera-text-soft);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── The cell itself ────────────────────────────────────────────────────
+   Ported from `NumInput` at App.jsx:2300 as the Önümçilik table uses it
+   (App.jsx:13438): `w-full px-2 py-1.5 rounded-md border border-stone-200
+   text-sm` plus the table's own `text-center`. Every cell is a box you type
+   straight into — no click-to-edit step — which is why `OnumcilikCell`
+   replaces `HarvestCell` here.
+
+   14px is the one thing sera sets LARGER than its 12px table: it is the number
+   being typed, so it carries the cell. */
+.sera-page .sera-cell-input.ant-input-number {
+  width: 100%;
+  border-color: var(--sera-border);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+/* 34px is sera's box, measured rather than guessed: `py-1.5` is 6px top and
+   bottom, `text-sm` is a 20px line, plus 1px of border each side. Ours read
+   shorter because antd's small size is 24px. */
+.sera-page .sera-cell-input .ant-input-number-input {
+  height: 34px;
+  padding: 0 4px;
+  color: var(--sera-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* emerald-600, matching the focus ring the sera inputs carry
+   (`focus:ring-emerald-600 focus:border-emerald-600`). */
+.sera-page .sera-cell-input.ant-input-number-focused,
+.sera-page .sera-cell-input.ant-input-number:focus-within {
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgb(5 150 105 / 20%);
+}
+
+.sera-page .sera-cell-input.ant-input-number-disabled {
+  background: #f5f5f4;
+}
+
+/* An empty cell should read as empty, not as a zero someone typed — the
+   placeholder is the em-dash the rest of the grid uses for NULL. */
+.sera-page .sera-cell-input .ant-input-number-input::placeholder {
+  color: var(--sera-text-faint);
+  font-weight: 400;
+}
+
+/* Read-only: plain text, not a box nobody can use. Click opens the history
+   modal, so it keeps a pointer. */
+/* Matches the input's 34px + its 2px of border, so a read-only cell does not
+   make its row shorter than the editable rows around it. */
+.sera-cell--readonly {
+  min-height: 36px;
+  padding: 8px 4px;
+  color: var(--sera-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.sera-cell-empty {
+  color: var(--sera-text-faint);
+  font-weight: 400;
+}
+
+/* An explicit confirmed zero — `0` with a submitted_at — as opposed to a cell
+   nobody has touched. Italic is how the rest of the grid spells the same
+   distinction. */
+.sera-cell-zero {
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Today's column: amber-100 in the header, amber-50 at 40% in the body — faint
+   enough to sit under the block-manager row highlight without fighting it. */
+.sera-page .ant-table-thead > tr > th.sera-today-col {
+  background: var(--sera-today);
+}
+
+/* sera's `text-[9px] text-amber-700 font-normal` caption under today's date. */
+.sera-today-caption {
+  color: #b45309;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.sera-page .ant-table-tbody > tr > td.sera-today-col {
+  background: rgb(255 251 235 / 40%);
+}
+
+/* The JEMI column, and the corner cell where it meets the total row. The
+   heavier stone-300 rule on the left is what separates a total from the days
+   it totals. */
+.sera-page .ant-table-thead > tr > th.sera-total-col,
+.sera-page .ant-table-tbody > tr > td.sera-total-col,
+.sera-page .ant-table-summary > tr > td.sera-total-col {
+  border-left: 1px solid #d6d3d1;
+  text-align: right;
+}
+
+.sera-total-plan {
+  color: var(--sera-accent-hover);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The total row. `border-t-2 border-stone-300 bg-emerald-50 font-bold`.
+   Solid emerald-50, not the translucent --sera-card-bg: this row sits over the
+   page gradient, and 40% of it would let the green ramp through unevenly
+   across the row's width. */
+.sera-page .ant-table-summary > tr > td {
+  background: #ecfdf5;
+  border-top: 2px solid #d6d3d1;
+  color: var(--sera-accent);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px;
+}
+
+.sera-page .ant-table-summary > tr > td:first-child {
+  padding-left: 12px;
+}
+
+/* A sticky first column paints over the rows it scrolls past, so it needs an
+   opaque background of its own — antd's default is white, which is right for
+   the body but wrong under the emerald total row. */
+.sera-page .ant-table-summary .ant-table-cell-fix-left {
+  background: #ecfdf5;
+}

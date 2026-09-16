@@ -12,7 +12,6 @@ import {
   Card,
   Collapse,
   Statistic,
-  Tooltip,
   Modal,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
@@ -50,13 +49,14 @@ import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useUiStore } from '@/stores/uiStore';
 import api from '@/services/api';
-import { HarvestCell } from '@/components/HarvestCell';
+import { OnumcilikCell } from './OnumcilikCell';
 import { getCurrentForecastWindow, num, fmtKg } from '@/components/HarvestCell.helpers';
 import { CellHistoryModal } from '@/components/CellHistoryModal';
 import { GrantExtensionModal } from '@/components/GrantExtensionModal';
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from '@/pages/export/TruckAllocationTable';
 import { planGridCapabilities } from '@/pages/export/WeeklyPlanGrid.roles';
+import { sumBlockWeek, sumAllBlocks } from './OnumcilikTab.totals';
 import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
@@ -177,13 +177,14 @@ export default function OnumcilikTab() {
   // unit-tested without rendering this component; every rationale comment moved
   // with them. `hasBlockPermission` stayed here — it is the one rule keyed on
   // data (managed_block_ids) rather than on role.
+  // `planOnlyCells` and `canEditActual` are not read here: every cell on this
+  // tab is plan-only by construction (see `OnumcilikCell`), so there is no
+  // branch left for either to select. Both still drive /export/plan.
   const {
     isAdminLike,
     canEditHarvest,
-    planOnlyCells,
     canEditTrucks,
     canGenerateTasks,
-    canEditActual,
   } = planGridCapabilities({ role: user?.role, isReadOnly });
   const isManager = canEditHarvest;
 
@@ -242,23 +243,24 @@ export default function OnumcilikTab() {
 
   // ─── KPI totals from day entries ───────────────────────────────────────────
 
-  const { totalPlan, totalActual, dayPlanTotals, lateCount, criticalLateCount } = useMemo(() => {
-    let plan = 0, actual = 0, late = 0, critical = 0;
+  // 2026-09-16 — the grid is plan-only: every actual total below is commented
+  // out rather than deleted, so the rollup numbers can be restored in one pass.
+  // The late/critical-late counters went with the "Late submissions" tile they
+  // fed. `plan_state` is still written and still drives the dispatcher and the
+  // /export/plan tile — nothing on this page counts it any more.
+  const { totalPlan, /* totalActual, */ dayPlanTotals } = useMemo(() => {
+    let plan = 0; /* actual = 0; */
     const dayTotalsMap: Record<string, number> = {};
     for (const e of dayEntries) {
       const v = num(e.plan_value);
       plan += v;
-      actual += e.actual_value != null ? num(e.actual_value) : 0;
+      // actual += e.actual_value != null ? num(e.actual_value) : 0;
       dayTotalsMap[e.entry_date] = (dayTotalsMap[e.entry_date] ?? 0) + v;
-      if (e.plan_state === 'late') late += 1;
-      else if (e.plan_state === 'critical_late') critical += 1;
     }
     return {
       totalPlan: plan,
-      totalActual: actual,
+      // totalActual: actual,
       dayPlanTotals: dayTotalsMap,
-      lateCount: late,
-      criticalLateCount: critical,
     };
   }, [dayEntries]);
 
@@ -296,14 +298,6 @@ export default function OnumcilikTab() {
     // Lateness is tracked via entry.plan_state and surfaces as a cell badge;
     // late/critical_late submissions notify admin + director.
     return true;
-  }
-
-  function canEditActualForEntry(entry: IHarvestDayEntry): boolean {
-    // Actuals are computed daily by the rollup_actuals job from shipment loading
-    // data. Only admin can override a computed value. `entry` retained for
-    // symmetry with the other can-edit helpers and future block-level rules.
-    void entry;
-    return canEditActual;
   }
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -393,16 +387,32 @@ export default function OnumcilikTab() {
 
   // ─── Column definitions (normal view: blocks as rows) ─────────────────────
 
+  // The dates actually on screen. Hiding Sunday drops it from here too, so the
+  // Total column only ever counts columns the reader can add up by eye.
+  // Not memoised: `weekMonday` is a fresh Dayjs every render, so a dep array
+  // would never hit — and this is six string formats.
+  const visibleDateKeys = activeDays.map((_, di) =>
+    weekMonday.add(di, 'day').format('YYYY-MM-DD'),
+  );
+
+  const todayKey = dayjs().format('YYYY-MM-DD');
+
   const dayColumns = activeDays.map((day, di) => {
     const colDate = weekMonday.add(di, 'day');
     const colDateStr = colDate.format('YYYY-MM-DD');
     return {
+      // Amber today column, ported from sera — highlight and caption both.
+      className: colDateStr === todayKey ? 'sera-today-col' : undefined,
       title: (
         <div style={{ textAlign: 'center', lineHeight: '16px' }}>
           <div>{t(`plan.${day}`)}</div>
           <div style={{ fontSize: 10, color: COLORS.textSecondary, fontWeight: 400 }}>
             {colDate.format('DD.MM')}
           </div>
+          {/* Sera's "şu gün" line, in whichever language the user is reading.
+              Rendered only under today's date, so it never costs height on the
+              other six columns. */}
+          {colDateStr === todayKey && <div className="sera-today-caption">{t('plan.today')}</div>}
         </div>
       ),
       key: `${day}_cell`,
@@ -411,17 +421,15 @@ export default function OnumcilikTab() {
         const entry = entriesByBlockDay.get(`${row.block}-${colDateStr}`);
         if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
         return (
-          <HarvestCell
+          <OnumcilikCell
             entry={entry}
-            canEditPlan={canEditPlanForEntry(entry)}
-            canEditActual={canEditActualForEntry(entry)}
+            canEdit={canEditPlanForEntry(entry)}
             onSave={handleCellSave}
             onCellClick={(id) => {
               const found = dayEntries.find((e) => e.id === id);
               if (found) setHistoryEntry(found);
             }}
             isAdmin={isAdminLike}
-            planOnly={planOnlyCells}
             savingKey={savingKey}
           />
         );
@@ -447,15 +455,17 @@ export default function OnumcilikTab() {
               : undefined
           }
         >
-          <Tag color={isBlockManager && myBlockIds.has(row.block) ? 'gold' : 'blue'}>
-            {row.block_code}
-          </Tag>
+          {/* The block_code tag is deliberately gone (owner request, step 2):
+              the name alone identifies the row here. It also carried the
+              gold/blue "this is one of my blocks" marker for a block manager —
+              that signal survives on the row itself, which `onRow` gives a
+              yellow background and an inset gold left bar. */}
+          <span className="sera-block-name">{row.block_name}</span>
           {row.late_edit_active && (
-            <Tag color="orange" style={{ marginLeft: 2, fontSize: 10 }}>
+            <Tag color="orange" style={{ marginLeft: 6, fontSize: 10 }}>
               <ClockCircleOutlined />
             </Tag>
           )}
-          <div style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 2 }}>{row.block_name}</div>
           {row.block_manager_names.length > 0 && (
             <div style={{ color: COLORS.textMuted, fontSize: 10, marginTop: 1 }}>
               <UserOutlined style={{ marginRight: 3 }} />
@@ -467,6 +477,22 @@ export default function OnumcilikTab() {
       },
     },
     ...dayColumns,
+    {
+      // `JEMI` in the sera app — one block's visible week, summed. Last column
+      // and not sticky, as it is there. Header reuses `plan.total`, the string
+      // the total ROW already uses, so the two totals read as the same idea.
+      title: t('plan.total'),
+      key: 'week_total',
+      width: 110,
+      className: 'sera-total-col',
+      render: (_: unknown, row: IWeeklyHarvestPlan) => {
+        // Plan only, because the day-total row below it is plan only — its
+        // actual line is commented out. A row total that showed a second figure
+        // the column it terminates does not show would read as a discrepancy.
+        const { plan } = sumBlockWeek(entriesByBlockDay, row.block, visibleDateKeys);
+        return <div className="sera-total-plan">{fmtKg(plan || null)}</div>;
+      },
+    },
   ];
 
   // ─── Transposed view (days as rows, blocks as columns) ────────────────────
@@ -518,17 +544,19 @@ export default function OnumcilikTab() {
           const entry = entriesByBlockDay.get(`${p.block}-${row.dateStr}`);
           if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
           return (
-            <HarvestCell
+            /* Same cell as the normal view. A pivot toggle changes which axis
+               is which, not what a cell means — leaving HarvestCell here would
+               make the actual reachable through a button that is supposed to
+               only rotate the table. */
+            <OnumcilikCell
               entry={entry}
-              canEditPlan={canEditPlanForEntry(entry)}
-              canEditActual={canEditActualForEntry(entry)}
+              canEdit={canEditPlanForEntry(entry)}
               onSave={handleCellSave}
               onCellClick={(id) => {
                 const found = dayEntries.find((e) => e.id === id);
                 if (found) setHistoryEntry(found);
               }}
               isAdmin={isAdminLike}
-              planOnly={planOnlyCells}
               savingKey={savingKey}
             />
           );
@@ -550,21 +578,32 @@ export default function OnumcilikTab() {
             const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
             return s + num(e?.plan_value);
           }, 0);
-          const actualTotal = plans.reduce((s, p) => {
-            const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
-            return s + num(e?.actual_value);
-          }, 0);
+          // const actualTotal = plans.reduce((s, p) => {
+          //   const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
+          //   return s + num(e?.actual_value);
+          // }, 0);
           return (
             <Table.Summary.Cell key={`sum_${day}`} index={1 + di}>
               <div>
-                <div style={{ color: COLORS.primary, fontSize: 12 }}>{fmtKg(planTotal || null)}</div>
-                {actualTotal > 0 && (
+                <div className="sera-total-plan">{fmtKg(planTotal || null)}</div>
+                {/* actualTotal > 0 && (
                   <div style={{ color: COLORS.success, fontSize: 12 }}>{fmtKg(actualTotal)}</div>
-                )}
+                ) */}
               </div>
             </Table.Summary.Cell>
           );
         })}
+        {/* Where the Total column meets the total row. Summed from the same
+            per-block function as the column above, so the corner can never
+            disagree with it. */}
+        <Table.Summary.Cell key="sum_week" index={1 + activeDays.length} className="sera-total-col">
+          <div className="sera-total-plan">
+            {fmtKg(
+              sumAllBlocks(entriesByBlockDay, plans.map((p) => p.block), visibleDateKeys).plan ||
+                null,
+            )}
+          </div>
+        </Table.Summary.Cell>
       </Table.Summary.Row>
     );
   }
@@ -589,7 +628,7 @@ export default function OnumcilikTab() {
             );
           })}
         </Table.Summary.Row>
-        <Table.Summary.Row style={{ fontWeight: 600 }}>
+        {/* <Table.Summary.Row style={{ fontWeight: 600 }}>
           <Table.Summary.Cell index={0}>
             <span style={{ color: COLORS.success }}>{t('plan.total')} {t('plan.actual')}</span>
           </Table.Summary.Cell>
@@ -605,7 +644,7 @@ export default function OnumcilikTab() {
               </Table.Summary.Cell>
             );
           })}
-        </Table.Summary.Row>
+        </Table.Summary.Row> */}
       </>
     );
   }
@@ -742,7 +781,7 @@ export default function OnumcilikTab() {
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
-          <Card size="small" style={{ flex: 1, minWidth: 150 }}>
+          {/* <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
               title={t('plan.total_actual')}
               value={totalActual}
@@ -750,7 +789,7 @@ export default function OnumcilikTab() {
               styles={{ content: { color: COLORS.success, fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
-          </Card>
+          </Card> */}
           <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
               title={t('plan.est_trucks')}
@@ -759,19 +798,11 @@ export default function OnumcilikTab() {
               suffix={t('plan.trucks_suffix')}
             />
           </Card>
-          {(lateCount > 0 || criticalLateCount > 0) && (
-            <Card size="small" style={{ flex: 1, minWidth: 150 }}>
-              <Tooltip
-                title={t('plan.late_submissions_tooltip', { late: lateCount, critical: criticalLateCount })}
-              >
-                <Statistic
-                  title={t('plan.late_submissions')}
-                  value={lateCount + criticalLateCount}
-                  styles={{ content: { color: criticalLateCount > 0 ? COLORS.danger : COLORS.warning, fontSize: 20 } }}
-                />
-              </Tooltip>
-            </Card>
-          )}
+          {/* The "Late submissions" tile is deliberately absent here (owner
+              request, step 2). It still exists on /export/plan, where chasing
+              late block managers is the job; this tab is for reading the week's
+              tonnage. `plan_state` is unaffected — the backend still records
+              on_time/late/critical_late and the dispatcher still notifies. */}
         </Flex>
       )}
 

@@ -296,6 +296,7 @@
     "total_plan": "Total Plan",
     "total_actual": "Total Loaded/Exported",
     "deficit": "Deficit",
+    "today": "Today",
     "est_trucks": "Est. Trucks",
     "late_submissions": "Late submissions",
     "late_submissions_tooltip": "{{late}} late, {{critical}} critical-late this week",

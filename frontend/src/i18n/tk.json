@@ -296,6 +296,7 @@
     "total_plan": "Jemi meýilnama",
     "total_actual": "Jemi ýüklenen/eksport",
     "deficit": "Tapawut",
+    "today": "Şu gün",
     "est_trucks": "Çaklama",
     "late_submissions": "Gijä galan ýazgylar",
     "late_submissions_tooltip": "{{late}} gijä, {{critical}} agyr gijä galan",

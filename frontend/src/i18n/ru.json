@@ -298,6 +298,7 @@
     "total_plan": "Всего план",
     "total_actual": "Всего загружено/экспорт",
     "deficit": "Дефицит",
+    "today": "Сегодня",
     "est_trucks": "Прогноз",
     "late_submissions": "Поздние ввода",
     "late_submissions_tooltip": "{{late}} поздних, {{critical}} критически поздних на этой неделе",
