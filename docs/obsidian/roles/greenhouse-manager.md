@@ -28,6 +28,7 @@ Each manager has rows in `greenhouse.block_manager_assignments`:
 |---------|-------------|
 | [[weekly-harvest-planning]] | Enter plan_kg per day for own blocks, submit for approval, enter actual_kg after approval |
 | [[domestic-sales]] | Record domestic sale events for own blocks |
+| Daily Harvest Board ([[weekly-harvest-planning]]) | Edit yesterday's rest / today's plan / note for own blocks only; other blocks are read-only (403 on write) |
 
 ## Pages They See
 

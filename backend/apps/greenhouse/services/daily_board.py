@@ -1,8 +1,9 @@
 """Daily harvest board service — backs the *Ýük plan we galyndy* page.
 
 Each board row is a HarvestDayEntry for one block on a given date. The page
-writes three values directly, **without** the role/window gates that govern
-the Weekly Plan grid (any authenticated user with page access may edit):
+writes three values directly, **without** the window gates that govern the
+Weekly Plan grid. Any user with page access may edit; the view limits a
+greenhouse_manager to their assigned blocks:
 
 - ``forecast_value``        — Bu günki meýilleşdirilýän ýygym (today's plan).
 - ``yesterday_rest_value``  — Düýnki galyndy (carried-over remainder).

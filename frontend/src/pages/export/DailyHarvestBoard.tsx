@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import { useDailyBoard, useUpsertDailyBoard } from '@/hooks/useDailyBoard';
+import { useAuth } from '@/hooks/useAuth';
 import { DailyBoardNumberCell, DailyBoardTextCell } from '@/components/DailyBoardCell';
 import type { IDailyBoardRow } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -44,6 +45,7 @@ function fmtKgTotal(value: number): string {
 
 export default function DailyHarvestBoard() {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   const [selectedDate, setSelectedDate] = useState<Dayjs>(() => dayjs());
   const [savingBlocks, setSavingBlocks] = useState<Set<number>>(new Set());
@@ -59,6 +61,14 @@ export default function DailyHarvestBoard() {
   const totalRest = rows.reduce((s, r) => s + num(r.yesterday_rest), 0);
   const totalPlan = rows.reduce((s, r) => s + num(r.today_plan), 0);
   const totalAll = totalRest + totalPlan;
+
+  // A greenhouse manager may edit only their assigned blocks (backend enforces
+  // the same rule); every other role with page access edits any block.
+  function canEditBlock(blockId: number): boolean {
+    if (!season || !user) return false;
+    if (user.role !== 'greenhouse_manager' || user.is_superuser) return true;
+    return user.managed_block_ids.includes(blockId);
+  }
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
   function handleSave(block: number, field: EditableField, value: number | string | null): void {
@@ -106,7 +116,7 @@ export default function DailyHarvestBoard() {
       render: (_, row) => (
         <DailyBoardNumberCell
           value={row.yesterday_rest}
-          disabled={!season}
+          disabled={!canEditBlock(row.block)}
           saving={savingBlocks.has(row.block)}
           onCommit={(v) => handleSave(row.block, 'yesterday_rest', v)}
         />
@@ -119,7 +129,7 @@ export default function DailyHarvestBoard() {
       render: (_, row) => (
         <DailyBoardNumberCell
           value={row.today_plan}
-          disabled={!season}
+          disabled={!canEditBlock(row.block)}
           saving={savingBlocks.has(row.block)}
           onCommit={(v) => handleSave(row.block, 'today_plan', v)}
         />
@@ -140,7 +150,7 @@ export default function DailyHarvestBoard() {
       render: (_, row) => (
         <DailyBoardTextCell
           value={row.note}
-          disabled={!season}
+          disabled={!canEditBlock(row.block)}
           saving={savingBlocks.has(row.block)}
           placeholder={t('harvest_board.note_placeholder')}
           onCommit={(v) => handleSave(row.block, 'note', v)}

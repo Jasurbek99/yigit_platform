@@ -8,23 +8,27 @@ GET  /api/v1/greenhouse/daily-plan/?date=YYYY-MM-DD[&season=<id>]
 POST /api/v1/greenhouse/daily-plan/
     Upsert one block/date cell. Body: {block, date, today_plan?, yesterday_rest?, note?}.
     Only the keys present are written. Any authenticated user with page access
-    may write — there are no role/window gates (see services.daily_board). The
-    page check is ENFORCED (F1): a role that cannot see `export.harvest_board`
-    is refused. Reads stay open to every authenticated user on purpose.
+    may write any block, except a greenhouse_manager, who may write only the
+    blocks they hold an active BlockManagerAssignment for. There are no window
+    gates (see services.daily_board). The page check is ENFORCED (F1): a role
+    that cannot see `export.harvest_board` is refused. Reads stay open to every
+    authenticated user on purpose.
 """
 from decimal import Decimal
 
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import status as http_status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
 from apps.core.models import GreenhouseBlock
 from apps.core.permissions import page_write_permission
+from apps.core.roles import is_admin_like
 from apps.core.seasons import resolve_season
-from apps.greenhouse.models import HarvestDayEntry
+from apps.greenhouse.models import BlockManagerAssignment, HarvestDayEntry
 from apps.greenhouse.services.daily_board import (
     UNSET,
     upsert_daily_board,
@@ -120,6 +124,13 @@ class DailyHarvestBoardViewSet(ViewSet):
                 {'error': 'block is required.'},
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
+        try:
+            block_id = int(block_id)
+        except (TypeError, ValueError):
+            return Response(
+                {'error': 'block must be an integer id.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
 
         date_str = data.get('date')
         entry_date = parse_date(date_str) if date_str else timezone.localdate()
@@ -141,11 +152,22 @@ class DailyHarvestBoardViewSet(ViewSet):
                 status=http_status.HTTP_400_BAD_REQUEST,
             )
 
+        # Checked before the upsert — it creates plan/entry rows on demand.
+        user = request.user
+        if (
+            user.role == 'greenhouse_manager'
+            and not is_admin_like(user)
+            and not BlockManagerAssignment.objects.filter(
+                user=user, block_id=block_id, is_active=True,
+            ).exists()
+        ):
+            raise PermissionDenied(f'greenhouse_manager is not assigned to block {block_id}.')
+
         try:
             entry, block = upsert_daily_board(
-                block_id=int(block_id),
+                block_id=block_id,
                 entry_date=entry_date,
-                user=request.user,
+                user=user,
                 **kwargs,
             )
         except ValueError as exc:
