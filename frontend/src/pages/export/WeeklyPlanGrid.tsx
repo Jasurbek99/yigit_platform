@@ -222,20 +222,22 @@ export default function WeeklyPlanGrid() {
 
   // ─── KPI totals from day entries ───────────────────────────────────────────
 
-  const { totalPlan, totalActual, dayPlanTotals, lateCount, criticalLateCount } = useMemo(() => {
-    let plan = 0, actual = 0, late = 0, critical = 0;
+  // 2026-09-16 — the grid is plan-only: every actual total below is commented
+  // out rather than deleted, so the rollup numbers can be restored in one pass.
+  const { totalPlan, /* totalActual, */ dayPlanTotals, lateCount, criticalLateCount } = useMemo(() => {
+    let plan = 0, /* actual = 0, */ late = 0, critical = 0;
     const dayTotalsMap: Record<string, number> = {};
     for (const e of dayEntries) {
       const v = num(e.plan_value);
       plan += v;
-      actual += e.actual_value != null ? num(e.actual_value) : 0;
+      // actual += e.actual_value != null ? num(e.actual_value) : 0;
       dayTotalsMap[e.entry_date] = (dayTotalsMap[e.entry_date] ?? 0) + v;
       if (e.plan_state === 'late') late += 1;
       else if (e.plan_state === 'critical_late') critical += 1;
     }
     return {
       totalPlan: plan,
-      totalActual: actual,
+      // totalActual: actual,
       dayPlanTotals: dayTotalsMap,
       lateCount: late,
       criticalLateCount: critical,
@@ -530,17 +532,17 @@ export default function WeeklyPlanGrid() {
             const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
             return s + num(e?.plan_value);
           }, 0);
-          const actualTotal = plans.reduce((s, p) => {
-            const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
-            return s + num(e?.actual_value);
-          }, 0);
+          // const actualTotal = plans.reduce((s, p) => {
+          //   const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
+          //   return s + num(e?.actual_value);
+          // }, 0);
           return (
             <Table.Summary.Cell key={`sum_${day}`} index={1 + di}>
               <div>
                 <div style={{ color: COLORS.primary, fontSize: 12 }}>{fmtKg(planTotal || null)}</div>
-                {actualTotal > 0 && (
+                {/* actualTotal > 0 && (
                   <div style={{ color: COLORS.success, fontSize: 12 }}>{fmtKg(actualTotal)}</div>
-                )}
+                ) */}
               </div>
             </Table.Summary.Cell>
           );
@@ -569,7 +571,7 @@ export default function WeeklyPlanGrid() {
             );
           })}
         </Table.Summary.Row>
-        <Table.Summary.Row style={{ fontWeight: 600 }}>
+        {/* <Table.Summary.Row style={{ fontWeight: 600 }}>
           <Table.Summary.Cell index={0}>
             <span style={{ color: COLORS.success }}>{t('plan.total')} {t('plan.actual')}</span>
           </Table.Summary.Cell>
@@ -585,7 +587,7 @@ export default function WeeklyPlanGrid() {
               </Table.Summary.Cell>
             );
           })}
-        </Table.Summary.Row>
+        </Table.Summary.Row> */}
       </>
     );
   }
@@ -722,7 +724,7 @@ export default function WeeklyPlanGrid() {
               formatter={(v) => Number(v).toLocaleString()}
             />
           </Card>
-          <Card size="small" style={{ flex: 1, minWidth: 150 }}>
+          {/* <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
               title={t('plan.total_actual')}
               value={totalActual}
@@ -730,7 +732,7 @@ export default function WeeklyPlanGrid() {
               styles={{ content: { color: COLORS.success, fontSize: 20 } }}
               formatter={(v) => Number(v).toLocaleString()}
             />
-          </Card>
+          </Card> */}
           <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
               title={t('plan.est_trucks')}

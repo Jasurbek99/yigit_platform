@@ -20,11 +20,13 @@ import { isExportManagerLike } from '@/constants/roles';
  *   1. `director` may edit the harvest grid but NOT an actual value —
  *      `canEditHarvest` unions `isAdmin` (admin+director) with `isAdminLike`
  *      (admin+boss), while `canEditActual` uses only the latter.
- *   2. `canEditActual` currently reduces to `role === 'admin'`:
- *      `isAdminLike && !planOnly` = (admin|boss) && !boss = admin. The two-term
- *      form is kept on purpose — it states the rule ("admin-like, minus whoever
- *      sees a plan-only cell") rather than its current arithmetic result, so it
- *      stays correct if another role is ever given a plan-only cell.
+ *   2. `canEditActual` currently reduces to `false` for every role, because
+ *      `planOnlyCells` is now unconditionally true (2026-09-16). The two-term
+ *      form `isAdminLike && !planOnlyCells` is kept on purpose — it states the
+ *      rule ("admin-like, minus whoever sees a plan-only cell") rather than its
+ *      current arithmetic result, so restoring the commented-out
+ *      `role === 'boss'` line below brings the admin actual-override straight
+ *      back with no other edit.
  */
 
 export interface IPlanGridUser {
@@ -49,7 +51,8 @@ export interface IPlanGridCapabilities {
    */
   canEditHarvest: boolean;
   /**
-   * Boss's cell shows only the plan — the auto-computed actual is removed, not hidden.
+   * The cell shows only the plan — the auto-computed actual is removed, not hidden.
+   * True for every role since 2026-09-16 (was boss-only).
    * Season-blind by design: a closed season is still browsed with a plan-only cell.
    */
   planOnlyCells: boolean;
@@ -65,7 +68,11 @@ export function planGridCapabilities({ role, isReadOnly }: IPlanGridUser): IPlan
   const isAdmin = role === 'admin' || role === 'director';
   const isAdminLike = role === 'admin' || role === 'boss';
   const canEditHarvest = isAdmin || isAdminLike;
-  const planOnlyCells = role === 'boss';
+  // 2026-09-16 — the weekly plan grid is plan-only for EVERY role, by owner
+  // request: the actual column was an entry trap (see `HarvestCell.planOnly`).
+  // Original rule kept commented so it can be restored in one line:
+  //   const planOnlyCells = role === 'boss';
+  const planOnlyCells = true;
 
   return {
     isAdmin,

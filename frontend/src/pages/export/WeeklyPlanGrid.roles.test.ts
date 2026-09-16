@@ -24,17 +24,27 @@ function caps(role: string | null | undefined, isReadOnly = false) {
 }
 
 describe('planGridCapabilities — open season', () => {
-  it('admin holds every capability', () => {
+  it('admin holds every capability except the actual override', () => {
+    // 2026-09-16: the grid went plan-only for every role, so `planOnlyCells` is
+    // true here and `canEditActual` — defined as `isAdminLike && !planOnlyCells`
+    // — is dead even for admin. Restoring the commented-out `role === 'boss'`
+    // line in WeeklyPlanGrid.roles.ts flips both back.
     const c = caps('admin');
     expect(c).toEqual({
       isAdmin: true,
       isAdminLike: true,
       canEditHarvest: true,
-      planOnlyCells: false,
+      planOnlyCells: true,
       canEditTrucks: true,
       canGenerateTasks: true,
-      canEditActual: true,
+      canEditActual: false,
     });
+  });
+
+  it('every role that reaches this page sees a plan-only cell', () => {
+    for (const role of ROLES) {
+      expect(caps(role).planOnlyCells).toBe(true);
+    }
   });
 
   it('boss edits the harvest grid but sees a plan-only cell', () => {
@@ -77,18 +87,20 @@ describe('planGridCapabilities — open season', () => {
     expect(c.canEditActual).toBe(false);
   });
 
-  it('an unauthenticated visitor holds nothing', () => {
+  it('an unauthenticated visitor holds no capability', () => {
     for (const role of [null, undefined]) {
-      const c = caps(role);
-      expect(Object.values(c).every((v) => v === false)).toBe(true);
+      // `planOnlyCells` is excluded on purpose — it is a rendering choice, not a
+      // permission, and it is now true for everyone including a null role.
+      const { planOnlyCells: _planOnly, ...capabilities } = caps(role);
+      expect(Object.values(capabilities).every((v) => v === false)).toBe(true);
     }
   });
 
-  it('canEditActual narrows to admin alone among the roles that reach this page', () => {
-    // `isAdminLike && !planOnly` = (admin|boss) && !boss. Pinned so that the day
-    // another role gets a plan-only cell, the change is visible here.
+  it('no role may edit an actual while the grid is plan-only', () => {
+    // `isAdminLike && !planOnlyCells` = (admin|boss) && false. Pinned so that
+    // restoring the boss-only rule shows up here as `['admin']` again.
     const allowed = ROLES.filter((r) => caps(r).canEditActual);
-    expect(allowed).toEqual(['admin']);
+    expect(allowed).toEqual([]);
   });
 });
 

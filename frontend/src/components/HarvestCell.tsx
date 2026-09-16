@@ -201,7 +201,23 @@ export function HarvestCell({
   // applied regardless of mode so a past or today cell never surfaces the
   // actual. Sits above the mode switch precisely so those branches can't run.
   if (planOnly) {
-    if (canEditPlan && editingPlan) {
+    // Past days of an EARLIER week stay locked for non-admin roles — the same
+    // rule the `past_actual` branch applies below. That branch no longer runs
+    // for them (planOnly is now on for every role, not just boss), so the lock
+    // has to be restated here or a block manager would silently gain
+    // retroactive plan edits and skip the late-edit extension flow.
+    // `isAdmin` is the prop, which both grids feed from `isAdminLike` — so the
+    // roles that bypass the lock are admin and boss. `director` is in the other
+    // predicate and stays locked, exactly as it was under `past_actual`.
+    const isPastDay = dayjs(entry.entry_date).isBefore(today, 'day');
+    const planEditable =
+      canEditPlan &&
+      (isAdmin ||
+        !isPastDay ||
+        (entry.plan_value == null && entry.actual_value == null) ||
+        isInCurrentWeek(entry.entry_date, today));
+
+    if (planEditable && editingPlan) {
       const planNumOnly = entry.plan_value != null ? Number(entry.plan_value) : undefined;
       return (
         <>
@@ -241,10 +257,10 @@ export function HarvestCell({
     }
     return (
       <div
-        data-edit-cell={canEditPlan ? 'true' : undefined}
-        onClick={() => { if (canEditPlan) setEditingPlan(true); else onCellClick(entry.id); }}
-        style={{ cursor: canEditPlan ? 'text' : 'pointer', minHeight: 24, padding: '2px 0' }}
-        title={canEditPlan ? t('plan.admin_click_edit_plan') : t('plan.click_for_history')}
+        data-edit-cell={planEditable ? 'true' : undefined}
+        onClick={() => { if (planEditable) setEditingPlan(true); else onCellClick(entry.id); }}
+        style={{ cursor: planEditable ? 'text' : 'pointer', minHeight: 24, padding: '2px 0' }}
+        title={planEditable ? t('plan.admin_click_edit_plan') : t('plan.click_for_history')}
       >
         <ValueOrEmpty
           valueStr={entry.plan_value}
