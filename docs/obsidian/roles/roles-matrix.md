@@ -59,6 +59,8 @@ related: [[permissions-system]]
 | Domestic Sales | Y | Y | Y | Y | - | Y | - | - | - | Y | - |
 | Fleet Map (`transport.map`) | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | - |
 | Fleet Management (`transport.fleet`) | Y | Y | Y | Y | Y | Y | - | - | - | - | - |
+| Work Hours (`worklog`) | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
+| Team Leaderboard (`team_kpi`) | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y | Y |
 | Admin Pages (Firms, Seasons, Blocks, Customers, Truck Dest, Process Links) | Y | - | - | Y | - | - | - | - | - | - | - |
 | Admin: Shipment Settings (`admin.shipment_settings`) | Y | Y | - | Y | - | Y | - | - | - | - | - |
 | Admin: Users (`admin.users`) / Staff Page Access (`admin.staff_access`) | Y | - | - | - | - | - | - | - | - | - | - |

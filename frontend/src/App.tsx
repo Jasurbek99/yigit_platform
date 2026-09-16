@@ -136,13 +136,14 @@ export default function App() {
                   <Route path="export/shipments/sheet" element={
                     <ProtectedRoute pageCode="export.shipments_sheet"><ShipmentSheet /></ProtectedRoute>
                   } />
-                  {/* Worklog — open to every authenticated user (radical-transparency rule). */}
+                  {/* Worklog + Team KPI — page codes registered 2026-09-16. Seeded
+                      visible to every role (radical transparency is the default),
+                      but an admin can now revoke either one in the matrix. */}
                   <Route path="worklog" element={
-                    <ProtectedRoute><WorklogPage /></ProtectedRoute>
+                    <ProtectedRoute pageCode="worklog"><WorklogPage /></ProtectedRoute>
                   } />
-                  {/* Team KPI — open to every authenticated user (radical-transparency rule). */}
                   <Route path="team/kpi" element={
-                    <ProtectedRoute><TeamKpi /></ProtectedRoute>
+                    <ProtectedRoute pageCode="team_kpi"><TeamKpi /></ProtectedRoute>
                   } />
                   <Route path="export/shipments/dashboard" element={
                     <ProtectedRoute pageCode="export.shipments_dashboard"><ShipmentDashboard /></ProtectedRoute>

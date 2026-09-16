@@ -82,6 +82,8 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/packing-templates':   'export.packing_presets',
   '/transport/map':             'transport.map',
   '/admin/fleet':               'transport.fleet',
+  '/worklog':                   'worklog',
+  '/team/kpi':                  'team_kpi',
 };
 
 /** Mirrors REFERENCE_DATA_WRITE in backend/apps/core/roles.py. */

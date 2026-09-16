@@ -8,9 +8,12 @@ related: [[../processes/comments-tasks]], [[../processes/worklog]], [[../screens
 
 ## What Is This Screen?
 
-Route: `/team/kpi`. Nav label `nav.team_kpi` (Trophy icon), visible to every role — same
-**radical-transparency** rule as the [[../processes/worklog|Worklog]] page: everyone sees
-everyone's numbers, including their own.
+Route: `/team/kpi`. Nav label `nav.team_kpi` (Trophy icon). Page code `team_kpi` (since
+2026-09-16), seeded visible to every role — same **radical-transparency** default as the
+[[../processes/worklog|Worklog]] page: everyone sees everyone's numbers, including their own.
+An admin can untick it per role on `/admin/permissions` (or a department head on
+`/admin/staff-access`); that hides the nav entry and the route, while `GET /core/team/kpi/`
+stays `IsAuthenticated`.
 
 A Bitrix-style **visual dashboard** (redesigned from an earlier plain table): a horizontal
 ranking bar chart followed by a responsive grid of per-user KPI cards, one row's worth of

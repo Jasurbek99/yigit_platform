@@ -46,11 +46,12 @@ _SHIP_DASHBOARD = 'export.shipments_dashboard'
 _HARVEST_BOARD = 'export.harvest_board'
 
 # Pages every authenticated role gets by default. These match the previous
-# "all roles" inline lists in AppLayout / route guards (My Tasks + the three
-# non-admin Feedback pages). feedback.admin_inbox is intentionally excluded —
-# it stays admin-only.
+# "all roles" inline lists in AppLayout / route guards (My Tasks, the three
+# non-admin Feedback pages, Work Hours and Team Leaderboard).
+# feedback.admin_inbox is intentionally excluded — it stays admin-only.
 _FEEDBACK_COMMON = {'feedback.submit', 'feedback.my_tickets', 'feedback.public'}
-_UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON
+_TEAM_PAGES = {'worklog', 'team_kpi'}
+_UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON | _TEAM_PAGES
 
 # Contracts module pages (contracts.list, contracts.sales) default to
 # MANAGEMENT ONLY: admin / director / export_manager get them automatically

@@ -8,7 +8,7 @@ related: [[realtime-presence]], [[authentication]]
 
 ## What Is This Process?
 
-Phase 3 of the realtime feature (Channels + Redis was Phase 1, Sheet presence was Phase 2). The platform records how many seconds each user is connected — one `core.work_sessions` row per browser-tab WS lifetime. A small chip in the header shows the signed-in user their hours today; a `/worklog` page shows the whole team's hours per day. Both surfaces are open to every authenticated user — **radical transparency**, the rule locked in during scoping.
+Phase 3 of the realtime feature (Channels + Redis was Phase 1, Sheet presence was Phase 2). The platform records how many seconds each user is connected — one `core.work_sessions` row per browser-tab WS lifetime. A small chip in the header shows the signed-in user their hours today; a `/worklog` page shows the whole team's hours per day. Both surfaces were open to every authenticated user — **radical transparency**, the rule locked in during scoping. Since 2026-09-16 the `/worklog` page has a page code (`worklog`), seeded visible to every role, so an admin can revoke it per role on `/admin/permissions` (and department heads on `/admin/staff-access`). The header chip and every worklog endpoint stay `IsAuthenticated` — the page row hides the nav entry and route only; for a role without the row the chip still shows its hours but no longer links to `/worklog`.
 
 > Why this is the simplest possible model: "tab open at all counts as working" was the chosen AFK rule, so the heartbeat is a pure liveness ping. No Page Visibility API, no input tracking. The whole feature lives on the same WebSocket the Sheet presence avatars use.
 
