@@ -234,6 +234,41 @@ stacks to render at all, so a pure module is the only part of this that can be
 tested without standing up both.
 
 ### Known cosmetic state
+### Every block, every week (create-on-write)
+
+The grid's rows come from the **block list**, not the plan list —
+`buildPlanGridRows(useGreenhouseBlocks(), plans)`, shared with `/export/plan`. A
+week nobody has touched shows every active top-level block with empty inputs;
+the first value typed goes to `POST /greenhouse/day-entries/write-cell/`, which
+creates the week's rows and then applies the same gates a PATCH would. There is
+no Initialize Week button any more. Full model, and why a refused write leaves no
+rows behind: [[../processes/weekly-harvest-planning]].
+
+A missing day is an `OnumcilikCell` with `entry={null}` plus `block` and
+`entryDate`. An editor gets an empty box, and an admin filling it gets no reason
+modal, since nothing is being overwritten. A non-editor gets an em-dash with no
+click handler, because there is no row whose history could open.
+
+### Toolbar, Sunday, block filter
+
+- **Week controls** sit at the right-hand end of the toolbar: the week picker,
+  then **◀ Previous week · This week · Next week ▶** in sera's style. «This week»
+  is highlighted only on the actual current ISO week. The default view jumps to
+  next week after Thursday, so "no offset" is not the same test.
+- **Generate plan tasks is not on this tab.** It remains on `/export/plan`.
+- **Sunday** is a small **+** in the header of the last day column, i.e. just left
+  of Total, which becomes **−** once Sunday is showing. An accidental click is one
+  click to undo. The pivot view has no day header, so it carries the same control
+  beside its last day's row label.
+- **Block filter** — an antd multi-select grouped by `location_name` (Dusak /
+  Kaka / Owadandepe; a block with no location goes in a last group). `null` means
+  "no filter"; clearing returns to `null`, never to an empty table. Options are
+  built from all rows, so a filtered-out block can be picked again. The Total
+  column and the total row follow the filter. The **Total Plan** header tile does
+  not, because it also feeds the truck estimate.
+- **Block column** shows the location, small and muted, between the block name
+  and the manager names; nothing is shown for a block with no location.
+
 
 The tab still renders its own `Weekly Plan` heading under a tab already labelled
 *Önümçilik* — a duplicate title, kept pending the owner's call. The header tiles,

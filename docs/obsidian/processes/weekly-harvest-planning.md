@@ -162,9 +162,25 @@ A `late_edit_granted_until` that is in the future bypasses the gate — the wind
 | GET | `/api/v1/greenhouse/day-entries/` | List daily entries | filter `?season=&block=&from_date=&to_date=` |
 | GET | `/api/v1/greenhouse/day-entries/{id}/` | Day entry detail | IsAuthenticated |
 | PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin) | Service-layer permission gate |
+| POST | `/api/v1/greenhouse/day-entries/write-cell/` | **Create-on-write (2026-09-16).** Upsert one cell by `{block, entry_date}` instead of `id` — the container may not exist yet. Body: `{block, entry_date, plan_value? \| forecast_value? \| actual_value?, reason?}`; response is the same serialized `HarvestDayEntry` PATCH returns. See "Create-on-write" below. | Service-layer permission gate (identical to PATCH) |
 | GET | `/api/v1/greenhouse/day-entries/{id}/history/` | Audit log + override snapshot | IsAuthenticated |
 
-**Submission endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`, or `submit_week/`. Per-cell PATCHes through `/day-entries/{id}/` are the only write path; each save stamps its own `plan_submitted_at` / `forecast_submitted_at`. There is no week-level "submit" step.
+**Submission endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`, or `submit_week/`. Per-cell PATCHes through `/day-entries/{id}/` (or `write-cell/` when the row doesn't exist yet) are the write paths; each save stamps its own `plan_submitted_at` / `forecast_submitted_at`. There is no week-level "submit" step.
+
+#### Create-on-write (`write-cell`, 2026-09-16)
+
+Until this, a week's `HarvestDayEntry` rows had to exist before anyone could type into the grid — `initialize_harvest_week` (admin/director button) or the daily `run_weekly_plan_setup` cron (current + next ISO week only) were the only creators, so a week further out opened empty with nothing to edit. `write-cell` lets the **first value someone types create the container**: it resolves-or-creates the `(WeeklyHarvestPlan, HarvestDayEntry)` pair for `(block, entry_date)` via `get_or_create_day_entry()` (`greenhouse/services/legacy.py`, exported from `services/__init__.py`), then dispatches to the **exact same** `set_plan_value` / `set_forecast_value` / `set_actual_value` calls `partial_update` uses — every gate (role, `BlockManagerAssignment` ownership, the plan-week cutoff, the late-edit extension, the admin `reason` requirement) behaves identically to a PATCH on an existing row. A refused user gets the same error message on both paths.
+
+**A refused request leaves no rows behind.** The viewset admits any authenticated user and the role checks live inside the `set_*` services, so if the container were committed before the check ran, a role with no plan rights at all (`seller`, `transport`, …) could still scaffold empty weeks for any block and date in the active season — one refused request at a time. `write_cell` therefore runs the row creation and the gated writes in **one transaction**, and calls `transaction.set_rollback(True)` when *no* field in the payload was allowed. A mixed payload where one field went through keeps that write and its row — the same partial-success behaviour `partial_update` has — and a refusal on a row that already existed does not remove it, since the row predates the transaction. The first version committed the rows first; `test_refused_write_creates_no_rows` pins the fix, and fails if the rollback is removed.
+
+Container semantics deliberately mirror the cron: block must be an active **top-level** `GreenhouseBlock` (matching `initialize_harvest_week`'s own block universe), `weekday` is the same `isocalendar()` derivation, and `WeeklyHarvestPlan.entered_by` is left `NULL` — a create-on-write row is indistinguishable from a cron-created one. Only the eventual `HarvestDayEntry` value fields (`plan_submitted_by`, etc.) carry the real user's attribution.
+
+**Season**: always the ACTIVE season, never a browsed one (`get_active_season()`), matching `initialize-week`'s existing convention (see `WeeklyPlanGrid.tsx`'s `activeSeason` comment). `entry_date` must fall inside that season's `[start_date, end_date]` range or the write is refused:
+- `entry_date` lands inside a **closed** season instead → `409 {"error": "season_closed", "season": "...", "closed_at": "..."}` (the standard write-freeze shape, D1) — this is the one case `get_or_create_day_entry` raises `SeasonClosedError` rather than `ValueError`, so a client can never provoke a cross-season row by posting an old date while the active season has moved on.
+- No active season at all (the close→open gap) → `400 {"error": "No active season configured."}` — distinct from the 409 above; there is no season object to name.
+- `entry_date` outside both → `400 {"error": "entry_date ... does not fall within the active season ..."}`.
+
+Collection-level `POST /day-entries/` stays disabled (`create()` raises `MethodNotAllowed` → 405) — `write-cell` and `initialize_harvest_week` remain the only row-creating paths. Tests: `apps/greenhouse/tests/test_write_cell.py` (13 tests).
 
 **Config endpoints**:
 | Method | Endpoint | Auth |
@@ -239,7 +255,11 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 
 **File**: `frontend/src/pages/export/WeeklyPlanGrid.tsx`
 
-**Layout**: week picker, pivot toggle, Show/Hide Sunday toggle, "Initialize" + "Submit week" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
+**Layout**: week picker, pivot toggle, Show/Hide Sunday toggle, "Generate plan tasks" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
+
+**Rows are blocks, not plans (create-on-write, 2026-09-16).** Both views build their rows with `buildPlanGridRows(useGreenhouseBlocks(), plans)` (`pages/export/WeeklyPlanGrid.rows.ts`): one row per **active top-level** block, whether or not its week exists yet, ordered by `sort_order` then `code` and — for a block manager — their own blocks first. A day with no `HarvestDayEntry` renders `HarvestCell` with `entry={null}`; an editor can type into it, and the save goes to `write-cell` with `{block, entry_date, plan_value}` instead of a PATCH by id. The **Initialize Week button and the empty-week alert are gone**; the `initialize-week` endpoint and the daily `run_weekly_plan_setup` cron remain. Things that need a *real* plan object still read `plans`: the bulk late-edit grant/revoke id lists, `TruckAllocationTable`, and the truck-allocation panel's visibility. Sub-blocks (F1/F2) are never rows — `write-cell` refuses them. Manager names come from the plan, so a block whose week does not exist yet shows none until its first write.
+
+The Önümçilik tab in Tır Takip is a restyled copy of this grid and follows the same row model; see [[../screens/tir-takip]].
 
 **Deep-link params** (`?week=&year=&block=`): the grid reads these from `useSearchParams` on mount. A `weekly_plan` task link (`/export/plan?week=&year=&block={block_id}`) and the boss heatmap (`?block={block_code}`) now land on the linked ISO **week** — the initial `selectedWeek` is derived from `week`/`year` (via `dayjs(`${year}-01-04`).add(week-1,'week')`, since Jan 4 is always in ISO week 1) instead of always defaulting to today. Before this fix the grid ignored the URL, so clicking a task dropped the manager on the current/next week regardless of the task's week. The `block` param highlights the matching row (matched by `block` id **or** `block_code`, since the two link sources differ); it never filters — every block still renders.
 
@@ -320,6 +340,7 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 | `useSubmitHarvestPlan()` | `POST /greenhouse/harvest-plans/{id}/submit_week/` | mutation |
 | `useInitializeWeek()` | `POST /greenhouse/harvest-plans/initialize-week/` | mutation, admin / greenhouse_manager |
 
+| `useUpsertDayEntry()` *(no `id`)* | `POST /greenhouse/day-entries/write-cell/` | Create-on-write: called with `{block, entry_date, plan_value?, reason?}` and no `id`. Same response and cache invalidation as the PATCH branch, plus `harvest-plans`, since a first write can create the week's plan. The old no-id branch POSTed to the collection, which always answered 405. |
 **Removed**: `useApproveHarvestPlan`, `useRejectHarvestPlan`, `useBulkSubmitHarvestPlans`, `useBulkApproveHarvestPlans`, `useBulkRejectHarvestPlans` — those endpoints no longer exist.
 
 ### TypeScript types
