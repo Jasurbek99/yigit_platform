@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeePage } from '@/utils/permissions';
 import OnumcilikTab from './OnumcilikTab';
+import TirlarTab from './TirlarTab';
 import './sera.css';
 
 /**
@@ -14,9 +15,9 @@ import './sera.css';
  * top of `sera.css`.
  *
  * Tab bodies arrive one at a time — the owner is supplying the contents tab by
- * tab, and each placeholder is replaced as its spec does. `onumcilik` is filled
- * (a copy of the Weekly Plan grid, pending its restyle); the other eight still
- * render the placeholder.
+ * tab, and each placeholder is replaced as its spec does. Two are filled:
+ * `onumcilik` (a copy of the Weekly Plan grid) and `tirlar` (a copy of the
+ * Shipment Sheet page wrapper); the other seven still render the placeholder.
  *
  * Whether a tab eventually stays a tab or becomes its own route is still open,
  * and costs nothing to decide later: `tir_takip.gaplama` gates the tab today
@@ -72,6 +73,14 @@ interface ISeraTabBody {
  */
 const TAB_BODIES: Record<string, ISeraTabBody> = {
   onumcilik: { requires: 'export.plan', node: <OnumcilikTab /> },
+  // Tirlar is the Shipment Sheet, so it carries the Sheet's own page code on
+  // top of the tab code for the same reason Onumcilik carries `export.plan`:
+  // the tab code is granted to all 15 roles, `export.shipments_sheet` is not.
+  // Without this check the tab would hand every role every truck's customer,
+  // firm splits, driver and document state. Cell-level rules still apply
+  // underneath — SheetGrid is reused, not forked — but page-level reach is a
+  // decision for the permission matrix, not for this copy.
+  tirlar: { requires: 'export.shipments_sheet', node: <TirlarTab /> },
 };
 
 export default function TirTakip() {

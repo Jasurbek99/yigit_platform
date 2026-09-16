@@ -392,3 +392,64 @@
 .sera-page .ant-table-summary .ant-table-cell-fix-left {
   background: #ecfdf5;
 }
+
+/* ── Tırlar: the trucks sheet ───────────────────────────────────────────
+   `TirlarTab` reuses the platform's <SheetGrid> with its `ios` variant pinned.
+   That variant is ALREADY a reproduction of this screen — Sera's topic
+   sections come from `sheetTopicOrder.ts`, the skin from `SheetVariantIos.css`
+   — so there is deliberately no grid styling here. Adding any would be a
+   liability rather than a gap: the grid is virtualised (@tanstack/react-virtual),
+   so a width or row-height declared in CSS that the virtualizer has not
+   measured desyncs the frozen header from the body as you scroll, and does it
+   silently — tests and `tsc` both stay green.
+
+   No card around it. Every other tab body sits in `.sera-card`; the sheet is
+   the page, the way it is on its own route, and a bordered box around a grid
+   that already has its own frame read as a small window inside the page
+   (owner, 2026-09-16). The panel keeps the class — the shell sets it for
+   every tab — and loses its chrome here.
+
+   Height: `.sheet-grid` is `flex: 1; min-height: 0` and scrolls inside its
+   parent, so every box above it needs a definite height or the grid resolves
+   to zero and the tab renders blank. <Content> is already fixed at
+   `100vh - 56px` (AppLayout), so the page takes `100% + 24px` of it — the
+   same reach its `min-height` has, into <Content>'s bottom padding that the
+   page's `-24px` margin cancels — and the tabs, panel and sheet share that as
+   a flex column. No pixel guess for the tab strip: it wraps to two lines on a
+   narrow window and the sheet simply gets less. When <ClosedSeasonBanner />
+   sits above the page, the page is pushed down by the banner's height and
+   <Content> scrolls by that much; closed-season browsing only. */
+
+.sera-page:has(.sera-sheet) {
+  height: calc(100% + 24px);
+  display: flex;
+  flex-direction: column;
+}
+
+.sera-page .sera-card:has(> .sera-sheet) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sera-sheet {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Edge to edge, like the Sheet's own route: out through the page's side
+     and bottom padding to the edges of <Content>. */
+  margin: 0 -24px -24px;
+}
+
+.sera-sheet--loading {
+  align-items: center;
+  justify-content: center;
+}

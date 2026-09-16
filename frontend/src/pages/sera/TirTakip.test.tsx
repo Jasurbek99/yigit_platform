@@ -20,6 +20,12 @@ vi.mock('./OnumcilikTab', () => ({
   default: () => <div data-testid="onumcilik-body" />,
 }));
 
+// Same reasoning for `TirlarTab`: it wraps the Shipment Sheet's grid, comments
+// drawer and live-sync hooks. Its own behaviour is in `TirlarTab.test.tsx`.
+vi.mock('./TirlarTab', () => ({
+  default: () => <div data-testid="tirlar-body" />,
+}));
+
 const ALL_TAB_CODES = [
   'tir_takip.onumcilik', 'tir_takip.gaplama', 'tir_takip.tirlar',
   'tir_takip.export_rapor', 'tir_takip.hasabat', 'tir_takip.gumruk_ewrak',
@@ -95,6 +101,32 @@ describe('TirTakip', () => {
 
     expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('Production');
     expect(screen.queryByTestId('onumcilik-body')).toBeNull();
+    expect(
+      screen.getByText(
+        'You do not have access to this data. An administrator can grant it in the permission matrix.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the Tırlar body when the Sheet itself is granted', async () => {
+    grant([...ALL_TAB_CODES, 'export.shipments_sheet']);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Trucks' }));
+
+    expect(screen.getByTestId('tirlar-body')).toBeInTheDocument();
+    expect(screen.queryByText('This section has no content yet.')).toBeNull();
+  });
+
+  it('withholds the Tırlar body from a role that cannot see the Sheet', async () => {
+    // `tir_takip.tirlar` is open to all 15 roles; the Sheet is not. The tab
+    // stays in the strip, the trucks' customers and firm splits do not load.
+    grant(ALL_TAB_CODES);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Trucks' }));
+
+    expect(screen.queryByTestId('tirlar-body')).toBeNull();
     expect(
       screen.getByText(
         'You do not have access to this data. An administrator can grant it in the permission matrix.',
