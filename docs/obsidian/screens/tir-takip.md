@@ -12,9 +12,10 @@ language rather than the platform's Ant Design theme** — owner request, 2026-0
 *"new pages have another design, don't change ours."*
 
 > [!warning] Status as of 2026-09-16
-> **Two of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
-> [[#The Önümçilik tab]]) and `tirlar` renders the Shipment Sheet (see
-> [[#The Tırlar tab]]); the other seven are still placeholders. The owner is
+> **Three of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
+> [[#The Önümçilik tab]]), `tirlar` renders the Shipment Sheet (see
+> [[#The Tırlar tab]]) and `datalar` renders the Shipment Settings page (see
+> [[#The Datalar tab]]); the other six are still placeholders. The owner is
 > supplying the contents tab by tab, and each placeholder is replaced as its spec
 > arrives.
 
@@ -32,7 +33,8 @@ language rather than the platform's Ant Design theme** — owner request, 2026-0
 │ ┌────────────────────────────────────────────────────────────┐ │
 │ │  Önümçilik → Weekly Plan grid · Tırlar → Shipment Sheet      │ │
 │ │  (Tırlar has no card: the sheet fills the page edge to edge) │ │
-│ │  (the other 7 → placeholder)                                 │ │
+│ │  Datalar → Shipment Settings                                 │ │
+│ │  (the other 6 → placeholder)                                 │ │
 │ └────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -363,6 +365,44 @@ Nothing in the permission chain was touched, so
 zoom and the comments drawer state are shared with `/export/shipments/sheet`'s iOS
 variant. That is intended — it is the same view of the same rows.
 
+## The Datalar tab
+
+The source's Datalar tab is its reference-data table: the values the Tırlar
+dropdowns offer. Ours already has a home for that, so the tab mounts
+`pages/admin/ShipmentSettingsPage.tsx` **unchanged**: Statuses, Border Points,
+Option Lists, Truck Splits, Sheet Rows and, for roles that can edit
+`sheet_row_setting`, Row Access. No copy, no fork, and no edit to the admin page.
+Mounting it as-is keeps its inner `canDo` write gates (`shipment`,
+`truck_split_default`, `sheet_row_setting`) the admin page's own, so a seventh
+sub-tab added there shows up here too. The six sub-tabs use no router hooks, so
+none of the deep-link trouble Tırlar had to drop applies.
+
+The page keeps its own "Shipment Settings" title inside the tab. Tables pick up
+the sera look from the data-table block in `sera.css`; the nested antd `<Tabs>`
+strip gets the sera accent from one block scoped to the tab's `.sera-settings`
+wrapper (the Sheet's comment composer also renders antd `<Tabs>`). Buttons,
+switches and links inside it are still antd blue.
+
+The page is **lazy-loaded** with its own `<Suspense>`, as `App.tsx` does for the
+route. Most roles only see the no-access panel, so they never download it.
+Once opened, it passes `destroyInactiveTabPane={false}`, so all six sub-tabs stay
+mounted until the user leaves Tır Takip. Their queries share the TanStack cache
+with `/admin/shipment-settings`, with the same data and the same keys.
+
+### Permissions
+
+Same rule as the other two bodies, with more at stake: this body **writes**.
+It edits statuses, dropdown options, truck-split defaults and Sheet row access,
+which the Sheet permission chain reads from. It requires
+**`admin.shipment_settings`** on top of `tir_takip.datalar`. By seed default that
+is 4 roles (admin, boss, export_manager, document_team) against all 15 for the
+tab code, so most roles see a Data tab that says *no access*. If that is unwanted,
+revoke `tir_takip.datalar` for those roles in [[permissions-admin]]. The backend
+needs no change, because every settings endpoint already gates its own writes.
+Statuses, border points and option lists use the `REFERENCE_DATA_WRITE` role list
+(`core/roles.py`). Truck splits and sheet rows use `DynamicResourcePermission`
+(`truck_split_default`, `sheet_row_setting`).
+
 ## Permissions
 
 Ten codes: one container (`tir_takip`) plus one per tab. **All ten are granted to
@@ -397,7 +437,8 @@ Two consequences worth knowing:
 | Styles | `frontend/src/pages/sera/sera.css` |
 | Cell | `frontend/src/pages/sera/OnumcilikCell.tsx` + `.test.tsx` (10 tests) — the always-visible sera input; replaces `HarvestCell` on this tab |
 | Totals | `frontend/src/pages/sera/OnumcilikTab.totals.ts` + `.test.ts` (6 tests) — the Total column's arithmetic, kept pure so it is testable without the Query/Router stack |
-| Tests | `frontend/src/pages/sera/TirTakip.test.tsx` (12 tests; `OnumcilikTab` and `TirlarTab` mocked at the module boundary so the shell tests stay free of the Query/Router stack) |
+| Datalar body | `frontend/src/pages/admin/ShipmentSettingsPage.tsx` — mounted as-is (lazy), no copy |
+| Tests | `frontend/src/pages/sera/TirTakip.test.tsx` (14 tests; every tab body, `ShipmentSettingsPage` included, is mocked at the module boundary so the shell tests stay free of the Query/Router stack) |
 | Comparison note | `docs/TIR_TAKIP_ONUMCILIK_VS_WEEKLY_PLAN.md` — the sera original vs our grid, and the four open decisions |
 | Route | `frontend/src/App.tsx` — `tir-takip`, `pageCode="tir_takip"` |
 | Nav | `frontend/src/components/AppLayout.tsx` — boss `group_shipping`, staff `group_export` |
