@@ -26,6 +26,12 @@ vi.mock('./TirlarTab', () => ({
   default: () => <div data-testid="tirlar-body" />,
 }));
 
+// And for `HasabatTab`: it fetches through TanStack Query and draws ECharts.
+// Its own behaviour is in `HasabatTab.test.tsx`.
+vi.mock('./HasabatTab', () => ({
+  default: () => <div data-testid="hasabat-body" />,
+}));
+
 // And for the Shipment Settings page behind Datalar: six sub-tabs of queries
 // and mutations.
 vi.mock('@/pages/admin/ShipmentSettingsPage', () => ({
@@ -133,6 +139,31 @@ describe('TirTakip', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Trucks' }));
 
     expect(screen.queryByTestId('tirlar-body')).toBeNull();
+    expect(
+      screen.getByText(
+        'You do not have access to this data. An administrator can grant it in the permission matrix.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the Hasabat body when the Clients Report is granted', async () => {
+    grant([...ALL_TAB_CODES, 'analytics.clients']);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: '📊 Reports' }));
+
+    expect(screen.getByTestId('hasabat-body')).toBeInTheDocument();
+  });
+
+  it('withholds the Hasabat body from a role that cannot see the Clients Report', async () => {
+    // Per-customer and per-firm kg: `analytics.clients` is held by five roles,
+    // the tab code by all fifteen.
+    grant(ALL_TAB_CODES);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: '📊 Reports' }));
+
+    expect(screen.queryByTestId('hasabat-body')).toBeNull();
     expect(
       screen.getByText(
         'You do not have access to this data. An administrator can grant it in the permission matrix.',

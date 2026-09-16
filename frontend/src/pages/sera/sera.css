@@ -522,6 +522,261 @@
   justify-content: center;
 }
 
+/* ── Hasabat tab ────────────────────────────────────────────────────────
+   Ported from the "📊 Hasabat" tab at App.jsx:15319–15584: KpiCard, Panel,
+   the donut side legend and RankTable. The charts inside the panels are
+   ECharts in the platform's style (HasabatTab.charts.ts), so nothing here
+   reaches into a chart.
+
+   Tailwind values, resolved: emerald-50/200/500/900 #ecfdf5 #a7f3d0 #10b981
+   #064e3b; blue-50/200/900 #eff6ff #bfdbfe #1e3a8a; violet-50/200/900 #f5f3ff
+   #ddd6fe #4c1d95; amber-50/200/900 #fffbeb #fde68a #78350f; stone-100 #f5f5f4.
+   Header, rank number and share % text sit one stone step darker than the
+   source (stone-500/400 for 400/300) so they stay legible on white. */
+
+.sera-page .sera-hasabat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sera-page .sera-hasabat-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.sera-page .sera-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .sera-page .sera-kpis {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.sera-page .sera-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border: 1px solid;
+  border-radius: var(--sera-radius);
+}
+
+.sera-page .sera-kpi--emerald { background: #ecfdf5; border-color: #a7f3d0; color: #064e3b; }
+.sera-page .sera-kpi--blue    { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }
+.sera-page .sera-kpi--violet  { background: #f5f3ff; border-color: #ddd6fe; color: #4c1d95; }
+.sera-page .sera-kpi--amber   { background: #fffbeb; border-color: #fde68a; color: #78350f; }
+.sera-page .sera-kpi--stone   { background: var(--sera-surface); border-color: var(--sera-border); color: var(--sera-text-soft); }
+
+.sera-page .sera-kpi__label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.sera-page .sera-kpi__value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.sera-page .sera-kpi__sub {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.sera-page .sera-hasabat__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .sera-page .sera-panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sera-page .sera-panel--wide {
+    grid-column: span 2;
+  }
+}
+
+.sera-page .sera-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--sera-border);
+  border-radius: var(--sera-radius);
+}
+
+.sera-page .sera-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f5f5f4;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sera-text-soft);
+}
+
+.sera-page .sera-panel__body {
+  padding: 12px;
+}
+
+/* Donut + side legend (App.jsx:15468). Stacks on a phone. */
+.sera-page .sera-donut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sera-page .sera-donut__chart {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.sera-page .sera-donut__legend {
+  flex: 1 1 160px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.sera-page .sera-donut__legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sera-page .sera-donut__swatch {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.sera-page .sera-donut__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-donut__pct {
+  font-weight: 600;
+  color: var(--sera-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* RankTable (App.jsx:15401). */
+.sera-page .sera-rank-wrap {
+  overflow-x: auto;
+}
+
+.sera-page .sera-rank {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sera-page .sera-rank th {
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f5f5f4;
+  font-weight: 500;
+  text-align: left;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-rank td {
+  padding: 4px 0;
+  border-top: 1px solid #fafaf9;
+  color: var(--sera-text-soft);
+}
+
+.sera-page .sera-rank td:first-child {
+  font-weight: 500;
+}
+
+.sera-page .sera-rank .sera-rank__num {
+  padding-left: 8px;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sera-page .sera-rank .sera-rank__muted {
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-rank .sera-rank__strong {
+  font-weight: 600;
+  color: var(--sera-text);
+}
+
+.sera-page .sera-rank__share-col {
+  width: 112px;
+  padding-left: 12px;
+}
+
+.sera-page .sera-rank__pos {
+  display: inline-block;
+  width: 18px;
+  font-size: 10px;
+  color: var(--sera-text-faint);
+}
+
+.sera-page .sera-rank__share {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 12px;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-rank__share span {
+  width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sera-page .sera-rank__track {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  background: #f5f5f4;
+  border-radius: 999px;
+}
+
+.sera-page .sera-rank__fill {
+  height: 100%;
+  background: #10b981;
+  border-radius: 999px;
+}
+
 /* ── Datalar: Shipment Settings ─────────────────────────────────────────
    The tab mounts the admin page unchanged; its tables already pick up the
    data-table block above. Only its antd <Tabs> strip still carries the

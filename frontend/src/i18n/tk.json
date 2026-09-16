@@ -3719,6 +3719,44 @@
       "kwota_takibi": "Kwota Takibi",
       "sertnamalar": "Yurtdışı Sertnamaları",
       "datalar": "Datalar"
+    },
+    "hasabat": {
+      "kpi": {
+        "total_trucks": "Jemi tır",
+        "total_kg": "Jemi kg",
+        "total_kg_sub": "tırlaryň arassa agramy",
+        "avg_kg": "Ortaça kg / tır",
+        "open_trucks": "Açyk tırlar",
+        "open_trucks_sub": "heniz barmadyk",
+        "arrived_trucks": "Baran tırlar"
+      },
+      "panel": {
+        "by_month": "Aýlar boýunça kg we tır sany",
+        "country_share": "Ýurtlar boýunça kg paýy",
+        "firm_share": "Eksport firmalar boýunça kg paýy",
+        "by_customer": "Müşderiler boýunça kg",
+        "by_block": "Bloklar boýunça kg",
+        "country_detail": "Ýurtlar — jikme-jik",
+        "firm_detail": "Eksport firmalar — jikme-jik",
+        "customer_detail": "Müşderiler — jikme-jik",
+        "by_variety": "Pomidor görnüşi boýunça"
+      },
+      "col": {
+        "country": "Ýurt",
+        "firm": "Firma",
+        "customer": "Müşderi",
+        "variety": "Görnüş",
+        "trucks": "Sany",
+        "kg": "Jemi kg",
+        "share": "Paý %"
+      },
+      "series_kg": "Jemi kg",
+      "month_bar_one": "{{kg}} · {{count}} tır",
+      "month_bar_other": "{{kg}} · {{count}} tır",
+      "unknown": "Näbelli",
+      "empty": "Tırlar bölüminde tır girilende hasabatlar awtomatik çykýar.",
+      "no_season": "Işjeň möwsüm ýok — hasabat görkezip bolmaýar.",
+      "scope_note": "Garalamalar, ýatyrylan, pozulan we arhiwdäki tırlar hasaba alynmaýar."
     }
   }
 }
