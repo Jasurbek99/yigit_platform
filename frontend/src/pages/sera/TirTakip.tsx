@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeePage } from '@/utils/permissions';
+import OnumcilikTab from './OnumcilikTab';
 import './sera.css';
 
 /**
@@ -12,8 +13,10 @@ import './sera.css';
  * platform's antd theme, by owner request — see the containment rules at the
  * top of `sera.css`.
  *
- * Tab BODIES are deliberately empty. The owner is supplying the contents tab by
- * tab; each placeholder is replaced as its spec arrives.
+ * Tab bodies arrive one at a time — the owner is supplying the contents tab by
+ * tab, and each placeholder is replaced as its spec does. `onumcilik` is filled
+ * (a copy of the Weekly Plan grid, pending its restyle); the other eight still
+ * render the placeholder.
  *
  * Whether a tab eventually stays a tab or becomes its own route is still open,
  * and costs nothing to decide later: `tir_takip.gaplama` gates the tab today
@@ -41,6 +44,36 @@ const TABS: ISeraTab[] = [
   { key: 'datalar', pageCode: 'tir_takip.datalar' },
 ];
 
+interface ISeraTabBody {
+  /**
+   * A SECOND page code the body's data needs, checked on top of the tab's own
+   * code. Present when the body is a view of data that already has a home —
+   * and therefore an audience — elsewhere in the platform.
+   */
+  requires?: string;
+  node: ReactNode;
+}
+
+/**
+ * Bodies for the tabs that have one. A key missing here falls through to the
+ * placeholder, which is what the remaining eight tabs still want.
+ *
+ * Önümçilik needs `export.plan` on top of its own `tir_takip.onumcilik`.
+ * The tab code is granted to all 15 roles (the owner asked for the page to be
+ * open to everyone); `export.plan` is granted to 8. Without the second check,
+ * copying the Weekly Plan grid in here would hand seven roles — accountant,
+ * finansist, sales_rep, seller, transport, warehouse_chief, weight_master —
+ * every block's planned/forecast/actual kg, the block-manager names and the
+ * late-edit state, none of which they can reach on `/export/plan`.
+ *
+ * Copying a screen must not widen who can read it. Granting a role the data is
+ * still an admin's checkbox (`export.plan` in the permission matrix), not a
+ * deploy — which is the same promise the tab codes themselves make.
+ */
+const TAB_BODIES: Record<string, ISeraTabBody> = {
+  onumcilik: { requires: 'export.plan', node: <OnumcilikTab /> },
+};
+
 export default function TirTakip() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -54,6 +87,15 @@ export default function TirTakip() {
   const [requestedTab, setRequestedTab] = useState<string | null>(null);
   const activeTab =
     visibleTabs.find((tab) => tab.key === requestedTab)?.key ?? visibleTabs[0]?.key ?? null;
+
+  function renderBody(key: string) {
+    const body = TAB_BODIES[key];
+    if (!body) return <div className="sera-empty">{t('tir_takip.tab_pending')}</div>;
+    if (body.requires && !canSeePage(user, body.requires)) {
+      return <div className="sera-empty">{t('tir_takip.tab_no_access')}</div>;
+    }
+    return body.node;
+  }
 
   return (
     <div className="sera-page">
@@ -89,7 +131,7 @@ export default function TirTakip() {
               aria-labelledby={`sera-tab-${activeTab}`}
               className="sera-card"
             >
-              <div className="sera-empty">{t('tir_takip.tab_pending')}</div>
+              {renderBody(activeTab)}
             </div>
           )}
         </>

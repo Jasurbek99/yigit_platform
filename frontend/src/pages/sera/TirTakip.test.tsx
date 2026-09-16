@@ -8,7 +8,17 @@ import TirTakip from './TirTakip';
  * `canSeePage` is deliberately NOT mocked. The per-tab gate is the whole point
  * of this page — mocking the predicate out would leave these tests asserting
  * that an array of nine literals has nine entries.
+ *
+ * `OnumcilikTab` IS mocked. It is a copy of the Weekly Plan grid and drags in
+ * TanStack Query, react-router and a dozen API hooks; mounting it here would
+ * make every shell assertion below depend on that provider stack. These tests
+ * are about the tab shell — which body a key maps to, not what the body does.
+ * The grid's own behaviour is covered by `WeeklyPlanGrid.roles.test.ts` and the
+ * `HarvestCell` suites.
  */
+vi.mock('./OnumcilikTab', () => ({
+  default: () => <div data-testid="onumcilik-body" />,
+}));
 
 const ALL_TAB_CODES = [
   'tir_takip.onumcilik', 'tir_takip.gaplama', 'tir_takip.tirlar',
@@ -66,6 +76,40 @@ describe('TirTakip', () => {
 
     expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('Quota Tracking');
     expect(screen.getByRole('tabpanel')).toHaveAttribute('id', 'sera-panel-kwota_takibi');
+  });
+
+  it('renders the Önümçilik body, not the placeholder, on the first tab', () => {
+    grant([...ALL_TAB_CODES, 'export.plan']);
+    render(<TirTakip />);
+
+    expect(screen.getByTestId('onumcilik-body')).toBeInTheDocument();
+    expect(screen.queryByText('This section has no content yet.')).toBeNull();
+  });
+
+  it('withholds the Önümçilik body from a role that cannot see /export/plan', () => {
+    // `tir_takip.onumcilik` is granted to all 15 roles; `export.plan` to 8.
+    // The tab must stay visible (the owner asked for the page to be open to
+    // everyone) while the grid's data does not leak to the other seven.
+    grant(ALL_TAB_CODES);
+    render(<TirTakip />);
+
+    expect(screen.getByRole('tab', { selected: true })).toHaveTextContent('Production');
+    expect(screen.queryByTestId('onumcilik-body')).toBeNull();
+    expect(
+      screen.getByText(
+        'You do not have access to this data. An administrator can grant it in the permission matrix.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('still shows the placeholder on a tab that has no body yet', async () => {
+    grant(ALL_TAB_CODES);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Packing' }));
+
+    expect(screen.queryByTestId('onumcilik-body')).toBeNull();
+    expect(screen.getByText('This section has no content yet.')).toBeInTheDocument();
   });
 
   it('hides a tab whose page code is revoked', () => {

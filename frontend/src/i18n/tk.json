@@ -3703,6 +3703,7 @@
   "tir_takip": {
     "title": "Maşyn Yzarlamasy (Tır Takip)",
     "no_tabs": "Bu sahypanyň hiç bir bölümine rugsadyňyz ýok.",
+    "tab_no_access": "Bu maglumata rugsadyňyz ýok. Administrator rugsatlar tablisasyndan berip biler.",
     "tab_pending": "Bu bölümiň mazmuny heniz goşulmady.",
     "tabs": {
       "onumcilik": "Önümçilik",

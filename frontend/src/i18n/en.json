@@ -3698,6 +3698,7 @@
   "tir_takip": {
     "title": "Truck Tracking (Tır Takip)",
     "no_tabs": "You do not have access to any section of this page.",
+    "tab_no_access": "You do not have access to this data. An administrator can grant it in the permission matrix.",
     "tab_pending": "This section has no content yet.",
     "tabs": {
       "onumcilik": "Production",
