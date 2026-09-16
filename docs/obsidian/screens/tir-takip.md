@@ -124,12 +124,113 @@ an admin's checkbox, not a deploy.
 > view of data with a home elsewhere in the platform gets that page's code in
 > `requires`, not a fresh code of its own.
 
+### The restyle (step 2)
+
+The table wears sera's typography and palette, ported from `App.jsx:13412–13500`.
+It is still an antd `<Table>`: that component already carries the sticky first
+column, the horizontal scroll, the summary row and the editable cell, and none of
+those change. So `sera.css` holds antd's DOM in sera's clothes rather than a
+reimplementation of the markup.
+
+| | sera value |
+|---|---|
+| table base | 12px, headers weight 500 |
+| number input | 14px — the one thing sera sets *larger* than the table, because it is what gets typed |
+| header | bg `#fafaf9`, text `#a8a29e` |
+| block name | `#44403c` |
+| totals | `#047857`, weight 600 |
+| total row | bg `#ecfdf5`, text `#065f46`, weight 700 |
+| borders | `#e7e5e4` header · `#f5f5f4` between cells · `#d6d3d1` before the total column |
+| today column | header `#fef3c7`, body amber-50 at 40% |
+
+Every selector starts at `.sera-page`, so `/export/plan` — the same grid one route
+away — is untouched.
+
+**Texts stay ours** — our weekday names, our block labels, our `plan.total`.
+Sera's *"şu gün"* caption under today's date does come across, but through a new
+`plan.today` key, so it reads "Today" / "Şu gün" / "Сегодня" with the rest of the
+interface rather than being Turkmen on an English screen.
+
+**The block-code tag is gone from the Block column** (owner request): the name
+identifies the row. That tag also carried the gold/blue "one of my blocks" marker
+for a block manager; the signal survives on the row, which keeps its yellow
+background and inset gold left bar.
+
+**Cell height is measured, not guessed.** Sera's box is 34px — `py-1.5` is 6px top
+and bottom, `text-sm` is a 20px line, plus 1px of border each side. antd's `small`
+input is 24px, which is why the first pass read short. The read-only cell is given
+36px (34 + the border) so a cell nobody can edit does not make its row shorter
+than the editable rows beside it.
+
+### The cell
+
+`OnumcilikCell.tsx` replaces `HarvestCell` on this tab — the first fork the
+restyle has actually needed, and the one the note above always said would come.
+
+Sera's cell (`NumInput`, `App.jsx:2300`, used at `App.jsx:13438`) is a bordered
+box you type straight into. `HarvestCell` is click-to-edit and, for an admin on
+today's or a past day, stacks **two** values: the actual (large) over a small
+`Plan: …` line. Sera's holds exactly one number, so matching it forced a choice
+about which. It is the **plan** — this is a planning grid, and both
+`greenhouse_manager` and `boss` already saw plan-only here.
+
+> [!warning] What this removes, for `admin` and `director`, on this tab only
+> Overriding an `actual_value` from inside a cell, and the rollup/override source
+> badge. `/export/plan` still renders `HarvestCell` and keeps both, and the
+> backend is untouched — the capability is absent from this screen, not gone.
+> Owner decision, 2026-09-16: *"Actual don't need, remove it"*.
+
+What the fork keeps, because dropping it would break writes rather than looks:
+
+- **The admin reason gate.** Overwriting a value that was already there opens
+  `AdminOverrideReasonModal` first. The backend rejects an admin-like write with
+  no reason, so saving straight through would 400. Filling an *empty* cell is an
+  entry, not an override, and saves directly.
+- **Read-only as plain text**, never a disabled box. Sera has no read-only state
+  to copy because it has no permissions; an input nobody can use would promise an
+  edit the backend would refuse. Clicking it opens the history modal.
+- **The explicit-zero distinction** — `0 ✓` in italic when `plan_submitted_at` is
+  set, an em-dash when the value is NULL.
+
+The pivoted (transposed) view uses the same cell. A pivot toggle changes which
+axis is which, not what a cell means; leaving `HarvestCell` there would have made
+the actual reachable through a button meant only to rotate the table.
+
+`planOnlyCells` and `canEditActual` are consequently no longer read on this tab —
+every cell is plan-only by construction, so neither has a branch left to select.
+Both still drive `/export/plan`.
+
+### The header tiles
+
+The **Late submissions** tile is gone (owner request). `plan_state` is unaffected:
+the backend still records `on_time`/`late`/`critical_late`, the dispatcher still
+notifies, and the tile still exists on `/export/plan`, where chasing late block
+managers is the job. This tab is for reading the week's tonnage.
+
+### The Total column
+
+`JEMI` in the sera app. Last column, not sticky, heavier `#d6d3d1` rule on its
+left. It sums **one block's visible week** — hiding Sunday narrows the total with
+it, so the figure always equals the columns a reader can add up by eye. The corner
+cell where it meets the total row is summed by the same function, so the two can
+never disagree.
+
+It shows **plan only**, because the day-total row it terminates shows plan only —
+that row's actual line is commented out. A row total carrying a second figure the
+column below it does not show would read as a discrepancy, not as extra
+information.
+
+The arithmetic lives in `OnumcilikTab.totals.ts` (`sumBlockWeek`, `sumAllBlocks`)
+rather than inline in the column renderer: the grid needs the Query and Router
+stacks to render at all, so a pure module is the only part of this that can be
+tested without standing up both.
+
 ### Known cosmetic state
 
-The tab is antd — white cards and antd controls — sitting inside the green sera
-page, and it renders its own `Weekly Plan` heading under a tab already labelled
-*Önümçilik*. Both are deliberate at this step: the restyle is the next piece of
-work, and keeping the copy verbatim keeps that diff readable.
+The tab still renders its own `Weekly Plan` heading under a tab already labelled
+*Önümçilik* — a duplicate title, kept pending the owner's call. The header tiles,
+buttons and the truck-allocation table below the grid are still antd-default; only
+the grid itself has been restyled so far.
 
 ### Planned divergence
 
@@ -169,6 +270,8 @@ Two consequences worth knowing:
 | Page | `frontend/src/pages/sera/TirTakip.tsx` — tab strip + `TAB_BODIES` map |
 | Önümçilik body | `frontend/src/pages/sera/OnumcilikTab.tsx` — verbatim copy of `pages/export/WeeklyPlanGrid.tsx` |
 | Styles | `frontend/src/pages/sera/sera.css` |
+| Cell | `frontend/src/pages/sera/OnumcilikCell.tsx` + `.test.tsx` (10 tests) — the always-visible sera input; replaces `HarvestCell` on this tab |
+| Totals | `frontend/src/pages/sera/OnumcilikTab.totals.ts` + `.test.ts` (6 tests) — the Total column's arithmetic, kept pure so it is testable without the Query/Router stack |
 | Tests | `frontend/src/pages/sera/TirTakip.test.tsx` (10 tests; `OnumcilikTab` mocked at the module boundary so the shell tests stay free of the Query/Router stack) |
 | Comparison note | `docs/TIR_TAKIP_ONUMCILIK_VS_WEEKLY_PLAN.md` — the sera original vs our grid, and the four open decisions |
 | Route | `frontend/src/App.tsx` — `tir-takip`, `pageCode="tir_takip"` |
