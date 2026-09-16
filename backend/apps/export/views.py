@@ -459,6 +459,15 @@ class ShipmentViewSet(ModelViewSet):
             # would silently become a superset of it (D8, spec §9.1).
             skip_archive_split = season.is_closed and self._can_view_archive()
 
+        # ── Sales rep ownership (list only) ──────────────────────────────────
+        # Same rule as the Sheet: a sales_rep sees only shipments whose customer
+        # is assigned to them. Detail routes stay unscoped — get_object() runs
+        # through here, and scoping it would 404 reps out of the fields they own.
+        if action_name == 'list':
+            user = self.request.user
+            if getattr(user, 'role', None) == 'sales_rep' and not user.is_superuser:
+                qs = qs.filter(customer__sales_rep=user)
+
         # ── Operational vs Archive split (Phase 3, ADR-0005) ─────────────────
         # Default: is_archived=False (operational). ?archived=true opens the
         # archive view, gated to a subset of management roles.

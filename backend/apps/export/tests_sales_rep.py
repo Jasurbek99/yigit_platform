@@ -640,3 +640,60 @@ class TestSalesReportPostPermission(TestCase):
             format='json',
         )
         self.assertEqual(resp.status_code, 403, resp.content)
+
+
+# ---------------------------------------------------------------------------
+# Test: Shipments list is scoped like the Sheet
+# ---------------------------------------------------------------------------
+
+class TestShipmentListScoping(TestCase):
+    """GET /api/v1/export/shipments/ shows a sales_rep only his customers' rows.
+
+    Same rule as the Sheet (``sheet()`` action). Detail routes stay unscoped.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions', verbosity=0)
+        cls.rep = _make_user('rep_list', 'sales_rep')
+        other_rep = _make_user('rep_list_other', 'sales_rep')
+        cls.season = _make_season()
+        status_4 = _make_status('yola_chykdy_list', step_order=4, phase='TRANSIT')
+        kz = _make_country('KZL')
+        mine = _make_customer('ListMine', sales_rep=cls.rep)
+        other = _make_customer('ListOther', sales_rep=other_rep)
+        cls.ship_mine = _make_shipment('0606001/25', kz, status_4, customer=mine, season=cls.season)
+        cls.ship_other = _make_shipment('0606002/25', kz, status_4, customer=other, season=cls.season)
+        cls.ship_null = _make_shipment('0606003/25', kz, status_4, customer=None, season=cls.season)
+        cls.all_ids = {cls.ship_mine.id, cls.ship_other.id, cls.ship_null.id}
+
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+
+    def _list_ids(self, user: User) -> set[int]:
+        self.client.force_authenticate(user=user)
+        resp = self.client.get('/api/v1/export/shipments/?page_size=200')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        return {row['id'] for row in resp.data['results']}
+
+    def test_sales_rep_sees_only_own_customer_rows(self):
+        self.assertEqual(self._list_ids(self.rep) & self.all_ids, {self.ship_mine.id})
+
+    def test_rep_without_customers_sees_none(self):
+        lonely = _make_user('rep_list_lonely', 'sales_rep')
+        self.assertEqual(self._list_ids(lonely), set())
+
+    def test_export_manager_sees_all(self):
+        manager = _make_user('mgr_list', 'export_manager')
+        self.assertEqual(self._list_ids(manager) & self.all_ids, self.all_ids)
+
+    def test_operational_role_sees_all(self):
+        transport = _make_user('transport_list', 'transport')
+        self.assertEqual(self._list_ids(transport) & self.all_ids, self.all_ids)
+
+    def test_rep_can_still_retrieve_unowned_shipment(self):
+        """Scope is list-only — detail routes must keep resolving for reps."""
+        self.client.force_authenticate(user=self.rep)
+        resp = self.client.get(f'/api/v1/export/shipments/{self.ship_other.id}/')
+        self.assertEqual(resp.status_code, 200, resp.content)
