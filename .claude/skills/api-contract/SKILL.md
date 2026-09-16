@@ -457,12 +457,44 @@ Notes:
 - `routes.percent` = integer percentage of season total trucks, rounded. Top 4 cities per country, null/empty city names omitted.
 - Implementation: `apps/export/views_dashboard.py`, service: `apps/export/services/dashboard_summary.py`.
 
+### Tır Takip Hasabat: `GET /api/v1/export/tir-hasabat/`
+
+Backs the **📊 Hasabat** tab on `/tir-takip` (`HasabatTab.tsx`, `useTirHasabat`). Read-only,
+60 s cache keyed on the season. **Gated server-side on two page codes** — `tir_takip.hasabat`
+and `analytics.clients` (`CanViewTirHasabat`; superuser bypass); either missing → 403.
+Season-scoped by the `Shipment.season` FK (`?season=`, same rules as below). Counts the season's
+shipments **minus** `draft`, `cancelled`, soft-deleted and archived.
+
+```json
+{
+  "season": { "id": 13, "name": "2026/2027" },
+  "kpis": { "total_trucks": 3, "total_kg": 38000.0, "avg_kg": 12667.0, "open_trucks": 2, "arrived_trucks": 1 },
+  "by_month": [ { "month": "2026-01", "trucks": 1, "kg": 18000.0 } ],
+  "by_country":  { "rows": [ { "name": "Russia", "trucks": 1, "kg": 20000.0 }, { "name": null, "trucks": 1, "kg": 0.0 } ], "total_kg": 38000.0 },
+  "by_customer": { "rows": [], "total_kg": 0.0 },
+  "by_variety":  { "rows": [], "total_kg": 0.0 },
+  "by_firm":     { "rows": [ { "name": "X", "trucks": 2, "kg": 30000.0 } ], "total_kg": 30000.0 },
+  "by_block":    { "rows": [ { "name": "A", "trucks": 2, "kg": 12000.0 } ], "total_kg": 12000.0 }
+}
+```
+
+- **Every number is a JSON number** (cast with `float()` in the service), not a decimal string.
+- `name: null` = trucks with no value in that dimension; the frontend labels it "Näbelli".
+- Rows are sorted by `kg` descending. `trucks` is a distinct shipment count per group.
+- kg sources differ per grouping: `weight_net` for kpis/month/country/customer/variety,
+  `ShipmentFirmSplit.weight_kg` for `by_firm`, `ShipmentBlockSource.weight_kg` for `by_block`.
+  So `by_firm.total_kg` / `by_block.total_kg` do **not** equal `kpis.total_kg` — take shares
+  against the grouping's own `total_kg`.
+- `open_trucks` = `status.step_order < 9`, `arrived_trucks` = `>= 9` (`bardy` and later).
+- Month = `TruncMonth(Shipment.date)`, `'YYYY-MM'`, oldest first.
+- No active season → `season: null` with the same shape, all zeros / empty.
+
 ## Season scoping (AD-16)
 
 Every season-bearing list endpoint (shipments, Sheet, Kanban board, harvest plans, day
 entries, truck allocations/destinations, local-sell plans, contracts, contract-sales,
 comments, tasks, quota-usage, quota-issuances, quota-firm-balances, advances,
-customs-expenses, document-packets, clients-report) accepts an optional `?season=<id>`:
+customs-expenses, document-packets, clients-report, tir-hasabat) accepts an optional `?season=<id>`:
 
 - Omitted → the active (write-target) season.
 - Unknown id → `404`.

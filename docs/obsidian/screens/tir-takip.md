@@ -12,10 +12,11 @@ language rather than the platform's Ant Design theme** — owner request, 2026-0
 *"new pages have another design, don't change ours."*
 
 > [!warning] Status as of 2026-09-16
-> **Three of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
+> **Four of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
 > [[#The Önümçilik tab]]), `tirlar` renders the Shipment Sheet (see
-> [[#The Tırlar tab]]) and `datalar` renders the Shipment Settings page (see
-> [[#The Datalar tab]]); the other six are still placeholders. The owner is
+> [[#The Tırlar tab]]), `hasabat` renders live report aggregates (see
+> [[#The Hasabat tab]]) and `datalar` renders the Shipment Settings page (see
+> [[#The Datalar tab]]); the other five are still placeholders. The owner is
 > supplying the contents tab by tab, and each placeholder is replaced as its spec
 > arrives.
 
@@ -33,8 +34,8 @@ language rather than the platform's Ant Design theme** — owner request, 2026-0
 │ ┌────────────────────────────────────────────────────────────┐ │
 │ │  Önümçilik → Weekly Plan grid · Tırlar → Shipment Sheet      │ │
 │ │  (Tırlar has no card: the sheet fills the page edge to edge) │ │
-│ │  Datalar → Shipment Settings                                 │ │
-│ │  (the other 6 → placeholder)                                 │ │
+│ │  Hasabat → report · Datalar → Shipment Settings              │ │
+│ │  (the other 5 → placeholder)                                 │ │
 │ └────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -400,6 +401,64 @@ Nothing in the permission chain was touched, so
 zoom and the comments drawer state are shared with `/export/shipments/sheet`'s iOS
 variant. That is intended — it is the same view of the same rows.
 
+## The Hasabat tab
+
+`frontend/src/pages/sera/HasabatTab.tsx` — the source's "📊 Hasabat" tab
+(`App.jsx:15319–15584`), fed by **live aggregates from the database** instead of
+the browser-side truck list the source groups. Layout, panel order, icons and the
+donut side legends (swatch · name · %) are the source's; the charts are the
+platform's ECharts style (`CHART_PALETTE`, the `TeamRankingChart` axis treatment).
+Owner request, 2026-09-16: *"use our chart style, but his text beside the charts."*
+
+**Panels:** 5 KPI cards (Jemi tır · Jemi kg · Ortaça kg/tır · Açyk tırlar · Baran
+tırlar), then kg+trucks by month, country and export-firm donuts, customer and
+block horizontal bars, and four ranking tables (country, firm, customer, variety).
+A panel with no rows is not rendered; zero trucks shows the source's hint.
+
+**Data:** `GET /api/v1/export/tir-hasabat/[?season=<id>]` →
+`backend/apps/export/services/tir_hasabat.py`, 60 s cache per season.
+
+| Figure | Source |
+|---|---|
+| Which trucks | `Shipment.season` = resolved season, minus `draft`, `cancelled`, soft-deleted, archived — stated under the KPI row |
+| Jemi kg, month/country/customer/variety kg | `Sum(weight_net)` — same as the Clients Report |
+| Export-firm kg | `Sum(ShipmentFirmSplit.weight_kg)`; name `name_short`, else `code` |
+| Block kg | `Sum(ShipmentBlockSource.weight_kg)` (nullable weights count 0, the truck still counts) |
+| Month bucket | `TruncMonth(Shipment.date)` — not the source's loading time, which is nullable |
+| Açyk / Baran | `status.step_order` < 9 / ≥ 9 (`bardy` = Arrived) |
+
+> [!warning] The panel totals differ on purpose
+> Firm and block kg come from their own tables, so they do not add up to Jemi kg.
+> Every grouping ships its own `total_kg`, and every % on the tab is taken against
+> **its panel's** total. The source divides every panel by the headline total — a
+> faithful copy would show firm shares that never sum to 100.
+>
+> **Nor does Jemi tır match the Clients Report for the same season.** Hasabat
+> scopes on the `season` FK and drops drafts / cancelled / deleted / archived;
+> `clients_report.py` scopes on the season's date window and drops none of them.
+
+Deliberate departures from the source: the month chart is **one kg bar per month,
+labelled with kg and truck count** ("100K · 1 tır") — the source draws trucks as a
+second bar on the kg scale, where they never leave the baseline, and a second
+right-hand scale (tried first) made one truck's bar as tall as 100 000 kg, which the
+owner read as the same quantity. Horizontal bar charts size to their row count
+instead of a fixed 220 px. Card values stay in the source's short form (118K) by
+owner choice; the exact kg is in the card's hover title.
+
+### Permissions
+
+Same rule as Önümçilik and Tırlar: the body needs a second code. Hasabat shows kg
+per customer, export firm and country — the Clients Report's data — so it requires
+**`analytics.clients`** (5 roles: admin, boss, director, document_team,
+export_manager) on top of `tir_takip.hasabat` (all 15). Unlike the other two
+bodies, which reuse endpoints that already gate themselves, this endpoint is new,
+so the pair is enforced **server-side too** (`CanViewTirHasabat` in
+`export/permissions.py`, superuser bypass): a role missing either code gets 403.
+
+Consequence for admins: granting a role Hasabat's numbers means granting
+`analytics.clients`, which also opens the `/analytics/clients` page and its nav
+item for that role. There is no Hasabat-only switch.
+
 ## The Datalar tab
 
 The source's Datalar tab is its reference-data table: the values the Tırlar
@@ -426,7 +485,7 @@ with `/admin/shipment-settings`, with the same data and the same keys.
 
 ### Permissions
 
-Same rule as the other two bodies, with more at stake: this body **writes**.
+Same rule as the other three bodies, with more at stake: this body **writes**.
 It edits statuses, dropdown options, truck-split defaults and Sheet row access,
 which the Sheet permission chain reads from. It requires
 **`admin.shipment_settings`** on top of `tir_takip.datalar`. By seed default that
@@ -470,10 +529,13 @@ Two consequences worth knowing:
 | Sheet grid | `frontend/src/components/sheet/SheetGrid.tsx` — optional `variant` prop, forwarded to the cell |
 | Sheet cell | `frontend/src/components/sheet/SheetCell.tsx` — same optional prop; `SheetCell.variantPin.test.tsx` (3 tests). With `SheetGrid`, the only edits to shared Sheet code |
 | Styles | `frontend/src/pages/sera/sera.css` |
+| Hasabat body | `frontend/src/pages/sera/HasabatTab.tsx` + `.test.tsx` (7 tests); chart builders `HasabatTab.charts.ts` + `.test.ts` (6 tests); hook `frontend/src/hooks/useTirHasabat.ts` |
+| Hasabat endpoint | `backend/apps/export/views_tir_hasabat.py`, `services/tir_hasabat.py`, `permissions.py` (`CanViewTirHasabat`); tests `tests_tir_hasabat.py` (14) |
+| Chart palette | `frontend/src/constants/styles.ts` — `CHART_PALETTE`, shared with the Clients Report |
 | Cell | `frontend/src/pages/sera/OnumcilikCell.tsx` + `.test.tsx` (10 tests) — the always-visible sera input; replaces `HarvestCell` on this tab |
 | Totals | `frontend/src/pages/sera/OnumcilikTab.totals.ts` + `.test.ts` (6 tests) — the Total column's arithmetic, kept pure so it is testable without the Query/Router stack |
 | Datalar body | `frontend/src/pages/admin/ShipmentSettingsPage.tsx` — mounted as-is (lazy), no copy |
-| Tests | `frontend/src/pages/sera/TirTakip.test.tsx` (14 tests; every tab body, `ShipmentSettingsPage` included, is mocked at the module boundary so the shell tests stay free of the Query/Router stack) |
+| Tests | `frontend/src/pages/sera/TirTakip.test.tsx` (16 tests; every tab body, `ShipmentSettingsPage` included, is mocked at the module boundary so the shell tests stay free of the Query/Router stack) |
 | Comparison note | `docs/TIR_TAKIP_ONUMCILIK_VS_WEEKLY_PLAN.md` — the sera original vs our grid, and the four open decisions |
 | Route | `frontend/src/App.tsx` — `tir-takip`, `pageCode="tir_takip"` |
 | Nav | `frontend/src/components/AppLayout.tsx` — boss `group_shipping`, staff `group_export` |
