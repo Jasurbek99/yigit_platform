@@ -152,9 +152,19 @@ class CustomerAdminSerializer(serializers.ModelSerializer):
 
 
 class GreenhouseBlockSerializer(serializers.ModelSerializer):
+    # `parent` and `location` feed the weekly-plan grids, which build one row per
+    # plannable block: `parent` lets them drop sub-blocks (F1/F2 are not
+    # plannable — `write-cell` refuses them), and `location_name` is the
+    # Dusak / Kaka / Owadandepe grouping the Önümçilik block filter and Block
+    # column show. Read-only and additive; existing consumers ignore them.
+    location_name = serializers.CharField(source='location.name', read_only=True, default=None)
+
     class Meta:
         model = GreenhouseBlock
-        fields = ['id', 'code', 'name', 'color', 'sort_order', 'is_active']
+        fields = [
+            'id', 'code', 'name', 'color', 'sort_order', 'is_active',
+            'parent', 'location', 'location_name',
+        ]
 
 
 class LoadingLocationSerializer(serializers.ModelSerializer):
