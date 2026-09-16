@@ -12,10 +12,11 @@ language rather than the platform's Ant Design theme** — owner request, 2026-0
 *"new pages have another design, don't change ours."*
 
 > [!warning] Status as of 2026-09-16
-> **One of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
-> [[#The Önümçilik tab]] below); the other eight are still placeholders. The owner
-> is supplying the contents tab by tab, and each placeholder is replaced as its
-> spec arrives.
+> **Two of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
+> [[#The Önümçilik tab]]) and `tirlar` renders the Shipment Sheet (see
+> [[#The Tırlar tab]]); the other seven are still placeholders. The owner is
+> supplying the contents tab by tab, and each placeholder is replaced as its spec
+> arrives.
 
 ## Page layout
 
@@ -29,7 +30,9 @@ language rather than the platform's Ant Design theme** — owner request, 2026-0
 │  ──────────                                                    │
 │  Gümrük Ewraklary │ Kwota Takibi │ Yurtdışı Sertnamaları │ …   │
 │ ┌────────────────────────────────────────────────────────────┐ │
-│ │  (Önümçilik → the Weekly Plan grid; the other 8 → placeholder) │ │
+│ │  Önümçilik → Weekly Plan grid · Tırlar → Shipment Sheet      │ │
+│ │  (Tırlar has no card: the sheet fills the page edge to edge) │ │
+│ │  (the other 7 → placeholder)                                 │ │
 │ └────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -42,7 +45,7 @@ carries the identical gradient and the two surfaces read as one. Both pin it wit
 ramp over a different height and the join shows as a step (measured: 1/255 per
 channel with the pin, across the full width).
 
-> [!caution] No season picker, and the Önümçilik grid is season-scoped
+> [!caution] No season picker, and both filled tabs are season-scoped
 > The season switcher was removed from the header **app-wide** on 2026-09-16 by
 > owner request. It had first been hidden on sera routes only, on the grounds that
 > they carried no season-scoped data — true while all nine tabs were placeholders,
@@ -55,6 +58,9 @@ channel with the pin, across the full width).
 > if that season is closed, and there is now nothing on screen to switch back —
 > only editing the URL. Worth knowing before someone reports "the tab won't let me
 > type". Restoring the control is two uncomments in `AppLayout.tsx`, marked there.
+>
+> The same applies to **Tırlar**: `useShipmentSheet` resolves its season through
+> `useSelectedSeason` too, and `SheetGrid` goes read-only via `useSeasonReadOnly`.
 
 ## The nine tabs
 
@@ -241,6 +247,122 @@ what our equivalent of sera's export-bound daily kg is, where its
 whether the tab keeps ISO weeks or adopts sera's rolling 7-day window, and who may
 write.
 
+## The Tırlar tab
+
+`frontend/src/pages/sera/TirlarTab.tsx` — the trucks sheet. A copy of
+`pages/export/ShipmentSheet.tsx`, **the page wrapper only**. `SheetGrid` and every
+component beneath it are reused untouched.
+
+### Why there is no grid restyle
+
+The Sheet already ships this screen. Its **`ios` design variant is a reproduction
+of sera's `Tır Takip → Tırlar`** (`App.jsx:14018`) — see the header of
+`components/sheet/sheetTopicOrder.ts`. That module orders rows into sera's topic
+sections (Genel Bilgiler · Ýük & Gümrük · Transport · Ýükleme Zamanlary · Ýolda ·
+Satyş & Hasabat) instead of the classic per-owner role bands, and
+`SheetVariantIos.css` is the skin. Sera's table and ours were already the same
+shape: transposed, one truck per column, a frozen label column on the left.
+
+So the tab **pins `variant="ios"`** and adds no grid CSS. Any user can already see
+this look on `/export/shipments/sheet` by switching the toolbar's design toggle to
+iOS.
+
+> [!warning] Why no grid CSS at all
+> The grid is virtualised (`@tanstack/react-virtual`). A width or row height set
+> in CSS that the virtualizer has not measured makes the frozen header drift out of
+> line with the body while scrolling — silently; tests and `tsc` stay green. The
+> only rule `sera.css` adds is `.sera-sheet`, a height context (below).
+
+### Pinned by prop, not by store
+
+`SheetGrid` gained one optional prop, `variant?: TSheetVariant`, which wins over
+the store when present. Omitted everywhere else, so `/export/shipments/sheet`
+renders exactly as before.
+
+`SheetGrid` forwards the pin to **`SheetCell`**, which takes the same optional
+prop. The cell has to have it: the variant sets the shipment column width and the
+row height (`scaleSheetLayout` — `ios` is rows ×1.35, columns ×1.15), and the cell
+reads them itself. A pinned grid with store-sized cells lays its slots out for
+`ios` and paints `classic`-sized cells inside them — misaligned, and invisible to
+any test that mocks the grid. `SheetCell.variantPin.test.tsx` covers it (fails
+against the unpinned cell).
+
+What is forwarded is the **caller's pin, not the resolved variant**. `renderCell`
+is a `useCallback` whose deps have never listed `sheetVariant` (a pre-existing
+lint warning), so a resolved value would go stale — and, as a prop, would then
+override the store and stop the Sheet's own toggle resizing cells. The pin is
+`undefined` on the Sheet route, so the cell keeps reading the live store there.
+
+`SheetLabelColumn` also reads the variant from the store and was left alone:
+`scaleSheetLayout` does not scale the label columns by variant, so there is
+nothing for it to get wrong.
+
+It is a prop because the store route leaks: `setSheetVariant` writes
+`ygt-sheet-variant` to `localStorage`, so pinning through it would send the user
+back to the classic Sheet still wearing this skin.
+
+### What the copy drops
+
+Each is page-level chrome that misbehaves inside a tab panel:
+
+| Dropped | Why |
+|---|---|
+| `usePresenceSheet()` | Joins the `presence.sheet` room — from a second location the roster stops meaning "who is on the Sheet" |
+| `?shipment=` / `?row=` / `?comment=` / `?code=` effects | They address the Sheet route and would fire on `/tir-takip` URLs |
+| Fullscreen, zoom, `sheet-page page-fullheight-grid` | That pair pins the grid to the viewport by stripping `<Content>`'s padding — wrong inside a card |
+| `SheetToolbar` | Search, filters and the classic/iOS toggle. The toggle inside a sera page reintroduces the leak above |
+| `groupRowsByOwner` | The classic variant's grouping; the grid re-groups by topic in `ios` anyway |
+
+**No filtering**, as a consequence of dropping the toolbar. `searchText` and
+`sheetFilters` are not persisted, but they live in a module-level store that
+survives client-side navigation. Applying them here would let a search typed on
+the Sheet hide trucks in a tab with no filter UI to clear it, so the tab passes
+every shipment straight to the grid. Sera's own filters (year, month, block,
+status — `App.jsx:14020`) are a separate piece of work: its filter model is not
+this store's.
+
+**Kept:** `useSheetLiveSync` (refetch on others' writes), the comments drawer, the
+row-hide control, and `setRows` — `CommentItem` and `MentionPopover` read the row
+map from the store.
+
+### No card, full page
+
+Every other tab body sits in the bordered `.sera-card`. On Tırlar that read as a
+small window inside the page (owner, 2026-09-16), so the panel loses its chrome
+there — no border, radius, shadow, background or padding — via
+`.sera-card:has(> .sera-sheet)`. The sheet runs **edge to edge** under the tab
+strip, like the Sheet's own route: `margin: 0 -24px -24px` takes it out through
+the page's side and bottom padding.
+
+**Height.** `.sheet-grid` is `flex: 1; min-height: 0` and scrolls inside its
+parent, so every box above it needs a definite height — otherwise the grid
+resolves to **zero height and the tab renders blank**. `<Content>` is already fixed
+at `100vh - 56px` in `AppLayout`, so `.sera-page:has(.sera-sheet)` takes
+`calc(100% + 24px)` of it and becomes a flex column; the panel and `.sera-sheet`
+are `flex: 1; min-height: 0` inside it. No pixel constant for the tab strip — it
+wraps to two lines on a narrow window and the sheet just gets less.
+
+With `<ClosedSeasonBanner />` above the page, the page is pushed down by the
+banner's height and `<Content>` scrolls by that much. Closed-season browsing only.
+
+### Permissions
+
+`TAB_BODIES` carries `tirlar: { requires: 'export.shipments_sheet', … }` — the rule
+from the Önümçilik section applied again. `tir_takip.tirlar` is open to all 15
+roles; the Sheet is not, and the tab would otherwise hand every role every truck's
+customer, firm splits, driver and document state.
+
+Cell-level rules are **unchanged and unforked**: `isCellEditable`, row access
+grants and the backend field checks all come along with the reused `SheetGrid`.
+Nothing in the permission chain was touched, so
+`TestEveryRoleCanEditItsOwnSheetRow` was not in play.
+
+### Shared state with the Sheet
+
+`ygt-sheet-ios-order` (the per-browser topic row order), `ygt-sheet-freeze-v3`,
+zoom and the comments drawer state are shared with `/export/shipments/sheet`'s iOS
+variant. That is intended — it is the same view of the same rows.
+
 ## Permissions
 
 Ten codes: one container (`tir_takip`) plus one per tab. **All ten are granted to
@@ -269,10 +391,13 @@ Two consequences worth knowing:
 |---|---|
 | Page | `frontend/src/pages/sera/TirTakip.tsx` — tab strip + `TAB_BODIES` map |
 | Önümçilik body | `frontend/src/pages/sera/OnumcilikTab.tsx` — verbatim copy of `pages/export/WeeklyPlanGrid.tsx` |
+| Tırlar body | `frontend/src/pages/sera/TirlarTab.tsx` + `.test.tsx` (5 tests) — copy of the `pages/export/ShipmentSheet.tsx` wrapper; renders `SheetGrid` with `variant="ios"` |
+| Sheet grid | `frontend/src/components/sheet/SheetGrid.tsx` — optional `variant` prop, forwarded to the cell |
+| Sheet cell | `frontend/src/components/sheet/SheetCell.tsx` — same optional prop; `SheetCell.variantPin.test.tsx` (3 tests). With `SheetGrid`, the only edits to shared Sheet code |
 | Styles | `frontend/src/pages/sera/sera.css` |
 | Cell | `frontend/src/pages/sera/OnumcilikCell.tsx` + `.test.tsx` (10 tests) — the always-visible sera input; replaces `HarvestCell` on this tab |
 | Totals | `frontend/src/pages/sera/OnumcilikTab.totals.ts` + `.test.ts` (6 tests) — the Total column's arithmetic, kept pure so it is testable without the Query/Router stack |
-| Tests | `frontend/src/pages/sera/TirTakip.test.tsx` (10 tests; `OnumcilikTab` mocked at the module boundary so the shell tests stay free of the Query/Router stack) |
+| Tests | `frontend/src/pages/sera/TirTakip.test.tsx` (12 tests; `OnumcilikTab` and `TirlarTab` mocked at the module boundary so the shell tests stay free of the Query/Router stack) |
 | Comparison note | `docs/TIR_TAKIP_ONUMCILIK_VS_WEEKLY_PLAN.md` — the sera original vs our grid, and the four open decisions |
 | Route | `frontend/src/App.tsx` — `tir-takip`, `pageCode="tir_takip"` |
 | Nav | `frontend/src/components/AppLayout.tsx` — boss `group_shipping`, staff `group_export` |

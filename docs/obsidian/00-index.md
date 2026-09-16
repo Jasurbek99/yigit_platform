@@ -117,7 +117,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/team-kpi]] — Team KPI leaderboard at `/team/kpi` — per-user tasks-completed ranking with on-time %, overdue-now, active hours, period switcher; visible to every role, wired to `GET /api/v1/core/team-kpi/`
 - [[screens/firms-admin]] — Export + import firm registries at `/admin/firms` and `/admin/import-firms` — CRUD plus the document-readiness (green / amber `Missing N`) indicator
 - [[screens/permissions-admin]] — Role-first permission editor at `/admin/permissions` — pages / resources / fields for one role on one screen, plus the ⚠ list of resources the matrix does not actually enforce
-- [[screens/tir-takip]] — Tır Takip (Maşyn Yzarlamasy) at `/tir-takip` — nine-tab shell in the cloned sera-butce-web design; 10 page codes (container + one per tab) open to all 15 roles and revocable per tab; tab bodies still placeholders
+- [[screens/tir-takip]] — Tır Takip (Maşyn Yzarlamasy) at `/tir-takip` — nine-tab shell in the cloned sera-butce-web design; 10 page codes (container + one per tab) open to all 15 roles and revocable per tab; Önümçilik (Weekly Plan grid) and Tırlar (Shipment Sheet, iOS variant pinned) filled, the other seven still placeholders
 - [[screens/season-switcher]] — Header season switcher, read-only mode, and admin Close/Open on `/admin/seasons` (AD-16) — close a season (frozen + hidden), open the next one, browse a closed season read-only
 
 ## Reference
