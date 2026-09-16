@@ -6,7 +6,9 @@ import { Tooltip } from 'antd';
 import { IconClock } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useMyWorklog } from '@/hooks/useWorklog';
+import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { canSeePage } from '@/utils/permissions';
 
 function formatHm(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
@@ -20,15 +22,19 @@ function formatHm(seconds: number): string {
 export function WorklogChip() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data, isLoading } = useMyWorklog();
   if (isLoading || !data) return null;
 
+  // The chip always shows your own hours; it only links to the team page for
+  // roles that still hold the `worklog` page row.
+  const canOpenWorklog = canSeePage(user, 'worklog');
   const today = data.today_active_seconds || 0;
   return (
     <Tooltip title={t('worklog.chip_tooltip', { count: data.results.length })} placement="bottom">
       <button
         type="button"
-        onClick={() => navigate('/worklog')}
+        onClick={canOpenWorklog ? () => navigate('/worklog') : undefined}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -39,7 +45,7 @@ export function WorklogChip() {
           padding: '2px 10px',
           fontSize: 12,
           color: '#475569',
-          cursor: 'pointer',
+          cursor: canOpenWorklog ? 'pointer' : 'default',
         }}
         aria-label={t('worklog.chip_aria')}
       >

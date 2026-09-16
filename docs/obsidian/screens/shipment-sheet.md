@@ -746,7 +746,7 @@ A `sales_rep` user sees only the **shipment columns whose customer is assigned t
 - **Management** (`admin` / `export_manager` / `director`) and every **other operational role** (loading, transport, document_team, finansist, etc., who work by status phase, not customer) see all rows unchanged.
 - The global config (`rows` / `row_settings` / `users_index` / `current_user_*`) is identical regardless of scoping — only `results` shrinks.
 
-This mirrors the same ownership rule used by `GET /export/shipments/my-sales-reports/`. See [[../roles/sales-rep]].
+This mirrors the same ownership rule used by `GET /export/shipments/my-sales-reports/` and the Shipment List (`GET /export/shipments/`, list action only). See [[../roles/sales-rep]].
 
 > **Lifecycle timestamps are editable — they are the state machine's triggers.** AD-1 is retired: all ten (`loading_started_at` R19, `loading_ended_at` R20, `departed_at` R21, `customs_exit_at` R25, `border_crossed_at` R30, `dest_entry_at` R31, `customs_entry_at` R32, `arrived_at` R35, `sale_started_at` R41, `sale_ended_at` R42) are listed in `_ALL_PATCHABLE_FIELDS` in `ShipmentPatchSerializer`. Filling one resolves its step's task and `auto_advance_if_ready()` fires the transition — see [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]]. `transition_to()` no longer writes any timestamp (`STATUS_TIMESTAMP_MAP` is empty).
 

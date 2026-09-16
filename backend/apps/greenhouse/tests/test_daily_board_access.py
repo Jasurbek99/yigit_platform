@@ -28,7 +28,11 @@ try:
         RolePagePermission,
         Season,
     )
-    from apps.greenhouse.models import HarvestDayEntry
+    from apps.greenhouse.models import (
+        BlockManagerAssignment,
+        HarvestDayEntry,
+        WeeklyHarvestPlan,
+    )
 
     DB_AVAILABLE = True
 except Exception:  # pragma: no cover
@@ -124,3 +128,76 @@ class TestDailyBoardWriteNeedsPageAccess(TestCase):
 
     def test_anonymous_is_still_refused(self):
         self.assertIn(APIClient().post(URL, self._payload()).status_code, (401, 403))
+
+
+@unittest.skipUnless(DB_AVAILABLE, "Django test DB unavailable in this environment")
+class TestDailyBoardGreenhouseManagerOwnBlocksOnly(TestCase):
+    """A greenhouse_manager may write only the blocks assigned to them.
+
+    Every other role with page access keeps writing any block — only the
+    manager is block-scoped.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        GreenhouseConfig.get_solo()
+        Season.objects.update(is_active=False)
+        cls.season = Season.objects.create(
+            name='2026-OWN', start_date='2025-09-01', end_date='2026-08-31', is_active=True,
+        )
+        cls.own_block = GreenhouseBlock.objects.create(code='OWN-A', name='Own A', is_active=True)
+        cls.other_block = GreenhouseBlock.objects.create(code='OWN-B', name='Own B', is_active=True)
+
+        User = get_user_model()
+        cls.manager = User.objects.create_user(
+            username='t_own_mgr', password='x', role='greenhouse_manager',
+        )
+        cls.chief = User.objects.create_user(
+            username='t_own_chief', password='x', role='warehouse_chief',
+        )
+        cls.boss = User.objects.create_user(
+            username='t_own_boss', password='x', role='boss',
+        )
+        BlockManagerAssignment.objects.create(user=cls.manager, block=cls.own_block)
+        # An inactive assignment must not grant access.
+        BlockManagerAssignment.objects.create(
+            user=cls.manager, block=cls.other_block, is_active=False,
+        )
+
+        RolePagePermission.objects.filter(page_code=PAGE_CODE).delete()
+        for role in ('greenhouse_manager', 'warehouse_chief', 'boss'):
+            RolePagePermission.objects.create(role=role, page_code=PAGE_CODE, is_visible=True)
+
+    def setUp(self):
+        cache.clear()
+
+    def _post(self, user, block, **fields):
+        client = APIClient()
+        client.force_authenticate(user=user)
+        return client.post(URL, {'block': block.pk, 'date': '2026-07-14', **fields})
+
+    def test_manager_may_write_own_block(self):
+        response = self._post(self.manager, self.own_block, today_plan='50')
+        self.assertEqual(response.status_code, 200, response.content)
+
+    def test_manager_is_refused_on_another_block(self):
+        for fields in ({'today_plan': '50'}, {'yesterday_rest': '10'}, {'note': 'x'}):
+            response = self._post(self.manager, self.other_block, **fields)
+            self.assertEqual(response.status_code, 403, (fields, response.content))
+
+    def test_refused_manager_write_creates_no_rows(self):
+        self._post(self.manager, self.other_block, today_plan='50')
+        self.assertFalse(HarvestDayEntry.objects.filter(block=self.other_block).exists())
+        self.assertFalse(WeeklyHarvestPlan.objects.filter(block=self.other_block).exists())
+
+    def test_manager_without_assignments_is_refused(self):
+        lone = get_user_model().objects.create_user(
+            username='t_own_lone', password='x', role='greenhouse_manager',
+        )
+        response = self._post(lone, self.own_block, today_plan='50')
+        self.assertEqual(response.status_code, 403, response.content)
+
+    def test_other_roles_still_write_any_block(self):
+        for user in (self.chief, self.boss):
+            response = self._post(user, self.other_block, today_plan='70')
+            self.assertEqual(response.status_code, 200, (user.role, response.content))

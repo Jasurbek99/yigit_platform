@@ -36,6 +36,8 @@ Steps 7-12 (they can trigger transitions):
 
 Dashboard, Shipment List, Kanban Board, Overdue Reports, Price Panel.
 
+**Row scoping:** the Sheet, the Shipment List and the Shipments Dashboard show a rep only shipments whose customer is assigned to them (`Customer.sales_rep`, set in Admin → Sales Rep Coverage). Null-customer shipments are hidden. Opening a shipment by ID (detail page) is not scoped.
+
 ## Key Workflows
 
 1. **Arrival tracking**: Shipment List → My Work (BORDER+SALES) → track arriving shipments

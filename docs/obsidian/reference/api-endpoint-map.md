@@ -30,7 +30,7 @@ tags: [reference, api, backend, frontend]
 
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
-| GET | `/api/v1/export/shipments/` | ShipmentViewSet (list) | `useShipments` | ShipmentList — accepts `?season=<id>` (AD-16); default = active season; no active season = empty list (D7 fail-closed); a closed season requires `closed_season.can_view` else `403` |
+| GET | `/api/v1/export/shipments/` | ShipmentViewSet (list) | `useShipments` | ShipmentList — accepts `?season=<id>` (AD-16); default = active season; no active season = empty list (D7 fail-closed); a closed season requires `closed_season.can_view` else `403`; a `sales_rep` (non-superuser) sees only rows with `customer__sales_rep = user`, same as the Sheet (detail routes unscoped) |
 | GET | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (detail) | `useShipmentDetail` | ShipmentDetail |
 | POST | `/api/v1/export/shipments/` | ShipmentViewSet (create) | `useShipments` (mutation) | ShipmentCreateModal |
 | PATCH | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (partial_update) | `useShipmentPatch` | ShipmentDetail, ShipmentSheet |

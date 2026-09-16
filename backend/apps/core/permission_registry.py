@@ -52,6 +52,15 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # System (NOT admin.* — visible to director/export_manager too, so it must
     # not carry the admin. prefix that AD-15 reserves for admin-only pages).
     ('audit_log',               'Audit Log'),
+    # Team pages. Registered 2026-09-16 — before that both routes were open to
+    # every authenticated user via hardcoded 15-role arrays, so neither page
+    # appeared on the admin permission screen. Every role is seeded visible
+    # (ADR "radical transparency" is now the default, not a hard rule). The
+    # row gates the nav entry and the route only — the worklog/KPI endpoints
+    # stay IsAuthenticated because the header WorklogChip reads
+    # /core/worklog/me/ for everyone.
+    ('worklog',                 'Work Hours'),
+    ('team_kpi',                'Team Leaderboard'),
     # Feedback module
     ('feedback.submit',         'Feedback: Submit'),
     ('feedback.my_tickets',     'Feedback: My Tickets'),

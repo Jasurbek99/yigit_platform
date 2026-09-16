@@ -396,10 +396,18 @@ operational Google Sheet: one row per active block with **Düýnki galyndy**
 - **Endpoint**: `GET /api/v1/greenhouse/daily-plan/?date=YYYY-MM-DD` (one row per
   active block; default today) and `POST` to upsert one cell
   (`{block, date, today_plan?, yesterday_rest?, note?}`).
-- **One gate, and only one**: unlike the weekly forecast path, `upsert_daily_board()`
-  applies **no role or time-window restriction** — any user whose role has the
-  `export.harvest_board` page permission may edit, and that page check *is*
+- **Two gates**: unlike the weekly forecast path, `upsert_daily_board()`
+  applies **no time-window restriction** — any user whose role has the
+  `export.harvest_board` page permission may edit (subject to the block gate
+  below), and that page check *is*
   enforced on the endpoint (`page_write_permission` in `core/permissions.py`).
+- **Block gate for greenhouse managers** (2026-09-16): a `greenhouse_manager`
+  may write only blocks they hold an **active** `BlockManagerAssignment` for;
+  any other block returns 403 and creates no rows (the check runs before the
+  on-demand row creation, in `DailyHarvestBoardViewSet.create`). The page shows
+  those rows read-only (`canEditBlock` in `DailyHarvestBoard.tsx`, keyed on
+  `managed_block_ids`). Every other role with the page — e.g. `warehouse_chief`
+  — still edits every block; admin/boss/superusers bypass.
   Until 2026-09-01 it was not, and any authenticated account could overwrite any
   block's forecast for any date — [[permissions-system|F1]]. A role with no row
   for the page gets no writes; superusers bypass. **Reads are open to every

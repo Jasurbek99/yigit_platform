@@ -277,29 +277,11 @@ export default function AppLayout() {
     '/export/overdue': { key: '/export/overdue', icon: <IconAlertTriangle size={15} />, label: t('nav.overdue') },
     '/admin/expense-template': { key: '/admin/expense-template', icon: <IconFileText size={15} />, label: t('nav.admin_expense_template') },
     '/analytics/clients-report': { key: '/analytics/clients-report', icon: <IconUsers size={15} />, label: t('nav.clients_report') },
-    '/team/kpi': {
-      key: '/team/kpi',
-      icon: <IconTrophy size={15} />,
-      label: t('nav.team_kpi'),
-      roles: [
-        'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
-        'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
-        'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
-      ] as import('@/types').UserRole[],
-    },
-    '/worklog': {
-      key: '/worklog',
-      icon: <IconClock size={15} />,
-      label: t('nav.worklog'),
-      // Radical transparency: every authenticated user sees this page. No
-      // page_code is registered for it, so it is surfaced via an explicit
-      // roles list that bypasses canSeePage.
-      roles: [
-        'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief',
-        'weight_master', 'document_team', 'transport', 'sales_rep', 'finansist',
-        'director', 'accountant', 'greenhouse_manager', 'seller', 'boss',
-      ] as import('@/types').UserRole[],
-    },
+    // page codes `team_kpi` / `worklog` (registered 2026-09-16) — canSeePage,
+    // not inline roles arrays. Seeded visible to every role; an admin can now
+    // revoke either one from the permission matrix.
+    '/team/kpi': { key: '/team/kpi', icon: <IconTrophy size={15} />, label: t('nav.team_kpi') },
+    '/worklog': { key: '/worklog', icon: <IconClock size={15} />, label: t('nav.worklog') },
     '/admin/seasons': { key: '/admin/seasons', icon: <IconCalendar size={15} />, label: t('nav.admin_seasons') },
     '/admin/firms': { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
     '/admin/import-firms': { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
