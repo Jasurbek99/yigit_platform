@@ -55,7 +55,9 @@ import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { WorklogChip } from '@/components/WorklogChip';
-import { SeasonSwitcher } from '@/components/SeasonSwitcher';
+// Season picker removed from the header, 2026-09-16, by owner request.
+// Uncomment this and its mount below to restore it.
+// import { SeasonSwitcher } from '@/components/SeasonSwitcher';
 import { ClosedSeasonBanner } from '@/components/ClosedSeasonBanner';
 import { COLORS } from '@/constants/styles';
 
@@ -649,14 +651,26 @@ export default function AppLayout() {
             )}
             <ConnectionStatus />
             <WorklogChip />
-            {/* Shown everywhere, the sera pages included. It was hidden there
-                while every tab was a placeholder — "no season-scoped data, so
-                the picker offers a choice that changes nothing". Tır Takip's
-                Önümçilik tab now renders the Weekly Plan grid, which reads the
-                selected season, so hiding the control would let someone browse
-                a closed season on /export/plan, open the tab, and find a
-                read-only grid with the fix nowhere on screen. */}
-            <SeasonSwitcher />
+            {/* Season picker: removed from the header on every page by owner
+                request, 2026-09-16. Commented rather than deleted so it is one
+                uncomment to restore — the component itself is untouched and
+                still covered by SeasonSwitcher.test.tsx.
+
+                What this costs, recorded because it is not obvious: a CLOSED
+                season can no longer be ENTERED from the UI. `?season=<id>` in
+                the URL still works, and `useSelectedSeason()` still resolves
+                URL ?? store ?? active, so nothing about season state changed —
+                only the control that set it. Getting BACK is still covered:
+                <ClosedSeasonBanner /> renders a "back to active" button
+                whenever a closed season is being browsed, so nobody is
+                stranded read-only with no way out.
+
+                It had previously been hidden on the sera routes only, then
+                restored, because Tır Takip's Önümçilik tab renders the Weekly
+                Plan grid and that grid reads the selected season. That
+                argument now applies to every page equally, which is the thing
+                to weigh if this is ever restored. */}
+            {/* <SeasonSwitcher /> */}
             <Segmented
               size="small"
               value={currentLang}
