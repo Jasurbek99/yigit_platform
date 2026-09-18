@@ -62,6 +62,13 @@ export interface IPlanGridCapabilities {
   canGenerateTasks: boolean;
   /** Overwriting the rollup-computed actual by hand. Dead over a closed season. */
   canEditActual: boolean;
+  /**
+   * Approve / reject a manager's in-week plan revision (ADR-024): export_manager,
+   * admin, boss. Deliberately NOT `isExportManagerLike` — document_team shares
+   * export-manager parity elsewhere, but the owner named the export manager only.
+   * Mirrors backend `can_decide_plan_change`. Dead over a closed season.
+   */
+  canDecidePlanChanges: boolean;
 }
 
 export function planGridCapabilities({ role, isReadOnly }: IPlanGridUser): IPlanGridCapabilities {
@@ -86,5 +93,6 @@ export function planGridCapabilities({ role, isReadOnly }: IPlanGridUser): IPlan
       role === 'boss' ||
       isExportManagerLike(role),
     canEditActual: !isReadOnly && isAdminLike && !planOnlyCells,
+    canDecidePlanChanges: !isReadOnly && (isAdminLike || role === 'export_manager'),
   };
 }

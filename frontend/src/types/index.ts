@@ -837,6 +837,7 @@ export interface IGreenhouseConfig {
   forecast_same_day_close: string;
   notification_lead_minutes: number;
   truck_capacity_kg: string;            // Decimal as string
+  plan_change_max_pct: string;          // Decimal as string, default "15.00"
   operating_days_bitmask: number;       // bits 0â€“6 = Monâ€“Sun
   timezone_name: string;
   updated_by: number | null;
@@ -864,6 +865,40 @@ export type ActualSource =
   | 'shipment_rollup'
   | 'admin_override';
 
+export type PlanChangeStatus = 'pending' | 'approved' | 'rejected' | 'superseded';
+
+/** The pending revision embedded in a day entry (ADR-024). Decimals arrive as strings. */
+export interface IPlanChangeBrief {
+  id: number;
+  requested_value: string;
+  change_pct: string | null;    // null = no bound (empty or zero baseline)
+  requested_by_name: string | null;
+  requested_at: string;
+}
+
+/** One row of GET /greenhouse/plan-change-requests/. */
+export interface IPlanChangeRequest {
+  id: number;
+  entry: number;
+  block: number;
+  block_code: string;
+  entry_date: string;
+  weekday: number;
+  baseline_value: string | null;
+  current_value: string | null;
+  requested_value: string;
+  change_pct: string | null;
+  status: PlanChangeStatus;
+  reason: string;
+  requested_by: number | null;
+  requested_by_name: string | null;
+  requested_at: string;
+  decided_by: number | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
+  decision_note: string;
+}
+
 export interface IHarvestDayEntry {
   id: number;
   weekly_plan: number;
@@ -878,6 +913,8 @@ export interface IHarvestDayEntry {
   plan_submitted_by: number | null;
   plan_submitted_by_name: string | null;
   plan_state: PlanState | '';
+  plan_baseline_value: string | null;          // week-start baseline, frozen on first in-week change
+  pending_change: IPlanChangeBrief | null;     // manager revision awaiting approval
   forecast_value: string | null;
   forecast_submitted_at: string | null;
   forecast_submitted_by: number | null;

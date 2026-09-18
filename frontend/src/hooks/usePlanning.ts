@@ -13,6 +13,8 @@ import type {
   IDomesticSale,
   IHarvestDayEntry,
   IDayEntryHistoryItem,
+  IPlanChangeRequest,
+  PlanChangeStatus,
 } from '@/types';
 import {
   MOCK_HARVEST_PLANS,
@@ -444,8 +446,62 @@ export function useUpsertDayEntry() {
       // block manager's "fill weekly plan" task — it flips to done once the
       // week's plan cells are filled (an explicit 0 counts as a filled value).
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+      // A manager's in-week plan edit creates (or withdraws) a change request.
+      queryClient.invalidateQueries({ queryKey: ['plan-change-requests'] });
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Plan change requests (ADR-024) — in-week revisions awaiting approval
+// ---------------------------------------------------------------------------
+
+export function usePlanChangeRequests(
+  filters: { status?: PlanChangeStatus; year?: number; week?: number } = {},
+) {
+  const { seasonId, isReady } = useSelectedSeason();
+  return useQuery({
+    queryKey: ['plan-change-requests', seasonId, filters],
+    queryFn: async (): Promise<IApiListResponse<IPlanChangeRequest>> => {
+      const params = new URLSearchParams();
+      if (seasonId) params.set('season', String(seasonId));
+      if (filters.status) params.set('status', filters.status);
+      if (filters.year) params.set('year', String(filters.year));
+      if (filters.week) params.set('week', String(filters.week));
+      params.set('page_size', '200');
+      const { data } = await api.get<IApiListResponse<IPlanChangeRequest>>(
+        `/greenhouse/plan-change-requests/?${params}`,
+      );
+      return data;
+    },
+    enabled: !USE_MOCK && isReady,
+    staleTime: 30_000,
+  });
+}
+
+function usePlanChangeDecision(verb: 'approve' | 'reject') {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: number; note?: string }): Promise<IPlanChangeRequest> => {
+      const { data } = await api.post<IPlanChangeRequest>(
+        `/greenhouse/plan-change-requests/${id}/${verb}/`,
+        note ? { note } : {},
+      );
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan-change-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['day-entries'] });
+    },
+  });
+}
+
+export function useApprovePlanChange() {
+  return usePlanChangeDecision('approve');
+}
+
+export function useRejectPlanChange() {
+  return usePlanChangeDecision('reject');
 }
 
 export function useDayEntryHistory(entryId: number | null) {

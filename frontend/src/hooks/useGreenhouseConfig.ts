@@ -18,6 +18,7 @@ const DEFAULT_CONFIG: IGreenhouseConfig = {
   forecast_same_day_close: '23:59:00',
   notification_lead_minutes: 60,
   truck_capacity_kg: '18500',
+  plan_change_max_pct: '15.00',
   operating_days_bitmask: 0b0111111,
   timezone_name: 'Asia/Ashgabat',
   updated_by: null,

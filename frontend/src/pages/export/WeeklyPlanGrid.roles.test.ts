@@ -38,6 +38,7 @@ describe('planGridCapabilities — open season', () => {
       canEditTrucks: true,
       canGenerateTasks: true,
       canEditActual: false,
+      canDecidePlanChanges: true,
     });
   });
 
@@ -126,5 +127,22 @@ describe('planGridCapabilities — closed season', () => {
 
   it('does not change canGenerateTasks — the button is disabled by isReadOnly at the call site', () => {
     expect(caps('admin', true).canGenerateTasks).toBe(true);
+  });
+});
+
+describe('planGridCapabilities — plan change approvals (ADR-024)', () => {
+  it.each([
+    ['export_manager', true],
+    ['admin', true],
+    ['boss', true],
+    ['document_team', false],
+    ['director', false],
+    ['greenhouse_manager', false],
+  ])('%s → canDecidePlanChanges = %s', (role, expected) => {
+    expect(planGridCapabilities({ role, isReadOnly: false }).canDecidePlanChanges).toBe(expected);
+  });
+
+  it('nobody decides over a closed season', () => {
+    expect(planGridCapabilities({ role: 'export_manager', isReadOnly: true }).canDecidePlanChanges).toBe(false);
   });
 });
