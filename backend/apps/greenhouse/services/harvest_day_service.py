@@ -209,13 +209,15 @@ def compute_forecast_window(submitted_at_local: datetime, entry_date, config) ->
 # Write operations
 # ---------------------------------------------------------------------------
 
-def set_plan_value(entry, value, user, reason: str = '') -> None:
+def set_plan_value(entry, value, user, reason: str = ''):
     """Set the plan_value on a HarvestDayEntry.
 
     Permissions:
     - admin: always allowed; reason required only when overriding an existing
       plan_value (writes last_override_* snapshot in that case).
     - greenhouse_manager: own blocks only (checked via active BlockManagerAssignment).
+      Once the plan week has started (Monday 00:00 local) the edit does NOT write
+      plan_value — it becomes a pending PlanChangeRequest (ADR-024).
     - boss: identical to admin (ADMIN_LIKE, Aug 2026).
     - warehouse_chief: NOT allowed to set plan (only forecast/actual).
 
@@ -225,9 +227,15 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
         user: User performing the write.
         reason: Required for admin overrides; passed through to AuditLog.
 
+    Returns:
+        The PlanChangeRequest when the edit was routed to approval, else None.
+
     Raises:
         PermissionError: If the user's role is not permitted.
-        ValueError: If admin override has no reason.
+        ValueError: If admin override has no reason; or, once the plan week has
+            started, if a greenhouse_manager clears the cell or requests a value
+            outside ±plan_change_max_pct of the week-start baseline (raised by
+            request_plan_change(), ADR-024).
     """
     from apps.core.models import GreenhouseConfig
     from apps.greenhouse.models import BlockManagerAssignment
@@ -270,6 +278,12 @@ def set_plan_value(entry, value, user, reason: str = '') -> None:
                 f"{cutoff_local_str} {config.timezone_name}. "
                 f"Ask an admin to grant a late-edit extension."
             )
+        # Week has started → revision needs export-manager approval (ADR-024).
+        from apps.greenhouse.services.plan_change_service import (
+            plan_week_started, request_plan_change,
+        )
+        if plan_week_started(weekly_plan, now_utc):
+            return request_plan_change(entry, value, user, reason)
     else:
         raise PermissionError(
             f"Role '{role}' is not allowed to set plan values."

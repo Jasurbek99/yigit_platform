@@ -451,6 +451,9 @@ class TestOverrideBranchWidenedByExactlyOneRole(TestCase):
         self.assertNotIn('greenhouse_manager', HARVEST_DAY_OVERRIDE)
 
     def test_greenhouse_manager_overwrite_takes_no_reason_and_writes_no_snapshot(self):
+        """The plan week (current ISO week) has started, so both edits become pending
+        change requests (ADR-024) rather than direct writes — but neither requires a
+        reason and neither writes an override snapshot, which is what this test pins."""
         entry, _ = HarvestDayEntry.objects.get_or_create(
             weekly_plan=self.plan,
             entry_date=date.fromisocalendar(self.iso_year, self.iso_week, 1),
@@ -460,8 +463,10 @@ class TestOverrideBranchWidenedByExactlyOneRole(TestCase):
         # No ValueError here — the reason requirement lives in the admin-like
         # branch only. Boss hitting the same second write DOES raise; see
         # TestBossWeeklyPlanWrites.test_boss_overwriting_a_filled_plan_cell_requires_a_reason.
-        set_plan_value(entry, Decimal('2000.00'), self.manager)
+        change = set_plan_value(entry, Decimal('2000.00'), self.manager)
         entry.refresh_from_db()
-        self.assertEqual(entry.plan_value, Decimal('2000.00'))
+        self.assertIsNone(entry.plan_value)
+        self.assertEqual(change.status, 'pending')
+        self.assertEqual(change.requested_value, Decimal('2000.00'))
         self.assertIsNone(entry.last_override_by_id)
         self.assertIsNone(entry.last_override_at)

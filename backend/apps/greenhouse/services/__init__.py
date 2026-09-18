@@ -18,6 +18,11 @@ from apps.greenhouse.services.harvest_day_service import (
     set_plan_value,
     _plan_edit_window_closed,
 )
+from apps.greenhouse.services.plan_change_service import (
+    plan_week_started,
+    request_plan_change,
+    supersede_pending,
+)
 from apps.greenhouse.services.actual_rollup import (
     RollupResult,
     rollup_actuals_for_date,
@@ -44,4 +49,7 @@ __all__ = [
     '_plan_edit_window_closed',
     'get_active_season',
     'upsert_daily_board',
+    'plan_week_started',
+    'request_plan_change',
+    'supersede_pending',
 ]

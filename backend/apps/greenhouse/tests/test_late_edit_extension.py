@@ -222,7 +222,7 @@ class TestPlanEditCutoffIntegration(TestCase):
     # --- set_plan_value() time-gate tests ---
 
     def test_greenhouse_manager_can_edit_during_week(self):
-        """A day within the plan week (Mon already passed) → manager edit succeeds."""
+        """A day within the plan week (Mon already passed) → edit is accepted as a pending change request."""
         # W24/2026 Monday = 2026-06-08; edit on Wed 2026-06-10
         plan, entry = self._make_plan_and_entry(2026, 24)
         wed_noon_utc = _aware_dt(2026, 6, 10, 7, 0, 0, tz=dt_timezone.utc)  # ~12:00 Ashgabat, mid-week
@@ -230,11 +230,13 @@ class TestPlanEditCutoffIntegration(TestCase):
         with patch('apps.greenhouse.services.harvest_day_service.timezone') as mock_tz:
             mock_tz.now.return_value = wed_noon_utc
             mock_tz.utc = dt_timezone.utc
-            # Should not raise — current week stays editable incl. past days this week
-            set_plan_value(entry, Decimal('1500.00'), self.manager_user)
+            # The week has started, so the edit is a pending revision (ADR-024).
+            change = set_plan_value(entry, Decimal('1500.00'), self.manager_user)
 
         entry.refresh_from_db()
-        self.assertEqual(entry.plan_value, Decimal('1500.00'))
+        self.assertIsNone(entry.plan_value)
+        self.assertEqual(change.status, 'pending')
+        self.assertEqual(change.requested_value, Decimal('1500.00'))
 
     def test_greenhouse_manager_blocked_after_week_end(self):
         """A fully-ended week → manager edit blocked; error references the week-end cutoff."""
@@ -257,7 +259,7 @@ class TestPlanEditCutoffIntegration(TestCase):
         self.assertIn('2026-06-14', msg)  # end of W24 (its own Sunday)
 
     def test_greenhouse_manager_can_edit_when_extension_active(self):
-        """Past week with an active extension → edit succeeds."""
+        """Past week with an active extension → edit is accepted as a pending change request."""
         plan, entry = self._make_plan_and_entry(2026, 24)
         entry.plan_value = None
         entry.save(update_fields=['plan_value'])
@@ -271,11 +273,12 @@ class TestPlanEditCutoffIntegration(TestCase):
         with patch('apps.greenhouse.services.harvest_day_service.timezone') as mock_tz:
             mock_tz.now.return_value = now_utc
             mock_tz.utc = dt_timezone.utc
-            # Should not raise
-            set_plan_value(entry, Decimal('900.00'), self.manager_user)
+            change = set_plan_value(entry, Decimal('900.00'), self.manager_user)
 
         entry.refresh_from_db()
-        self.assertEqual(entry.plan_value, Decimal('900.00'))
+        self.assertIsNone(entry.plan_value)
+        self.assertEqual(change.status, 'pending')
+        self.assertEqual(change.requested_value, Decimal('900.00'))
 
     def test_extension_passive_expiry_blocks_edit(self):
         """Past week, one second after granted_until → edit blocked (> not >=)."""
