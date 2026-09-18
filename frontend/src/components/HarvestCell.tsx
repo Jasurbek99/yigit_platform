@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { handleCellKeyDown } from '@/utils/tableNavigation';
 import { AdminOverrideReasonModal } from '@/components/AdminOverrideReasonModal';
+import { fmtKg, planChangeRange } from './HarvestCell.helpers';
 import type { IHarvestDayEntry } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -46,6 +47,13 @@ export interface IHarvestCellProps {
    */
   planOnly?: boolean;
   savingKey: string | null;
+  /**
+   * `GreenhouseConfig.plan_change_max_pct`. When set, a non-admin editing a cell
+   * whose week has started is held to ±this % of the baseline (ADR-024).
+   */
+  maxChangePct?: number;
+  /** Called instead of `onSave` when a non-admin's value falls outside the range. */
+  onRangeError?: (min: number, max: number) => void;
 }
 
 function computeDisplayMode(entry: IHarvestDayEntry, today: dayjs.Dayjs): DisplayMode {
@@ -120,6 +128,25 @@ function ActualSourceBadge({ source }: { source: IHarvestDayEntry['actual_source
   );
 }
 
+function PendingChangeBadge({ change }: { change: NonNullable<IHarvestDayEntry['pending_change']> }) {
+  const { t } = useTranslation();
+  const pct = change.change_pct != null ? Number(change.change_pct) : null;
+  const pctText = pct == null ? '' : ` (${pct > 0 ? '+' : ''}${pct}%)`;
+  return (
+    <Tooltip title={t('plan.pending_badge_tooltip', { name: change.requested_by_name ?? '—' })}>
+      <div
+        data-testid="pending-change"
+        style={{
+          fontSize: 10, color: '#ad6800', background: '#fffbe6',
+          borderRadius: 3, padding: '0 4px', whiteSpace: 'nowrap',
+        }}
+      >
+        → {fmtKg(change.requested_value)}{pctText} ⏳
+      </div>
+    </Tooltip>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface IPendingOverride {
@@ -137,6 +164,8 @@ export function HarvestCell({
   isAdmin,
   planOnly = false,
   savingKey,
+  maxChangePct,
+  onRangeError,
 }: IHarvestCellProps): React.ReactElement {
   const { t } = useTranslation();
   const today = dayjs().startOf('day');
@@ -216,6 +245,7 @@ export function HarvestCell({
         !isPastDay ||
         (entry.plan_value == null && entry.actual_value == null) ||
         isInCurrentWeek(entry.entry_date, today));
+    const range = !isAdmin && maxChangePct != null ? planChangeRange(entry, maxChangePct, today) : null;
 
     if (planEditable && editingPlan) {
       const planNumOnly = entry.plan_value != null ? Number(entry.plan_value) : undefined;
@@ -233,12 +263,22 @@ export function HarvestCell({
               onBlur={(e) => {
                 const raw = e.target.value.replace(/,/g, '');
                 const v = raw === '' ? null : Number(raw) || 0;
+                if (range && v != null && (v < range.min || v > range.max)) {
+                  setEditingPlan(false);
+                  onRangeError?.(range.min, range.max);
+                  return;
+                }
                 handleValueBlur('plan_value', entry.plan_value, v, setEditingPlan);
               }}
               onKeyDown={handleCellKeyDown}
               size="small"
               style={{ width: 84 }}
             />
+            {range && (
+              <div style={{ fontSize: 10, color: COLORS.textMuted }}>
+                {fmtKg(range.min)}–{fmtKg(range.max)}
+              </div>
+            )}
           </div>
           <AdminOverrideReasonModal
             open={pendingOverride !== null}
@@ -267,6 +307,7 @@ export function HarvestCell({
           submittedAt={entry.plan_submitted_at}
           color={COLORS.primary}
         />
+        {entry.pending_change && <PendingChangeBadge change={entry.pending_change} />}
       </div>
     );
   }
