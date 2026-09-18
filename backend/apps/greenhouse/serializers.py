@@ -1,7 +1,9 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from apps.greenhouse.models import BlockManagerAssignment, DomesticSale, HarvestDayEntry, WeeklyHarvestPlan
+from apps.greenhouse.models import (
+    BlockManagerAssignment, DomesticSale, HarvestDayEntry, PlanChangeRequest, WeeklyHarvestPlan,
+)
 
 
 class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
@@ -74,6 +76,53 @@ class WeeklyHarvestPlanSerializer(serializers.ModelSerializer):
         ]
 
 
+def _user_display(user) -> str | None:
+    if user is None:
+        return None
+    return f'{user.first_name} {user.last_name}'.strip() or user.username
+
+
+class PlanChangeBriefSerializer(serializers.ModelSerializer):
+    """The pending revision embedded in a day-entry payload (ADR-024)."""
+
+    requested_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlanChangeRequest
+        fields = ['id', 'requested_value', 'change_pct', 'requested_by_name', 'requested_at']
+
+    def get_requested_by_name(self, obj: PlanChangeRequest) -> str | None:
+        return _user_display(obj.requested_by)
+
+
+class PlanChangeRequestSerializer(serializers.ModelSerializer):
+    """One row of the plan-change log / approval queue (ADR-024)."""
+
+    block = serializers.IntegerField(source='entry.block_id', read_only=True)
+    block_code = serializers.CharField(source='entry.block.code', read_only=True)
+    entry_date = serializers.DateField(source='entry.entry_date', read_only=True)
+    weekday = serializers.IntegerField(source='entry.weekday', read_only=True)
+    requested_by_name = serializers.SerializerMethodField()
+    decided_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PlanChangeRequest
+        fields = [
+            'id', 'entry', 'block', 'block_code', 'entry_date', 'weekday',
+            'baseline_value', 'current_value', 'requested_value', 'change_pct',
+            'status', 'reason',
+            'requested_by', 'requested_by_name', 'requested_at',
+            'decided_by', 'decided_by_name', 'decided_at', 'decision_note',
+        ]
+        read_only_fields = fields
+
+    def get_requested_by_name(self, obj: PlanChangeRequest) -> str | None:
+        return _user_display(obj.requested_by)
+
+    def get_decided_by_name(self, obj: PlanChangeRequest) -> str | None:
+        return _user_display(obj.decided_by)
+
+
 class HarvestDayEntrySerializer(serializers.ModelSerializer):
     block_code = serializers.CharField(source='block.code', read_only=True)
     block_name = serializers.CharField(source='block.name', read_only=True)
@@ -86,6 +135,17 @@ class HarvestDayEntrySerializer(serializers.ModelSerializer):
     last_override_by_name = serializers.CharField(
         source='last_override_by.username', read_only=True, default=None,
     )
+    pending_change = serializers.SerializerMethodField()
+
+    def get_pending_change(self, obj: HarvestDayEntry) -> dict | None:
+        """The cell's pending revision. Reads the viewset's `pending_changes`
+        prefetch when present (list), else queries (single-object responses)."""
+        pending = getattr(obj, 'pending_changes', None)
+        if pending is None:
+            pending = list(
+                obj.change_requests.filter(status=PlanChangeRequest.STATUS_PENDING).select_related('requested_by')
+            )
+        return PlanChangeBriefSerializer(pending[0]).data if pending else None
 
     class Meta:
         model = HarvestDayEntry
@@ -93,6 +153,7 @@ class HarvestDayEntrySerializer(serializers.ModelSerializer):
             'id', 'weekly_plan', 'season', 'block', 'block_code', 'block_name',
             'entry_date', 'weekday',
             'plan_value', 'plan_submitted_at', 'plan_submitted_by', 'plan_submitted_by_name', 'plan_state',
+            'plan_baseline_value', 'pending_change',
             'forecast_value', 'forecast_submitted_at', 'forecast_submitted_by',
             'forecast_submitted_by_name', 'forecast_window', 'forecast_revision_count',
             'actual_value', 'actual_finalized_at', 'actual_source',
@@ -102,6 +163,7 @@ class HarvestDayEntrySerializer(serializers.ModelSerializer):
         read_only_fields = [
             'block_code', 'block_name',
             'plan_submitted_at', 'plan_submitted_by', 'plan_submitted_by_name', 'plan_state',
+            'plan_baseline_value', 'pending_change',
             'forecast_submitted_at', 'forecast_submitted_by', 'forecast_submitted_by_name',
             'forecast_window', 'forecast_revision_count',
             'actual_finalized_at', 'actual_source',

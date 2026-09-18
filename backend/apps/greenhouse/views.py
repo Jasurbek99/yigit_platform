@@ -21,6 +21,7 @@ from apps.greenhouse.models import (
     BlockManagerAssignment,
     DomesticSale,
     HarvestDayEntry,
+    PlanChangeRequest,
     WeeklyHarvestPlan,
 )
 from apps.greenhouse.serializers import (
@@ -417,7 +418,8 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
     """
     GET    /api/v1/greenhouse/day-entries/              — list (filter ?season=&block=&date_from=&date_to=&weekly_plan=)
     GET    /api/v1/greenhouse/day-entries/{id}/         — detail
-    PATCH  /api/v1/greenhouse/day-entries/{id}/         — update plan/forecast/actual values
+    PATCH  /api/v1/greenhouse/day-entries/{id}/         — update plan/forecast/actual values (202 when a
+                                                           manager's in-week plan edit is sent for approval)
 
     PATCH body dispatches per field present in the payload:
       - `plan_value`     → set_plan_value(entry, value, user, reason)
@@ -435,6 +437,14 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
     queryset = HarvestDayEntry.objects.select_related(
         'block', 'season', 'weekly_plan',
         'plan_submitted_by', 'forecast_submitted_by', 'last_override_by',
+    ).prefetch_related(
+        Prefetch(
+            'change_requests',
+            queryset=PlanChangeRequest.objects.filter(
+                status=PlanChangeRequest.STATUS_PENDING,
+            ).select_related('requested_by'),
+            to_attr='pending_changes',
+        ),
     ).order_by('entry_date', 'block__code')
 
     def get_queryset(self):
@@ -461,9 +471,10 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
         reason = data.get('reason', '')
         errors = {}
 
+        pending_change = None
         if 'plan_value' in data:
             try:
-                set_plan_value(entry, data['plan_value'], request.user, reason)
+                pending_change = set_plan_value(entry, data['plan_value'], request.user, reason)
             except (ValueError, PermissionError) as exc:
                 errors['plan_value'] = str(exc)
 
@@ -487,9 +498,12 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
         if errors:
             return Response(errors, status=http_status.HTTP_400_BAD_REQUEST)
 
-        # Re-fetch from DB to return updated state
-        entry.refresh_from_db()
-        return Response(self.get_serializer(entry).data)
+        # Re-fetch through the queryset (not refresh_from_db): the `pending_changes`
+        # to_attr prefetch is a plain attribute that refresh_from_db would leave stale.
+        entry = self.get_queryset().get(pk=entry.pk)
+        # 202: a manager's in-week edit is waiting for export-manager approval (ADR-024).
+        code = http_status.HTTP_202_ACCEPTED if pending_change is not None else http_status.HTTP_200_OK
+        return Response(self.get_serializer(entry).data, status=code)
 
     @action(detail=True, methods=['get'], url_path='history')
     def history(self, request, pk=None):
