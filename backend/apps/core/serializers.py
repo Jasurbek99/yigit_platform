@@ -239,6 +239,9 @@ class GreenhouseConfigSerializer(serializers.ModelSerializer):
     notification_lead_minutes = serializers.IntegerField(min_value=0, max_value=1440)
     operating_days_bitmask = serializers.IntegerField(min_value=0, max_value=127)
     truck_capacity_kg = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    plan_change_max_pct = serializers.DecimalField(
+        max_digits=5, decimal_places=2, min_value=Decimal('0.00'), max_value=Decimal('100.00'),
+    )
     timezone_name = serializers.CharField(max_length=64, allow_blank=False)
 
     class Meta:
@@ -250,6 +253,7 @@ class GreenhouseConfigSerializer(serializers.ModelSerializer):
             'forecast_primary_open', 'forecast_primary_close',
             'forecast_fallback_close', 'forecast_same_day_close',
             'notification_lead_minutes', 'truck_capacity_kg',
+            'plan_change_max_pct',
             'operating_days_bitmask', 'timezone_name',
             'updated_by', 'updated_by_name', 'updated_at',
         ]

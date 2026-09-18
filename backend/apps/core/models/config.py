@@ -70,6 +70,15 @@ class GreenhouseConfig(models.Model):
         help_text='Standard truck capacity in kg; used for Est. Trucks calculation.',
     )
 
+    # === Plan revisions (ADR-024) ===
+    plan_change_max_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('15.00'),
+        help_text='Max ± % a greenhouse manager may revise a started week\'s plan cell, '
+                  'measured against the cell\'s week-start baseline.',
+    )
+
     # === Schedule ===
     operating_days_bitmask = models.PositiveSmallIntegerField(
         default=0b0111111,

@@ -78,6 +78,14 @@ class HarvestDayEntry(models.Model):
         ],
         help_text='Timeliness of plan submission relative to config deadlines.',
     )
+    plan_baseline_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text='Week-start plan, frozen on the first in-week change request (ADR-024). '
+                  'The ±plan_change_max_pct bound is measured against it.',
+    )
 
     # === Forecast ===
     forecast_value = models.DecimalField(
@@ -205,6 +213,10 @@ class HarvestDayEntry(models.Model):
             models.CheckConstraint(
                 check=models.Q(plan_value__isnull=True) | models.Q(plan_value__gte=0),
                 name='chk_hde_plan_gte0',
+            ),
+            models.CheckConstraint(
+                check=models.Q(plan_baseline_value__isnull=True) | models.Q(plan_baseline_value__gte=0),
+                name='chk_hde_baseline_gte0',
             ),
             models.CheckConstraint(
                 check=models.Q(forecast_value__isnull=True) | models.Q(forecast_value__gte=0),
