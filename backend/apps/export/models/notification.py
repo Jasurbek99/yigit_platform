@@ -31,6 +31,10 @@ class Notification(models.Model):
         ('plan_deadline_reminder', 'Plan deadline reminder'),
         ('plan_late', 'Plan late'),
         ('plan_critical_late', 'Plan critical-late'),
+        # In-week plan revisions (ADR-024)
+        ('plan_change_requested', 'Plan change requested'),
+        ('plan_change_approved', 'Plan change approved'),
+        ('plan_change_rejected', 'Plan change rejected'),
         # Saturday plan-fill summary to export_manager/boss/director
         ('weekly_plan_summary', 'Weekly plan summary'),
         # Comment & task system

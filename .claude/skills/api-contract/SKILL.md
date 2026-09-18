@@ -506,7 +506,7 @@ Reads: any authenticated user. Standard pagination.
 ```
 
 Notification kinds `plan_change_requested` / `plan_change_approved` / `plan_change_rejected` are
-sent by the service but are **not yet registered** in `Notification.KIND_CHOICES` (parked separately).
+sent by the service and registered in `Notification.KIND_CHOICES` (Task 5 / migration `export.0072`).
 
 ## Season scoping (AD-16)
 

@@ -136,7 +136,7 @@ Once a plan week has started, a `greenhouse_manager`'s edit no longer writes `pl
 10. Approving/rejecting is **not time-gated**: a request can be decided after its week ends. Closed-season writes still get 409 via `SeasonNotClosed`.
 11. **Out of this flow:** `import_weekly_plan` / `import_harvest_plans` (admin tools that write `plan_value` directly) and the Daily Harvest Board (writes `forecast_value`, not plan).
 
-Service: `backend/apps/greenhouse/services/plan_change_service.py`. Notifications sent for this flow — `plan_change_requested`, `plan_change_approved`, `plan_change_rejected` — are sent by the service but **not yet registered** in `Notification.KIND_CHOICES` (parked, tracked separately).
+Service: `backend/apps/greenhouse/services/plan_change_service.py`. Notifications sent for this flow — `plan_change_requested`, `plan_change_approved`, `plan_change_rejected` — are registered in `Notification.KIND_CHOICES` (Task 5 / migration `export.0072`).
 
 ### `GreenhouseConfig` (singleton)
 
