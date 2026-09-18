@@ -14,7 +14,9 @@ from zoneinfo import ZoneInfo
 from django.db import transaction
 from django.utils import timezone
 
-from apps.greenhouse.models import PlanChangeRequest
+from apps.core.roles import is_admin_like
+from apps.core.services_workflow import create_audit_entry
+from apps.greenhouse.models import HarvestDayEntry, PlanChangeRequest
 
 logger = logging.getLogger(__name__)
 
@@ -157,3 +159,103 @@ def _notify_approvers(change: PlanChangeRequest) -> None:
         ],
         batch_size=500,
     )
+
+
+def can_decide_plan_change(user) -> bool:
+    """export_manager, admin, boss and superusers may approve or reject."""
+    return is_admin_like(user) or getattr(user, 'role', None) in APPROVER_ROLES
+
+
+def _claim(change: PlanChangeRequest, user, new_status: str, note: str) -> None:
+    """Atomically move a pending request to `new_status`.
+
+    The conditional UPDATE is the race guard: two approvers clicking at once
+    cannot both claim the same row.
+
+    Raises:
+        PermissionError: user may not decide plan changes.
+        ValueError: the request is no longer pending.
+    """
+    if not can_decide_plan_change(user):
+        raise PermissionError(f"Role '{getattr(user, 'role', None)}' cannot decide plan changes.")
+    claimed = PlanChangeRequest.objects.filter(
+        pk=change.pk, status=PlanChangeRequest.STATUS_PENDING,
+    ).update(status=new_status, decided_by=user, decided_at=timezone.now(), decision_note=(note or '').strip())
+    if not claimed:
+        raise ValueError('Request is no longer pending.')
+    change.refresh_from_db()
+
+
+def approve_plan_change(change: PlanChangeRequest, user, note: str = '') -> PlanChangeRequest:
+    """Approve a pending request: write its value into plan_value and notify the requester."""
+    with transaction.atomic():
+        _claim(change, user, PlanChangeRequest.STATUS_APPROVED, note)
+        entry = HarvestDayEntry.objects.select_related('block').get(pk=change.entry_id)
+        _apply_approved_value(entry, change, user)
+    _notify_requester(change, 'plan_change_approved')
+    return change
+
+
+def reject_plan_change(change: PlanChangeRequest, user, note: str = '') -> PlanChangeRequest:
+    """Reject a pending request; plan_value is untouched."""
+    _claim(change, user, PlanChangeRequest.STATUS_REJECTED, note)
+    _notify_requester(change, 'plan_change_rejected')
+    return change
+
+
+def _plan_state_at(entry, submitted_at_utc: datetime) -> str:
+    from apps.greenhouse.services.harvest_day_service import compute_plan_state, plan_week_start
+    config = _config()
+    local = submitted_at_utc.astimezone(ZoneInfo(config.timezone_name)).replace(tzinfo=None)
+    return compute_plan_state(local, plan_week_start(entry.entry_date), config)
+
+
+def _apply_approved_value(entry, change: PlanChangeRequest, approver) -> None:
+    """Write the approved value, crediting the requester as its author.
+
+    plan_state (timeliness) is computed only for a first entry; a revision of an
+    already-planned cell keeps the timeliness of the original submission.
+    """
+    old_value = entry.plan_value
+    entry.plan_value = change.requested_value
+    entry.plan_submitted_at = change.requested_at
+    entry.plan_submitted_by_id = change.requested_by_id
+    fields = ['plan_value', 'plan_submitted_at', 'plan_submitted_by', 'updated_at']
+    if old_value is None:
+        entry.plan_state = _plan_state_at(entry, change.requested_at)
+        fields.append('plan_state')
+    entry.save(update_fields=fields)
+    pct = f' ({change.change_pct:+}%)' if change.change_pct is not None else ''
+    create_audit_entry(
+        approver, 'plan_value_set', 'HarvestDayEntry', entry.id, str(entry),
+        f'APPROVED change #{change.pk}{pct} | plan_value: {old_value!r} → {change.requested_value!r}',
+    )
+
+
+def _notify_requester(change: PlanChangeRequest, kind: str) -> None:
+    from apps.export.models import Notification
+
+    if change.requested_by_id is None:
+        return
+    entry = change.entry
+    verb = 'approved' if kind == 'plan_change_approved' else 'rejected'
+    note = f' Note: {change.decision_note}' if change.decision_note else ''
+    Notification.objects.create(
+        user_id=change.requested_by_id,
+        kind=kind,
+        message=(
+            f'Your plan change for block {entry.block.code} on {entry.entry_date.isoformat()} '
+            f'({_kg(change.requested_value)} kg) was {verb} by {_display_name(change.decided_by)}.{note}'
+        ),
+        link=_plan_link(entry),
+    )
+
+
+def reset_baseline_after_direct_edit(entry, value, user, now_utc: datetime) -> None:
+    """Admin/boss direct in-week edit: its value becomes the new baseline and any
+    pending manager request on the cell is superseded. No-op before the week starts."""
+    if not plan_week_started(entry.weekly_plan, now_utc):
+        return
+    entry.plan_baseline_value = value
+    entry.save(update_fields=['plan_baseline_value', 'updated_at'])
+    supersede_pending(entry, user)

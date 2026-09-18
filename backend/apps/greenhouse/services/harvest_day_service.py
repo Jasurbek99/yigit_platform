@@ -11,6 +11,7 @@ Time-window notes:
 import logging
 from datetime import datetime, time as dtime, timedelta, timezone as dt_timezone
 
+from django.db import transaction
 from django.utils import timezone
 
 from apps.core.services_workflow import create_audit_entry
@@ -296,18 +297,29 @@ def set_plan_value(entry, value, user, reason: str = ''):
     entry.plan_submitted_at = now_utc
     entry.plan_submitted_by = user
     entry.plan_state = compute_plan_state(now_l, week_start, config)
-    entry.save(update_fields=[
-        'plan_value', 'plan_submitted_at', 'plan_submitted_by', 'plan_state',
-        'last_override_at', 'last_override_by', 'last_override_reason', 'updated_at',
-    ])
 
     detail = f"plan_value: {old_value!r} → {value!r}"
     if reason:
         detail = f"OVERRIDE: {reason} | {detail}"
-    create_audit_entry(
-        user, 'plan_value_set', 'HarvestDayEntry',
-        entry.id, str(entry), detail,
-    )
+
+    # Single commit: the plan_value write, its audit entry, and (for admin-like
+    # users) the baseline reset + pending-request supersede must all land together.
+    # Without this, a mid-tail failure could commit plan_value while leaving a
+    # stale pending PlanChangeRequest that a later approval would clobber the
+    # admin's direct edit with.
+    with transaction.atomic():
+        entry.save(update_fields=[
+            'plan_value', 'plan_submitted_at', 'plan_submitted_by', 'plan_state',
+            'last_override_at', 'last_override_by', 'last_override_reason', 'updated_at',
+        ])
+        create_audit_entry(
+            user, 'plan_value_set', 'HarvestDayEntry',
+            entry.id, str(entry), detail,
+        )
+        if is_admin_like(user):
+            from apps.greenhouse.services.plan_change_service import reset_baseline_after_direct_edit
+            reset_baseline_after_direct_edit(entry, value, user, now_utc)
+
     logger.info('HarvestDayEntry %d plan_value set to %s by %s', entry.id, value, user.username)
 
     if role == 'greenhouse_manager' and entry.plan_state in ('late', 'critical_late'):

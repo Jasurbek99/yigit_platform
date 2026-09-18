@@ -19,8 +19,12 @@ from apps.greenhouse.services.harvest_day_service import (
     _plan_edit_window_closed,
 )
 from apps.greenhouse.services.plan_change_service import (
+    approve_plan_change,
+    can_decide_plan_change,
     plan_week_started,
+    reject_plan_change,
     request_plan_change,
+    reset_baseline_after_direct_edit,
     supersede_pending,
 )
 from apps.greenhouse.services.actual_rollup import (
@@ -52,4 +56,8 @@ __all__ = [
     'plan_week_started',
     'request_plan_change',
     'supersede_pending',
+    'approve_plan_change',
+    'can_decide_plan_change',
+    'reject_plan_change',
+    'reset_baseline_after_direct_edit',
 ]
