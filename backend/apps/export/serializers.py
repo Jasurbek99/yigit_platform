@@ -1,17 +1,22 @@
 import re
 from decimal import Decimal
 
+from django.db.models import Max
+from django.utils.text import slugify
 from rest_framework import serializers
 
-from apps.core.models import City, Country, Customer, ExportFirm, ImportFirm, Season, GreenhouseBlock, TomatoVariety
+from apps.core.models import (
+    City, Country, Customer, ExportFirm, ImportFirm, Season, GreenhouseBlock, ShipmentOptionType,
+    TomatoVariety,
+)
 from apps.core.permissions import can_edit_field, can_edit_sheet_fields, PRIVILEGED_ROLES
 from apps.core.roles import EXPORT_MANAGER_LIKE
 from apps.export.services import TRANSITIONS, _edge_to
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_export_code  # noqa: F401  (kept for downstream importers)
 from apps.export.models import (
+    CUSTOMS_EXPENSE_OPTION_CATEGORY,
     CustomsExpense,
-    CustomsExpenseCategory,
     ExpenseCategory,
     FinansistAdvance,
     FinansistAdvanceShipment,
@@ -1081,6 +1086,48 @@ class PackingTemplateSerializer(serializers.ModelSerializer):
         return instance
 
 
+def customs_category_labels() -> dict[str, str]:
+    """Map every customs expense category code to its label (English, else Turkmen)."""
+    rows = ShipmentOptionType.objects.filter(
+        category=CUSTOMS_EXPENSE_OPTION_CATEGORY,
+    ).values_list('code', 'label_en', 'label_tk')
+    return {code: label_en or label_tk for code, label_en, label_tk in rows}
+
+
+class CustomsExpenseCategorySerializer(serializers.ModelSerializer):
+    """A customs expense category. On create the code is generated from ``label_tk``."""
+
+    class Meta:
+        model = ShipmentOptionType
+        fields = ['id', 'code', 'label_tk', 'label_ru', 'label_en', 'sort_order', 'is_active']
+        read_only_fields = ['id', 'code', 'sort_order', 'is_active']
+
+    def validate_label_tk(self, value: str) -> str:
+        value = value.strip()
+        # Only active names clash: a deactivated one is not in the picker to choose instead.
+        if ShipmentOptionType.objects.filter(
+            category=CUSTOMS_EXPENSE_OPTION_CATEGORY, label_tk__iexact=value, is_active=True,
+        ).exists():
+            raise serializers.ValidationError('A category with this name already exists.')
+        return value
+
+    def create(self, validated_data: dict) -> ShipmentOptionType:
+        existing = ShipmentOptionType.objects.filter(category=CUSTOMS_EXPENSE_OPTION_CATEGORY)
+        taken = set(existing.values_list('code', flat=True))
+        # slugify drops non-Latin letters, so a Cyrillic-only name falls back to CAT.
+        base = slugify(validated_data['label_tk']).replace('-', '_').upper()[:24] or 'CAT'
+        code, suffix = base, 2
+        while code in taken:
+            code, suffix = f'{base}_{suffix}', suffix + 1
+        last_sort = existing.aggregate(m=Max('sort_order'))['m'] or 0
+        return ShipmentOptionType.objects.create(
+            category=CUSTOMS_EXPENSE_OPTION_CATEGORY,
+            code=code,
+            sort_order=last_sort + 10,
+            **validated_data,
+        )
+
+
 class CustomsExpenseSerializer(serializers.ModelSerializer):
     """Serializer for a single customs/document cash-advance expenditure line.
 
@@ -1088,8 +1135,8 @@ class CustomsExpenseSerializer(serializers.ModelSerializer):
     (perform_create) and must NOT be sent by the client.
     """
 
-    # Human-readable category label (read-only; source: TextChoices display value).
-    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    # Human-readable category label (read-only), from the category's option row.
+    category_display = serializers.SerializerMethodField()
 
     # Shipment shipment code — read-only, null when shipment is null (batch fees).
     shipment_code = serializers.SerializerMethodField()
@@ -1106,6 +1153,20 @@ class CustomsExpenseSerializer(serializers.ModelSerializer):
         # Prefer the prefetched/cached shipment to avoid N+1.
         shipment = obj.shipment
         return shipment.shipment_code if shipment else None
+
+    def get_category_display(self, obj: CustomsExpense) -> str:
+        # Loaded once per serializer — a list reuses the same child instance.
+        if not hasattr(self, '_category_labels'):
+            self._category_labels = customs_category_labels()
+        return self._category_labels.get(obj.category, obj.category)
+
+    def validate_category(self, value: str) -> str:
+        # Inactive codes still pass so older expenses using them can be edited.
+        if not ShipmentOptionType.objects.filter(
+            category=CUSTOMS_EXPENSE_OPTION_CATEGORY, code=value,
+        ).exists():
+            raise serializers.ValidationError(f'Unknown category: {value}')
+        return value
 
     def validate_amount(self, value: Decimal) -> Decimal:
         """Amount must be strictly positive."""

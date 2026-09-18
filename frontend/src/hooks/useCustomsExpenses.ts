@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
 import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { getShipmentDetailKey } from './useShipmentDetail';
@@ -6,6 +7,8 @@ import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import type { IApiListResponse } from '@/types';
 import type {
   ICustomsExpense,
+  ICustomsExpenseCategoryOption,
+  ICustomsExpenseCategoryPayload,
   ICustomsExpensePayload,
   ICustomsExpenseFilters,
   ICustomsLedger,
@@ -37,6 +40,60 @@ export function useCustomsExpenses(filters: ICustomsExpenseFilters = {}): Return
     enabled: isReady,
     staleTime: 30_000,
   });
+}
+
+// ─── Categories ───────────────────────────────────────────────────────────────
+
+const CATEGORIES_KEY = ['customs-expense-categories'];
+
+export function useCustomsExpenseCategories(): ReturnType<typeof useQuery<ICustomsExpenseCategoryOption[]>> {
+  return useQuery({
+    queryKey: CATEGORIES_KEY,
+    queryFn: async (): Promise<ICustomsExpenseCategoryOption[]> => {
+      const { data } = await api.get<IApiListResponse<ICustomsExpenseCategoryOption>>(
+        '/export/customs-expense-categories/?page_size=200',
+      );
+      return data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
+export function useCreateCustomsExpenseCategory(): ReturnType<typeof useMutation<ICustomsExpenseCategoryOption, Error, ICustomsExpenseCategoryPayload>> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: ICustomsExpenseCategoryPayload): Promise<ICustomsExpenseCategoryOption> => {
+      const { data } = await api.post<ICustomsExpenseCategoryOption>(
+        '/export/customs-expense-categories/',
+        payload,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY });
+    },
+  });
+}
+
+/**
+ * Returns `(code, fallback?) => label`: the category's own name in the current
+ * language, falling back to the Turkmen name. Codes missing from the active list
+ * (deactivated) use the old i18n key, then `fallback` (server category_display).
+ */
+export function useCustomsExpenseCategoryLabel(): (code: string, fallback?: string) => string {
+  const { t, i18n } = useTranslation();
+  const { data: categories = [] } = useCustomsExpenseCategories();
+  return (code, fallback) => {
+    const row = categories.find((c) => c.code === code);
+    if (row) {
+      const localized = i18n.language.startsWith('ru')
+        ? row.label_ru
+        : i18n.language.startsWith('en') ? row.label_en : null;
+      return localized || row.label_tk;
+    }
+    const key = `customs_expense.category.${code}`;
+    return i18n.exists(key) ? t(key) : (fallback ?? code);
+  };
 }
 
 // ─── Ledger summary ────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { Card, Col, Row, Statistic, Table, Tag, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { useCustomsExpenseCategoryLabel } from '@/hooks/useCustomsExpenses';
 import type { ICustomsLedger, ICustomsLedgerByCategoryRow } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -18,6 +19,7 @@ interface ICustomsLedgerSummaryProps {
 
 export function CustomsLedgerSummary({ ledger, isLoading }: ICustomsLedgerSummaryProps): React.ReactElement {
   const { t } = useTranslation();
+  const categoryLabel = useCustomsExpenseCategoryLabel();
 
   const balance = ledger ? Number(ledger.balance) : 0;
   const balanceColor = balance < 0 ? COLORS.danger : COLORS.success;
@@ -28,7 +30,7 @@ export function CustomsLedgerSummary({ ledger, isLoading }: ICustomsLedgerSummar
       dataIndex: 'category',
       key: 'category',
       render: (_, row) => (
-        <Text>{t(`customs_expense.category.${row.category}`, { defaultValue: row.category_display })}</Text>
+        <Text>{categoryLabel(row.category, row.category_display)}</Text>
       ),
     },
     {

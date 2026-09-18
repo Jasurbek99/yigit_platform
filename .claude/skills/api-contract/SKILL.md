@@ -793,7 +793,11 @@ Batch fee (no shipment, with quantity):
 { "shipment": null, "shipment_code": null, "quantity": 19, "label_raw": "19 AD KARANTIN" }
 ```
 
-### Category enum codes (`category` field)
+### Categories (`category` field)
+
+`category` is a code from `GET /api/v1/export/customs-expense-categories/` (rows of
+`core.ShipmentOptionType` with `category='customs_expense'`). An unknown code → `400 {"category": [...]}`.
+`category_display` = the category's `label_en`, else `label_tk`. Seeded codes:
 
 | Code | Display |
 |------|---------|
@@ -810,6 +814,27 @@ Batch fee (no shipment, with quantity):
 | `BORDER_RETURN` | Truck returned (border closed) |
 | `SERTNAMA` | Contract fee |
 | `OTHER` | Other |
+
+### Customs expense categories: `GET|POST /api/v1/export/customs-expense-categories/`
+
+Read: any authenticated user; lists **active** categories only, paginated, ordered by `sort_order`.
+Create: the customs expense write roles (`finansist`, `export_manager`, `document_team`, `admin`,
+`director`, superusers); others → `403 {"error": ...}`. No update/delete endpoint — use Django admin.
+Not season-scoped.
+
+```json
+// Request
+{ "label_tk": "Ýol haky", "label_ru": "Дорожный сбор" }   // label_ru, label_en optional
+
+// Response 201 (same shape as a list item)
+{ "id": 214, "code": "YOL_HAKY", "label_tk": "Ýol haky", "label_ru": "Дорожный сбор",
+  "label_en": null, "sort_order": 140, "is_active": true }
+
+// Error 400: { "label_tk": ["A category with this name already exists."] }  (case-insensitive)
+```
+
+`code` is server-generated from `label_tk` (slugified, upper-case, `_2`… on collision, `CAT` when
+the name has no Latin letters) and read-only.
 
 ### Ledger summary: `GET /api/v1/export/customs-expenses/ledger/`
 

@@ -132,7 +132,12 @@ class FinansistAdvanceShipment(models.Model):
 
 
 class CustomsExpenseCategory(models.TextChoices):
-    """Category codes for a single customs/document cash-advance expenditure."""
+    """The original customs expense category codes — seed list only.
+
+    Categories are data: rows of ``core.ShipmentOptionType`` with
+    ``category=CUSTOMS_EXPENSE_OPTION_CATEGORY``, which cashiers can extend from the
+    expense form. ``CustomsExpense.category`` holds one of those rows' ``code``.
+    """
 
     GUMRUKLEME = 'GUMRUKLEME', 'Customs clearance (per truck)'
     KARANTIN = 'KARANTIN', 'Quarantine fee'
@@ -150,6 +155,9 @@ class CustomsExpenseCategory(models.TextChoices):
 
 
 CUSTOMS_EXPENSE_CATEGORIES = CustomsExpenseCategory.choices
+
+# ShipmentOptionType.category key under which customs expense categories are stored.
+CUSTOMS_EXPENSE_OPTION_CATEGORY = 'customs_expense'
 
 
 class CustomsExpense(models.Model):
@@ -173,10 +181,9 @@ class CustomsExpense(models.Model):
 
     # === Date & category ===
     expense_date = models.DateField()
-    category = models.CharField(
-        max_length=32,
-        choices=CustomsExpenseCategory.choices,
-    )
+    # A ShipmentOptionType code (category=CUSTOMS_EXPENSE_OPTION_CATEGORY); validated
+    # by CustomsExpenseSerializer.
+    category = models.CharField(max_length=32)
 
     # === Money ===
     amount = models.DecimalField(max_digits=12, decimal_places=2)

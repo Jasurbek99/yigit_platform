@@ -15,8 +15,12 @@ import type { ProColumns } from '@ant-design/pro-components';
 import dayjs, { type Dayjs } from 'dayjs';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
-import { useCustomsExpenses, useDeleteCustomsExpense } from '@/hooks/useCustomsExpenses';
-import { CUSTOMS_EXPENSE_CATEGORIES } from '@/types';
+import {
+  useCustomsExpenseCategories,
+  useCustomsExpenseCategoryLabel,
+  useCustomsExpenses,
+  useDeleteCustomsExpense,
+} from '@/hooks/useCustomsExpenses';
 import type { ICustomsExpense, CustomsExpenseCategory } from '@/types';
 import { CustomsExpenseModal } from './CustomsExpenseModal';
 import { COLORS } from '@/constants/styles';
@@ -59,6 +63,8 @@ export function CustomsExpensesTab({
 
   const { data, isLoading } = useCustomsExpenses(filters);
   const deleteExpense = useDeleteCustomsExpense();
+  const { data: categories = [] } = useCustomsExpenseCategories();
+  const categoryLabel = useCustomsExpenseCategoryLabel();
 
   const expenses = data?.results ?? [];
 
@@ -84,9 +90,9 @@ export function CustomsExpensesTab({
     setEditTarget(null);
   }
 
-  const categoryOptions = CUSTOMS_EXPENSE_CATEGORIES.map((code) => ({
-    value: code,
-    label: t(`customs_expense.category.${code}`),
+  const categoryOptions = categories.map((c) => ({
+    value: c.code,
+    label: categoryLabel(c.code),
   }));
 
   const columns: ProColumns<ICustomsExpense>[] = [
@@ -106,9 +112,7 @@ export function CustomsExpensesTab({
       search: false,
       render: (_, record) => (
         <Tag color="blue">
-          {t(`customs_expense.category.${record.category}`, {
-            defaultValue: record.category_display,
-          })}
+          {categoryLabel(record.category, record.category_display)}
         </Tag>
       ),
     },

@@ -1348,23 +1348,24 @@ export interface IFinansistAdvanceDetail extends IFinansistAdvanceListItem {
 
 // ─── Customs / Document Cash-Advance Ledger ───────────────────────────────────
 
-export const CUSTOMS_EXPENSE_CATEGORIES = [
-  'GUMRUKLEME',
-  'KARANTIN',
-  'CT1',
-  'FITO',
-  'ANALIZ',
-  'PASPORT_SDELKA',
-  'PLATYOSKA',
-  'DOC_POST',
-  'YUZLENME_HAT',
-  'GUMRUK_AMAL',
-  'BORDER_RETURN',
-  'SERTNAMA',
-  'OTHER',
-] as const;
+/** A category code — one of the rows from /export/customs-expense-categories/. */
+export type CustomsExpenseCategory = string;
 
-export type CustomsExpenseCategory = typeof CUSTOMS_EXPENSE_CATEGORIES[number];
+export interface ICustomsExpenseCategoryOption {
+  id: number;
+  code: string;
+  label_tk: string;
+  label_ru: string | null;
+  label_en: string | null;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface ICustomsExpenseCategoryPayload {
+  label_tk: string;
+  label_ru?: string;
+  label_en?: string;
+}
 
 export interface ICustomsExpense {
   id: number;

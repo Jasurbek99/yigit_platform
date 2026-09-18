@@ -10,7 +10,8 @@ from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.mixins import CreateModelMixin, ListModelMixin
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from apps.core.idempotency import idempotent
 from apps.core.permissions import DynamicResourcePermission, SeasonNotClosed
@@ -19,15 +20,18 @@ from apps.core.seasons import (
     SeasonScopedMixin, assert_bulk_seasons_open, assert_season_open,
     can_view_closed, resolve_season,
 )
+from apps.core.models import ShipmentOptionType
 from apps.export.models import (
+    CUSTOMS_EXPENSE_OPTION_CATEGORY,
     CustomsExpense,
-    CustomsExpenseCategory,
     FinansistAdvance,
     FinansistAdvanceShipment,
     Shipment,
 )
 from apps.export.serializers import (
+    CustomsExpenseCategorySerializer,
     CustomsExpenseSerializer,
+    customs_category_labels,
     FinansistAdvanceCreateSerializer,
     FinansistAdvanceDetailSerializer,
     FinansistAdvanceListSerializer,
@@ -569,8 +573,8 @@ class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
             total=Coalesce(Sum('amount'), Decimal('0'), output_field=DecimalField())
         )['total']
 
-        # By category — aggregated in SQL; label mapped in Python from choices dict.
-        _category_labels: dict[str, str] = dict(CustomsExpenseCategory.choices)
+        # By category — aggregated in SQL; label mapped in Python from the category rows.
+        _category_labels = customs_category_labels()
         by_category_raw = (
             expense_qs
             .values('category')
@@ -643,3 +647,31 @@ class CustomsExpenseViewSet(SeasonScopedMixin, ModelViewSet):
             'by_category': by_category,
             'by_date': by_date,
         })
+
+
+class CustomsExpenseCategoryViewSet(ListModelMixin, CreateModelMixin, GenericViewSet):
+    """Customs expense categories — the "Täze goş" list in the expense form.
+
+    GET  /api/v1/export/customs-expense-categories/  — active categories, any authenticated user
+    POST /api/v1/export/customs-expense-categories/  — add one; CUSTOMS_EXPENSE_WRITE roles only
+
+    Rows are core.ShipmentOptionType with category='customs_expense'. Renaming or
+    deactivating is done in Django admin.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = CustomsExpenseCategorySerializer
+
+    def get_queryset(self):
+        return ShipmentOptionType.objects.filter(
+            category=CUSTOMS_EXPENSE_OPTION_CATEGORY, is_active=True,
+        ).order_by('sort_order', 'id')
+
+    def create(self, request, *args, **kwargs):
+        role = getattr(request.user, 'role', None)
+        if role not in CUSTOMS_EXPENSE_WRITE and not request.user.is_superuser:
+            return Response(
+                {'error': f"Role '{role}' cannot add customs expense categories."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().create(request, *args, **kwargs)

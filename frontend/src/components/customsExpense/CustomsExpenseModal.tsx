@@ -5,7 +5,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Select,
   Space,
   Button,
 } from 'antd';
@@ -17,7 +16,7 @@ import {
   useUpdateCustomsExpense,
 } from '@/hooks/useCustomsExpenses';
 import { ShipmentSelect } from '@/components/ShipmentSelect';
-import { CUSTOMS_EXPENSE_CATEGORIES } from '@/types';
+import { CustomsExpenseCategorySelect } from './CustomsExpenseCategorySelect';
 import type {
   ICustomsExpense,
   CustomsExpenseCategory,
@@ -150,11 +149,6 @@ export function CustomsExpenseModal({
     }
   }
 
-  const categoryOptions = CUSTOMS_EXPENSE_CATEGORIES.map((code) => ({
-    value: code,
-    label: t(`customs_expense.category.${code}`),
-  }));
-
   const isShipmentPrefilled =
     !isEdit && prefilledShipmentId != null;
 
@@ -184,14 +178,7 @@ export function CustomsExpenseModal({
           label={t('customs_expense.field_category')}
           rules={[{ required: true, message: t('common.required') }]}
         >
-          <Select
-            options={categoryOptions}
-            showSearch
-            placeholder={t('common.select')}
-            filterOption={(input, option) =>
-              (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-            }
-          />
+          <CustomsExpenseCategorySelect />
         </Form.Item>
 
         <Form.Item

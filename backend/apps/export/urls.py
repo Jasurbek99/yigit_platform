@@ -4,7 +4,9 @@ from rest_framework.routers import DefaultRouter
 from apps.export.views import ShipmentViewSet, CommentViewSet, TaskViewSet, SalesRepCoverageViewSet, ExpenseCategoryViewSet, PackingTemplateViewSet
 from apps.export.views_analytics import BossAnalyticsViewSet
 from apps.export.views_dashboard import DashboardViewSet
-from apps.export.views_finance import FinansistAdvanceViewSet, CustomsExpenseViewSet
+from apps.export.views_finance import (
+    CustomsExpenseCategoryViewSet, CustomsExpenseViewSet, FinansistAdvanceViewSet,
+)
 from apps.export.views_kpi import KpiViewSet
 from apps.export.views_planning import (
     WeeklyLocalSellPlanViewSet,
@@ -58,6 +60,9 @@ router.register('tasks', TaskViewSet, basename='task')
 router.register('sales-rep-coverage', SalesRepCoverageViewSet, basename='sales-rep-coverage')
 router.register('advances', FinansistAdvanceViewSet, basename='advance')
 router.register('customs-expenses', CustomsExpenseViewSet, basename='customs-expense')
+router.register(
+    'customs-expense-categories', CustomsExpenseCategoryViewSet, basename='customs-expense-category',
+)
 router.register('expense-categories', ExpenseCategoryViewSet, basename='expense-category')
 router.register('packing-templates', PackingTemplateViewSet, basename='packing-template')
 

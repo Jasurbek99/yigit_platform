@@ -48,7 +48,13 @@ is **Latin-only (no Cyrillic collation)** so it can be compared to `Shipment.shi
 MSSQL collation conflict; the Cyrillic text fields (`route_label`, `label_raw`, `notes`) carry the
 collation.
 
-### Categories (`CustomsExpenseCategory`)
+### Categories (data, not an enum)
+
+Categories are rows of `core.ShipmentOptionType` with `category='customs_expense'`
+(`CUSTOMS_EXPENSE_OPTION_CATEGORY`). `CustomsExpense.category` is a plain `CharField(32)` holding a
+row's `code`; `CustomsExpenseSerializer.validate_category` rejects unknown codes. Export migration
+`0070_customs_expense_categories_as_data` seeded the original 13 codes (`label_en` = the old choices
+label, so `category_display` did not change for them):
 
 `GUMRUKLEME` (customs clearance, per truck) · `KARANTIN` (quarantine) · `CT1` (certificate of
 origin) · `FITO` (phytosanitary) · `ANALIZ` (lab analysis) · `PASPORT_SDELKA` (deal passport) ·
@@ -56,8 +62,23 @@ origin) · `FITO` (phytosanitary) · `ANALIZ` (lab analysis) · `PASPORT_SDELKA`
 (reference letter) · `GUMRUK_AMAL` (customs operation fee) · `BORDER_RETURN` (truck returned —
 border closed) · `SERTNAMA` (contract fee) · `OTHER`.
 
-Display labels are localized on the frontend via `customs_expense.category.<CODE>`; the code is the
-stable key.
+`CustomsExpenseCategory` (TextChoices) still exists as the seed list and for `import_avans`'s
+keyword map. Writers add new categories from the expense form (**Täze goş**). The code is generated
+from the Turkmen name: slugified, upper-case, `_2`/`_3` suffix on collision, `CAT` when the name has
+no Latin letters. Renaming or deactivating a category is done in Django admin (Shipment option types).
+Inactive categories drop out of the picker, but existing expenses keep their code.
+
+**Labels:** the frontend shows the row's own `label_ru`/`label_en` for the current language, falling
+back to `label_tk` (`useCustomsExpenseCategoryLabel`), so a rename in Django admin shows everywhere.
+A deactivated code (not in the active list) falls back to the old i18n key
+`customs_expense.category.<CODE>`, then to `category_display`. Server-side `category_display`
+(expense rows + ledger `by_category`) = `label_en` or `label_tk`.
+
+The duplicate-name check only looks at **active** categories, so a deactivated name can be added
+again (as a new code). `validate_category` accepts inactive codes on purpose: older expenses that
+use them must stay editable. The category filter above the expenses table lists active categories
+only, so expenses under a deactivated one can't be filtered by it. Two users adding a clashing name at the same moment can hit the
+`(category, code)` unique constraint and get a 500. This is a known, unhandled race.
 
 ### Relationships
 
@@ -78,6 +99,8 @@ Base: `/api/v1/export/customs-expenses/`
 | PATCH | `customs-expenses/{id}/` | Update |
 | DELETE | `customs-expenses/{id}/` | Delete |
 | GET | `customs-expenses/ledger/` | Cash-float summary (see below) |
+| GET | `customs-expense-categories/` | Active categories (`id, code, label_tk, label_ru, label_en, sort_order, is_active`), paginated; any authenticated user |
+| POST | `customs-expense-categories/` | Add one: `{label_tk, label_ru?, label_en?}` → 201 with generated `code`; writer roles only (403 otherwise); 400 on blank or duplicate `label_tk` (case-insensitive) |
 
 **Writer roles** (`CUSTOMS_EXPENSE_WRITE`): `finansist`, `admin`, `director`, `document_team`,
 `export_manager`, plus superusers. Reads are open to any authenticated user. Gating is inline in
@@ -117,6 +140,10 @@ fees only; batch fees with `shipment=null` do not appear — query the list endp
   by-category breakdown over a date range (`useCustomsLedger`). The expenses tab is a CRUD ProTable
   (`components/customsExpense/CustomsExpensesTab.tsx`) with an add/edit modal
   (`CustomsExpenseModal.tsx`) and a summary card (`CustomsLedgerSummary.tsx`).
+- The modal's category field is `CustomsExpenseCategorySelect.tsx`: options come from
+  `useCustomsExpenseCategories`, and **Täze goş** under the list opens a small form (Turkmen name
+  required, Russian/English optional, prefilled with the typed search text). On save the new
+  category is selected.
 - **Shipment Detail** has a "Customs / Document expenses" section listing that shipment's expenses
   with a total and an **Add expense** button (pre-fills the shipment).
 - Hooks live in `hooks/useCustomsExpenses.ts`. Writer-role gating uses one shared constant

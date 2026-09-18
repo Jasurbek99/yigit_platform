@@ -3,6 +3,7 @@ import { Button, Card, Table, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { CustomsExpenseModal } from '@/components/customsExpense/CustomsExpenseModal';
+import { useCustomsExpenseCategoryLabel } from '@/hooks/useCustomsExpenses';
 import { fmtDate } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import type { TableColumnsType } from 'antd';
 import type { ICustomsExpense, IShipmentDetail } from '@/types';
@@ -26,6 +27,7 @@ export function ShipmentCustomsExpensesCard({
 }: IShipmentCustomsExpensesCardProps) {
   const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const categoryLabel = useCustomsExpenseCategoryLabel();
 
   const expenses = shipment.customs_expenses ?? [];
 
@@ -41,7 +43,7 @@ export function ShipmentCustomsExpensesCard({
       dataIndex: 'category',
       render: (_: unknown, row: ICustomsExpense) => (
         <Tag color="blue">
-          {t(`customs_expense.category.${row.category}`, { defaultValue: row.category_display })}
+          {categoryLabel(row.category, row.category_display)}
         </Tag>
       ),
     },

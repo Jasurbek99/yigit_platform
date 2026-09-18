@@ -174,6 +174,7 @@ See [[screens/main-dashboard]] for the full response contract.
 | GET/POST | `/api/v1/export/advances/` | FinansistAdvanceViewSet | `useAdvances` | AdvancesTracker |
 | GET | `/api/v1/export/advances/{id}/` | FinansistAdvanceViewSet (detail) | `useAdvanceDetail` | AdvancesTracker |
 | PATCH | `/api/v1/export/advances/{id}/reconcile/` | FinansistAdvanceViewSet.reconcile | `useReconcileAdvance` | AdvancesTracker |
+| GET/POST | `/api/v1/export/customs-expense-categories/` | CustomsExpenseCategoryViewSet | `useCustomsExpenseCategories`, `useCreateCustomsExpenseCategory` | AdvancesTracker (expense modal) |
 | GET/POST | `/api/v1/export/notifications/` | NotificationViewSet | `useNotifications` | AppLayout |
 | GET | `/api/v1/export/audit-log/` | AuditLogViewSet | `useAuditLog` | AuditLogPage — filters `?model_name=&action=&object_id=&user=` (user filter via `UserSelect`, backed by mentionable endpoint so director can populate it too) |
 

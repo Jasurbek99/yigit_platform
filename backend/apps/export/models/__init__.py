@@ -34,6 +34,7 @@ from .finance import (
     CustomsExpense,
     CustomsExpenseCategory,
     CUSTOMS_EXPENSE_CATEGORIES,
+    CUSTOMS_EXPENSE_OPTION_CATEGORY,
 )
 from .notification import Notification
 from .audit import AuditLog
@@ -83,6 +84,7 @@ __all__ = [
     'CustomsExpense',
     'CustomsExpenseCategory',
     'CUSTOMS_EXPENSE_CATEGORIES',
+    'CUSTOMS_EXPENSE_OPTION_CATEGORY',
     'Notification',
     'AuditLog',
     'Pallet',
