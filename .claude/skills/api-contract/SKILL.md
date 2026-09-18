@@ -470,6 +470,13 @@ approves or rejects. All decimals below are **strings** (plain `models.DecimalFi
 manager's in-week plan edit was routed to approval instead of written. A withdraw (requested value
 equals the currently-approved value) still returns 200 with `pending_change: null`.
 
+A refused in-week edit returns **400 `{"plan_value": "<message>"}`** — keyed by field, unlike the
+`{"error": ...}` shape of approve/reject below. Causes: a value outside the allowed range (the
+message names it, e.g. `Allowed range: 8,500–11,500 kg.`), clearing the cell (`plan_value: null` →
+`The plan cannot be cleared after the week has started.`), or invalid input (non-numeric, negative,
+≥ 100,000,000, or a `reason` over 500 characters). A `note` over 500 characters on approve/reject is
+a 400 `{"error": ...}` and leaves the request pending.
+
 `HarvestDayEntrySerializer` gains two read-only fields:
 ```json
 {

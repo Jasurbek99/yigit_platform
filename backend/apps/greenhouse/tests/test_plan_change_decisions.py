@@ -73,6 +73,16 @@ class TestApprove(TestCase):
         with self.assertRaises(ValueError):
             reject_plan_change(change, self.w.users['export_manager'])
 
+    def test_an_over_long_note_is_refused_and_the_request_stays_pending(self):
+        """F7: validated before the claiming UPDATE — reject has no atomic block around it."""
+        for weekday, decide in enumerate((approve_plan_change, reject_plan_change)):
+            with self.subTest(decide=decide.__name__):
+                _, change = self._pending(weekday=weekday)
+                with self.assertRaises(ValueError):
+                    decide(change, self.w.users['export_manager'], 'x' * 501)
+                change.refresh_from_db()
+                self.assertEqual(change.status, PlanChangeRequest.STATUS_PENDING)
+
     def test_approving_an_empty_cell_computes_its_plan_state(self):
         entry, change = self._pending(plan_value=None, requested=Decimal('7000'), plan_state='')
         approve_plan_change(change, self.w.users['export_manager'])
@@ -132,6 +142,15 @@ class TestAdminDirectEdit(TestCase):
         self.assertEqual(entry.plan_baseline_value, Decimal('20000'))
         self.assertEqual(change.status, PlanChangeRequest.STATUS_SUPERSEDED)
         self.assertEqual(change.decided_by, admin)
+
+    def test_in_week_admin_zero_does_not_freeze_a_zero_baseline(self):
+        """Rule 2: a 0 baseline would leave the cell unbounded all week — store NULL."""
+        entry = make_entry(self.w, plan_value=Decimal('10000'), baseline=Decimal('10000'))
+        with frozen_now(IN_WEEK_UTC):
+            set_plan_value(entry, Decimal('0'), self.w.users['admin'], reason='hail')
+        entry.refresh_from_db()
+        self.assertEqual(entry.plan_value, Decimal('0'))
+        self.assertIsNone(entry.plan_baseline_value)
 
     def test_admin_edit_before_week_start_leaves_baseline_alone(self):
         entry = make_entry(self.w, plan_value=None)

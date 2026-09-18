@@ -54,7 +54,7 @@ class PlanChangeRequestViewSet(SeasonScopedMixin, ReadOnlyModelViewSet):
     def _decide(self, decide, request) -> Response:
         change = self.get_object()
         try:
-            decide(change, request.user, request.data.get('note', ''))
+            decide(change, request.user, request.data.get('note'))
         except PermissionError as exc:
             return Response({'error': str(exc)}, status=http_status.HTTP_403_FORBIDDEN)
         except ValueError as exc:

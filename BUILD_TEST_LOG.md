@@ -1,6 +1,14 @@
 # Build / Test Log
 
 - [ ] 2026-09-18 — Weekly plan in-week revision approval (±15%, export manager approves, Plan changes drawer) — NEEDS TEST
+  To test: (1) as a greenhouse manager, on the current week change a filled cell by +10%: a "sent
+  for approval" toast, the old value stays, a yellow `→ … (+10%) ⏳` badge appears under it;
+  (2) enter +20% on a cell: an "Allowed range" toast, nothing is saved; (3) type the approved value
+  back into the cell from step 1: a "Pending change withdrawn" toast, the badge is gone;
+  (4) repeat step 1, then as export manager open Weekly Plan: the **Plan changes** button's badge
+  counts the request (check this on Fri–Sun too, when the grid opens on next week) → Approve →
+  the cell shows the new value; (5) repeat step 1 and Reject with a note: the manager gets a
+  notification that includes the note.
 
 - [ ] 2026-09-17 — **Awanslar → Gümrük çykdajylary: kategoriýa saýlanýan ýerde "Täze goş".** **To test:** (1) as finansist or document_team, open **Awanslar** → **Customs expenses** tab → **Çykdajy goş**; (2) open the **Kategoriýa** list — the 13 old categories are there, and **Täze goş** is under the list; (3) type a new name (e.g. *Ýol haky*) in the search, click **Täze goş** — a small form opens with the name filled in; add a Russian name, **Save** → toast, the new category is selected in the field; (4) save the expense — the table and the ledger's *by category* card show the new name; switch UI to Russian — the Russian name shows; (5) try **Täze goş** with an existing name (e.g. *Gümrüklemek*) → "already exists" toast, nothing added; empty Turkmen name → *Required*; (6) old expenses still show their category names; the category filter above the table lists the new category; (7) from a **Shipment Detail** → *Add expense*, the same picker works. Migration `export/0070_customs_expense_categories_as_data` is **applied to the shared DB** (13 categories seeded). Tests: new `tests_customs_expense_category` 13/13, `tests_customs_expense` + `tests_idempotency_endpoints` green; related modules 264/266 (2 failures in `tests_season_scoping` archive-bypass also fail on clean HEAD — pre-existing); `CustomsExpenseCategorySelect.test.tsx` 3/3; `tsc` clean. — NEEDS TEST
 

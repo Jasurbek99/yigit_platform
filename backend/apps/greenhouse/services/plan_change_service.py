@@ -8,7 +8,7 @@ that originate from a manager.
 """
 import logging
 from datetime import date, datetime, time as dtime, timezone as dt_timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 # Who, besides admin-like users, may approve or reject. document_team is in
 # EXPORT_MANAGER_LIKE elsewhere, but the owner named the export manager only.
 APPROVER_ROLES = frozenset({'export_manager'})
+
+# requested_value is DecimalField(max_digits=10, decimal_places=2).
+MAX_PLAN_VALUE = Decimal('100000000')
+# reason / decision_note are CharField(max_length=500).
+TEXT_MAX_LEN = 500
 
 
 def _config():
@@ -96,20 +101,50 @@ def request_plan_change(entry, value, user, reason: str = '') -> PlanChangeReque
         The new pending request, or None when the call was a withdrawal.
 
     Raises:
-        ValueError: value is None, or outside the allowed range.
+        ValueError: value is None, not a valid kg amount, or outside the allowed
+            range; or the reason is over TEXT_MAX_LEN characters.
     """
+    requested = _parse_requested_value(value)
+    reason = _clean_text(reason, 'Reason')
+    with transaction.atomic():
+        # Lock the cell first so concurrent requests on it serialise here rather
+        # than racing into uq_pcr_one_pending. Lock order is entry → request
+        # everywhere (approve_plan_change, the admin direct-edit tail).
+        locked = HarvestDayEntry.objects.select_for_update().get(pk=entry.pk)
+        change = _request_on_locked_entry(locked, requested, user, reason)
+    if change is not None:
+        _notify_approvers(change)
+    return change
+
+
+def _parse_requested_value(value) -> Decimal:
+    """Turn raw request input into a kg Decimal, or raise ValueError (→ 400, never 500)."""
     if value is None:
         raise ValueError('The plan cannot be cleared after the week has started.')
-    requested = Decimal(str(value))
+    try:
+        requested = Decimal(str(value))
+    except InvalidOperation:
+        raise ValueError('Invalid plan value.') from None
+    if not requested.is_finite() or requested < 0 or requested >= MAX_PLAN_VALUE:
+        raise ValueError('Plan value must be between 0 and 99,999,999.99 kg.')
+    return requested
+
+
+def _clean_text(value, label: str) -> str:
+    text = str(value or '').strip()
+    if len(text) > TEXT_MAX_LEN:
+        raise ValueError(f'{label} is too long: max {TEXT_MAX_LEN} characters.')
+    return text
+
+
+def _request_on_locked_entry(entry, requested: Decimal, user, reason) -> PlanChangeRequest | None:
+    """Withdraw, or bound-check and record the request, against the freshly locked row."""
     if entry.plan_value is not None and requested == entry.plan_value:
         supersede_pending(entry, user)
         return None
     baseline = entry.plan_baseline_value if entry.plan_baseline_value is not None else entry.plan_value
     change_pct = _bounded_change_pct(baseline, requested)
-    with transaction.atomic():
-        change = _create_request(entry, user, baseline, requested, change_pct, reason)
-    _notify_approvers(change)
-    return change
+    return _create_request(entry, user, baseline, requested, change_pct, reason)
 
 
 def _create_request(entry, user, baseline, requested, change_pct, reason) -> PlanChangeRequest:
@@ -129,7 +164,7 @@ def _create_request(entry, user, baseline, requested, change_pct, reason) -> Pla
         current_value=entry.plan_value,
         requested_value=requested,
         change_pct=change_pct,
-        reason=(reason or '').strip(),
+        reason=reason,
         requested_by=user,
     )
 
@@ -174,13 +209,16 @@ def _claim(change: PlanChangeRequest, user, new_status: str, note: str) -> None:
 
     Raises:
         PermissionError: user may not decide plan changes.
-        ValueError: the request is no longer pending.
+        ValueError: the note is over TEXT_MAX_LEN characters, or the request is
+            no longer pending.
     """
     if not can_decide_plan_change(user):
         raise PermissionError(f"Role '{getattr(user, 'role', None)}' cannot decide plan changes.")
+    # Validated before the UPDATE: reject_plan_change has no atomic block to undo a claim.
+    note = _clean_text(note, 'Note')
     claimed = PlanChangeRequest.objects.filter(
         pk=change.pk, status=PlanChangeRequest.STATUS_PENDING,
-    ).update(status=new_status, decided_by=user, decided_at=timezone.now(), decision_note=(note or '').strip())
+    ).update(status=new_status, decided_by=user, decided_at=timezone.now(), decision_note=note)
     if not claimed:
         raise ValueError('Request is no longer pending.')
     change.refresh_from_db()
@@ -189,8 +227,10 @@ def _claim(change: PlanChangeRequest, user, new_status: str, note: str) -> None:
 def approve_plan_change(change: PlanChangeRequest, user, note: str = '') -> PlanChangeRequest:
     """Approve a pending request: write its value into plan_value and notify the requester."""
     with transaction.atomic():
+        # Entry before request — the same lock order as request_plan_change and
+        # the admin direct-edit tail, so the three paths cannot deadlock.
+        entry = HarvestDayEntry.objects.select_for_update().get(pk=change.entry_id)
         _claim(change, user, PlanChangeRequest.STATUS_APPROVED, note)
-        entry = HarvestDayEntry.objects.select_related('block').get(pk=change.entry_id)
         _apply_approved_value(entry, change, user)
     _notify_requester(change, 'plan_change_approved')
     return change
@@ -253,9 +293,13 @@ def _notify_requester(change: PlanChangeRequest, kind: str) -> None:
 
 def reset_baseline_after_direct_edit(entry, value, user, now_utc: datetime) -> None:
     """Admin/boss direct in-week edit: its value becomes the new baseline and any
-    pending manager request on the cell is superseded. No-op before the week starts."""
+    pending manager request on the cell is superseded. No-op before the week starts.
+
+    A zero (or cleared) value stores NULL, not 0: a 0 baseline bounds nothing and
+    would never re-derive, leaving the cell unbounded for the rest of the week."""
     if not plan_week_started(entry.weekly_plan, now_utc):
         return
-    entry.plan_baseline_value = value
+    baseline = None if value is None else Decimal(str(value))
+    entry.plan_baseline_value = baseline or None
     entry.save(update_fields=['plan_baseline_value', 'updated_at'])
     supersede_pending(entry, user)

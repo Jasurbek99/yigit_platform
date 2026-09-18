@@ -408,7 +408,7 @@ def _compute_plan_trigger(
     """Shared logic for P1/P2/P3 — find managers with missing plans and build events.
 
     "Missing" = no HarvestDayEntry row for this block within the plan week has a
-    non-null plan_value. Per-cell save is the only submission path; if at least
+    non-null plan_value or a pending PlanChangeRequest. Per-cell save is the only submission path; if at least
     one cell has been entered, we consider the plan started and stop nudging.
 
     Args:
@@ -420,25 +420,28 @@ def _compute_plan_trigger(
     """
     from datetime import timedelta
 
-    from django.db.models import Exists, OuterRef
+    from django.db.models import Exists, OuterRef, Q
 
     from apps.core.models import User
-    from apps.greenhouse.models import BlockManagerAssignment, HarvestDayEntry
+    from apps.greenhouse.models import BlockManagerAssignment, HarvestDayEntry, PlanChangeRequest
 
     iso_year, iso_week, _ = plan_week_start.isocalendar()
     plan_week_end = plan_week_start + timedelta(days=6)
 
-    # Managers with active block assignments where the plan has no entered cells
+    # Managers with active block assignments where the plan has no entered cells.
+    # A pending change request counts as entered: a cell filled after the week
+    # started waits for approval with plan_value still NULL (ADR-024).
     missing_qs = (
         BlockManagerAssignment.objects
         .filter(is_active=True)
         .annotate(
             has_entered=Exists(
                 HarvestDayEntry.objects.filter(
+                    Q(plan_value__isnull=False)
+                    | Q(change_requests__status=PlanChangeRequest.STATUS_PENDING),
                     block=OuterRef('block'),
                     entry_date__gte=plan_week_start,
                     entry_date__lte=plan_week_end,
-                    plan_value__isnull=False,
                 )
             ),
         )

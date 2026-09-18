@@ -474,3 +474,66 @@ class TestIsOperatingDay(unittest.TestCase):
         config = _make_config()
         monday = date(2025, 5, 12)
         self.assertFalse(_is_operating_day(monday, config))
+
+
+# ---------------------------------------------------------------------------
+# 10. P3 counts a pending plan change as an entered cell (ADR-024)
+# ---------------------------------------------------------------------------
+
+try:
+    from django.test import TestCase as DjangoTestCase
+
+    class TestP3CountsPendingChangeAsEntered(DjangoTestCase):
+        """A manager filling an EMPTY cell after Monday 00:00 creates a pending
+        request and leaves plan_value NULL — that must not read as "plan missing".
+
+        Calls _compute_p3 directly: the P3 tests above mock it wholesale, so none
+        of them reaches the "missing" query.
+        """
+
+        @classmethod
+        def setUpTestData(cls):
+            from decimal import Decimal
+
+            from apps.core.models import GreenhouseBlock, User
+            from apps.greenhouse.models import (
+                BlockManagerAssignment, HarvestDayEntry, PlanChangeRequest, WeeklyHarvestPlan,
+            )
+            from apps.greenhouse.tests.plan_change_fixtures import WEEK, build_world, make_entry
+
+            cls.world = build_world('P3P')
+            cls.manager = cls.world.users['greenhouse_manager']
+            for weekday in range(6):
+                make_entry(cls.world, weekday=weekday, plan_value=None)
+            PlanChangeRequest.objects.create(
+                entry=HarvestDayEntry.objects.get(weekly_plan=cls.world.plan, weekday=2),
+                requested_value=Decimal('9000'), requested_by=cls.manager,
+            )
+
+            # Control: another manager whose block is all-NULL with nothing pending.
+            other_block = GreenhouseBlock.objects.create(code='P3P-B', name='P3P Block B', is_active=True)
+            cls.other_manager = User.objects.create_user(
+                username='P3P_other_gm', password='pass', role='greenhouse_manager',
+            )
+            BlockManagerAssignment.objects.create(user=cls.other_manager, block=other_block, is_active=True)
+            other_plan = WeeklyHarvestPlan.objects.create(
+                season=cls.world.season, block=other_block, year=WEEK[0], week_number=WEEK[1],
+            )
+            HarvestDayEntry.objects.create(
+                weekly_plan=other_plan, season=cls.world.season, block=other_block,
+                entry_date=date.fromisocalendar(WEEK[0], WEEK[1], 1), weekday=0,
+            )
+            cls.plan_week_start = date.fromisocalendar(WEEK[0], WEEK[1], 1)
+
+        def test_a_pending_request_counts_as_entered(self):
+            from apps.greenhouse.dispatcher import _compute_p3
+
+            targets = {ev.target_user_id for ev in _compute_p3(self.plan_week_start, _make_config())}
+
+            self.assertNotIn(self.manager.id, targets)
+            self.assertIn(self.other_manager.id, targets)  # the query still flags a truly empty week
+
+except Exception:
+    class TestP3CountsPendingChangeAsEntered(unittest.TestCase):  # type: ignore[no-redef]
+        def test_a_pending_request_counts_as_entered(self):
+            self.skipTest("Django TestCase not available (MSSQL test DB issue)")

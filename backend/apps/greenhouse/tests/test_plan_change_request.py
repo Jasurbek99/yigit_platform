@@ -10,7 +10,7 @@ from django.test import TestCase
 
 from apps.core.models import GreenhouseConfig
 from apps.export.models import Notification
-from apps.greenhouse.models import PlanChangeRequest
+from apps.greenhouse.models import HarvestDayEntry, PlanChangeRequest
 from apps.greenhouse.services.harvest_day_service import set_plan_value
 from apps.greenhouse.services.plan_change_service import request_plan_change
 from apps.greenhouse.tests.plan_change_fixtures import (
@@ -104,6 +104,20 @@ class TestBound(TestCase):
         with self.assertRaises(ValueError):
             request_plan_change(entry, Decimal('12000'), self.gm)
 
+    def test_the_bound_is_read_from_the_locked_row_not_a_stale_object(self):
+        """F3: the caller's in-memory entry is not trusted — the locked DB row is.
+
+        Stale: plan 12,000, no baseline → 13,000 would be +8.33%, allowed.
+        DB:    plan 11,500, baseline 10,000 → 13,000 is +30%, refused.
+        """
+        stale = make_entry(self.w, plan_value=Decimal('12000'))
+        HarvestDayEntry.objects.filter(pk=stale.pk).update(
+            plan_value=Decimal('11500'), plan_baseline_value=Decimal('10000'),
+        )
+        with self.assertRaises(ValueError):
+            request_plan_change(stale, Decimal('13000'), self.gm)
+        self.assertFalse(PlanChangeRequest.objects.filter(entry_id=stale.pk).exists())
+
     def test_an_empty_cell_has_no_bound(self):
         entry = make_entry(self.w, plan_value=None)
         change = request_plan_change(entry, Decimal('50000'), self.gm)
@@ -155,6 +169,20 @@ class TestLifecycle(TestCase):
         entry = make_entry(self.w, plan_value=Decimal('10000'))
         with self.assertRaises(ValueError):
             request_plan_change(entry, None, self.gm)
+
+    def test_bad_input_is_a_value_error_not_a_crash(self):
+        """F7: each of these used to escape as InvalidOperation / IntegrityError → 500."""
+        entry = make_entry(self.w, plan_value=None)
+        cases = [
+            ('abc', ''),
+            (Decimal('-5'), ''),
+            (Decimal('100000000'), ''),       # max_digits=10, 2 dp
+            (Decimal('5000'), 'x' * 501),     # reason is max 500
+        ]
+        for value, reason in cases:
+            with self.subTest(value=value, reason_len=len(reason)), self.assertRaises(ValueError):
+                request_plan_change(entry, value, self.gm, reason)
+        self.assertFalse(entry.change_requests.exists())
 
     def test_a_request_notifies_export_managers_only(self):
         entry = make_entry(self.w, plan_value=Decimal('10000'))

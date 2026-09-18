@@ -39,7 +39,7 @@ from apps.export.models import (
     WeeklyDestinationSelection, WeeklyLocalSellPlan, WeeklyTruckAllocation,
 )
 from apps.export.services.shipment import create_shipment, transition_to
-from apps.greenhouse.models import HarvestDayEntry, WeeklyHarvestPlan
+from apps.greenhouse.models import HarvestDayEntry, PlanChangeRequest, WeeklyHarvestPlan
 
 # (code, step_order, name_tk, name_en, name_ru, required_role, phase) — the
 # canonical rows from core.migrations.0010_state_machine_v2. That migration
@@ -390,6 +390,7 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
                     year=season.start_date.year,
                 ),
                 'day_entry': cls._make_day_entry(season),
+                'plan_change_request': cls._make_plan_change(season),
                 'contract': Contract.objects.create(
                     contract_number=f'C-{season.pk}', season=season,
                     export_firm=cls.export_firm, import_firm=cls.import_firm,
@@ -429,14 +430,22 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
         }
 
     @classmethod
-    def _make_day_entry(cls, season: Season) -> HarvestDayEntry:
+    def _make_day_entry(cls, season: Season, week_number: int = 2) -> HarvestDayEntry:
         plan = WeeklyHarvestPlan.objects.create(
-            season=season, block=cls.block, week_number=2,
+            season=season, block=cls.block, week_number=week_number,
             year=season.start_date.year,
         )
         return HarvestDayEntry.objects.create(
             weekly_plan=plan, season=season, block=cls.block,
             entry_date=season.start_date, weekday=season.start_date.weekday(),
+        )
+
+    @classmethod
+    def _make_plan_change(cls, season: Season) -> PlanChangeRequest:
+        """A pending request on its own cell (week 3): on the `day_entry` cell,
+        that case's admin PATCH would supersede it before the approve case runs."""
+        return PlanChangeRequest.objects.create(
+            entry=cls._make_day_entry(season, week_number=3), requested_value=Decimal('6.00'),
         )
 
     # (row key, url template, method, payload)
@@ -449,6 +458,8 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
          {'notes': 'x'}),
         ('day_entry', '/api/v1/greenhouse/day-entries/{pk}/', 'patch',
          {'plan_value': '5.00'}),
+        ('plan_change_request', '/api/v1/greenhouse/plan-change-requests/{pk}/approve/', 'post',
+         {}),
         ('contract', '/api/v1/contracts/contracts/{pk}/', 'patch',
          {'notes': 'x'}),
         ('comment', '/api/v1/export/comments/{pk}/', 'patch',
@@ -597,8 +608,8 @@ class ScopedViewSetFreezeTests(SeasonFreezeFixture):
 
     def test_closed_season_object_reads_still_work(self):
         for key, template, _method, _payload in self.CASES:
-            if key == 'task':
-                continue  # /start/ is a write-only action, no GET counterpart
+            if key in ('task', 'plan_change_request'):
+                continue  # /start/ and /approve/ are write-only actions, no GET counterpart
             with self.subTest(resource=key):
                 url = template.format(pk=self.rows[self.closed][key].pk)
                 self.assertEqual(self.client_as().get(url).status_code, 200)
