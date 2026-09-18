@@ -1435,7 +1435,8 @@
     "action_required": "{{shipment_code}} — meýdanlaryňyzy doldurmaly",
     "kind_mention": "Sizi agzadylar",
     "kind_task_assigned": "Size wezipe bellenildi",
-    "kind_task_done": "Wezipäňiz ýerine ýetirildi"
+    "kind_task_done": "Wezipäňiz ýerine ýetirildi",
+    "weekly_plan_summary": "Indiki hepdäniň hasyl plany dolduryldy:"
   },
   "common": {
     "optional": "hökman däl",
@@ -2992,7 +2993,8 @@
     "finalize_sale": "Satyşy tamamla",
     "submit_sales_report": "Satyş hasabatyny tabşyr",
     "fill_weekly_plan": "Hepdelik plany dolduryň",
-    "fill_local_sell_plan": "Ýerli satuw planyny dolduryň"
+    "fill_local_sell_plan": "Ýerli satuw planyny dolduryň",
+    "fill_truck_allocation": "Maşyn paýlanyşyny dolduryň"
   },
   "me": {
     "board": {

@@ -196,6 +196,12 @@ Run from system cron every 5 min:
 
 In-app notifications only this iteration. SMS / Telegram / WhatsApp deferred. The personal-kanban auto-task hook is a TODO no-op call site in `dispatcher.fire(event)` — auto-tasks land when the parallel kanban work ships.
 
+> **Scheduling (2026-09-18):** scheduled jobs go in **Celery beat** (`CELERY_BEAT_SCHEDULE` in `config/settings.py`), not crontab. The beta server's crontab is empty, so the cron lines above and below (`run_harvest_dispatcher`, `run_weekly_plan_setup`) have **never run on beta**. P1/P2/P3 reminders don't fire there, and plan tasks appear only when someone presses "Generate plan tasks". These commands still have to be moved to beat.
+
+### Saturday plan-fill summary to export_manager (Celery beat)
+
+Saturday 09:00: export_manager, boss and director get a bell message with next week's plan-fill % per greenhouse manager and their incomplete blocks. export_manager also gets a "fill truck allocation" task. Details: [[truck-allocation#Saturday plan-fill summary + "fill truck allocation" task (2026-09-18)]].
+
 ### Daily weekly-plan setup (`run_weekly_plan_setup`)
 
 A **separate daily cron** (not the 5-min dispatcher — week setup needs no 5-min cadence) auto-prepares the grid so block managers always open something complete:

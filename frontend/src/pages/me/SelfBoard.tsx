@@ -41,10 +41,12 @@ import { EXPORT_MANAGER_LIKE, ROLE_CHOICES } from '@/constants/roles';
 
 const { Title, Text } = Typography;
 
-/** Non-shipment reminder tasks (weekly harvest plan, local sell plan) rendered
- *  with the compact PlanTaskCard rather than the shipment Kanban card. */
+/** Non-shipment reminder tasks (weekly harvest plan, local sell plan, truck
+ *  allocation) rendered with the compact PlanTaskCard rather than the shipment
+ *  Kanban card. */
 function isPlanTask(task: ITaskListItem): boolean {
-  return task.kind === 'weekly_plan' || task.kind === 'local_sell_plan';
+  return task.kind === 'weekly_plan' || task.kind === 'local_sell_plan'
+    || task.kind === 'truck_allocation';
 }
 
 // ─── Phase filter options ────────────────────────────────────────────────────

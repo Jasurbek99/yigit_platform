@@ -45,6 +45,10 @@ from .local_sell_plan_tasks import (
     resolve_local_sell_plan_tasks,
 )
 
+from .truck_allocation_tasks import (
+    generate_truck_allocation_task,
+    resolve_truck_allocation_tasks,
+)
 from .boss_analytics import (
     period_to_range,
     _aggregate_summary,
@@ -92,6 +96,8 @@ __all__ = [
     # Local sell-plan tasks
     'generate_local_sell_plan_tasks',
     'resolve_local_sell_plan_tasks',
+    'generate_truck_allocation_task',
+    'resolve_truck_allocation_tasks',
     # Boss analytics
     'period_to_range',
     '_aggregate_summary',

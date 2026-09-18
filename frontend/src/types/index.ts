@@ -1542,7 +1542,7 @@ export interface IAdminUser {
 
 export interface INotification {
   id: number;
-  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'feedback_resolved' | 'feedback_rejected';
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary';
   message: string;
   link: string | null;
   read_at: string | null;
@@ -1686,7 +1686,7 @@ export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled
 
 export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'manual_done';
 
-export type TaskKind = 'shipment' | 'weekly_plan' | 'local_sell_plan';
+export type TaskKind = 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation';
 
 export interface ITaskListItem {
   id: number;

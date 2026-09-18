@@ -312,7 +312,7 @@ For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]
 
 ### Non-shipment tasks — `kind`
 
-`Task.shipment` is **nullable**; a `kind` column (`shipment` | `weekly_plan` | `local_sell_plan`, default `shipment`) discriminates task families. Non-shipment tasks carry `link` (the frontend route the card opens) and `scope_year` / `scope_week` / `scope_block` instead of a parent shipment. SelfBoard routes any non-shipment task (`isPlanTask`) to `PlanTaskCard`. See [[../../ADR|ADR-021]].
+`Task.shipment` is **nullable**; a `kind` column (`shipment` | `weekly_plan` | `local_sell_plan` | `truck_allocation`, default `shipment`) discriminates task families. Non-shipment tasks carry `link` (the frontend route the card opens) and `scope_year` / `scope_week` / `scope_block` instead of a parent shipment. SelfBoard routes any non-shipment task (`isPlanTask`) to `PlanTaskCard`. See [[../../ADR|ADR-021]].
 
 **`weekly_plan`** — a **per-(manager, block)** reminder to fill that block's weekly harvest-plan grid (see [[weekly-harvest-planning]]). A manager assigned to K and L gets two tasks; each resolves independently:
 
@@ -328,6 +328,11 @@ For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]
 - **Generation**: created as a side effect of `POST /api/v1/export/local-sell-plans/initialize-week/` (the manager action that seeds the week's firm rows), and by the cron-backstop command `python manage.py generate_local_sell_plan_tasks` (defaults to the current ISO week; `--year`/`--week` to override). Both idempotent — one task per `(year, week)`. Service: `apps/export/services/local_sell_plan_tasks.py`.
 - **Auto-complete (lazy)**: resolved on the `/me/tasks/` read path (`resolve_local_sell_plan_tasks`, global since the task has no `assignee_user`). The week flips to DONE once **≥1** row is `submitted`/`approved` **and every** row is `submitted`/`approved` **or** a zero-total `draft` (a firm with nothing to sell can never be submitted, so an all-zero draft must not block). A `rejected` row or a **non-zero draft** (entered but not submitted) keeps it OPEN. The "≥1 submitted/approved" gate is required because `initialize-week` seeds the week as all-zero drafts, which would otherwise read as already-complete and mark the task done before the seller acts.
 - **Known limit**: a week where *no* firm ever submits (genuinely nothing sells anywhere) stays OPEN indefinitely — like `weekly_plan`, role-wide plan cards have no manual-done affordance (the SelfBoard blocks dragging plan tasks to DONE). The dominant case (some firms sell, empties left as zero drafts) resolves correctly.
+
+**`truck_allocation`**: a shared, role-wide `export_manager` reminder to fill next week's truck allocation ("Maşyn paýlanyşy"). There is one per week (`assignee_user=null`, link `/export/plan?week=…&year=…`).
+- **Generation:** Celery beat, Saturday 09:00, with the plan-fill summary notification.
+- **Auto-complete (lazy):** `resolve_truck_allocation_tasks` on `/me/tasks/`. It closes once every Mon–Sat day that needs ≥ 1 truck has a destination split with trucks.
+- Service: `apps/export/services/truck_allocation_tasks.py`. Details: [[truck-allocation]].
 
 ### Known limits
 

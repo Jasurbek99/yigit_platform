@@ -73,6 +73,7 @@ class MeTaskListView(APIView):
         from apps.export.services import (
             resolve_all_open_weekly_plan_tasks,
             resolve_local_sell_plan_tasks,
+            resolve_truck_allocation_tasks,
         )
 
         role = getattr(request.user, 'role', None)
@@ -95,6 +96,7 @@ class MeTaskListView(APIView):
         # local_sell_plan tasks are role-wide (no assignee_user) — global for the
         # simpler reason that there is no per-user set to resolve.
         resolve_local_sell_plan_tasks()
+        resolve_truck_allocation_tasks()
 
         qs = Task.objects.select_related(
             'shipment__status', 'rule', 'assignee_user', 'scope_block',

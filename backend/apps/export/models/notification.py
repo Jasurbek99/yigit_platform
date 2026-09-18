@@ -31,6 +31,8 @@ class Notification(models.Model):
         ('plan_deadline_reminder', 'Plan deadline reminder'),
         ('plan_late', 'Plan late'),
         ('plan_critical_late', 'Plan critical-late'),
+        # Saturday plan-fill summary to export_manager/boss/director
+        ('weekly_plan_summary', 'Weekly plan summary'),
         # Comment & task system
         ('mention', 'Mention'),
         ('task_assigned', 'Task assigned'),

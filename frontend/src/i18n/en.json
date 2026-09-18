@@ -1435,7 +1435,8 @@
     "action_required": "{{shipment_code}} — your fields need filling",
     "kind_mention": "You were mentioned",
     "kind_task_assigned": "Task assigned to you",
-    "kind_task_done": "Your task was marked done"
+    "kind_task_done": "Your task was marked done",
+    "weekly_plan_summary": "Next week's harvest plan filled:"
   },
   "common": {
     "optional": "optional",
@@ -2987,7 +2988,8 @@
     "finalize_sale": "Finalize sale",
     "submit_sales_report": "Submit sales report",
     "fill_weekly_plan": "Fill the weekly plan",
-    "fill_local_sell_plan": "Fill the local sell plan"
+    "fill_local_sell_plan": "Fill the local sell plan",
+    "fill_truck_allocation": "Fill the truck allocation"
   },
   "me": {
     "board": {

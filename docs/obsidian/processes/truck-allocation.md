@@ -133,6 +133,21 @@ truck allocation. It renders only when the week has at least one plan row, and o
 
 **`ITruckDestinationSplit`**: id, destination, destination_name, truck_count
 
+## Saturday plan-fill summary + "fill truck allocation" task (2026-09-18)
+
+Every **Saturday 09:00** (Asia/Ashgabat), Celery beat runs `apps.export.tasks.send_saturday_plan_summary` for **next week**, the week whose plan was due Friday. Service: `backend/apps/export/services/truck_allocation_tasks.py`.
+
+1. **Bell notification** (`kind='weekly_plan_summary'`) to every active `export_manager`, `boss` and `director`, e.g. `W39/2026: 78% · Maral 25% (B, C) · Toyly 100%`. The frontend prefixes it with `notifications.weekly_plan_summary` ("Indiki hepdäniň hasyl plany dolduryldy:").
+   - Each greenhouse manager's % = filled Mon–Sat plan cells ÷ (6 × their active block assignments). A week nobody initialized reads **0%**, not complete. An explicit `0` counts as filled; Sunday is not measured.
+   - Worst manager first; the blocks in brackets are that manager's incomplete blocks. The message is capped at 500 chars, and anything left over becomes `+N`.
+   - Re-runs don't duplicate (dedupe on user + kind + link; the link carries the week).
+2. **Task** (`kind='truck_allocation'`, `title_key='tasks.fill_truck_allocation'` = "Maşyn paýlanyşyny dolduryň"): one role-wide task per week for `export_manager` (`assignee_user=null`), link `/export/plan?week=…&year=…`. Shown on SelfBoard as a `PlanTaskCard`.
+   - **Auto-closes** (lazily on `GET /me/tasks/`, `resolve_truck_allocation_tasks`) when every Mon–Sat day that **needs a truck** has at least one `TruckDestinationSplit` with `truck_count > 0`, and the week has at least one truck overall.
+   - A day needs a truck when its summed `plan_value` rounds (half-up) to ≥ 1 truck at 18,500 kg. That's the same capacity the table shows, so a light day shown as 0 trucks never blocks the task.
+   - **Known limit:** like the other plan cards, it has no manual Done button. A week with no plan and no trucks stays OPEN.
+
+**Deploy:** `update.sh` rebuilds only backend/frontend/redis. After deploying new task code, rebuild the Celery containers too: `docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml up -d --build celery-worker celery-beat`.
+
 ## Roles & Permissions
 
 | Role | Can View | Can Edit |

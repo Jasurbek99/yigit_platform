@@ -19,7 +19,7 @@ For full setup instructions see [GETTING_STARTED.md](../GETTING_STARTED.md).
 | redis | redis:7-alpine | 6379 | Cache (permission cache, sessions) + Celery broker |
 | nginx | nginx:alpine | 80/443 | Reverse proxy (production) |
 | celery-worker | Custom (backend image) | — | Runs background tasks (Traccar fleet poll) |
-| celery-beat | Custom (backend image) | — | Scheduler — fires `poll_traccar` every 120s |
+| celery-beat | Custom (backend image) | — | Scheduler — fires `poll_traccar` every 120s, idempotency-key purge daily, Saturday 09:00 plan-fill summary + truck-allocation task |
 
 > Volumes: `static_files` (Django `collectstatic`) and `media_files` (user
 > uploads — see the **Uploaded files** section below). `media_files` is

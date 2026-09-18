@@ -27,6 +27,7 @@ class TaskKind(models.TextChoices):
     SHIPMENT        = 'shipment',        _('Shipment task')
     WEEKLY_PLAN     = 'weekly_plan',     _('Weekly harvest-plan task')
     LOCAL_SELL_PLAN = 'local_sell_plan', _('Local sell-plan task')
+    TRUCK_ALLOCATION = 'truck_allocation', _('Weekly truck-allocation task')
 
 
 class TaskCompletionRule(models.TextChoices):

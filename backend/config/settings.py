@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 
+from celery.schedules import crontab
 from corsheaders.defaults import default_headers as cors_default_headers
 from dotenv import load_dotenv
 
@@ -474,6 +475,13 @@ CELERY_BEAT_SCHEDULE = {
     'purge-expired-idempotency-keys': {
         'task': 'apps.core.tasks.purge_expired_idempotency_keys',
         'schedule': 86400.0,
+        'options': {'expires': 3600},
+    },
+    # Saturday 09:00 local (CELERY_TIMEZONE): next week's plan-fill summary to
+    # export_manager/boss/director + the "fill truck allocation" task.
+    'saturday-plan-summary': {
+        'task': 'apps.export.tasks.send_saturday_plan_summary',
+        'schedule': crontab(hour=9, minute=0, day_of_week='sat'),
         'options': {'expires': 3600},
     },
 }

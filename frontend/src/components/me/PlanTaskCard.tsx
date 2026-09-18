@@ -12,8 +12,8 @@ interface IPlanTaskCardProps {
 }
 
 /**
- * Compact card for `kind === 'weekly_plan'` tasks on the SelfBoard.
- * Clicking navigates to the weekly plan grid filtered to the task's week/year.
+ * Compact card for non-shipment plan tasks (weekly_plan, local_sell_plan,
+ * truck_allocation) on the SelfBoard. Clicking navigates to the task's link.
  * Done tasks are visually de-emphasized (reduced opacity, muted border).
  */
 export function PlanTaskCard({ task }: IPlanTaskCardProps) {

@@ -1,5 +1,7 @@
 # Cron Jobs — YGT Platform
 
+> **2026-09-18 decision: scheduled jobs run on Celery beat + Celery worker, not crontab.** New jobs go in `CELERY_BEAT_SCHEDULE` (`backend/config/settings.py`), with the task in `apps/<app>/tasks.py`. The beta server's crontab is empty, so none of the cron entries below have ever run there. They still have to be moved to beat. Already on beat: `poll_traccar`, `purge_expired_idempotency_keys`, `send_saturday_plan_summary`.
+
 ## Harvest Dispatcher (run_harvest_dispatcher)
 
 Evaluates and fires time-based harvest forecast and plan submission notifications.

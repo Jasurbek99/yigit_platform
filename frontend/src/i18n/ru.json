@@ -1437,7 +1437,8 @@
     "action_required": "{{shipment_code}} — необходимо заполнить поля",
     "kind_mention": "Вас упомянули",
     "kind_task_assigned": "Вам назначена задача",
-    "kind_task_done": "Ваша задача выполнена"
+    "kind_task_done": "Ваша задача выполнена",
+    "weekly_plan_summary": "План урожая на следующую неделю заполнен:"
   },
   "common": {
     "optional": "необязательно",
@@ -2989,7 +2990,8 @@
     "finalize_sale": "Завершить продажу",
     "submit_sales_report": "Отправить отчёт о продажах",
     "fill_weekly_plan": "Заполните недельный план",
-    "fill_local_sell_plan": "Заполните план местных продаж"
+    "fill_local_sell_plan": "Заполните план местных продаж",
+    "fill_truck_allocation": "Заполните распределение машин"
   },
   "me": {
     "board": {

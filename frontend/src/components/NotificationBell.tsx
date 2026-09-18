@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Badge, Button, Popover, Typography } from 'antd';
 import { IconBell } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
 import type { INotification } from '@/types';
 import { COLORS } from '@/constants/styles';
@@ -23,7 +24,15 @@ const KIND_COLOR: Record<INotification['kind'], string> = {
   task_done: COLORS.success,
   feedback_resolved: COLORS.success,
   feedback_rejected: COLORS.danger,
+  weekly_plan_summary: COLORS.primary,
 };
+
+function notificationText(n: INotification, t: TFunction): string {
+  if (n.kind === 'action_required') return t('notifications.action_required', { shipment_code: n.message });
+  // The message is language-neutral ("W39/2026: 78% · Maral 25% (B, C) · …").
+  if (n.kind === 'weekly_plan_summary') return `${t('notifications.weekly_plan_summary')} ${n.message}`;
+  return n.message;
+}
 
 export function NotificationBell() {
   const { t } = useTranslation();
@@ -74,9 +83,7 @@ export function NotificationBell() {
             }}
           >
             <Text style={{ fontSize: 12, lineHeight: 1.4, display: 'block' }}>
-              {n.kind === 'action_required'
-                ? t('notifications.action_required', { shipment_code: n.message })
-                : n.message}
+              {notificationText(n, t)}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
               {new Date(n.created_at).toLocaleString()}
