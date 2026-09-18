@@ -5,6 +5,7 @@ import type {
   IWeeklyTruckAllocation,
   IBlockSummary,
   IDomesticSale,
+  IPlanChangeRequest,
 } from '@/types';
 
 // Shared late-edit extension defaults (no active extension)
@@ -223,4 +224,18 @@ export const MOCK_PRICE_ENTRIES: IPriceEntry[] = [
   { id: 5, date: '2025-02-16', city: 2, city_name: 'Astana', price_local: 405, price_usd: 0.92, currency: 'KZT', source: 'market', entered_by_name: 'sales_rep', created_at: '2025-02-16T10:00:00+05:00' },
   { id: 6, date: '2025-02-16', city: 3, city_name: 'Moscow', price_local: 92, price_usd: 1.02, currency: 'RUB', source: 'market', entered_by_name: 'sales_rep', created_at: '2025-02-16T10:00:00+05:00' },
   { id: 7, date: '2025-02-15', city: 1, city_name: 'Almaty', price_local: 408, price_usd: 0.92, currency: 'KZT', source: 'market', entered_by_name: 'sales_rep', created_at: '2025-02-15T10:00:00+05:00' },
+];
+
+// In-week plan revisions (ADR-024) on block A's W8/2025 cells above.
+export const MOCK_PLAN_CHANGE_REQUESTS: IPlanChangeRequest[] = [
+  { id: 1, entry: 104, block: 1, block_code: 'A', entry_date: '2025-02-20', weekday: 3,
+    baseline_value: '19000.00', current_value: '19000.00', requested_value: '21850.00', change_pct: '15.00',
+    status: 'pending', reason: 'Warm week, earlier ripening', requested_by: 5, requested_by_name: 'toyly_b',
+    requested_at: '2025-02-18T09:10:00+05:00', decided_by: null, decided_by_name: null, decided_at: null,
+    decision_note: '' },
+  { id: 2, entry: 103, block: 1, block_code: 'A', entry_date: '2025-02-19', weekday: 2,
+    baseline_value: '20000.00', current_value: '20000.00', requested_value: '19000.00', change_pct: '-5.00',
+    status: 'approved', reason: 'Cold night', requested_by: 5, requested_by_name: 'toyly_b',
+    requested_at: '2025-02-17T08:30:00+05:00', decided_by: 1, decided_by_name: 'gadam',
+    decided_at: '2025-02-17T10:05:00+05:00', decision_note: '' },
 ];

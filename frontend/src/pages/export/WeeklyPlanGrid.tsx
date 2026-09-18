@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   DatePicker,
@@ -89,6 +89,11 @@ export default function WeeklyPlanGrid() {
 
   // ?changes=1 comes from plan-change notifications — open the log straight away.
   const [changesOpen, setChangesOpen] = useState(() => searchParams.get('changes') === '1');
+  // …and again when the param arrives after mount (clicking a notification
+  // while already on this page).
+  useEffect(() => {
+    if (searchParams.get('changes') === '1') setChangesOpen(true);
+  }, [searchParams]);
 
   const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(() => {
     // Honor a task/heatmap deep link's ISO week; Jan 4 is always in ISO week 1,
@@ -132,7 +137,9 @@ export default function WeeklyPlanGrid() {
   const isReadOnly = useSeasonReadOnly();
   const { data: config } = useGreenhouseConfig();
   const maxChangePct = Number(config?.plan_change_max_pct ?? 15);
-  const { data: pendingChanges } = usePlanChangeRequests({ status: 'pending', year, week: weekNumber });
+  // Season-wide, not the selected week: from Friday the grid shows next week,
+  // which would hide the current week's waiting requests behind a 0 badge.
+  const { data: pendingChanges } = usePlanChangeRequests({ status: 'pending' });
   const pendingChangeCount = pendingChanges?.count ?? 0;
 
   // ─── Week date range for day-entry queries ─────────────────────────────────
@@ -309,12 +316,17 @@ export default function WeeklyPlanGrid() {
   ) {
     const key = String(entryId);
     setSavingKey(key);
+    // Read before saving: a withdraw comes back 200 with `pending_change: null`,
+    // exactly like a plain save, so only the prior state tells them apart.
+    const hadPending = dayEntries.find((e) => e.id === entryId)?.pending_change != null;
     upsertEntry.mutate(
       { id: entryId, [field]: value, ...(reason ? { reason } : {}) },
       {
         onSuccess: (saved) => {
           if (field === 'plan_value' && saved.pending_change) {
             toast.info(t('plan.toast_sent_for_approval'));
+          } else if (field === 'plan_value' && hadPending && !isAdminLike) {
+            toast.info(t('plan.toast_change_withdrawn'));
           } else {
             toast.success(
               t(field === 'plan_value' ? 'plan.toast_plan_saved' : 'plan.toast_actual_saved'),
@@ -329,6 +341,8 @@ export default function WeeklyPlanGrid() {
             toast.error(t('plan.edit_window_closed_toast'));
           } else if (serverMsg.includes('Allowed range')) {
             toast.error(serverMsg);
+          } else if (serverMsg.includes('cannot be cleared')) {
+            toast.error(t('plan.change_clear_refused'));
           } else {
             toast.error(t('plan.toast_save_error'));
           }

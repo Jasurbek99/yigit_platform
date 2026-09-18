@@ -5,6 +5,7 @@ import type { IPlanChangeRequest } from '@/types';
 
 const approveMutate = vi.fn();
 const rejectMutate = vi.fn();
+const listHook = vi.fn();
 
 const ROW: IPlanChangeRequest = {
   id: 41, entry: 1203, block: 5, block_code: 'F', entry_date: '2026-06-10', weekday: 2,
@@ -17,7 +18,7 @@ const ROW: IPlanChangeRequest = {
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@/hooks/usePlanning', () => ({
-  usePlanChangeRequests: () => ({ data: { count: 1, next: null, previous: null, results: [ROW] }, isLoading: false }),
+  usePlanChangeRequests: (filters: unknown) => listHook(filters),
   useApprovePlanChange: () => ({ mutate: approveMutate, isPending: false }),
   useRejectPlanChange: () => ({ mutate: rejectMutate, isPending: false }),
 }));
@@ -25,7 +26,23 @@ vi.mock('@/hooks/usePlanning', () => ({
 const props = { open: true, onClose: vi.fn(), year: 2026, week: 24 };
 
 describe('PlanChangeRequestsDrawer', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    listHook.mockReturnValue({ data: { count: 1, next: null, previous: null, results: [ROW] }, isLoading: false });
+  });
+
+  it('defaults to every week, so Fri–Sun approvers still see the current-week queue', () => {
+    render(<PlanChangeRequestsDrawer {...props} canDecide />);
+    expect(listHook.mock.calls[0][0]).toEqual({ status: 'pending' });
+    expect(listHook.mock.calls[0][0]).not.toHaveProperty('year');
+    expect(listHook.mock.calls[0][0]).not.toHaveProperty('week');
+  });
+
+  it('shows an error instead of the empty state when the list fails to load', () => {
+    listHook.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    render(<PlanChangeRequestsDrawer {...props} canDecide />);
+    expect(screen.getByRole('alert')).toHaveTextContent('common.error');
+  });
 
   it('lists the request with its signed percentage', () => {
     render(<PlanChangeRequestsDrawer {...props} canDecide={false} />);

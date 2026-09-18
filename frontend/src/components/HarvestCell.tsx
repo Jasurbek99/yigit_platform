@@ -180,8 +180,16 @@ export function HarvestCell({
   // Single-click focus: AntD's `autoFocus` is unreliable inside virtualised
   // Table cells (the input mounts inside a parent that has just received the
   // synthetic click). Drive focus imperatively from a layout effect instead.
+  // Set by typing in a plan editor. Without it, an untouched blur on a cell with
+  // a pending change (click in/out, Tab/arrow traversal) would read as the
+  // withdraw gesture below and silently drop the manager's request.
+  const planTyped = useRef(false);
+  const markPlanTyped = () => { planTyped.current = true; };
   useEffect(() => {
-    if (editingPlan) planInputRef.current?.focus({ cursor: 'all' });
+    if (editingPlan) {
+      planTyped.current = false;
+      planInputRef.current?.focus({ cursor: 'all' });
+    }
   }, [editingPlan]);
   useEffect(() => {
     if (editingActual) actualInputRef.current?.focus({ cursor: 'all' });
@@ -203,7 +211,10 @@ export function HarvestCell({
     setEditing: (v: boolean) => void,
   ) {
     const oldNum = currentFieldValue != null ? Number(currentFieldValue) : null;
-    if (newVal === oldNum) {
+    // A manager typing the approved value back over a pending change is the
+    // withdraw gesture (ADR-024 rule 5) — the save must go through.
+    const withdraws = !isAdmin && field === 'plan_value' && entry.pending_change != null && planTyped.current;
+    if (newVal === oldNum && !withdraws) {
       setEditing(false);
       return;
     }
@@ -258,6 +269,7 @@ export function HarvestCell({
               step={100}
               keyboard={false}
               defaultValue={planNumOnly}
+              onChange={markPlanTyped}
               placeholder="—"
               disabled={isSaving}
               onBlur={(e) => {
@@ -404,6 +416,7 @@ export function HarvestCell({
             step={100}
             keyboard={false}
             defaultValue={planNumMgr}
+            onChange={markPlanTyped}
             placeholder="—"
             disabled={isSaving}
             onBlur={(e) => {
@@ -627,6 +640,7 @@ export function HarvestCell({
             step={100}
             keyboard={false}
             defaultValue={planNum}
+            onChange={markPlanTyped}
             disabled={isSaving}
             onBlur={(e) => {
               const raw = e.target.value.replace(/,/g, '');

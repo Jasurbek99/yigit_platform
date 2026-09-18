@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Drawer, Input, Modal, Popconfirm, Segmented, Space, Table, Tag } from 'antd';
+import { Alert, Button, Drawer, Input, Modal, Popconfirm, Segmented, Space, Table, Tag } from 'antd';
 import type { TableColumnsType } from 'antd';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -40,11 +40,13 @@ function PctCell({ pct }: { pct: string | null }) {
 export function PlanChangeRequestsDrawer({ open, onClose, year, week, canDecide }: IPlanChangeRequestsDrawerProps) {
   const { t } = useTranslation();
   const [statusFilter, setStatusFilter] = useState<'pending' | 'all'>('pending');
-  const [scope, setScope] = useState<'week' | 'all'>('week');
+  // Every week by default: from Friday the grid shows NEXT week, while the
+  // requests still waiting are usually the current week's.
+  const [scope, setScope] = useState<'week' | 'all'>('all');
   const [rejecting, setRejecting] = useState<IPlanChangeRequest | null>(null);
   const [note, setNote] = useState('');
 
-  const { data, isLoading } = usePlanChangeRequests({
+  const { data, isLoading, isError } = usePlanChangeRequests({
     status: statusFilter === 'pending' ? 'pending' : undefined,
     ...(scope === 'week' ? { year, week } : {}),
   });
@@ -142,6 +144,7 @@ export function PlanChangeRequestsDrawer({ open, onClose, year, week, canDecide 
           ]}
         />
       </Space>
+      {isError && <Alert type="error" showIcon message={t('common.error')} style={{ marginBottom: 12 }} />}
       <Table
         rowKey="id"
         size="small"

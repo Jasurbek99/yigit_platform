@@ -79,6 +79,37 @@ describe('HarvestCell — in-week plan change', () => {
     expect(managerProps.onSave).toHaveBeenCalledWith(42, 'plan_value', 11000);
   });
 
+  it('typing the approved value back over a pending change saves it (withdraws the request)', () => {
+    const pending = { id: 1, requested_value: '11500.00', change_pct: '15.00', requested_by_name: 'Myrat', requested_at: '' };
+    const { container } = render(<HarvestCell {...managerProps} entry={entry({ pending_change: pending })} />);
+    fireEvent.click(container.querySelector('[data-edit-cell]')!);
+    const input = screen.getByRole('spinbutton');
+    // Retyping over the selected text passes through other values; React drops
+    // a change event whose value equals the current one.
+    fireEvent.change(input, { target: { value: '1' } });
+    fireEvent.change(input, { target: { value: '10000' } });
+    fireEvent.blur(input);
+    expect(managerProps.onSave).toHaveBeenCalledWith(42, 'plan_value', 10000);
+  });
+
+  it('entering a pending cell and leaving without typing does not withdraw it', () => {
+    // Click-in/click-out and Tab/arrow traversal (tableNavigation) both do this.
+    const pending = { id: 1, requested_value: '11500.00', change_pct: '15.00', requested_by_name: 'Myrat', requested_at: '' };
+    const { container } = render(<HarvestCell {...managerProps} entry={entry({ pending_change: pending })} />);
+    fireEvent.click(container.querySelector('[data-edit-cell]')!);
+    fireEvent.blur(screen.getByRole('spinbutton'));
+    expect(managerProps.onSave).not.toHaveBeenCalled();
+  });
+
+  it('the approved value with nothing pending is not re-saved', () => {
+    const { container } = render(<HarvestCell {...managerProps} entry={entry()} />);
+    fireEvent.click(container.querySelector('[data-edit-cell]')!);
+    const input = screen.getByRole('spinbutton');
+    fireEvent.change(input, { target: { value: '10000' } });
+    fireEvent.blur(input);
+    expect(managerProps.onSave).not.toHaveBeenCalled();
+  });
+
   it('does not range-check admin-like users', () => {
     const { container } = render(<HarvestCell {...managerProps} isAdmin entry={entry({ plan_value: null })} />);
     fireEvent.click(container.querySelector('[data-edit-cell]')!);

@@ -23,6 +23,7 @@ import {
   MOCK_TRUCK_ALLOCATIONS,
   MOCK_BLOCK_SUMMARY,
   MOCK_DOMESTIC_SALES,
+  MOCK_PLAN_CHANGE_REQUESTS,
 } from '@/mock/planning';
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
@@ -463,6 +464,10 @@ export function usePlanChangeRequests(
   return useQuery({
     queryKey: ['plan-change-requests', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<IPlanChangeRequest>> => {
+      if (USE_MOCK) {
+        const results = MOCK_PLAN_CHANGE_REQUESTS.filter((r) => !filters.status || r.status === filters.status);
+        return { count: results.length, next: null, previous: null, results };
+      }
       const params = new URLSearchParams();
       if (seasonId) params.set('season', String(seasonId));
       if (filters.status) params.set('status', filters.status);
@@ -474,7 +479,7 @@ export function usePlanChangeRequests(
       );
       return data;
     },
-    enabled: !USE_MOCK && isReady,
+    enabled: USE_MOCK || isReady,
     staleTime: 30_000,
   });
 }
