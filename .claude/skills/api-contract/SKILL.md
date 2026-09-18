@@ -459,12 +459,62 @@ Notes:
 - `routes.percent` = integer percentage of season total trucks, rounded. Top 4 cities per country, null/empty city names omitted.
 - Implementation: `apps/export/views_dashboard.py`, service: `apps/export/services/dashboard_summary.py`.
 
+### Plan change requests (ADR-024): `/api/v1/greenhouse/plan-change-requests/`
+
+Once a plan week has started (Monday 00:00 local), a `greenhouse_manager`'s plan edit no longer
+writes `plan_value` directly — it becomes a `PlanChangeRequest` that `export_manager`/`admin`/`boss`
+approves or rejects. All decimals below are **strings** (plain `models.DecimalField` through a
+`ModelSerializer` — see *Numbers* above).
+
+**`PATCH /greenhouse/day-entries/{id}/` returns 202** (same body shape as the normal 200) when a
+manager's in-week plan edit was routed to approval instead of written. A withdraw (requested value
+equals the currently-approved value) still returns 200 with `pending_change: null`.
+
+`HarvestDayEntrySerializer` gains two read-only fields:
+```json
+{
+  "plan_baseline_value": "10000.00",
+  "pending_change": {
+    "id": 41, "requested_value": "11500.00", "change_pct": "15.00",
+    "requested_by_name": "Myrat", "requested_at": "2026-09-22T09:10:00+05:00"
+  }
+}
+```
+`pending_change` is `null` when the cell has no pending request.
+
+`GET /greenhouse/plan-change-requests/` — the revision queue/log. Filters: `?status=&year=&week=&block=&season=`.
+Reads: any authenticated user. Standard pagination.
+```json
+{
+  "id": 41, "entry": 1203, "block": 5, "block_code": "F", "entry_date": "2026-09-23", "weekday": 1,
+  "baseline_value": "10000.00", "current_value": "10000.00", "requested_value": "11500.00",
+  "change_pct": "15.00", "status": "pending", "reason": "",
+  "requested_by": 17, "requested_by_name": "Myrat", "requested_at": "2026-09-22T09:10:00+05:00",
+  "decided_by": null, "decided_by_name": null, "decided_at": null, "decision_note": ""
+}
+```
+
+`POST /greenhouse/plan-change-requests/{id}/approve/` and `.../reject/` — body `{"note": "..."}`
+(optional). 200 → the updated item (same shape as above).
+```json
+// Error 403 (role other than export_manager/admin/boss/superuser)
+{ "error": "Role 'greenhouse_manager' cannot decide plan changes." }
+// Error 400 (already decided)
+{ "error": "Request is no longer pending." }
+// Error 409 (closed season, via SeasonNotClosed)
+{ "error": "season_closed", "season": "2025/2026", "closed_at": "2026-08-03T10:00:00Z" }
+```
+
+Notification kinds `plan_change_requested` / `plan_change_approved` / `plan_change_rejected` are
+sent by the service but are **not yet registered** in `Notification.KIND_CHOICES` (parked separately).
+
 ## Season scoping (AD-16)
 
 Every season-bearing list endpoint (shipments, Sheet, Kanban board, harvest plans, day
-entries, truck allocations/destinations, local-sell plans, contracts, contract-sales,
-comments, tasks, quota-usage, quota-issuances, quota-firm-balances, advances,
-customs-expenses, document-packets, clients-report) accepts an optional `?season=<id>`:
+entries, plan-change-requests (anchor `entry__season`, ADR-024), truck allocations/destinations,
+local-sell plans, contracts, contract-sales, comments, tasks, quota-usage, quota-issuances,
+quota-firm-balances, advances, customs-expenses, document-packets, clients-report) accepts an
+optional `?season=<id>`:
 
 - Omitted → the active (write-target) season.
 - Unknown id → `404`.

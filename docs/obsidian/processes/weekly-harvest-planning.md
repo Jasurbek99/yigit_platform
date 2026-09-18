@@ -14,7 +14,7 @@ Block managers (7 people, each managing 1–3 of the 15 greenhouse blocks) plan,
 2. **Forecast** — a daily revision submitted between 17:00 the day before and 09:00 the day-of, with explicit window state (`primary` / `fallback` / `same_day_red_flag`).
 3. **Actual** — entered manually as today, until the pallet rollup phase replaces this with auto-aggregation.
 
-Submission is final once recorded. There is no approve/reject step (per AD-15 / Apr 2026 design — the approval workflow was removed when the Forecast Layer landed). Admin can override any cell anytime with a required `reason` that writes to the audit log.
+Submission is final **until the plan week starts**. After Monday 00:00 a manager's change becomes a ±15%-bounded request that the export manager approves (ADR-024, see *In-week revisions* below). There is no approve/reject step before the week starts (per AD-15 / Apr 2026 design — the approval workflow was removed when the Forecast Layer landed). Admin can override any cell anytime with a required `reason` that writes to the audit log.
 
 The total kg, computed per cell as **most-current value** (Actual if past, Forecast if present, Plan otherwise), divided by `truck_capacity_kg` from `GreenhouseConfig` (default 18,500), produces the truck estimate that feeds [[truck-allocation]].
 
@@ -68,13 +68,28 @@ The state is implicit, derived from which of `plan_submitted_at` / `forecast_sub
 | `core.greenhouse_config` | core | Singleton (`pk=1`) for tunable deadlines, truck capacity, operating-days bitmask, timezone | see below |
 | `core.operating_day_exceptions` | core | Ad-hoc holiday calendar | date UNIQUE, is_holiday, note |
 | `export.harvest_dispatch_log` | export | Idempotency record for time-based notification triggers | UNIQUE(trigger_kind, target_user, scope_date) |
+| `export.plan_change_requests` | export | In-week plan revision requests / change log (ADR-024) | see below |
+
+### `PlanChangeRequest` fields (ADR-024)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `entry` | FK `HarvestDayEntry` CASCADE, `related_name='change_requests'` | Target cell |
+| `baseline_value`, `current_value`, `requested_value` | Decimal(10,2), first two nullable | Snapshots at request time; `baseline_value IS NULL` = empty cell |
+| `change_pct` | Decimal(6,2) nullable | `(requested − baseline) / baseline × 100`; NULL when there's no bound |
+| `status` | CharField(12) | `pending` / `approved` / `rejected` / `superseded`, default `pending` |
+| `reason` | CharField(500) blank, Cyrillic-collated | Manager's optional reason |
+| `requested_by`, `requested_at` | FK User (SET_NULL) + DateTime | |
+| `decided_by`, `decided_at`, `decision_note` | FK User (SET_NULL) + DateTime + CharField(500) | Also set on `superseded` (the user whose action superseded it) |
+
+Constraints: `UniqueConstraint(fields=['entry'], condition=Q(status='pending'))` (one pending request per cell), `CheckConstraint(requested_value__gte=0)`, `Index(['status', 'requested_at'])`, `ordering = ['-requested_at']`. Rows are never deleted — the table doubles as the change log.
 
 ### `HarvestDayEntry` fields (the daily grain)
 
 | Group | Fields | Notes |
 |-------|--------|-------|
 | Identity | `weekly_plan` (FK CASCADE), `season`, `block`, `entry_date`, `weekday` (0=Mon … 6=Sun) | UNIQUE(weekly_plan, entry_date). `weekday` allows 6 so end-of-season Sunday harvesting is supported. |
-| Plan | `plan_value` (Decimal, nullable), `plan_submitted_at`, `plan_submitted_by`, `plan_state` (`on_time` / `late` / `critical_late` / `''`) | `plan_state` is computed from submit time vs `GreenhouseConfig` deadlines. |
+| Plan | `plan_value` (Decimal, nullable), `plan_submitted_at`, `plan_submitted_by`, `plan_state` (`on_time` / `late` / `critical_late` / `''`), `plan_baseline_value` (Decimal, nullable) | `plan_state` is computed from submit time vs `GreenhouseConfig` deadlines. `plan_baseline_value` is the week-start value an in-week revision is bounded against (ADR-024) — frozen lazily on the cell's first in-week change request, NULL until then. |
 | Forecast | `forecast_value`, `forecast_submitted_at`, `forecast_submitted_by`, `forecast_window` (`primary` / `fallback` / `same_day_red_flag` / `''`), `forecast_revision_count` (PositiveSmallInt) | Revision count increments on each edit. |
 | Actual | `actual_value`, `actual_finalized_at`, `actual_source` (`manual` / `pallet_rollup_pending` / `shipment_rollup` / `admin_override` / `''`) | `shipment_rollup` is the daily computed source; `admin_override` blocks subsequent rollups from clobbering the manual value. |
 | Override | `last_override_at`, `last_override_by`, `last_override_reason` (CharField 500, Cyrillic_General_CI_AS) | Snapshot of most-recent admin override; full history in `AuditLog`. |
@@ -105,6 +120,24 @@ The 4 late-edit extension fields were added in migration `greenhouse.0005_weekly
 
 A `late_edit_granted_until` that is in the future bypasses the gate — the window re-opens until that datetime. Granting/revoking is admin-only via dedicated endpoints (see below). The `admin` role itself is never blocked (it takes the admin-override branch in `set_plan_value` before the time gate).
 
+### In-week revisions (ADR-024)
+
+Once a plan week has started, a `greenhouse_manager`'s edit no longer writes `plan_value` directly — it becomes a `PlanChangeRequest` that `export_manager`/`admin`/`boss` approves or rejects. Rules:
+
+1. **Mode switch, not a lock.** `_plan_edit_window_closed()` (open through the week's own Sunday 23:59:59) is unchanged. A new check `plan_week_started(weekly_plan, now_utc)` (now ≥ Monday 00:00 local of the plan week) decides *how* a greenhouse manager's edit is applied: directly (not started) or as a change request (started). Past days of the current week stay editable, via the request path. A past week reopened with `grant-late-edit` also goes through the request path.
+2. **Baseline is frozen lazily.** On the first in-week request for a cell, if `plan_baseline_value IS NULL` and `plan_value` is not NULL and not 0, copy `plan_value` into `plan_baseline_value`. A zero is not frozen, because it bounds nothing; the baseline re-derives from the next approved value. This is exact: after Monday 00:00 a manager's edit can't change `plan_value` without going through this path.
+3. **Bound.** If the baseline is set and > 0: `|requested − baseline| / baseline ≤ plan_change_max_pct / 100`, otherwise `ValueError` → 400 (message names the allowed range, e.g. `8,500–11,500`). Baseline NULL (empty cell) or **0** (explicit zero): no bound and `change_pct = NULL`. A zero baseline gets no bound so a "no harvest" day can later get a harvest.
+4. **One pending request per cell.** A new request marks the cell's existing pending request `superseded`.
+5. **Withdraw.** If `requested == plan_value` (the currently approved value), the pending request is superseded and no new one is created.
+6. **Clearing a cell in-week** (`plan_value: null`) is refused (400).
+7. **Approve** (export_manager / admin / boss): writes `plan_value = requested_value`, `plan_submitted_at/by = request.requested_at/by`. `plan_state` is computed only if the cell was empty (first entry); a revision keeps its original `plan_state`. Writes an AuditLog `plan_value_set` row, marks the request `approved`, notifies the requester.
+8. **Reject**: marks the request `rejected` with an optional note and notifies the requester. `plan_value` is untouched.
+9. **Admin/boss direct edit in-week** (existing override-with-reason path): after writing, set `plan_baseline_value = value` and supersede any pending request on that cell.
+10. Approving/rejecting is **not time-gated**: a request can be decided after its week ends. Closed-season writes still get 409 via `SeasonNotClosed`.
+11. **Out of this flow:** `import_weekly_plan` / `import_harvest_plans` (admin tools that write `plan_value` directly) and the Daily Harvest Board (writes `forecast_value`, not plan).
+
+Service: `backend/apps/greenhouse/services/plan_change_service.py`. Notifications sent for this flow — `plan_change_requested`, `plan_change_approved`, `plan_change_rejected` — are sent by the service but **not yet registered** in `Notification.KIND_CHOICES` (parked, tracked separately).
+
 ### `GreenhouseConfig` (singleton)
 
 | Field | Default | Purpose |
@@ -119,6 +152,7 @@ A `late_edit_granted_until` that is in the future bypasses the gate — the wind
 | `truck_capacity_kg` | 18,500 | Used in Est. Trucks tile (was hardcoded in frontend) |
 | `operating_days_bitmask` | 0b0111111 | Bits 0–6 = Mon–Sun; default Mon–Sat |
 | `timezone_name` | `Asia/Ashgabat` | All deadline math in this local time |
+| `plan_change_max_pct` | 15.00 | Max ± change allowed on an in-week plan revision vs the cell's baseline (ADR-024) |
 
 ## Backend Implementation
 
@@ -145,6 +179,11 @@ A `late_edit_granted_until` that is in the future bypasses the gate — the wind
 | `compute_plan_state(submitted_at_local, plan_week_start, config)` | Returns `'on_time'` / `'late'` / `'critical_late'`. Pure function. |
 | `compute_forecast_window(submitted_at_local, entry_date, config)` | Returns `'primary'` / `'fallback'` / `'same_day_red_flag'` / `None` (locked). Pure function. |
 | `_plan_edit_window_closed(weekly_plan, now_utc=None) -> bool` | Returns `True` if the plan week has fully ended (now past that week's Sunday 23:59:59 cutoff, via `plan_week_cutoff_utc`) AND no active late-edit extension exists. Used as a guard inside `set_plan_value()`. Leading underscore: internal to the service package, exported from `services/__init__.py` for tests only. |
+| `plan_week_started(weekly_plan, now_utc) -> bool` | ADR-024. True once the plan week has begun (Monday 00:00 local) — the mode switch between a direct write and a `PlanChangeRequest`. `backend/apps/greenhouse/services/plan_change_service.py`. |
+| `request_plan_change(entry, value, user, reason='') -> PlanChangeRequest \| None` | ADR-024. Freezes the baseline lazily, enforces the ± bound, supersedes the cell's earlier pending request, notifies active `export_manager` users. Returns `None` on a withdraw (requested value == current approved value). |
+| `approve_plan_change(change, user, note='') -> PlanChangeRequest` | ADR-024. Role-checked (`export_manager`/admin/boss), atomic + `select_for_update`-style conditional update; writes `plan_value`, logs AuditLog `plan_value_set`, notifies the requester. |
+| `reject_plan_change(change, user, note='') -> PlanChangeRequest` | ADR-024. Marks the request `rejected`; `plan_value` untouched; notifies the requester with the note. |
+| `reset_baseline_after_direct_edit(entry, value, user, now_utc)` | ADR-024. Admin/boss direct in-week edit: sets `plan_baseline_value = value` and supersedes any pending request on the cell. No-op before the week starts. |
 
 ### ViewSets & Endpoints
 
@@ -161,8 +200,11 @@ A `late_edit_granted_until` that is in the future bypasses the gate — the wind
 | POST | `/api/v1/greenhouse/harvest-plans/{id}/revoke-late-edit/` | Revoke a previously granted extension. Clears all 4 late-edit fields to NULL / empty string. Returns the updated plan serializer payload including `late_edit_active: false`. | admin only |
 | GET | `/api/v1/greenhouse/day-entries/` | List daily entries | filter `?season=&block=&from_date=&to_date=` |
 | GET | `/api/v1/greenhouse/day-entries/{id}/` | Day entry detail | IsAuthenticated |
-| PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin) | Service-layer permission gate |
+| PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin). Returns **202** (same body, `pending_change` filled) when a greenhouse manager's in-week plan edit was routed to approval instead of written (ADR-024); 200 otherwise, including a withdraw. | Service-layer permission gate |
 | GET | `/api/v1/greenhouse/day-entries/{id}/history/` | Audit log + override snapshot | IsAuthenticated |
+| GET | `/api/v1/greenhouse/plan-change-requests/` | List the in-week revision queue/log (ADR-024). Filters `?status=&year=&week=&block=&season=` | IsAuthenticated, reads open to any authenticated user |
+| POST | `/api/v1/greenhouse/plan-change-requests/{id}/approve/` | Approve a pending request. Body `{"note": "..."}` optional | export_manager / admin / boss |
+| POST | `/api/v1/greenhouse/plan-change-requests/{id}/reject/` | Reject a pending request. Body `{"note": "..."}` optional | export_manager / admin / boss |
 
 **Submission endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`, or `submit_week/`. Per-cell PATCHes through `/day-entries/{id}/` are the only write path; each save stamps its own `plan_submitted_at` / `forecast_submitted_at`. There is no week-level "submit" step.
 
@@ -304,6 +346,12 @@ An intermediate `planFirst` variant (both values kept, click targets swapped) wa
 
 `admin`/`director` rendering is byte-identical to before — the new branch is behind the prop, and `HarvestCell.planOnly.test.tsx` pins both the collapse and that non-regression.
 
+### In-week revision UI (ADR-024)
+
+Inside the `planOnly` cell branch, once the cell's plan week has started, a non-admin editor sees the allowed ± range under the input (`planChangeRange()` in `HarvestCell.helpers.ts`, mirroring the backend bound; the server stays authoritative) and an out-of-range blur is refused client-side with a toast, no request sent. A cell with a pending request shows a small yellow badge under the value — `→ 11,500 (+15%) ⏳` (`PendingChangeBadge` in `HarvestCell.tsx`) — with the requester's name in a tooltip. Saving a plan value that routes to approval (202 response) shows an info toast ("Sent for approval") instead of the normal save toast.
+
+The revision log/approval queue is a **toolbar button with a pending-count badge** (`plan.changes_button`, `Badge` + `DiffOutlined`) that opens `components/PlanChangeRequestsDrawer.tsx` — not a tab, since `WeeklyPlanGrid` has none. Columns: block, day, baseline, current, requested, ±% (green up / red down), requested by, reason, status, decided by/at, note. Filters: pending/all status, current-week/all-weeks scope. Approve / Reject (with an optional note) show only for `export_manager`/`admin`/`boss` (`canDecidePlanChanges` in `WeeklyPlanGrid.roles.ts`); everyone else sees it read-only. `?changes=1` in the URL — the notification link's format — opens the drawer on mount.
+
 ### Admin override flow
 
 When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>` opens before the save fires. Required `reason` text, blocks save until non-empty. On confirm, the PATCH carries `{plan_value: …, reason: "..."}` and the backend writes to `last_override_*` snapshot + `AuditLog.detail = "OVERRIDE: {reason}"`.
@@ -318,8 +366,11 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 |------|----------|---------|
 | `useHarvestPlans({year, week})` | `GET /greenhouse/harvest-plans/?year=&week=` | `IApiListResponse<IWeeklyHarvestPlan>` |
 | `useDayEntries({season, block, from_date, to_date})` | `GET /greenhouse/day-entries/...` | `IApiListResponse<IHarvestDayEntry>` |
-| `useUpsertDayEntry()` | `PATCH /greenhouse/day-entries/{id}/` | mutation; body: `{plan_value? \| forecast_value? \| actual_value?, reason?}` |
+| `useUpsertDayEntry()` | `PATCH /greenhouse/day-entries/{id}/` | mutation; body: `{plan_value? \| forecast_value? \| actual_value?, reason?}`; 202 response shows an info toast |
 | `useDayEntryHistory(id)` | `GET /greenhouse/day-entries/{id}/history/` | `IDayEntryHistoryItem[]` |
+| `usePlanChangeRequests({status, year, week})` | `GET /greenhouse/plan-change-requests/...` | `IApiListResponse<IPlanChangeRequest>` (ADR-024) |
+| `useApprovePlanChange()` | `POST /greenhouse/plan-change-requests/{id}/approve/` | mutation, invalidates day-entries + plan-change-requests |
+| `useRejectPlanChange()` | `POST /greenhouse/plan-change-requests/{id}/reject/` | mutation, invalidates day-entries + plan-change-requests |
 | `useGreenhouseConfig()` | `GET /core/greenhouse-config/` | `IGreenhouseConfig` (singleton) |
 | `useUpdateGreenhouseConfig()` | `PATCH /core/greenhouse-config/` | mutation, admin only |
 | `useOperatingDayExceptions({date_from, date_to})` | `GET /core/operating-day-exceptions/` | `IOperatingDayException[]` |
@@ -343,11 +394,11 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 
 | Role | View | Plan | Forecast | Actual | Admin override |
 |------|------|------|----------|--------|----------------|
-| `greenhouse_manager` | Own blocks (highlighted) | Own blocks through that week's own Sunday 23:59:59 (incl. already-passed days of the current week; extendable by admin via `grant-late-edit` for past weeks) | Own blocks during primary window only | No | No |
+| `greenhouse_manager` | Own blocks (highlighted) | Own blocks through that week's own Sunday 23:59:59 (incl. already-passed days of the current week; extendable by admin via `grant-late-edit` for past weeks); **after week start: ±15% via approval** (ADR-024) | Own blocks during primary window only | No | No |
 | `loading_dept_head` (Soltanmyrat) | All blocks | No | Any block, 00:00 day-before through 12:00 day-of (`LOADING_HEAD_FORECAST_DAY_OF_CLOSE`) | No (computed daily from shipments) | No |
-| `admin` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Authorised in the backend, but **no UI** since 2026-09-16 — every cell is `planOnly` | Yes (all paths); plan overrides only, from this screen |
-| `boss` | All blocks | Anytime, any block, with required reason | Anytime, any block, with required reason | Authorised in the backend, but **no UI** — his cell is `planOnly` | Yes at the service layer (`is_admin_like`); plan overrides only, from this screen |
-| `export_manager` (Gadam) | All blocks | View only | View only | View only | No |
+| `admin` | All blocks | Anytime, any block, with required reason; approves in-week revisions | Anytime, any block, with required reason | Authorised in the backend, but **no UI** since 2026-09-16 — every cell is `planOnly` | Yes (all paths); plan overrides only, from this screen |
+| `boss` | All blocks | Anytime, any block, with required reason; approves in-week revisions | Anytime, any block, with required reason | Authorised in the backend, but **no UI** — his cell is `planOnly` | Yes at the service layer (`is_admin_like`); plan overrides only, from this screen |
+| `export_manager` (Gadam) | All blocks | View; approves in-week revisions | View only | View only | No |
 | `director` | All blocks | View only | View only | View only | No |
 | `warehouse_chief` | View only | No | No | No | No |
 | Others | Read-only or denied | No | No | No | No |
