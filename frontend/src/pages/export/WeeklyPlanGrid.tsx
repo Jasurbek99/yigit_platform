@@ -14,6 +14,7 @@ import {
   Statistic,
   Tooltip,
   Modal,
+  Badge,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ import {
   UndoOutlined,
   BulbOutlined,
   UserOutlined,
+  DiffOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -42,6 +44,7 @@ import {
   useUpsertDayEntry,
   useBulkGrantLateEdit,
   useBulkRevokeLateEdit,
+  usePlanChangeRequests,
 } from '@/hooks/usePlanning';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useSeasons } from '@/hooks/useAdmin';
@@ -54,6 +57,7 @@ import { HarvestCell } from '@/components/HarvestCell';
 import { getCurrentForecastWindow, num, fmtKg } from '@/components/HarvestCell.helpers';
 import { CellHistoryModal } from '@/components/CellHistoryModal';
 import { GrantExtensionModal } from '@/components/GrantExtensionModal';
+import { PlanChangeRequestsDrawer } from '@/components/PlanChangeRequestsDrawer';
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
 import { planGridCapabilities } from './WeeklyPlanGrid.roles';
@@ -82,6 +86,9 @@ export default function WeeklyPlanGrid() {
   // `block` is a block_id from task links but a block_code from the heatmap, so
   // match either when highlighting the linked row.
   const deepLinkBlock = searchParams.get('block');
+
+  // ?changes=1 comes from plan-change notifications — open the log straight away.
+  const [changesOpen, setChangesOpen] = useState(() => searchParams.get('changes') === '1');
 
   const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(() => {
     // Honor a task/heatmap deep link's ISO week; Jan 4 is always in ISO week 1,
@@ -124,6 +131,9 @@ export default function WeeklyPlanGrid() {
   const browsedSeason = seasonsData?.find((s) => s.id === browsedSeasonId);
   const isReadOnly = useSeasonReadOnly();
   const { data: config } = useGreenhouseConfig();
+  const maxChangePct = Number(config?.plan_change_max_pct ?? 15);
+  const { data: pendingChanges } = usePlanChangeRequests({ status: 'pending', year, week: weekNumber });
+  const pendingChangeCount = pendingChanges?.count ?? 0;
 
   // ─── Week date range for day-entry queries ─────────────────────────────────
 
@@ -164,6 +174,7 @@ export default function WeeklyPlanGrid() {
     canEditTrucks,
     canGenerateTasks,
     canEditActual,
+    canDecidePlanChanges,
   } = planGridCapabilities({ role: user?.role, isReadOnly });
   const isManager = canEditHarvest;
 
@@ -301,17 +312,23 @@ export default function WeeklyPlanGrid() {
     upsertEntry.mutate(
       { id: entryId, [field]: value, ...(reason ? { reason } : {}) },
       {
-        onSuccess: () => {
-          toast.success(
-            t(field === 'plan_value' ? 'plan.toast_plan_saved' : 'plan.toast_actual_saved'),
-          );
+        onSuccess: (saved) => {
+          if (field === 'plan_value' && saved.pending_change) {
+            toast.info(t('plan.toast_sent_for_approval'));
+          } else {
+            toast.success(
+              t(field === 'plan_value' ? 'plan.toast_plan_saved' : 'plan.toast_actual_saved'),
+            );
+          }
           setSavingKey(null);
         },
         onError: (err: unknown) => {
-          const apiErr = err as { response?: { data?: { error?: string } } };
-          const serverMsg = apiErr?.response?.data?.error ?? '';
+          const apiErr = err as { response?: { data?: { error?: string; plan_value?: string } } };
+          const serverMsg = apiErr?.response?.data?.error ?? apiErr?.response?.data?.plan_value ?? '';
           if (serverMsg.includes('Plan edits')) {
             toast.error(t('plan.edit_window_closed_toast'));
+          } else if (serverMsg.includes('Allowed range')) {
+            toast.error(serverMsg);
           } else {
             toast.error(t('plan.toast_save_error'));
           }
@@ -319,6 +336,10 @@ export default function WeeklyPlanGrid() {
         },
       },
     );
+  }
+
+  function handleRangeError(min: number, max: number) {
+    toast.error(t('plan.change_out_of_range', { min: fmtKg(min), max: fmtKg(max) }));
   }
 
   function handleGenerateTasks() {
@@ -405,6 +426,8 @@ export default function WeeklyPlanGrid() {
             isAdmin={isAdminLike}
             planOnly={planOnlyCells}
             savingKey={savingKey}
+            maxChangePct={maxChangePct}
+            onRangeError={handleRangeError}
           />
         );
       },
@@ -512,6 +535,8 @@ export default function WeeklyPlanGrid() {
               isAdmin={isAdminLike}
               planOnly={planOnlyCells}
               savingKey={savingKey}
+              maxChangePct={maxChangePct}
+              onRangeError={handleRangeError}
             />
           );
         },
@@ -650,6 +675,11 @@ export default function WeeklyPlanGrid() {
               {showSunday ? t('plan.hide_sunday') : t('plan.show_sunday')}
             </Button>
           )}
+          <Badge count={pendingChangeCount} size="small">
+            <Button icon={<DiffOutlined />} onClick={() => setChangesOpen(true)}>
+              {t('plan.changes_button')}
+            </Button>
+          </Badge>
           {isAdminLike && plans.length > 0 && (
             <Button
               icon={<ClockCircleOutlined />}
@@ -881,6 +911,14 @@ export default function WeeklyPlanGrid() {
       <CellHistoryModal
         entry={historyEntry}
         onClose={() => setHistoryEntry(null)}
+      />
+
+      <PlanChangeRequestsDrawer
+        open={changesOpen}
+        onClose={() => setChangesOpen(false)}
+        year={year}
+        week={weekNumber}
+        canDecide={canDecidePlanChanges}
       />
 
       {/* Late-edit extension modal (admin only) */}
