@@ -24,7 +24,11 @@ logger = logging.getLogger(__name__)
 _KPI_CACHE_TTL = 60
 
 # Supervisor roles see all tasks, not just their own role's tasks.
-_SUPERVISOR_ROLES = frozenset({'boss', 'admin', 'director'}) | EXPORT_MANAGER_LIKE
+# document_team is carved OUT despite EXPORT_MANAGER_LIKE (same pattern as
+# ADR-024's approver carve-out) — the owner reported the My tasks board
+# showing every role's work instead of just document_team's own queue.
+# export_manager keeps cross-role oversight; document_team does not.
+_SUPERVISOR_ROLES = (frozenset({'boss', 'admin', 'director'}) | EXPORT_MANAGER_LIKE) - {'document_team'}
 
 
 def _today_midnight_utc() -> datetime:
@@ -44,7 +48,8 @@ class MeTaskListView(APIView):
     """GET /api/v1/me/tasks/
 
     Returns a paginated list of tasks belonging to the current user's role.
-    Supervisors (export_manager, document_team, boss, admin, director) see all tasks.
+    Supervisors (export_manager, boss, admin, director) see all tasks.
+    document_team does NOT — carved out of EXPORT_MANAGER_LIKE for this view only.
 
     Supports the same filters as the main TaskViewSet:
         ?state=open

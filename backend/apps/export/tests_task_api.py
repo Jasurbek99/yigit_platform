@@ -789,6 +789,30 @@ class MeTasksTests(TestCase):
         self.assertIn(self.wh_task.pk, ids)
         self.assertIn(self.doc_task.pk, ids)
 
+    def test_document_team_sees_only_own_role_tasks(self) -> None:
+        """document_team is carved out of EXPORT_MANAGER_LIKE for this view —
+        unlike export_manager, its My tasks board must not widen to every role."""
+        doc_user = _make_user('me_doc', 'document_team')
+        client = APIClient()
+        _auth(client, doc_user)
+        resp = client.get('/api/v1/me/tasks/')
+        self.assertEqual(resp.status_code, 200)
+        ids = [t['id'] for t in resp.data['results']]
+        self.assertIn(self.doc_task.pk, ids)
+        self.assertNotIn(self.wh_task.pk, ids)
+
+    def test_document_team_cannot_widen_via_assignee_role(self) -> None:
+        """Security: ?assignee_role= must not let document_team escape its own
+        role now that it is no longer a supervisor on this view."""
+        doc_user = _make_user('me_doc2', 'document_team')
+        client = APIClient()
+        _auth(client, doc_user)
+        resp = client.get('/api/v1/me/tasks/?assignee_role=warehouse_chief')
+        self.assertEqual(resp.status_code, 200)
+        ids = [t['id'] for t in resp.data['results']]
+        self.assertNotIn(self.wh_task.pk, ids)
+        self.assertIn(self.doc_task.pk, ids)
+
     def test_anonymous_returns_401(self) -> None:
         client = APIClient()
         resp = client.get('/api/v1/me/tasks/')
@@ -991,6 +1015,24 @@ class MeKpiTodayTests(TestCase):
         client = APIClient()
         _auth(client, self.user)  # warehouse_chief
         resp = client.get('/api/v1/me/kpi-today/?assignee_role=document_team')
+        self.assertEqual(resp.data['done_count'], 0)
+        done.delete()
+
+    def test_document_team_kpi_ignores_assignee_role(self) -> None:
+        """document_team is not a KPI supervisor either — ?assignee_role= must
+        not let it pull another role's completed-today count onto its tile."""
+        doc_user = _make_user('kpi_doc', 'document_team')
+        done = _make_task(
+            shipment=self.shipment,
+            assignee_role='warehouse_chief',
+            state=TaskState.DONE,
+        )
+        done.completed_at = timezone.now()
+        done.save()
+
+        client = APIClient()
+        _auth(client, doc_user)
+        resp = client.get('/api/v1/me/kpi-today/?assignee_role=warehouse_chief')
         self.assertEqual(resp.data['done_count'], 0)
         done.delete()
 

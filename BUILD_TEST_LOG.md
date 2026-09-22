@@ -1,5 +1,11 @@
 
 # Build / Test Log
+- [ ] 2026-09-22 — document_team's My tasks board scoped to its own tasks only (no longer sees every role's) — NEEDS TEST
+  To test: (1) log in as a document_team user, open My tasks (`/me/board`): only document_team-assigned
+  tasks appear, no role filter dropdown; (2) log in as export_manager: role filter dropdown still
+  present, still shows every role's tasks when no role is selected; (3) `python manage.py test
+  apps.export.tests_task_api` — 59/59 pass (ran locally, includes 3 new document_team-specific cases).
+
 - [ ] 2026-09-22 — Trial merge of Copy_Gadams_UI into main (write-cell 202 approval fix, core/0053 merge migration, WeeklyPlanGrid + HarvestCell reconciliation) — NEEDS TEST
 - [ ] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
   To test: (1) open the Sheet, find a shipment whose truck plate matches a currently-positioned
