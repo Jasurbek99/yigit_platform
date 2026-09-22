@@ -7,15 +7,19 @@ from apps.transport.services.traccar_client import TraccarUnavailable
 
 class PollTraccarTaskTests(TestCase):
     @patch('apps.transport.tasks.sync_positions', return_value=7)
+    @patch('apps.transport.tasks.sync_geofences', return_value=31)
     @patch('apps.transport.tasks.sync_devices', return_value=95)
-    def test_poll_traccar_calls_both_syncs_and_returns_counts(self, mock_sync_devices, mock_sync_positions):
+    def test_poll_traccar_calls_every_sync_and_returns_counts(
+        self, mock_sync_devices, mock_sync_geofences, mock_sync_positions,
+    ):
         from apps.transport.tasks import poll_traccar
 
         result = poll_traccar()
 
         mock_sync_devices.assert_called_once()
+        mock_sync_geofences.assert_called_once()
         mock_sync_positions.assert_called_once()
-        self.assertEqual(result, {'devices': 95, 'positions': 7, 'ok': True})
+        self.assertEqual(result, {'devices': 95, 'geofences': 31, 'positions': 7, 'ok': True})
 
     @patch('apps.transport.tasks.sync_positions')
     @patch('apps.transport.tasks.sync_devices')
@@ -27,4 +31,4 @@ class PollTraccarTaskTests(TestCase):
         result = poll_traccar()  # must not raise
 
         mock_sync_positions.assert_not_called()
-        self.assertEqual(result, {'devices': 0, 'positions': 0, 'ok': False})
+        self.assertEqual(result, {'devices': 0, 'geofences': 0, 'positions': 0, 'ok': False})

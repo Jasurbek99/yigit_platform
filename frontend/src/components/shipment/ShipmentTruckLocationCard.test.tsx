@@ -41,6 +41,7 @@ const POSITION = {
   lat: 41.2, lon: 59.9, speed: 0, course: 0,
   address: 'Türkmenabat', fix_time: '2026-09-07T08:00:00Z',
   is_online: true, is_stale: false,
+  geofence_name: null, geofence_since: null,
 };
 const DEVICE = { traccar_id: 7, plate: '48 AT 580', fleet_no: 'F12' };
 
@@ -61,6 +62,32 @@ describe('ShipmentTruckLocationCard', () => {
     result = { data: { resolved_by: 'auto', device: DEVICE, position: POSITION }, isLoading: false, isError: false };
     renderCard(false);
     expect(screen.getByTestId('truck-pin').getAttribute('data-icon')).toBe('/truck-map-icons/pin-idle.png');
+  });
+
+  it('shows the current geofence when the position carries one', () => {
+    result = {
+      data: {
+        resolved_by: 'auto', device: DEVICE,
+        position: { ...POSITION, geofence_name: 'Garaž', geofence_since: '2026-09-18T19:40:00Z' },
+      },
+      isLoading: false, isError: false,
+    };
+    renderCard(false);
+    expect(screen.getByText(/Garaž/)).toBeTruthy();
+  });
+
+  it('shows no geofence tag when the position has none', () => {
+    result = {
+      data: {
+        resolved_by: 'none', device: DEVICE,
+        position: { ...POSITION, geofence_name: null, geofence_since: null },
+      },
+      isLoading: false, isError: false,
+    };
+    const { container } = renderCard(false);
+    // 'none' skips the resolved_by Tag too, so a geofence Tag would be the
+    // only .ant-tag on the page — asserting zero rules it out cleanly.
+    expect(container.querySelectorAll('.ant-tag').length).toBe(0);
   });
 
   it('offers an editor the link-device button when nothing resolves', () => {

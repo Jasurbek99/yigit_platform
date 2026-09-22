@@ -31,6 +31,7 @@
     "accountant": "Бухгалтер",
     "greenhouse_manager": "Менеджер теплицы",
     "seller": "Продавец",
+    "quality_inspector": "Инспектор качества",
     "weight_master": "Упаковщик",
     "loading_dept_head": "Начальник отдела загрузки",
     "loading_dept_head_deputy": "Заместитель начальника отдела загрузки",
@@ -2377,6 +2378,7 @@
     "resolved_auto": "авто",
     "resolved_manual": "вручную",
     "sheet_open_map": "Показать машину на карте",
+    "current_geofence": "Текущее местонахождение",
     "sheet_set_truck": "Сначала укажите машину — заполните строку «Номер машины / прицепа»."
   },
   "pallet": {
@@ -2713,6 +2715,7 @@
       "vehicle_condition_note": "Заметка по состоянию",
       "transit_days": "Дней в пути",
       "transport_temp_c": "Температура перевозки",
+      "shelf_life_days": "Срок годности (дней)",
       "variety": "Сорт",
       "weight_net": "Вес нетто",
       "weight_gross": "Вес брутто",

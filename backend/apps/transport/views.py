@@ -17,13 +17,14 @@ from apps.transport.permissions import (
     can_edit_fleet,
 )
 from apps.transport.serializers import (
-    DriverAdminSerializer, DriverDocumentSerializer, DriverSerializer,
-    LivePositionSerializer, TrailerSerializer, TransportDeviceSerializer,
-    TruckHeadDocumentSerializer, TruckHeadSerializer,
+    CurrentGeofenceSerializer, DriverAdminSerializer, DriverDocumentSerializer,
+    DriverSerializer, LivePositionSerializer, TrailerSerializer,
+    TransportDeviceSerializer, TruckHeadDocumentSerializer, TruckHeadSerializer,
 )
 from apps.transport.services.files import (
     MAX_FILES_PER_RECORD, detect_mime, sanitise_filename, validate_fleet_document,
 )
+from apps.transport.services.geofences import group_by_geofence
 from apps.transport.services.matching import resolve_device_for_shipment
 
 
@@ -40,9 +41,27 @@ class LivePositionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         return (
             DevicePosition.objects
             .filter(valid=True)
-            .select_related('device', 'device__truck')
+            .select_related('device', 'device__truck', 'current_geofence')
             .order_by('device__name')
         )
+
+
+class CurrentGeofencesView(APIView):
+    """Which geofence each truck is in right now, grouped by geofence.
+
+    Same data and gate as the Fleet Map (latest valid position per device).
+    """
+
+    permission_classes = [IsAuthenticated, CanViewFleetMap]
+
+    def get(self, request):
+        positions = (
+            DevicePosition.objects
+            .filter(valid=True)
+            .select_related('device', 'device__truck', 'current_geofence')
+            .order_by('device__name')
+        )
+        return Response(CurrentGeofenceSerializer(group_by_geofence(positions), many=True).data)
 
 
 class ShipmentTruckPositionView(APIView):
@@ -62,7 +81,7 @@ class ShipmentTruckPositionView(APIView):
             }
             pos = (
                 DevicePosition.objects.filter(device=device, valid=True)
-                .select_related('device', 'device__truck').first()
+                .select_related('device', 'device__truck', 'current_geofence').first()
             )
             if pos is not None:
                 data['position'] = LivePositionSerializer(pos).data

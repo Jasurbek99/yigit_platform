@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.transport.models import Truck, TraccarDevice, DevicePosition
+from apps.transport.models import Truck, TraccarDevice, TraccarGeofence, DevicePosition
 
 User = get_user_model()
 
@@ -90,3 +90,20 @@ class LivePositionsApiTests(TestCase):
         row = self.client.get('/api/v1/transport/live-positions/').json()[0]
         self.assertIsNone(row['speed'])
         self.assertIsNone(row['course'])
+
+    def test_exposes_current_geofence(self):
+        geofence = TraccarGeofence.objects.create(traccar_id=3, name='Garaž')
+        since = timezone.now() - timedelta(hours=2)
+        DevicePosition.objects.create(
+            device=self.device, latitude='37.97', longitude='58.49',
+            fix_time=timezone.now(), current_geofence=geofence, geofence_since=since,
+        )
+        row = self.client.get('/api/v1/transport/live-positions/').json()[0]
+        self.assertEqual(row['geofence_name'], 'Garaž')
+        self.assertIsNotNone(row['geofence_since'])
+
+    def test_geofence_name_is_null_outside_every_geofence(self):
+        self._make_position(minutes_old=1)
+        row = self.client.get('/api/v1/transport/live-positions/').json()[0]
+        self.assertIsNone(row['geofence_name'])
+        self.assertIsNone(row['geofence_since'])

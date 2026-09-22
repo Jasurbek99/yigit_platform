@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from apps.transport.services.sync import sync_devices, sync_positions
+from apps.transport.services.sync import sync_devices, sync_geofences, sync_positions
 from apps.transport.services.traccar_client import TraccarUnavailable
 
 
@@ -16,11 +16,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         try:
             device_count = sync_devices()
+            geofence_count = sync_geofences()  # before positions, same order as poll_traccar
             position_count = sync_positions()
         except TraccarUnavailable as exc:
             # Non-fatal: existing rows remain; the scheduler retries next minute.
             self.stdout.write(self.style.WARNING(f'Traccar unavailable, kept last-known: {exc}'))
             return
         self.stdout.write(
-            self.style.SUCCESS(f'Synced {device_count} devices, updated {position_count} positions.')
+            self.style.SUCCESS(
+                f'Synced {device_count} devices, {geofence_count} geofences, '
+                f'updated {position_count} positions.'
+            )
         )

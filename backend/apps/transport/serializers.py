@@ -16,6 +16,13 @@ class LivePositionSerializer(serializers.ModelSerializer):
     GPS reported, `updated_at` is when our poller last wrote the row. The Fleet
     Map takes max(`updated_at`) across rows as its "data as of" stamp, so a
     dead poller is visible instead of silently serving month-old pins.
+
+    `geofence_name` / `geofence_since` (added 2026-09-19) surface the same
+    `current_geofence` the standalone `geofences/current/` grouping uses, so a
+    single truck's own position (Fleet Map, and — via `ShipmentTruckPositionView`,
+    which serializes through this class — the Sheet's map modal and the Shipment
+    Detail location card) also shows where it is right now, not just lat/lon.
+    Both are `None` when the truck is outside every geofence.
     """
 
     device_id = serializers.IntegerField(source='device.traccar_id')
@@ -28,6 +35,7 @@ class LivePositionSerializer(serializers.ModelSerializer):
     course = serializers.FloatField(allow_null=True, required=False)
     is_online = serializers.SerializerMethodField()
     is_stale = serializers.SerializerMethodField()
+    geofence_name = serializers.CharField(source='current_geofence.name', default=None)
 
     class Meta:
         model = DevicePosition
@@ -35,6 +43,7 @@ class LivePositionSerializer(serializers.ModelSerializer):
             'device_id', 'plate', 'fleet_no', 'status',
             'lat', 'lon', 'speed', 'course', 'address',
             'fix_time', 'updated_at', 'is_online', 'is_stale',
+            'geofence_name', 'geofence_since',
         ]
 
     def get_is_online(self, obj: DevicePosition) -> bool:
@@ -45,6 +54,31 @@ class LivePositionSerializer(serializers.ModelSerializer):
             return True
         age = timezone.now() - obj.fix_time
         return age.total_seconds() > settings.TRACCAR_STALE_MINUTES * 60
+
+
+class GeofenceTruckSerializer(LivePositionSerializer):
+    """One truck inside a geofence group. `since` = geofence_since (first poll seen there)."""
+
+    since = serializers.DateTimeField(source='geofence_since', allow_null=True)
+
+    class Meta(LivePositionSerializer.Meta):
+        fields = ['device_id', 'plate', 'fleet_no', 'since', 'fix_time', 'is_online', 'is_stale']
+
+
+class CurrentGeofenceSerializer(serializers.Serializer):
+    """A `{'geofence': TraccarGeofence | None, 'positions': [...]}` group.
+
+    The `None` group holds trucks outside every geofence, so every positioned
+    truck appears exactly once.
+    """
+
+    geofence_id = serializers.IntegerField(source='geofence.traccar_id', default=None)
+    geofence_name = serializers.CharField(source='geofence.name', default=None)
+    truck_count = serializers.SerializerMethodField()
+    trucks = GeofenceTruckSerializer(source='positions', many=True)
+
+    def get_truck_count(self, group: dict) -> int:
+        return len(group['positions'])
 
 
 class TransportDeviceSerializer(serializers.ModelSerializer):

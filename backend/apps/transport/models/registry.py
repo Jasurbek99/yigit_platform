@@ -117,12 +117,33 @@ class TraccarDevice(models.Model):
         return self.name
 
 
+class TraccarGeofence(models.Model):
+    """A Traccar geofence — id + name only; Traccar computes membership itself."""
+
+    traccar_id = models.IntegerField(unique=True)
+    name = models.CharField(max_length=128, **cyrillic_collation())
+
+    class Meta:
+        db_table = schema_table('transport', 'traccar_geofences')
+        ordering = ['name']
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class DevicePosition(models.Model):
     """Latest known position for a device — one row per device, upserted."""
 
     device = models.OneToOneField(
         TraccarDevice, on_delete=models.CASCADE, related_name='position',
     )
+    current_geofence = models.ForeignKey(
+        TraccarGeofence, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='positions',
+    )
+    # First poll that saw the truck in current_geofence — NOT Traccar's
+    # geofenceEnter time, so right after deploy it understates the dwell.
+    geofence_since = models.DateTimeField(null=True, blank=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6)
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     speed = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)

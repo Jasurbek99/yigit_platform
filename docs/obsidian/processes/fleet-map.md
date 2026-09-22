@@ -126,11 +126,21 @@ Latest known position for a device — **one row per device**, upserted (not a h
 | `fix_time` | DateTimeField, null | when Traccar fixed the position (not when we polled) |
 | `valid` | Boolean | default `True`; the API only serves `valid=True` rows |
 | `updated_at` | DateTimeField, `auto_now` | when we last upserted this row |
+| `current_geofence` | FK → `TraccarGeofence`, PROTECT, null, `related_name='positions'` | the geofence Traccar puts this position in (`geofenceIds[0]`); null = outside every geofence (added 2026-09-18) |
+| `geofence_since` | DateTimeField, null | first poll that saw the truck in `current_geofence` (the position's `fixTime`). **Not** Traccar's `geofenceEnter` time, so right after deploy it understates the dwell |
+
+### `TraccarGeofence`
+
+Geofence names from Traccar's `GET /api/geofences` (31 rows as of 2026-09-18: depot, customs
+posts, border crossings, route towns, destinations — see `docs/TRACCAR_GEOFENCES_ANALYSIS.md`).
+Only `traccar_id` (unique) and `name` (CharField(128), Cyrillic collation) are stored; the
+polygon (`area`) is not — Traccar computes membership itself and reports it on each position.
+Upserted every poll, never deleted here (rows are PROTECTed by `DevicePosition`).
 
 ## Traccar Client (read-only)
 
-`backend/apps/transport/services/traccar_client.py` — `TraccarClient` wraps two read-only
-Traccar REST calls, `GET /api/devices` and `GET /api/positions`, both via
+`backend/apps/transport/services/traccar_client.py` — `TraccarClient` wraps three read-only
+Traccar REST calls, `GET /api/devices`, `GET /api/positions` and `GET /api/geofences`, all via
 `Authorization: Bearer {TRACCAR_TOKEN}`. `TraccarClient` never issues a write to Traccar.
 Any network error, non-2xx status, or non-JSON body raises `TraccarUnavailable`.
 
@@ -159,6 +169,15 @@ Any network error, non-2xx status, or non-JSON body raises `TraccarUnavailable`.
   `sync_positions` converts to km/h at write time (`speed * 1.852`, rounded to 2dp) so it
   matches the `DevicePosition.speed` field's km/h label — a `None`/absent speed stays
   `None` (not converted).
+  It also writes `current_geofence` from the position's `geofenceIds` and **carries
+  `geofence_since` forward** while the geofence is unchanged (read from the existing rows
+  before the loop — `update_or_create` would otherwise reset it every poll). A new
+  geofence starts `geofence_since` at this `fixTime`; no geofence clears both. More than one
+  id (overlapping polygons — none today) takes the first and logs a warning; an id not yet
+  in `TraccarGeofence` is treated as none.
+- **`sync_geofences(client=None)`** — pulls `get_geofences()` and upserts
+  `TraccarGeofence` (id + name). `poll_traccar` runs it between `sync_devices` and
+  `sync_positions`, and its result dict gains a `geofences` count.
 
 ## Scheduling — Celery beat (primary)
 
@@ -291,7 +310,7 @@ a deny-list plus a 14-role array in `AppLayout.tsx`. Fail-closed: a role with no
 `transport.map` gets 403, which is why core migration `0039_fleet_page_perms` backfills
 every role. This is still the **only** transport read with a gate; the rest of the
 module is finding F5's territory and is unchanged. Reads `DevicePosition.objects.filter(valid=True)`
-with `select_related('device', 'device__truck')`; never calls Traccar.
+with `select_related('device', 'device__truck', 'current_geofence')`; never calls Traccar.
 
 Response item shape (`LivePositionSerializer`, DB columns → API field names per
 `api-contract`):
@@ -310,9 +329,54 @@ Response item shape (`LivePositionSerializer`, DB columns → API field names pe
   "fix_time": "2026-07-30T09:14:00Z",
   "updated_at": "2026-07-30T09:14:31Z", // when the poller last wrote this row
   "is_online": true,     // status == 'online'
-  "is_stale": false      // now - fix_time > TRACCAR_STALE_MINUTES
+  "is_stale": false,     // now - fix_time > TRACCAR_STALE_MINUTES
+  "geofence_name": "Garaž",              // current_geofence.name, null outside every geofence (2026-09-19)
+  "geofence_since": "2026-09-18T19:40:00Z" // geofence_since, null with geofence_name — see DevicePosition
 }
 ```
+
+**`geofence_name`/`geofence_since` (2026-09-19)** are the same `current_geofence` the standalone
+`geofences/current/` grouping (below) reads, now on the **single-truck** payload too. Because
+`ShipmentTruckPositionView` serializes its `position` through this same `LivePositionSerializer`,
+the fields also reach `useShipmentTruckPosition` — so the Sheet's R15 map modal and the Shipment
+Detail location card (`ShipmentTruckLocationBlock.tsx`, shared by both) show them as a purple Tag
+next to the address, and `FleetMap.tsx` shows the same Tag in its sidebar row and popup. No new
+endpoint, no new hook — `ShipmentTruckPositionView`'s queryset also gained
+`select_related('current_geofence')`.
+
+### Current geofence per truck (2026-09-18)
+
+`GET /api/v1/transport/geofences/current/` — `CurrentGeofencesView`, same gate as
+`live-positions/` (`IsAuthenticated` + `CanViewFleetMap`), no pagination, reads the DB only.
+Same rows as the map (`valid=True`), grouped by `current_geofence`: busiest geofence first,
+then by name; trucks outside every geofence come **last** under `geofence_id: null`, so every
+positioned truck appears exactly once.
+
+```jsonc
+[
+  {
+    "geofence_id": 16,             // TraccarGeofence.traccar_id; null = no geofence
+    "geofence_name": "Turkmenabat",
+    "truck_count": 2,
+    "trucks": [
+      {
+        "device_id": 97, "plate": "3516AHF", "fleet_no": "TR078",
+        "since": "2026-09-12T20:24:06+05:00", // geofence_since, null in the no-geofence group
+        "fix_time": "2026-09-12T20:24:06+05:00",
+        "is_online": false,
+        "is_stale": true              // offline trucks keep their last geofence — check this
+      }
+    ]
+  }
+]
+```
+
+Known limits: `since` is first-seen-by-our-poller, not the true entry time; a truck that
+drives through a small waypoint geofence (Tejen, 3-ajy, … — median dwell ~0 h) between two
+120 s polls never shows there. **Still no frontend consumer of this grouped endpoint itself**
+(2026-09-19) — the per-truck geofence shown on the Fleet Map and Shipment Detail
+(above) reads the same `current_geofence` off `live-positions/`/`shipments/{id}/position/`
+instead, not this one. This endpoint remains available for a future ops-overview screen.
 
 ## Fleet Map Page
 
@@ -812,7 +876,8 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 | Serializer | [`backend/apps/transport/serializers.py`](../../../backend/apps/transport/serializers.py) |
 | ViewSet | [`backend/apps/transport/views.py`](../../../backend/apps/transport/views.py) |
 | URLs | [`backend/apps/transport/urls.py`](../../../backend/apps/transport/urls.py) (mounted at `api/v1/transport/`) |
-| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py`, `test_tasks.py`, `test_matching.py`, `test_shipment_api.py` — 44 cases across 8 files) |
+| Tests | `backend/apps/transport/tests/` (`test_models.py`, `test_traccar_client.py`, `test_sync.py`, `test_commands.py`, `test_api.py`, `test_tasks.py`, `test_matching.py`, `test_shipment_api.py` — 44 cases across 8 files; `test_geofences.py` — current-geofence sync + endpoint, 13 cases) |
+| Geofence grouping | [`backend/apps/transport/services/geofences.py`](../../../backend/apps/transport/services/geofences.py) — `group_by_geofence`; `CurrentGeofencesView` in `views.py`, `CurrentGeofenceSerializer`/`GeofenceTruckSerializer` in `serializers.py` |
 | Query hook (live map) | [`frontend/src/hooks/useLivePositions.ts`](../../../frontend/src/hooks/useLivePositions.ts) — `ILivePosition`, 30s `refetchInterval` |
 | Query hooks (shipment link) | [`frontend/src/hooks/useShipmentTruckPosition.ts`](../../../frontend/src/hooks/useShipmentTruckPosition.ts) — `useShipmentTruckPosition` (30s refetch), `useSetShipmentDevice`; [`frontend/src/hooks/useTransportDevices.ts`](../../../frontend/src/hooks/useTransportDevices.ts) |
 | Page | [`frontend/src/pages/transport/FleetMap.tsx`](../../../frontend/src/pages/transport/FleetMap.tsx) |
@@ -843,9 +908,10 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
   permission screen — the matrix UI owns both pages now.
 - **No position history** — `DevicePosition` is upsert-latest-only, one row per device.
   A trail/history table would be a separate model + endpoint.
-- **No geofence-driven timestamps** — AD-1's shipment lifecycle timestamps are still
-  written only by `transition_to()`; this feature does not auto-advance shipment status
-  from GPS geofence events.
+- **No geofence-driven timestamps** — the current geofence per truck is shown
+  (`geofences/current/`, 2026-09-18), but no shipment lifecycle timestamp is written from
+  it and no status auto-advances from GPS geofence events. Options and caveats:
+  `docs/TRACCAR_GEOFENCES_ANALYSIS.md` §6–8.
 - **No reefer temperature/humidity** — Traccar can carry these as device attributes, not
   wired in this slice.
 - **No trips/routes** — no start/end/route replay, just a live snapshot.
@@ -859,7 +925,9 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
    rows; stop Traccar (or point `TRACCAR_BASE_URL` at nothing) and re-run — command prints
    a warning and exits 0, existing rows untouched.
 3. **API**: `GET /api/v1/transport/live-positions/` as an authenticated user returns the
-   JSON list above; unauthenticated → 401/403.
+   JSON list above; unauthenticated → 401/403. `GET /api/v1/transport/geofences/current/`
+   returns trucks grouped by geofence (the poll above also syncs geofence names; without it
+   every truck lands in the `geofence_id: null` group).
 4. **Page**: `/transport/map` shows the sidebar + map, pins colour-matching device state;
    typing in the search box filters both the list and the pins; wait 30s and confirm the
    list quietly refetches (no full-page reload).

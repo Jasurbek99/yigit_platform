@@ -31,6 +31,7 @@
     "accountant": "Hasapçy",
     "greenhouse_manager": "Ýyladyşhana müdiri",
     "seller": "Satyjy",
+    "quality_inspector": "Hil gözegçisi",
     "weight_master": "Gapançy",
     "loading_dept_head": "Ýükleme gaplama bölüminiň müdiri",
     "loading_dept_head_deputy": "Ýükleme gaplama bölüminiň orunbassary",
@@ -2379,6 +2380,7 @@
     "resolved_auto": "awtomatik",
     "resolved_manual": "el bilen",
     "sheet_open_map": "Maşyny kartada görkez",
+    "current_geofence": "Ýerleşýän ýeri",
     "sheet_set_truck": "Ilki maşyny belläň — «Maşyn / Tyr belgisi» setirini dolduryň."
   },
   "pallet": {
@@ -2716,6 +2718,7 @@
       "vehicle_condition_note": "Ýagdaý belligi",
       "transit_days": "Ýolda günler",
       "transport_temp_c": "Daşamak temperaturasy",
+      "shelf_life_days": "Saklanyş möhleti (gün)",
       "variety": "Sort",
       "weight_net": "Arassa agram",
       "weight_gross": "Brutto agram",

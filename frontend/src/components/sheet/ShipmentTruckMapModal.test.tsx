@@ -48,6 +48,7 @@ const POSITION = {
   lat: 41.2, lon: 59.9, speed: 62, course: 180,
   address: 'Türkmenabat', fix_time: '2026-09-07T08:00:00Z',
   is_online: true, is_stale: false,
+  geofence_name: null, geofence_since: null,
 };
 const DEVICE = { traccar_id: 7, plate: '48 AT 580', fleet_no: 'F12' };
 

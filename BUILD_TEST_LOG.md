@@ -1,5 +1,20 @@
 # Build / Test Log
 
+- [x] 2026-09-22 — Truck's current geofence shown on Fleet Map + Shipment location card (purple Tag) — TESTED 2026-09-22
+  To test: (1) open `/transport/map`: a truck currently inside a geofence (e.g. "Garaž") shows a
+  purple tag under its address in the sidebar row, and the same in its map popup; a truck outside
+  every geofence shows neither; (2) open a shipment with a linked truck (Detail page, Transport
+  card, or the Sheet's R15 "Maşynyň şuwagtky ýagdaýy" pin): same purple tag appears next to the
+  address when the truck is in a geofence; (3) the tag itself shows the time it was first seen
+  there, e.g. "Garaž · 9/18/2026, 4:03:45 PM" (not the true entry time — see docs).
+
+- [ ] 2026-09-18 — Current geofence per truck: `GET /api/v1/transport/geofences/current/` + geofence sync in the Traccar poller — NEEDS TEST
+  To test: (1) with celery worker + beat running, open `/api/v1/transport/geofences/current/` while
+  logged in: groups like "Garaž", "Turkmenabat", … with trucks, and a last group with
+  `geofence_id: null`; (2) pick a truck that is moving (`is_online: true`) and check its geofence
+  against the Fleet Map pin; (3) after 2+ polls (~4 min) its `since` must NOT change while it stays in
+  the same geofence; (4) log in as a seller: 403.
+
 - [ ] 2026-09-18 — Weekly plan in-week revision approval (±15%, export manager approves, Plan changes drawer) — NEEDS TEST
   To test: (1) as a greenhouse manager, on the current week change a filled cell by +10%: a "sent
   for approval" toast, the old value stays, a yellow `→ … (+10%) ⏳` badge appears under it;

@@ -158,6 +158,12 @@ export function ShipmentTruckLocationBlock({
           )}
         </Space>
         <Typography.Text type="secondary">{pos.address ?? '—'}</Typography.Text>
+        {pos.geofence_name && (
+          <Tag color="purple">
+            {pos.geofence_name}
+            {pos.geofence_since ? ` · ${new Date(pos.geofence_since).toLocaleString()}` : ''}
+          </Tag>
+        )}
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
           {pos.speed ?? 0} km/h · {pos.is_online ? t('fleet_map.online') : t('fleet_map.offline')}
           {pos.is_stale ? ` · ${t('fleet_map.stale')}` : ''}

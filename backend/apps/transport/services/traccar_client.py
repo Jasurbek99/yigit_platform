@@ -48,3 +48,6 @@ class TraccarClient:
 
     def get_positions(self) -> list[dict]:
         return self._get('/api/positions')
+
+    def get_geofences(self) -> list[dict]:
+        return self._get('/api/geofences')
