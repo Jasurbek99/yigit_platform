@@ -4,7 +4,9 @@ from rest_framework.test import APIClient
 
 from apps.core.models import Season, ShipmentStatusType
 from apps.export.models import Shipment
-from apps.transport.models import Truck, TraccarDevice, DevicePosition, ShipmentDeviceLink
+from apps.transport.models import (
+    Truck, TraccarDevice, TraccarGeofence, DevicePosition, ShipmentDeviceLink,
+)
 
 User = get_user_model()
 
@@ -45,6 +47,14 @@ class ShipmentPositionApiTests(TestCase):
         self.assertEqual(body['resolved_by'], 'auto')
         self.assertEqual(body['device']['plate'], '4378AHF')
         self.assertEqual(body['position']['lat'], 37.9)
+
+    def test_position_includes_current_geofence(self):
+        geofence = TraccarGeofence.objects.create(traccar_id=15, name='Olot gumruk')
+        self.device.position.current_geofence = geofence
+        self.device.position.save()
+        self.client.force_authenticate(self.viewer)
+        body = self.client.get(f'/api/v1/transport/shipments/{self.shipment.id}/position/').json()
+        self.assertEqual(body['position']['geofence_name'], 'Olot gumruk')
 
     def test_position_none_when_no_match(self):
         self.shipment.truck_plate = '7463LBE/1779TLB'

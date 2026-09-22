@@ -217,6 +217,34 @@ describe('FleetMap', () => {
     ]);
   });
 
+  it('shows the current geofence in the sidebar and the popup when the truck is in one', () => {
+    vi.mocked(useLivePositions).mockReturnValue({
+      data: [{ ...basePosition, geofence_name: 'Garaž', geofence_since: '2026-09-18T19:40:00Z' }],
+      isLoading: false,
+      isError: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderFleetMap();
+
+    // Sidebar tag and map popup both mention it — assert both surfaces show it.
+    expect(screen.getAllByText(/Garaž/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Current Location: Garaž/)).toBeInTheDocument();
+  });
+
+  it('shows no geofence tag or line when the truck is outside every geofence', () => {
+    vi.mocked(useLivePositions).mockReturnValue({
+      data: [{ ...basePosition, geofence_name: null, geofence_since: null }],
+      isLoading: false,
+      isError: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderFleetMap();
+
+    expect(screen.queryByText(/Current Location/)).toBeNull();
+  });
+
   it('shows the load-error alert when the query fails', () => {
     vi.mocked(useLivePositions).mockReturnValue({
       data: undefined,

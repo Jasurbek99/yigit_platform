@@ -551,6 +551,58 @@ shipments **minus** `draft`, `cancelled`, soft-deleted and archived.
 - Month = `TruncMonth(Shipment.date)`, `'YYYY-MM'`, oldest first.
 - No active season → `season: null` with the same shape, all zeros / empty.
 
+### Current geofence per truck: `GET /api/v1/transport/geofences/current/`
+
+Which Traccar geofence each truck is in right now, grouped by geofence. Gate: `IsAuthenticated` +
+`CanViewFleetMap` (the `transport.map` page row — same as `live-positions/`, so the seller gets 403).
+Not paginated, not season-scoped, reads our DB only (the 120 s `poll_traccar` beat task keeps it fresh).
+Rows = `DevicePosition` with `valid=True`. Order: most trucks first, then geofence name; trucks outside
+every geofence come **last** in a group with `geofence_id: null`, `geofence_name: null`.
+
+```json
+[
+  {
+    "geofence_id": 3,
+    "geofence_name": "Garaž",
+    "truck_count": 55,
+    "trucks": [
+      { "device_id": 12, "plate": "4178AHF", "fleet_no": "TR069",
+        "since": "2026-09-17T19:40:00+05:00", "fix_time": "2026-09-18T15:58:00+05:00",
+        "is_online": true, "is_stale": false }
+    ]
+  }
+]
+```
+
+- `geofence_id` is Traccar's geofence id (`TraccarGeofence.traccar_id`), like `device_id` is Traccar's device id.
+- `since` (DB `geofence_since`) = the first poll that saw the truck in this geofence, **not** Traccar's
+  enter event — understated right after deploy. `null` in the no-geofence group.
+- Offline trucks keep their last geofence; use `is_stale` (`now − fix_time > TRACCAR_STALE_MINUTES`)
+  before treating a truck as "there now".
+
+### Current geofence on the single-truck payloads (2026-09-19)
+
+`LivePositionSerializer` — which backs `GET /transport/live-positions/` (the Fleet Map) **and**
+the `position` object inside `GET /transport/shipments/{id}/position/` (Shipment Detail / the
+Sheet's R15 map modal) — also carries the truck's current geofence, so an operator doesn't need
+the grouped endpoint above to see one truck's own zone:
+
+```jsonc
+{
+  "device_id": 42, "plate": "12 AB 3456", "fleet_no": "TR07", "status": "online",
+  "lat": 37.95, "lon": 58.39, "speed": 62.5, "course": 184.0, "address": "…",
+  "fix_time": "2026-07-30T09:14:00Z", "updated_at": "2026-07-30T09:14:31Z",
+  "is_online": true, "is_stale": false,
+  "geofence_name": "Garaž",                  // current_geofence.name, null outside every geofence
+  "geofence_since": "2026-09-18T19:40:00Z"   // first poll that saw it there, null with geofence_name
+}
+```
+
+Same caveats as `since` above (understated right after deploy, offline trucks keep their last
+geofence). Frontend: `ILivePosition`/`ITruckPosition` both carry the two fields;
+`ShipmentTruckLocationBlock.tsx` (shared by the Detail card and the Sheet modal) and
+`FleetMap.tsx` render `geofence_name` as a purple Tag when present.
+
 ## Season scoping (AD-16)
 
 Every season-bearing list endpoint (shipments, Sheet, Kanban board, harvest plans, day

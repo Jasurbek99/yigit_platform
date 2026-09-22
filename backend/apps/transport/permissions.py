@@ -66,9 +66,11 @@ class CanViewFleetMap(BasePermission):
     (seed_permissions grants ``transport.map`` to every role but the seller);
     it is now an admin-flippable data row rather than a constant.
 
-    Gates ONLY ``LivePositionViewSet`` — the single endpoint the Fleet Map page
-    reads. The rest of the transport module stays open to all authenticated
-    users; that is pre-existing finding F5 and is not widened or narrowed here.
+    Gates ``LivePositionViewSet`` (the endpoint the Fleet Map page reads) and
+    ``CurrentGeofencesView`` (the same positions grouped by geofence, added
+    2026-09-18). The rest of the transport module stays open to all
+    authenticated users; that is pre-existing finding F5 and is not widened or
+    narrowed here.
     """
 
     def has_permission(self, request, view) -> bool:

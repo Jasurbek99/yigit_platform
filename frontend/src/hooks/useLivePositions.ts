@@ -17,6 +17,11 @@ export interface ILivePosition {
   updated_at: string;
   is_online: boolean;
   is_stale: boolean;
+  /** Name of the Traccar geofence the truck is in now, null if none. */
+  geofence_name: string | null;
+  /** When our poller first saw the truck in `geofence_name` (not Traccar's
+   *  enter event) — understates dwell right after a deploy. Null with `geofence_name`. */
+  geofence_since: string | null;
 }
 
 export function useLivePositions() {

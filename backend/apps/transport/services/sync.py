@@ -1,9 +1,11 @@
 import logging
 import re
+from datetime import datetime
 
+from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from apps.transport.models import Truck, TraccarDevice, DevicePosition
+from apps.transport.models import Truck, TraccarDevice, TraccarGeofence, DevicePosition
 from apps.transport.services.traccar_client import TraccarClient
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,13 @@ def sync_positions(client: TraccarClient | None = None) -> int:
         d.traccar_id: d
         for d in TraccarDevice.objects.filter(traccar_id__in=device_ids)
     }
+    geofences = {g.traccar_id: g for g in TraccarGeofence.objects.all()}
+    previous = {
+        device_id: (geofence_id, since)
+        for device_id, geofence_id, since in DevicePosition.objects.values_list(
+            'device_id', 'current_geofence_id', 'geofence_since',
+        )
+    }
     written = 0
     for pos in positions:
         device = known.get(pos['deviceId'])
@@ -74,6 +83,8 @@ def sync_positions(client: TraccarClient | None = None) -> int:
         attrs = pos.get('attributes') or {}
         raw_speed = pos.get('speed')
         speed_kmh = round(raw_speed * 1.852, 2) if raw_speed is not None else None
+        fix_time = parse_datetime(pos['fixTime']) if pos.get('fixTime') else None
+        geofence = _current_geofence(pos, geofences)
         DevicePosition.objects.update_or_create(
             device=device,
             defaults={
@@ -83,9 +94,50 @@ def sync_positions(client: TraccarClient | None = None) -> int:
                 'course': pos.get('course'),
                 'address': (pos.get('address') or '')[:300] or None,
                 'ignition': attrs.get('ignition'),
-                'fix_time': parse_datetime(pos['fixTime']) if pos.get('fixTime') else None,
+                'fix_time': fix_time,
                 'valid': pos.get('valid', True),
+                'current_geofence': geofence,
+                'geofence_since': _geofence_since(geofence, fix_time, previous.get(device.pk)),
             },
         )
         written += 1
     return written
+
+
+def sync_geofences(client: TraccarClient | None = None) -> int:
+    """Upsert TraccarGeofence rows (id + name) from Traccar. Returns geofence count."""
+    client = client or TraccarClient()
+    geofences = client.get_geofences()
+    for geofence in geofences:
+        TraccarGeofence.objects.update_or_create(
+            traccar_id=geofence['id'], defaults={'name': geofence.get('name') or ''},
+        )
+    return len(geofences)
+
+
+def _current_geofence(
+    pos: dict, geofences: dict[int, TraccarGeofence],
+) -> TraccarGeofence | None:
+    """The geofence Traccar says this position is in (None if none, or not synced yet)."""
+    ids = pos.get('geofenceIds') or []
+    if len(ids) > 1:
+        # Our 31 polygons don't overlap today; if someone draws one that does,
+        # say so rather than silently picking.
+        logger.warning(
+            'deviceId=%s is inside %d geofences %s; using the first',
+            pos.get('deviceId'), len(ids), ids,
+        )
+    return geofences.get(ids[0]) if ids else None
+
+
+def _geofence_since(
+    geofence: TraccarGeofence | None,
+    fix_time: datetime | None,
+    previous: tuple[int | None, datetime | None] | None,
+) -> datetime | None:
+    """Keep the stored timestamp while the geofence is unchanged, else start from this fix."""
+    if geofence is None:
+        return None
+    if previous and previous[0] == geofence.pk and previous[1]:
+        return previous[1]
+    return fix_time or timezone.now()

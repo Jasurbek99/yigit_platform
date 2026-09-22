@@ -318,6 +318,7 @@ a ranking bar chart + per-card trend sparklines (was a plain table) — see
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
 | GET | `/api/v1/transport/live-positions/` | LivePositionViewSet (list) — **`IsAuthenticated` + `CanViewFleetMap`** | `useLivePositions` | FleetMap (`/transport/map`) |
+| GET | `/api/v1/transport/geofences/current/` | CurrentGeofencesView — **`IsAuthenticated` + `CanViewFleetMap`**; trucks grouped by current Traccar geofence, no-geofence group last (2026-09-18) | — (no frontend consumer yet) | — |
 | GET | `/api/v1/transport/shipments/{id}/position/` | ShipmentTruckPositionView | `useShipmentTruckPosition` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | PUT/DELETE | `/api/v1/transport/shipments/{id}/device/` | ShipmentDeviceLinkView | `useSetShipmentDevice` | ShipmentDetail (`ShipmentTruckLocationCard`) |
 | GET | `/api/v1/transport/devices/` | TransportDeviceViewSet (list) | `useTransportDevices` | ShipmentDetail (`ShipmentTruckLocationCard`, device picker) |

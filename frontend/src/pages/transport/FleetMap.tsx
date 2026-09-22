@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { Input, List, Badge, Spin, Alert, Typography } from 'antd';
+import { Input, List, Badge, Spin, Alert, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -119,6 +119,12 @@ export default function FleetMap() {
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                     {p.address ?? '—'}
                   </Typography.Text>
+                  {p.geofence_name && (
+                    <Tag color="purple" style={{ marginLeft: 4 }}>
+                      {p.geofence_name}
+                      {p.geofence_since ? ` · ${dayjs(p.geofence_since).tz(TM_TZ).format(STAMP_FORMAT)}` : ''}
+                    </Tag>
+                  )}
                 </div>
               </div>
             </List.Item>
@@ -143,6 +149,13 @@ export default function FleetMap() {
                 <strong>{p.plate}</strong> {p.fleet_no}
                 <br />
                 {p.address ?? '—'}
+                {p.geofence_name && (
+                  <>
+                    <br />
+                    {t('fleet_map.current_geofence')}: {p.geofence_name}
+                    {p.geofence_since && ` (${dayjs(p.geofence_since).tz(TM_TZ).format(STAMP_FORMAT)})`}
+                  </>
+                )}
                 <br />
                 {p.speed ?? 0} km/h · {p.is_online ? 'online' : 'offline'}
                 {p.is_stale ? ' · stale' : ''}

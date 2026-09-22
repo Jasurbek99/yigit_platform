@@ -39,6 +39,12 @@ vi.mock('@/hooks/useShipmentTruckPosition', () => ({
 vi.mock('@/hooks/useTransportDevices', () => ({
   useTransportDevices: () => ({ data: [], isLoading: false }),
 }));
+// The R15 cell's inline address suffix (SheetCellTruckAddress) reads the
+// shared live-positions list directly — real network call unless mocked.
+const livePositionsHook = vi.fn(() => ({ data: [], isLoading: false, isError: false }));
+vi.mock('@/hooks/useLivePositions', () => ({
+  useLivePositions: () => livePositionsHook(),
+}));
 vi.mock('react-leaflet', () => ({
   MapContainer: () => <div data-testid="map-container" />,
   TileLayer: () => null,
@@ -73,6 +79,8 @@ const pin = (c: HTMLElement) => c.querySelector('[data-testid="truck-map-pin"]')
 
 beforeEach(() => {
   positionHook.mockClear();
+  livePositionsHook.mockClear();
+  livePositionsHook.mockReturnValue({ data: [], isLoading: false, isError: false });
   useSheetStore.setState({ activeCell: null, editingCell: null });
 });
 
@@ -106,5 +114,63 @@ describe('vehicle_live_status map pin', () => {
     // The modal is React.lazy'd (Leaflet stays out of the Sheet chunk), so the
     // position hook only mounts once that dynamic import resolves.
     await waitFor(() => expect(positionHook).toHaveBeenCalled());
+  });
+});
+
+describe('vehicle_live_status GPS address suffix', () => {
+  const POSITION = {
+    device_id: 74, plate: '2189AHF', fleet_no: 'TR038', status: 'online',
+    lat: 37.97, lon: 58.49, speed: 0, course: 0, address: 'Artyk Gümrük Posty Ýoly',
+    fix_time: null, updated_at: '', is_online: true, is_stale: false,
+    geofence_name: null, geofence_since: null,
+  };
+
+  it('appends the matched GPS address after the operator-typed text', () => {
+    livePositionsHook.mockReturnValue({ data: [POSITION], isLoading: false, isError: false } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const c = renderCell({ vehicle_live_status: 'Ammarda', truck_plate: '2189AHF' });
+    expect(c.textContent).toContain('Ammarda · Artyk Gümrük Posty Ýoly');
+  });
+
+  it('shows the address alone when the cell has no operator text', () => {
+    livePositionsHook.mockReturnValue({ data: [POSITION], isLoading: false, isError: false } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const c = renderCell({ vehicle_live_status: null, truck_plate: '2189AHF' });
+    expect(c.textContent).toContain('Artyk Gümrük Posty Ýoly');
+    expect(c.textContent).not.toContain('· Artyk');
+  });
+
+  it('matches the tractor plate even with a trailing trailer token', () => {
+    livePositionsHook.mockReturnValue({ data: [POSITION], isLoading: false, isError: false } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const c = renderCell({ vehicle_live_status: null, truck_plate: '2189AHF/1234TRL' });
+    expect(c.textContent).toContain('Artyk Gümrük Posty Ýoly');
+  });
+
+  it('shows nothing when no live position matches the plate', () => {
+    livePositionsHook.mockReturnValue({ data: [POSITION], isLoading: false, isError: false } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const c = renderCell({ vehicle_live_status: 'Ammarda', truck_plate: '9999ZZZ' });
+    expect(c.textContent?.trim()).toBe('Ammarda');
+  });
+
+  it('shows nothing on other rows even when the plate matches', () => {
+    livePositionsHook.mockReturnValue({ data: [POSITION], isLoading: false, isError: false } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const c = renderCell({ truck_plate: '2189AHF' }, 'warehouse_note');
+    expect(c.textContent).not.toContain('Artyk');
+  });
+
+  it('falls back to the geofence name when Traccar has no reverse-geocoded address', () => {
+    livePositionsHook.mockReturnValue({
+      data: [{ ...POSITION, address: null, geofence_name: 'Garaž' }],
+      isLoading: false, isError: false,
+    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const c = renderCell({ vehicle_live_status: 'Ammarda', truck_plate: '2189AHF' });
+    expect(c.textContent).toContain('Ammarda · Garaž');
+  });
+
+  it('shows nothing when both the address and the geofence are empty', () => {
+    livePositionsHook.mockReturnValue({
+      data: [{ ...POSITION, address: null, geofence_name: null }],
+      isLoading: false, isError: false,
+    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const c = renderCell({ vehicle_live_status: 'Ammarda', truck_plate: '2189AHF' });
+    expect(c.textContent?.trim()).toBe('Ammarda');
   });
 });

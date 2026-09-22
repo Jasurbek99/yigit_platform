@@ -31,6 +31,7 @@
     "accountant": "Accountant",
     "greenhouse_manager": "Greenhouse Manager",
     "seller": "Seller",
+    "quality_inspector": "Quality Inspector",
     "weight_master": "Packer",
     "loading_dept_head": "Loading Dept Head",
     "loading_dept_head_deputy": "Loading Dept Deputy",
@@ -2380,6 +2381,7 @@
     "resolved_auto": "auto",
     "resolved_manual": "manual",
     "sheet_open_map": "Show truck on map",
+    "current_geofence": "Current Location",
     "sheet_set_truck": "Set the truck first — fill the Truck / Trailer Plate row."
   },
   "pallet": {
@@ -2716,6 +2718,7 @@
       "vehicle_condition_note": "Vehicle condition note",
       "transit_days": "Transit days",
       "transport_temp_c": "Transport temperature",
+      "shelf_life_days": "Shelf life (days)",
       "variety": "Variety",
       "weight_net": "Net weight",
       "weight_gross": "Gross weight",
