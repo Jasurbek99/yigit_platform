@@ -128,7 +128,8 @@
     "admin_expense_template": "Expense Template",
     "admin_packing_templates": "Packing Templates",
     "documents": "Documents",
-    "pomidor_dukany": "Pomidor Dükany"
+    "pomidor_dukany": "Pomidor Dükany",
+    "tir_takip": "Truck Tracking"
   },
   "expense_template": {
     "title": "Expense Category Template",
@@ -272,6 +273,9 @@
     "week": "Week",
     "prev_week": "Previous week",
     "next_week": "Next week",
+    "this_week": "This week",
+    "block_select_placeholder": "All blocks",
+    "block_filter_no_location": "No location",
     "blocks": "blocks",
     "block": "Block",
     "monday": "Mon",
@@ -327,6 +331,7 @@
     "total_plan": "Total Plan",
     "total_actual": "Total Loaded/Exported",
     "deficit": "Deficit",
+    "today": "Today",
     "est_trucks": "Est. Trucks",
     "late_submissions": "Late submissions",
     "late_submissions_tooltip": "{{late}} late, {{critical}} critical-late this week",
@@ -3789,5 +3794,60 @@
     "kind_truck_allocation_completes": "Every day that needs a truck (planned kg ≥ half a 18,500 kg load) has a destination with at least one truck. An empty week cannot close it.",
     "other_kinds_note": "These three are code, not rules, so they cannot be changed from this page or the admin matrix — changing one needs a deploy.",
     "retired_rule_note": "A task can also be open for a role with no rule here. Rules generate only on the transition into a step, so a task created before a rule was reassigned or switched off keeps the role it was given."
+  },
+  "tir_takip": {
+    "title": "Truck Tracking (Tır Takip)",
+    "no_tabs": "You do not have access to any section of this page.",
+    "tab_no_access": "You do not have access to this data. An administrator can grant it in the permission matrix.",
+    "tab_pending": "This section has no content yet.",
+    "tabs": {
+      "onumcilik": "Production",
+      "gaplama": "Packing",
+      "tirlar": "Trucks",
+      "export_rapor": "Export Report",
+      "hasabat": "Reports",
+      "gumruk_ewrak": "Customs Documents",
+      "kwota_takibi": "Quota Tracking",
+      "sertnamalar": "Foreign Contracts",
+      "datalar": "Data"
+    },
+    "hasabat": {
+      "kpi": {
+        "total_trucks": "Total trucks",
+        "total_kg": "Total kg",
+        "total_kg_sub": "net weight of trucks",
+        "avg_kg": "Average kg / truck",
+        "open_trucks": "Open trucks",
+        "open_trucks_sub": "not arrived yet",
+        "arrived_trucks": "Arrived trucks"
+      },
+      "panel": {
+        "by_month": "kg and trucks by month",
+        "country_share": "kg share by country",
+        "firm_share": "kg share by export firm",
+        "by_customer": "kg by customer",
+        "by_block": "kg by block",
+        "country_detail": "Countries — detail",
+        "firm_detail": "Export firms — detail",
+        "customer_detail": "Customers — detail",
+        "by_variety": "By tomato variety"
+      },
+      "col": {
+        "country": "Country",
+        "firm": "Firm",
+        "customer": "Customer",
+        "variety": "Variety",
+        "trucks": "Trucks",
+        "kg": "Total kg",
+        "share": "Share %"
+      },
+      "series_kg": "Total kg",
+      "month_bar_one": "{{kg}} · {{count}} truck",
+      "month_bar_other": "{{kg}} · {{count}} trucks",
+      "unknown": "Unknown",
+      "empty": "Reports appear automatically once trucks are entered in the Trucks tab.",
+      "no_season": "No active season — nothing to report.",
+      "scope_note": "Drafts and cancelled, deleted or archived trucks are not counted."
+    }
   }
 }

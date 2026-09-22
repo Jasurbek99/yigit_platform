@@ -18,9 +18,10 @@ deploy. What changes is that an admin can now untick either page per role.
 `get_or_create`, not `update_or_create`: brand-new codes with no prior rows, so
 a re-run must not stomp an admin's manual toggle.
 
-Named apart from `Copy_Gadams_UI`'s `0051_tir_takip_page_perms` (applied to the
-shared MSSQL). Merging that branch leaves two 0051 leaves — add a merge
-migration then.
+`Copy_Gadams_UI` also had a `0051` (Tır Takip page perms) on the same parent.
+It was renumbered to `0052_tir_takip_page_perms`, which depends on this one, so
+the graph stays linear. The shared MSSQL's django_migrations row was renamed
+to match.
 
 Post-deploy verification:
     RolePagePermission.objects.filter(page_code__in=['worklog', 'team_kpi']).count()

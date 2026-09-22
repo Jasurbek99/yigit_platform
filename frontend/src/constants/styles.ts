@@ -46,6 +46,12 @@ export const COLORS = {
   borderLight: '#d9d9d9', // antd: colorBorder
 } as const;
 
+/** Categorical series colours for the platform's ECharts (Clients Report, Tır Takip Hasabat). */
+export const CHART_PALETTE = [
+  '#1677ff', '#52c41a', '#fa8c16', '#722ed1', '#13c2c2', '#eb2f96',
+  '#faad14', '#2f54eb', '#a0d911', '#fa541c', '#1890ff', '#9254de',
+] as const;
+
 export const FONT = {
   mono: "'JetBrains Mono', monospace",
   default: 'var(--font, "DM Sans", sans-serif)',

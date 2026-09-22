@@ -3,9 +3,10 @@ import logging
 from django.db import transaction
 from django.db.models import Prefetch
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import status as http_status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import MethodNotAllowed, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -32,6 +33,7 @@ from apps.greenhouse.serializers import (
 from apps.greenhouse.services import (
     admin_override,
     get_block_summary,
+    get_or_create_day_entry,
     initialize_harvest_week,
     set_actual_value,
     set_forecast_value,
@@ -420,6 +422,7 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
     GET    /api/v1/greenhouse/day-entries/{id}/         — detail
     PATCH  /api/v1/greenhouse/day-entries/{id}/         — update plan/forecast/actual values (202 when a
                                                            manager's in-week plan edit is sent for approval)
+    POST   /api/v1/greenhouse/day-entries/write-cell/   — upsert by (block, entry_date) — see write_cell()
 
     PATCH body dispatches per field present in the payload:
       - `plan_value`     → set_plan_value(entry, value, user, reason)
@@ -427,12 +430,24 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
       - `actual_value`   → set_actual_value(entry, value, user, reason)
     `reason` is required when an admin is overriding.
 
-    POST and DELETE are disabled — rows are created by initialize_harvest_week.
+    POST to the collection (create-by-id) and DELETE stay disabled — the only
+    supported write paths are PATCH on an existing row, `write-cell` (creates
+    the row on first write, then behaves like the PATCH above), and
+    `initialize_harvest_week` (bulk backfill, admin/cron only).
     """
 
     permission_classes = [IsAuthenticated, SeasonNotClosed]
     serializer_class = HarvestDayEntrySerializer
-    http_method_names = ['get', 'patch', 'head', 'options']
+    http_method_names = ['get', 'post', 'patch', 'head', 'options']
+
+    def create(self, request, *args, **kwargs):
+        """Collection-level POST stays disabled — use `write-cell` or
+        `initialize_harvest_week`. Only 'post' had to be added to
+        `http_method_names` for the `write-cell` action below; without this
+        override that would also silently reopen the generic create-by-id
+        path with none of the gates it's exempt from below.
+        """
+        raise MethodNotAllowed('POST', detail='Rows are created via write-cell or initialize_harvest_week.')
 
     queryset = HarvestDayEntry.objects.select_related(
         'block', 'season', 'weekly_plan',
@@ -499,8 +514,112 @@ class HarvestDayEntryViewSet(SeasonScopedMixin, ModelViewSet):
             return Response(errors, status=http_status.HTTP_400_BAD_REQUEST)
 
         # Re-fetch through the queryset (not refresh_from_db): the `pending_changes`
-        # to_attr prefetch is a plain attribute that refresh_from_db would leave stale.
-        entry = self.get_queryset().get(pk=entry.pk)
+        # to_attr prefetch is a plain attribute that refresh_from_db would leave stale,
+        # so the cell would report no pending revision right after creating one.
+        # `self.queryset.all()`, not `get_queryset()`: the latter also applies the
+        # ?block=/?date_from= list filters, which would drop the row we just wrote.
+        entry = self.queryset.all().get(pk=entry.pk)
+        # 202: a manager's in-week edit is waiting for export-manager approval (ADR-024).
+        code = http_status.HTTP_202_ACCEPTED if pending_change is not None else http_status.HTTP_200_OK
+        return Response(self.get_serializer(entry).data, status=code)
+
+    @action(detail=False, methods=['post'], url_path='write-cell')
+    def write_cell(self, request):
+        """POST /api/v1/greenhouse/day-entries/write-cell/ — upsert by (block, entry_date).
+
+        Create-on-write path for the weekly grid: a cell may not have a row
+        yet, so it can't be addressed by id the way PATCH is. This resolves
+        (or creates) the WeeklyHarvestPlan + HarvestDayEntry container for
+        `block`/`entry_date` — always under the ACTIVE season, never a browsed
+        one (get_or_create_day_entry) — and then dispatches to the exact same
+        set_plan_value/set_forecast_value/set_actual_value calls partial_update
+        uses, so every gate (role, block assignment, plan-week cutoff,
+        late-edit extension, admin reason) behaves identically to a PATCH on
+        an existing row. A user who may not write is refused the same way,
+        and a fully refused request leaves no rows behind — see the
+        transaction below.
+
+        Body: {block, entry_date, plan_value?, forecast_value?, actual_value?, reason?}
+        Response: same shape as PATCH .../day-entries/{id}/.
+        """
+        data = request.data
+        block_id = data.get('block')
+        entry_date_raw = data.get('entry_date')
+        reason = data.get('reason', '')
+
+        if not block_id:
+            return Response(
+                {'error': 'block is required.'}, status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        entry_date = parse_date(str(entry_date_raw)) if entry_date_raw else None
+        if entry_date is None:
+            return Response(
+                {'error': 'entry_date is required (YYYY-MM-DD).'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not any(k in data for k in ('plan_value', 'forecast_value', 'actual_value')):
+            raise ValidationError(
+                'Body must include at least one of: plan_value, forecast_value, actual_value.'
+            )
+
+        # One transaction around the row creation AND the gated writes. The
+        # rows must not outlive a refusal: this viewset admits any
+        # authenticated user, and the role checks live inside the set_*
+        # services — so if the rows were committed first, a role with no plan
+        # rights at all (seller, transport, …) could still create empty
+        # containers for any block and date in the active season, one refused
+        # request at a time.
+        with transaction.atomic():
+            # get_or_create_day_entry raises ValueError (400) for a bad
+            # identity — no active season, entry_date outside it,
+            # unknown/inactive block — and SeasonClosedError (409, via the
+            # exception handler) when entry_date belongs to a closed season.
+            try:
+                entry = get_or_create_day_entry(block_id, entry_date)
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=http_status.HTTP_400_BAD_REQUEST)
+
+            errors = {}
+            wrote_any = False
+            pending_change = None
+
+            if 'plan_value' in data:
+                try:
+                    pending_change = set_plan_value(entry, data['plan_value'], request.user, reason)
+                    wrote_any = True
+                except (ValueError, PermissionError) as exc:
+                    errors['plan_value'] = str(exc)
+
+            if 'forecast_value' in data:
+                try:
+                    set_forecast_value(entry, data['forecast_value'], request.user, reason)
+                    wrote_any = True
+                except (ValueError, PermissionError) as exc:
+                    errors['forecast_value'] = str(exc)
+
+            if 'actual_value' in data:
+                try:
+                    set_actual_value(entry, data['actual_value'], request.user, reason)
+                    wrote_any = True
+                except (ValueError, PermissionError) as exc:
+                    errors['actual_value'] = str(exc)
+
+            if errors:
+                # Roll back only when NOTHING went through. A mixed payload
+                # where one field was allowed keeps that write and its row —
+                # the same partial-success behaviour partial_update has.
+                if not wrote_any:
+                    transaction.set_rollback(True)
+                return Response(errors, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Re-fetch through the queryset (not refresh_from_db): the `pending_changes`
+        # to_attr prefetch is a plain attribute that refresh_from_db would leave stale,
+        # so the cell would report no pending revision right after creating one.
+        # `self.queryset.all()`, not `get_queryset()`: the latter also applies the
+        # ?block=/?date_from= list filters, which would drop the row we just wrote.
+        entry = self.queryset.all().get(pk=entry.pk)
         # 202: a manager's in-week edit is waiting for export-manager approval (ADR-024).
         code = http_status.HTTP_202_ACCEPTED if pending_change is not None else http_status.HTTP_200_OK
         return Response(self.get_serializer(entry).data, status=code)

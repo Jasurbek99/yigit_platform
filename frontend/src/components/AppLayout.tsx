@@ -28,6 +28,7 @@ import {
   IconMapPin,
   IconReportAnalytics,
   IconRoute,
+  IconTruckDelivery,
   IconScale,
   IconTrophy,
 } from '@tabler/icons-react';
@@ -48,13 +49,16 @@ import { useSeasonStore } from '@/stores/seasonStore';
 import { useWorklogHeartbeat } from '@/hooks/useWorklogHeartbeat';
 import { canSeePage } from '@/utils/permissions';
 import { pickMenuComposition } from '@/utils/menuComposition';
+import '@/pages/sera/sera.css';
 import { clearCachedPrefs } from '@/cache/userPrefsCache';
 import { useProcessTour } from '@/hooks/useProcessTour';
 import { FeedbackFAB } from '@/components/feedback/FeedbackFAB';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { WorklogChip } from '@/components/WorklogChip';
-import { SeasonSwitcher } from '@/components/SeasonSwitcher';
+// Season picker removed from the header, 2026-09-16, by owner request.
+// Uncomment this and its mount below to restore it.
+// import { SeasonSwitcher } from '@/components/SeasonSwitcher';
 import { ClosedSeasonBanner } from '@/components/ClosedSeasonBanner';
 import { COLORS } from '@/constants/styles';
 
@@ -321,6 +325,14 @@ export default function AppLayout() {
     // stays server-side: GET /transport/live-positions/ reads the same row via
     // CanViewFleetMap (backend/apps/transport/permissions.py).
     '/transport/map': { key: '/transport/map', icon: <IconMapPin size={15} />, label: t('nav.fleet_map') },
+    // Tır Takip (Maşyn Yzarlamasy) — the sera-design tab shell.
+    // Deliberately NO `roles` array: the filter below short-circuits on
+    // `item.roles` BEFORE consulting canSeePage, so a roles list would make
+    // this entry ignore every admin toggle forever while the route guard
+    // obeyed them — the sidebar would contradict the permission screen. The
+    // `tir_takip` code is granted to all 15 roles by core migration 0051, so
+    // everyone sees it today and an admin can revoke it without a deploy.
+    '/tir-takip': { key: '/tir-takip', icon: <IconTruckDelivery size={15} />, label: t('nav.tir_takip') },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
     '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
     '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
@@ -364,7 +376,7 @@ export default function AppLayout() {
     group('nav.group_prep', ['/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
-      '/export/shipments/dashboard', '/transport/map',
+      '/export/shipments/dashboard', '/transport/map', '/tir-takip',
     ]),
     group('nav.group_docs', ['/documents', '/admin/packing-templates']),
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
@@ -388,7 +400,7 @@ export default function AppLayout() {
       '/export/task-rules',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
       '/export/my-reports', '/export/advances', '/transport/map',
-      '/export/domestic-sales', '/export/prices',
+      '/export/domestic-sales', '/export/prices', '/tir-takip',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
@@ -424,6 +436,12 @@ export default function AppLayout() {
       };
     })
     .filter(Boolean);
+
+  // Routes that render `.sera-page`. They carry their own visual language, and
+  // the header goes with them — a white bar above a green page is the mismatch
+  // the design was meant to avoid. Keep this in step with the routes that
+  // actually mount a sera page; nothing else in the app reads it.
+  const isSeraPage = location.pathname === '/tir-takip';
 
   const selectedKey = location.pathname.startsWith('/shipments/')
     ? '/export/shipments'
@@ -564,9 +582,12 @@ export default function AppLayout() {
       <Layout style={{ marginLeft: collapsed ? 0 : 220, transition: 'margin-left 0.2s' }}>
         {/* ── Header ──────────────────────────────────────────────────── */}
         <Header
+          className={isSeraPage ? 'sera-header' : undefined}
           style={{
-            background: COLORS.white,
-            borderBottom: '1px solid #f0f0f0',
+            // Left undefined on a sera route so `.sera-header` applies — an
+            // inline background would outrank the class.
+            background: isSeraPage ? undefined : COLORS.white,
+            borderBottom: isSeraPage ? undefined : '1px solid #f0f0f0',
             padding: '0 16px',
             height: 56,
             lineHeight: '56px',
@@ -620,7 +641,26 @@ export default function AppLayout() {
             )}
             <ConnectionStatus />
             <WorklogChip />
-            <SeasonSwitcher />
+            {/* Season picker: removed from the header on every page by owner
+                request, 2026-09-16. Commented rather than deleted so it is one
+                uncomment to restore — the component itself is untouched and
+                still covered by SeasonSwitcher.test.tsx.
+
+                What this costs, recorded because it is not obvious: a CLOSED
+                season can no longer be ENTERED from the UI. `?season=<id>` in
+                the URL still works, and `useSelectedSeason()` still resolves
+                URL ?? store ?? active, so nothing about season state changed —
+                only the control that set it. Getting BACK is still covered:
+                <ClosedSeasonBanner /> renders a "back to active" button
+                whenever a closed season is being browsed, so nobody is
+                stranded read-only with no way out.
+
+                It had previously been hidden on the sera routes only, then
+                restored, because Tır Takip's Önümçilik tab renders the Weekly
+                Plan grid and that grid reads the selected season. That
+                argument now applies to every page equally, which is the thing
+                to weigh if this is ever restored. */}
+            {/* <SeasonSwitcher /> */}
             <Segmented
               size="small"
               value={currentLang}

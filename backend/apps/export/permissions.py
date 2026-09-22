@@ -80,3 +80,32 @@ class CanViewTaskRules(BasePermission):
             return False
         from apps.core.permissions import get_page_permissions
         return get_page_permissions(role).get('export.task_rules', False)
+
+
+class CanViewTirHasabat(BasePermission):
+    """Read gate for the Tır Takip Hasabat report.
+
+    Needs BOTH page codes. `tir_takip.hasabat` is the tab itself and is granted
+    to every role; `analytics.clients` is the audience of the per-customer /
+    per-firm kg this report exposes. The tab body on the frontend checks the
+    same pair (`TirTakip.tsx` TAB_BODIES), so revoking either in the matrix
+    closes both the tab and this endpoint. Both sides resolve codes the same
+    way — role rows via `get_page_permissions`, all-true for superusers — as
+    `/auth/me/`'s `page_permissions` does (`views_auth.py`).
+    """
+
+    PAGE_CODES = ('tir_takip.hasabat', 'analytics.clients')
+
+    def has_permission(self, request, view) -> bool:
+        from apps.core.permissions import get_page_permissions
+
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.is_superuser:
+            return True
+        role = getattr(user, 'role', None)
+        if not role:
+            return False
+        pages = get_page_permissions(role)
+        return all(pages.get(code, False) for code in self.PAGE_CODES)

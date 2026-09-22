@@ -216,7 +216,18 @@ class NoAdHocActiveSeasonLookupTests(TestCase):
     # Task 5 removed the marker-comment tolerance that briefly exempted three
     # deferred sites: it was a bare text match, so pasting the comment beside a
     # brand-new ad-hoc lookup would have silenced the guard.
-    WRITE_TARGET = re.compile(r'Season\.objects[^\n]*?\.\s*filter\s*\(.*?is_active\s*=\s*True', re.DOTALL)
+    # Bounded to the filter() call's own argument list, not `.*?`: under DOTALL
+    # a bare `.*?` ran past the end of the call and matched an `is_active=True`
+    # belonging to a later, unrelated statement — e.g. a date-range
+    # `Season.objects.filter(start_date__lte=...)` followed further down by
+    # `GreenhouseBlock.objects.filter(..., is_active=True)`.
+    # `(?:[^()]|\([^()]*\))*?` allows one level of nesting inside the arguments,
+    # so `filter(Q(...), is_active=True)` and `filter(pk=f(), is_active=True)`
+    # are still caught, while the match can never escape the outer call.
+    WRITE_TARGET = re.compile(
+        r'Season\.objects[^\n]*?\.\s*filter\s*\((?:[^()]|\([^()]*\))*?is_active\s*=\s*True',
+        re.DOTALL,
+    )
     READ_SCOPE = re.compile(r'season__is_active\s*=\s*True')
 
     def test_no_direct_is_active_lookups_outside_core_seasons(self):

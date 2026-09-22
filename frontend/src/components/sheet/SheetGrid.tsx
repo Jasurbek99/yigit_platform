@@ -27,7 +27,7 @@ import type {
   ISheetRowSettingForUser,
   ICellLastEdit,
 } from '@/types';
-import { useSheetStore } from '@/stores/sheetStore';
+import { useSheetStore, type TSheetVariant } from '@/stores/sheetStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { isCellEditable } from '@/utils/sheetPermissions';
@@ -144,6 +144,22 @@ interface ISheetGridProps {
   onReorder?: (newRowOrder: number[]) => void;
   /** Called with the row ID to hide. */
   onHideRow?: (rowId: number) => void;
+  /**
+   * Pins the design variant, ignoring the user's toolbar toggle.
+   *
+   * Only the Tir Takip tab copy passes it: that page is a clone of the Sera
+   * Butce app, and `ios` IS that app's Tirlar skin, so the tab must not render
+   * in platform colours because someone left the toggle on `classic`.
+   *
+   * Omitted everywhere else, which keeps `/export/shipments/sheet` on the
+   * store exactly as before. It is a prop rather than a store write because
+   * `setSheetVariant` persists to localStorage — pinning through the store
+   * would follow the user back to the classic Sheet.
+   *
+   * Forwarded to `SheetCell` as-is (not resolved), because the variant also
+   * sizes the cell: a pinned grid with classic-sized cells drifts out of line.
+   */
+  variant?: TSheetVariant;
 }
 
 // z-index hierarchy
@@ -169,6 +185,7 @@ export function SheetGrid({
   fieldKeyToRowId,
   onReorder,
   onHideRow,
+  variant,
 }: ISheetGridProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -181,7 +198,9 @@ export function SheetGrid({
   const frozenRowCount = useSheetStore((s) => s.frozenRowCount);
   const frozenColCount = useSheetStore((s) => s.frozenColCount);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
-  const sheetVariant = useSheetStore((s) => s.sheetVariant);
+  const storeVariant = useSheetStore((s) => s.sheetVariant);
+  // Prop wins when the caller pins it; otherwise the user's toolbar toggle.
+  const sheetVariant = variant ?? storeVariant;
   const whoColumnHidden = useSheetStore((s) => s.whoColumnHidden);
   const groupRowsByRole = useSheetStore((s) => s.groupRowsByRole);
   const iosRowOrder = useSheetStore((s) => s.iosRowOrder);
@@ -800,10 +819,15 @@ export function SheetGrid({
           commentTaskState={cellTaskState}
           rowSetting={rowSettings[rowConfig.field_key]}
           cellColor={cellColors[shipment.id]?.[rowConfig.field_key] ?? null}
+          variant={variant}
         />
       );
     },
-    [editingCell, user, commentCounts, taskCounts, cellColors, rowSettings, isSeasonReadOnly],
+    // `variant` is the caller's pin, NOT the resolved `sheetVariant`: undefined
+    // on the Sheet route, so the cell keeps reading the live store there and
+    // the toolbar toggle resizes it at once. (`sheetVariant` itself is still
+    // missing from this list — pre-existing, reached only by the editor.)
+    [editingCell, user, commentCounts, taskCounts, cellColors, rowSettings, isSeasonReadOnly, variant],
   );
 
   const virtualColumns = columnVirtualizer.getVirtualItems();

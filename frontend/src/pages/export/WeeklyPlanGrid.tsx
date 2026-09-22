@@ -39,7 +39,6 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
 import {
   useHarvestPlans,
-  useInitializeWeek,
   useDayEntries,
   useUpsertDayEntry,
   useBulkGrantLateEdit,
@@ -47,7 +46,7 @@ import {
   usePlanChangeRequests,
 } from '@/hooks/usePlanning';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
-import { useSeasons } from '@/hooks/useAdmin';
+import { useSeasons, useGreenhouseBlocks } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
@@ -61,6 +60,7 @@ import { PlanChangeRequestsDrawer } from '@/components/PlanChangeRequestsDrawer'
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
 import { planGridCapabilities } from './WeeklyPlanGrid.roles';
+import { buildPlanGridRows, type IPlanGridRow } from './WeeklyPlanGrid.rows';
 import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
@@ -120,12 +120,12 @@ export default function WeeklyPlanGrid() {
   const year = selectedWeek?.isoWeekYear();
 
   // `activeSeason` (the TRUE active/write-target season, never the browsed
-  // one) is kept ONLY for the initialize-week mutation and its availability
-  // gate below — both create rows, which always target the active season
-  // regardless of what's being browsed. It is deliberately NOT passed into
-  // useHarvestPlans/useDayEntries: those are reads, and the hooks now own
-  // season selection internally via the global store (useSelectedSeason()),
-  // so the switcher (Task 15/16) actually has an effect on this page.
+  // one) is kept for `TruckAllocationTable`'s `seasonId` prop — truck
+  // allocations always target the active season regardless of what's being
+  // browsed. It is deliberately NOT passed into useHarvestPlans/useDayEntries:
+  // those are reads, and the hooks now own season selection internally via the
+  // global store (useSelectedSeason()), so the switcher (Task 15/16) actually
+  // has an effect on this page.
   const { data: seasonsData } = useSeasons();
   const activeSeason = seasonsData?.find((s) => s.is_active);
   // The season the grid's DATA actually belongs to (`useHarvestPlans` /
@@ -156,13 +156,13 @@ export default function WeeklyPlanGrid() {
     date_from: dateFrom,
     date_to: dateTo,
   });
+  const { data: blocksData = [], isLoading: blocksLoading } = useGreenhouseBlocks();
 
-  const initWeek = useInitializeWeek();
   const upsertEntry = useUpsertDayEntry();
   const bulkGrant = useBulkGrantLateEdit();
   const bulkRevoke = useBulkRevokeLateEdit();
 
-  const isLoading = plansLoading || entriesLoading;
+  const isLoading = plansLoading || entriesLoading || blocksLoading;
 
   // ─── Derived data ──────────────────────────────────────────────────────────
 
@@ -183,7 +183,6 @@ export default function WeeklyPlanGrid() {
     canEditActual,
     canDecidePlanChanges,
   } = planGridCapabilities({ role: user?.role, isReadOnly });
-  const isManager = canEditHarvest;
 
   const generateTasksMutation = useMutation<
     IGenerateTasksResponse,
@@ -213,6 +212,19 @@ export default function WeeklyPlanGrid() {
     const rest = raw.filter((p) => !myBlockIds.has(p.block));
     return [...mine, ...rest];
   }, [plansData, isBlockManager, myBlockIds]);
+
+  // Row source for both grid views (create-on-write): one row per plannable
+  // block, whether or not its week has been initialised yet. `plans` above
+  // stays the source for anything that needs a REAL plan object — the bulk
+  // late-edit id lists below and `TruckAllocationTable` — since only a plan
+  // that exists can hold a late-edit extension.
+  const rows: IPlanGridRow[] = useMemo(() => {
+    const built = buildPlanGridRows(blocksData, plansData?.results ?? []);
+    if (!isBlockManager) return built;
+    const mine = built.filter((r) => myBlockIds.has(r.block));
+    const rest = built.filter((r) => !myBlockIds.has(r.block));
+    return [...mine, ...rest];
+  }, [blocksData, plansData, isBlockManager, myBlockIds]);
 
   /** Map keyed by `${blockId}-${YYYY-MM-DD}` → IHarvestDayEntry */
   const entriesByBlockDay = useMemo((): Map<string, IHarvestDayEntry> => {
@@ -289,13 +301,18 @@ export default function WeeklyPlanGrid() {
     return false;
   }
 
-  function canEditPlanForEntry(entry: IHarvestDayEntry): boolean {
+  // Both admin and greenhouse_manager can edit any plan cell at any time.
+  // Lateness is tracked via entry.plan_state and surfaces as a cell badge;
+  // late/critical_late submissions notify admin + director. Keyed on the
+  // block alone (not the entry) so a missing cell — no HarvestDayEntry yet —
+  // can be gated the same way as a real one.
+  function canEditPlanForBlock(blockId: number): boolean {
     if (isReadOnly) return false;
-    if (!hasBlockPermission(entry.block)) return false;
-    // Both admin and greenhouse_manager can edit any plan cell at any time.
-    // Lateness is tracked via entry.plan_state and surfaces as a cell badge;
-    // late/critical_late submissions notify admin + director.
-    return true;
+    return hasBlockPermission(blockId);
+  }
+
+  function canEditPlanForEntry(entry: IHarvestDayEntry): boolean {
+    return canEditPlanForBlock(entry.block);
   }
 
   function canEditActualForEntry(entry: IHarvestDayEntry): boolean {
@@ -308,48 +325,71 @@ export default function WeeklyPlanGrid() {
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
+  /**
+   * Extracts the refusal message from either shape the server sends: the
+   * week-cutoff style `{error: "..."}`, or a create-on-write / PATCH field
+   * error like `{plan_value: "..."}` — `write-cell` answers a permission
+   * refusal as 400 with the field name as the key, same as PATCH.
+   */
+  function planSaveErrorMessage(err: unknown): string {
+    const apiErr = err as {
+      response?: { data?: { error?: string; plan_value?: string; actual_value?: string } };
+    };
+    const data = apiErr?.response?.data;
+    return data?.error ?? data?.plan_value ?? data?.actual_value ?? '';
+  }
+
+  /**
+   * `entryId` is `null` for a missing cell (create-on-write): the row does not
+   * exist yet, so `block`/`entryDate` address it instead. Both are always
+   * supplied by the caller — for an existing entry they equal `entry.block` /
+   * `entry.entry_date` — so one saving-key format (`${block}-${entryDate}`)
+   * covers every cell, real or not-yet-created.
+   */
   function handleCellSave(
-    entryId: number,
+    entryId: number | null,
+    block: number,
+    entryDate: string,
     field: 'plan_value' | 'actual_value',
     value: number | null,
     reason?: string,
   ) {
-    const key = String(entryId);
-    setSavingKey(key);
+    setSavingKey(`${block}-${entryDate}`);
     // Read before saving: a withdraw comes back 200 with `pending_change: null`,
-    // exactly like a plain save, so only the prior state tells them apart.
-    const hadPending = dayEntries.find((e) => e.id === entryId)?.pending_change != null;
-    upsertEntry.mutate(
-      { id: entryId, [field]: value, ...(reason ? { reason } : {}) },
-      {
-        onSuccess: (saved) => {
-          if (field === 'plan_value' && saved.pending_change) {
-            toast.info(t('plan.toast_sent_for_approval'));
-          } else if (field === 'plan_value' && hadPending && !isAdminLike) {
-            toast.info(t('plan.toast_change_withdrawn'));
-          } else {
-            toast.success(
-              t(field === 'plan_value' ? 'plan.toast_plan_saved' : 'plan.toast_actual_saved'),
-            );
-          }
-          setSavingKey(null);
-        },
-        onError: (err: unknown) => {
-          const apiErr = err as { response?: { data?: { error?: string; plan_value?: string } } };
-          const serverMsg = apiErr?.response?.data?.error ?? apiErr?.response?.data?.plan_value ?? '';
-          if (serverMsg.includes('Plan edits')) {
-            toast.error(t('plan.edit_window_closed_toast'));
-          } else if (serverMsg.includes('Allowed range')) {
-            toast.error(serverMsg);
-          } else if (serverMsg.includes('cannot be cleared')) {
-            toast.error(t('plan.change_clear_refused'));
-          } else {
-            toast.error(t('plan.toast_save_error'));
-          }
-          setSavingKey(null);
-        },
+    // exactly like a plain save, so only the prior state tells them apart. A cell
+    // with no row yet (create-on-write) can never have a pending change.
+    const hadPending =
+      entryId != null && dayEntries.find((e) => e.id === entryId)?.pending_change != null;
+    const payload = entryId
+      ? { id: entryId, [field]: value, ...(reason ? { reason } : {}) }
+      : { block, entry_date: entryDate, [field]: value, ...(reason ? { reason } : {}) };
+    upsertEntry.mutate(payload, {
+      onSuccess: (saved) => {
+        if (field === 'plan_value' && saved.pending_change) {
+          toast.info(t('plan.toast_sent_for_approval'));
+        } else if (field === 'plan_value' && hadPending && !isAdminLike) {
+          toast.info(t('plan.toast_change_withdrawn'));
+        } else {
+          toast.success(
+            t(field === 'plan_value' ? 'plan.toast_plan_saved' : 'plan.toast_actual_saved'),
+          );
+        }
+        setSavingKey(null);
       },
-    );
+      onError: (err: unknown) => {
+        const serverMsg = planSaveErrorMessage(err);
+        if (serverMsg.includes('Plan edits')) {
+          toast.error(t('plan.edit_window_closed_toast'));
+        } else if (serverMsg.includes('Allowed range')) {
+          toast.error(serverMsg);
+        } else if (serverMsg.includes('cannot be cleared')) {
+          toast.error(t('plan.change_clear_refused'));
+        } else {
+          toast.error(t('plan.toast_save_error'));
+        }
+        setSavingKey(null);
+      },
+    });
   }
 
   function handleRangeError(min: number, max: number) {
@@ -359,14 +399,6 @@ export default function WeeklyPlanGrid() {
   function handleGenerateTasks() {
     if (!weekNumber || !year) return;
     generateTasksMutation.mutate({ year, week: weekNumber });
-  }
-
-  function handleInitializeWeek() {
-    if (!activeSeason || !weekNumber || !year) return;
-    initWeek.mutate(
-      { season: activeSeason.id, week_number: weekNumber, year },
-      { onSuccess: () => toast.success(t('plan.toast_initialized')) },
-    );
   }
 
   function handleBulkGrant(granted_until: string) {
@@ -424,15 +456,17 @@ export default function WeeklyPlanGrid() {
       ),
       key: `${day}_cell`,
       width: 120,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => {
-        const entry = entriesByBlockDay.get(`${row.block}-${colDateStr}`);
-        if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
+      render: (_: unknown, row: IPlanGridRow) => {
+        const entry = entriesByBlockDay.get(`${row.block}-${colDateStr}`) ?? null;
         return (
           <HarvestCell
             entry={entry}
-            canEditPlan={canEditPlanForEntry(entry)}
-            canEditActual={canEditActualForEntry(entry)}
-            onSave={handleCellSave}
+            cellKey={`${row.block}-${colDateStr}`}
+            canEditPlan={entry ? canEditPlanForEntry(entry) : canEditPlanForBlock(row.block)}
+            canEditActual={entry ? canEditActualForEntry(entry) : false}
+            onSave={(entryId, field, value, reason) =>
+              handleCellSave(entryId, row.block, colDateStr, field, value, reason)
+            }
             onCellClick={(id) => {
               const found = dayEntries.find((e) => e.id === id);
               if (found) setHistoryEntry(found);
@@ -448,13 +482,13 @@ export default function WeeklyPlanGrid() {
     };
   });
 
-  const columns: TableColumnsType<IWeeklyHarvestPlan> = [
+  const columns: TableColumnsType<IPlanGridRow> = [
     {
       title: t('plan.block'),
       key: 'block',
       fixed: 'left',
       width: 160,
-      render: (_: unknown, row: IWeeklyHarvestPlan) => {
+      render: (_: unknown, row: IPlanGridRow) => {
         const isLinked =
           !!deepLinkBlock &&
           (String(row.block) === deepLinkBlock || row.block_code === deepLinkBlock);
@@ -516,32 +550,34 @@ export default function WeeklyPlanGrid() {
       width: 100,
       render: (text: string) => <strong>{text}</strong>,
     },
-    ...plans.map((p) => {
-      const isMine = isBlockManager && myBlockIds.has(p.block);
+    ...rows.map((r) => {
+      const isMine = isBlockManager && myBlockIds.has(r.block);
       return {
         title: (
           <div style={{ textAlign: 'center' as const }}>
-            <Tag color={isMine ? 'gold' : 'blue'}>{p.block_code}</Tag>
-            {p.block_manager_names.length > 0 && (
+            <Tag color={isMine ? 'gold' : 'blue'}>{r.block_code}</Tag>
+            {r.block_manager_names.length > 0 && (
               <div style={{ color: COLORS.textMuted, fontSize: 10, fontWeight: 400, marginTop: 1 }}>
-                {p.block_manager_names.join(', ')}
+                {r.block_manager_names.join(', ')}
               </div>
             )}
           </div>
         ),
-        key: p.block_code,
+        key: r.key,
         width: 130,
         onCell: () => ({ style: isMine ? { backgroundColor: COLORS.bgYellow } : undefined }),
         onHeaderCell: () => ({ style: isMine ? { backgroundColor: COLORS.bgYellow } : undefined }),
         render: (_: unknown, row: ITransposedRow) => {
-          const entry = entriesByBlockDay.get(`${p.block}-${row.dateStr}`);
-          if (!entry) return <span style={{ color: COLORS.textMuted }}>—</span>;
+          const entry = entriesByBlockDay.get(`${r.block}-${row.dateStr}`) ?? null;
           return (
             <HarvestCell
               entry={entry}
-              canEditPlan={canEditPlanForEntry(entry)}
-              canEditActual={canEditActualForEntry(entry)}
-              onSave={handleCellSave}
+              cellKey={`${r.block}-${row.dateStr}`}
+              canEditPlan={entry ? canEditPlanForEntry(entry) : canEditPlanForBlock(r.block)}
+              canEditActual={entry ? canEditActualForEntry(entry) : false}
+              onSave={(entryId, field, value, reason) =>
+                handleCellSave(entryId, r.block, row.dateStr, field, value, reason)
+              }
               onCellClick={(id) => {
                 const found = dayEntries.find((e) => e.id === id);
                 if (found) setHistoryEntry(found);
@@ -567,8 +603,8 @@ export default function WeeklyPlanGrid() {
         {activeDays.map((day, di) => {
           const colDate = weekMonday.add(di, 'day');
           const colDateStr = colDate.format('YYYY-MM-DD');
-          const planTotal = plans.reduce((s, p) => {
-            const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
+          const planTotal = rows.reduce((s, r) => {
+            const e = entriesByBlockDay.get(`${r.block}-${colDateStr}`);
             return s + num(e?.plan_value);
           }, 0);
           // const actualTotal = plans.reduce((s, p) => {
@@ -597,14 +633,14 @@ export default function WeeklyPlanGrid() {
           <Table.Summary.Cell index={0}>
             <span style={{ color: COLORS.primary }}>{t('plan.total')} {t('plan.plan')}</span>
           </Table.Summary.Cell>
-          {plans.map((p, i) => {
+          {rows.map((r, i) => {
             const blockTotal = activeDays.reduce((s, _, di) => {
               const colDate = weekMonday.add(di, 'day');
-              const e = entriesByBlockDay.get(`${p.block}-${colDate.format('YYYY-MM-DD')}`);
+              const e = entriesByBlockDay.get(`${r.block}-${colDate.format('YYYY-MM-DD')}`);
               return s + num(e?.plan_value);
             }, 0);
             return (
-              <Table.Summary.Cell key={`tp_${p.id}`} index={1 + i}>
+              <Table.Summary.Cell key={`tp_${r.key}`} index={1 + i}>
                 <span style={{ color: COLORS.primary }}>{fmtKg(blockTotal || null)}</span>
               </Table.Summary.Cell>
             );
@@ -633,23 +669,13 @@ export default function WeeklyPlanGrid() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  // Show Initialize Week when plans are missing OR plans exist but day-entry cells
-  // were never created (legacy data created before initialize_harvest_week backfilled
-  // HarvestDayEntry rows). The endpoint is idempotent.
-  const expectedDayEntries = plans.length * DAYS.length;
-  const showInitialize =
-    !isLoading &&
-    !!isManager &&
-    !!activeSeason &&
-    (plans.length === 0 || dayEntries.length < expectedDayEntries);
-
   return (
     <div>
       <Flex justify="space-between" align="flex-start" wrap gap={12} style={{ marginBottom: 16 }}>
         <div>
           <Title level={4} style={{ margin: 0 }}>{t('plan.title')}</Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            {t('plan.week')} {weekNumber} · {year} · {plans.length} {t('plan.blocks')}
+            {t('plan.week')} {weekNumber} · {year} · {rows.length} {t('plan.blocks')}
             {browsedSeason && <span> · {browsedSeason.name}</span>}
           </Text>
         </div>
@@ -671,7 +697,7 @@ export default function WeeklyPlanGrid() {
             onClick={() => setSelectedWeek((w) => (w ?? dayjs()).add(1, 'week'))}
             aria-label={t('plan.next_week')}
           />
-          {plans.length > 0 && (
+          {rows.length > 0 && (
             <Button
               icon={<SwapOutlined />}
               onClick={() => setTransposed(!transposed)}
@@ -680,7 +706,7 @@ export default function WeeklyPlanGrid() {
               {t('plan.pivot')}
             </Button>
           )}
-          {plans.length > 0 && (
+          {rows.length > 0 && (
             <Button
               icon={<CalendarOutlined />}
               onClick={() => setShowSunday(!showSunday)}
@@ -726,23 +752,6 @@ export default function WeeklyPlanGrid() {
               {t('plan.generate_tasks')}
             </Button>
           )}
-          {showInitialize && (
-            <Button
-              type="primary"
-              loading={initWeek.isPending}
-              // Initialize Week always creates rows in the TRUE active season
-              // (see the `activeSeason` comment above), never the browsed one,
-              // so a click here can't 409. Disabled anyway while browsing a
-              // closed season: the button reacts to the BROWSED season's empty
-              // grid (plans.length === 0), so leaving it live would let someone
-              // "initialize" what looks like the season they're looking at
-              // while it silently writes into a different one.
-              disabled={isReadOnly}
-              onClick={handleInitializeWeek}
-            >
-              {t('plan.initialize_week')}
-            </Button>
-          )}
           {canSeeFallbackMode && isInFallbackWindow && (
             <Button
               type="primary"
@@ -757,7 +766,7 @@ export default function WeeklyPlanGrid() {
       </Flex>
 
       {/* KPI stat cards */}
-      {plans.length > 0 && (
+      {rows.length > 0 && (
         <Flex gap={12} wrap style={{ marginBottom: 16 }}>
           <Card size="small" style={{ flex: 1, minWidth: 150 }}>
             <Statistic
@@ -858,8 +867,6 @@ export default function WeeklyPlanGrid() {
 
       {isLoading ? (
         <Skeleton active />
-      ) : plans.length === 0 && !showInitialize ? (
-        <Alert type="info" message={t('plan.empty_week')} style={{ marginBottom: 16 }} />
       ) : transposed ? (
         <Table<ITransposedRow>
           columns={transposedColumns}
@@ -872,10 +879,10 @@ export default function WeeklyPlanGrid() {
           summary={renderTransposedSummary}
         />
       ) : (
-        <Table<IWeeklyHarvestPlan>
+        <Table<IPlanGridRow>
           columns={columns}
-          dataSource={plans}
-          rowKey="id"
+          dataSource={rows}
+          rowKey="key"
           bordered
           size="small"
           scroll={{ x: 'max-content' }}

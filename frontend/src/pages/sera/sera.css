@@ -1,0 +1,794 @@
+/**
+ * Sera design system — scoped stylesheet for the cloned `sera-butce-web` pages.
+ *
+ * These pages deliberately do NOT look like the rest of the platform (owner
+ * request, 2026-09-16: "new pages have another design, don't change ours").
+ * The palette is ported from `data/sera-butce-web/client/src/App.jsx`, which is
+ * a Tailwind app; our frontend has no Tailwind, so the values are written out
+ * here as plain CSS.
+ *
+ * CONTAINMENT RULES — every one of these exists to keep the design from
+ * leaking into the antd pages next door. Do not relax them:
+ *
+ *   1. Custom properties live on `.sera-page`, never on `:root`. A `:root`
+ *      declaration would be in scope for every antd component in the app.
+ *   2. Every selector is scoped to one of two opt-in classes — `.sera-page`
+ *      (the page itself) or `.sera-header` (the app header, while a sera page
+ *      is open). No bare element selectors, no `body`, no `#root`. That is
+ *      what makes it safe for AppLayout to import this file directly: the
+ *      rules reach nothing that has not asked for them.
+ *   3. The page background is painted on the page's own root div. The sera
+ *      source puts its gradient on the app shell (`min-h-screen`); inside our
+ *      AppLayout that translates to bleeding out of `<Content>`'s padding on
+ *      the sides and bottom — never the top — see `.sera-page` below.
+ *   4. Nothing here touches the antd theme. The global `<ConfigProvider>` in
+ *      App.tsx is the platform's, and stays the platform's.
+ */
+
+/* The one gradient, declared once and shared by the page and by the header
+   above it. Both surfaces must resolve the identical value or the join
+   between them shows. */
+.sera-page,
+.sera-header {
+  --sera-bg: linear-gradient(135deg, #f0f9f0 0%, #e3f3e6 45%, #d9eee0 100%);
+}
+
+.sera-page {
+  /* Tailwind stone/emerald/amber values, resolved. Names match the source
+     classes so a diff against App.jsx stays readable. */
+  --sera-accent: #065f46; /* emerald-800 — active tab, primary button */
+  --sera-accent-hover: #047857; /* emerald-700 */
+  --sera-card-bg: rgba(236, 253, 245, 0.4); /* emerald-50/40 */
+  --sera-border: #e7e5e4; /* stone-200 */
+  --sera-text: #292524; /* stone-800 */
+  --sera-text-soft: #44403c; /* stone-700 */
+  --sera-text-muted: #78716c; /* stone-500 */
+  --sera-text-faint: #a8a29e; /* stone-400 */
+  --sera-surface: #fafaf9; /* stone-50 — table headers */
+  --sera-today: #fef3c7; /* amber-100 */
+  --sera-radius: 12px; /* rounded-xl */
+  --sera-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); /* shadow-sm */
+
+  /* Bleed past <Content>'s 24px padding on the sides and bottom. The TOP is
+     covered by the ::before layer below, not by a negative margin: <Content>
+     renders <ClosedSeasonBanner /> as our preceding sibling, and a negative
+     top margin would pull the page up over that warning whenever a closed
+     season is being browsed. */
+  position: relative;
+  margin: 0 -24px -24px;
+  padding: 0 24px 24px;
+  min-height: calc(100% + 24px);
+  color: var(--sera-text);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* The gradient itself, as a layer rather than this element's own background.
+   `top: -24px` stretches it up through <Content>'s top padding so the page
+   meets the header with no strip of antd grey (#f5f5f5) between them — that
+   seam was the visible mismatch.
+
+   It must NOT use `z-index: -1`. A negative-z-index descendant paints above
+   the stacking-context root's background but BELOW the in-flow backgrounds of
+   intermediate ancestors, and <Content> is exactly such an ancestor — its grey
+   would cover the gradient completely. Verified in a layout replica; the page
+   came out entirely grey. Left positioned with `z-index: auto` instead, which
+   paints it above that background. */
+.sera-page::before {
+  content: '';
+  position: absolute;
+  top: -24px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--sera-bg);
+  background-size: 100vw 100vh;
+}
+
+/* <Content> renders <ClosedSeasonBanner /> directly above us, but only while a
+   closed season is being browsed — it returns null otherwise, so nothing is in
+   the DOM and we are the first child. When it IS there, reaching up 24px would
+   paint over the bottom 8px of that warning (it carries `marginBottom: 16`),
+   so the layer stops at our own top edge and the banner keeps its gap. */
+.sera-page:not(:first-child)::before {
+  top: 0;
+}
+
+/* Lift the real content above the layer. The ::before is positioned and these
+   are not, so without this the gradient would paint over the tabs. */
+.sera-page > * {
+  position: relative;
+}
+
+/* ── App header ─────────────────────────────────────────────────────────
+   AppLayout puts this class on its <Header> while a sera route is open, and
+   drops the inline white background so this one wins. Same gradient as the
+   page, and no bottom rule, so the header and the page read as a single
+   surface rather than a white bar sitting on a green one. `background-size`
+   pins the gradient to the viewport in both places, so the colour at the
+   header's bottom edge is the colour at the page's top edge — without it the
+   two elements resolve their own 135deg ramps over different heights and the
+   join shows as a step. */
+.sera-header {
+  background: var(--sera-bg);
+  background-size: 100vw 100vh;
+  border-bottom: none;
+}
+
+/* ── Tab strip ──────────────────────────────────────────────────────────
+   Ported from the `Tabs` component at App.jsx:2472. Hand-rolled rather than
+   antd <Tabs> on purpose: matching this underline treatment would mean
+   overriding antd tab tokens, and those overrides are the kind that bleed. */
+
+.sera-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--sera-border);
+  margin-bottom: 16px;
+  /* Claw back most of <Content>'s 24px top padding. That padding is the
+     platform's page chrome, and with the header now sharing this page's
+     gradient there is no bar to sit clear of — it just read as a gap between
+     the header and the tabs. 8px of it is left, plus the tab's own 8px, so the
+     strip has room to breathe without floating. */
+  margin-top: -18px;
+}
+
+/* Except when <ClosedSeasonBanner /> is above us: its 16px bottom margin IS
+   the spacing there, and pulling into it would crowd the warning. */
+.sera-page:not(:first-child) .sera-tabs {
+  margin-top: 0;
+}
+
+.sera-tab {
+  /* -1px pulls the tab's own border down onto the strip's, so the active
+     underline replaces it rather than stacking below it (`-mb-px`). */
+  margin-bottom: -1px;
+  padding: 8px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sera-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sera-tab:hover {
+  color: var(--sera-text-soft);
+}
+
+.sera-tab[aria-selected='true'] {
+  border-bottom-color: var(--sera-accent);
+  color: var(--sera-accent);
+}
+
+/* Keyboard users need to see where they are; the source app omits this and
+   relies on the browser default, which is invisible against the gradient. */
+.sera-tab:focus-visible {
+  outline: 2px solid var(--sera-accent);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+/* ── Card ───────────────────────────────────────────────────────────────
+   Ported from the `Card` component at App.jsx:1822. */
+
+.sera-card {
+  background: var(--sera-card-bg);
+  border: 1px solid var(--sera-border);
+  border-radius: var(--sera-radius);
+  box-shadow: var(--sera-shadow);
+  padding: 16px;
+}
+
+/* ── Empty state ────────────────────────────────────────────────────────
+   Ported from `EmptyHint` at App.jsx:2493. Used for a tab whose content has
+   not been built yet, and for the all-tabs-revoked case. */
+
+.sera-empty {
+  padding: 32px 16px;
+  border: 1px dashed var(--sera-border);
+  border-radius: 8px;
+  color: var(--sera-text-faint);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* ── Data table ─────────────────────────────────────────────────────────
+   Ported from the Önümçilik table at App.jsx:13412–13500. That table is a
+   plain `<table class="w-full text-xs border-collapse">`; ours is an antd
+   <Table>, kept because it already carries the sticky first column, the
+   horizontal scroll, the summary row and the editable cell — none of which the
+   restyle changes. So this block is antd's DOM wearing sera's typography and
+   palette, not a reimplementation.
+
+   Every selector starts at `.sera-page`, so `/export/plan` — the same grid,
+   one route away — is untouched. That containment is the whole reason the copy
+   exists; see the header of this file.
+
+   Tailwind values, resolved: text-xs 12px, text-sm 14px, text-[9px] 9px;
+   stone-50 #fafaf9, stone-100 #f5f5f4, stone-200 #e7e5e4, stone-300 #d6d3d1,
+   stone-400 #a8a29e, stone-700 #44403c; emerald-50 #ecfdf5, emerald-700
+   #047857, emerald-800 #065f46; amber-100 #fef3c7, amber-50 #fffbeb. */
+
+.sera-page .ant-table {
+  font-size: 12px;
+  background: transparent;
+}
+
+/* antd's own cell borders are heavier and warmer-grey than sera's. Redraw
+   them: a single left rule per cell, the way `border-l border-stone-100`
+   does, instead of antd's full box. */
+.sera-page .ant-table-bordered .ant-table-container,
+.sera-page .ant-table-bordered .ant-table-container table > thead > tr > th,
+.sera-page .ant-table-bordered .ant-table-container table > tbody > tr > td,
+.sera-page .ant-table-bordered .ant-table-container table > tfoot > tr > td {
+  border-color: #f5f5f4;
+}
+
+.sera-page .ant-table-thead > tr > th {
+  background: var(--sera-surface);
+  border-bottom: 1px solid var(--sera-border);
+  color: var(--sera-text-faint);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px;
+}
+
+/* antd draws a vertical divider pseudo-element between header cells on top of
+   the border we just set, in a different colour. */
+.sera-page .ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+.sera-page .ant-table-tbody > tr > td {
+  padding: 4px;
+  border-bottom: 1px solid #f5f5f4;
+}
+
+/* The block column. `px-3 py-2` on the sera side, and the name carries the row
+   now that the block-code tag is gone — so it takes stone-700 at the table's
+   own size rather than the muted 11px it had as a subtitle. */
+.sera-page .ant-table-tbody > tr > td:first-child {
+  padding: 8px 12px;
+}
+
+.sera-block-name {
+  color: var(--sera-text-soft);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Task 3 — the block's location (Dusak / Kaka / Owadandepe), one muted line
+   under the name. Absent entirely (no empty line reserved) when a block has
+   no location, so blocks with and without one don't visibly misalign — the
+   manager-names line below still opens with its own icon either way. */
+.sera-page .sera-block-location {
+  color: var(--sera-text-faint);
+  font-size: 10px;
+  margin-top: 1px;
+}
+
+/* ── The cell itself ────────────────────────────────────────────────────
+   Ported from `NumInput` at App.jsx:2300 as the Önümçilik table uses it
+   (App.jsx:13438): `w-full px-2 py-1.5 rounded-md border border-stone-200
+   text-sm` plus the table's own `text-center`. Every cell is a box you type
+   straight into — no click-to-edit step — which is why `OnumcilikCell`
+   replaces `HarvestCell` here.
+
+   14px is the one thing sera sets LARGER than its 12px table: it is the number
+   being typed, so it carries the cell. */
+.sera-page .sera-cell-input.ant-input-number {
+  width: 100%;
+  border-color: var(--sera-border);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+/* 34px is sera's box, measured rather than guessed: `py-1.5` is 6px top and
+   bottom, `text-sm` is a 20px line, plus 1px of border each side. Ours read
+   shorter because antd's small size is 24px. */
+.sera-page .sera-cell-input .ant-input-number-input {
+  height: 34px;
+  padding: 0 4px;
+  color: var(--sera-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* emerald-600, matching the focus ring the sera inputs carry
+   (`focus:ring-emerald-600 focus:border-emerald-600`). */
+.sera-page .sera-cell-input.ant-input-number-focused,
+.sera-page .sera-cell-input.ant-input-number:focus-within {
+  border-color: #059669;
+  box-shadow: 0 0 0 2px rgb(5 150 105 / 20%);
+}
+
+.sera-page .sera-cell-input.ant-input-number-disabled {
+  background: #f5f5f4;
+}
+
+/* An empty cell should read as empty, not as a zero someone typed — the
+   placeholder is the em-dash the rest of the grid uses for NULL. */
+.sera-page .sera-cell-input .ant-input-number-input::placeholder {
+  color: var(--sera-text-faint);
+  font-weight: 400;
+}
+
+/* Read-only: plain text, not a box nobody can use. Click opens the history
+   modal, so it keeps a pointer. */
+/* Matches the input's 34px + its 2px of border, so a read-only cell does not
+   make its row shorter than the editable rows around it. */
+.sera-cell--readonly {
+  min-height: 36px;
+  padding: 8px 4px;
+  color: var(--sera-text);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.sera-cell-empty {
+  color: var(--sera-text-faint);
+  font-weight: 400;
+}
+
+/* An explicit confirmed zero — `0` with a submitted_at — as opposed to a cell
+   nobody has touched. Italic is how the rest of the grid spells the same
+   distinction. */
+.sera-cell-zero {
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Today's column: amber-100 in the header, amber-50 at 40% in the body — faint
+   enough to sit under the block-manager row highlight without fighting it. */
+.sera-page .ant-table-thead > tr > th.sera-today-col {
+  background: var(--sera-today);
+}
+
+/* sera's `text-[9px] text-amber-700 font-normal` caption under today's date. */
+.sera-today-caption {
+  color: #b45309;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.sera-page .ant-table-tbody > tr > td.sera-today-col {
+  background: rgb(255 251 235 / 40%);
+}
+
+/* The JEMI column, and the corner cell where it meets the total row. The
+   heavier stone-300 rule on the left is what separates a total from the days
+   it totals. */
+.sera-page .ant-table-thead > tr > th.sera-total-col,
+.sera-page .ant-table-tbody > tr > td.sera-total-col,
+.sera-page .ant-table-summary > tr > td.sera-total-col {
+  border-left: 1px solid #d6d3d1;
+  text-align: right;
+}
+
+.sera-total-plan {
+  color: var(--sera-accent-hover);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The total row. `border-t-2 border-stone-300 bg-emerald-50 font-bold`.
+   Solid emerald-50, not the translucent --sera-card-bg: this row sits over the
+   page gradient, and 40% of it would let the green ramp through unevenly
+   across the row's width. */
+.sera-page .ant-table-summary > tr > td {
+  background: #ecfdf5;
+  border-top: 2px solid #d6d3d1;
+  color: var(--sera-accent);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px;
+}
+
+.sera-page .ant-table-summary > tr > td:first-child {
+  padding-left: 12px;
+}
+
+/* A sticky first column paints over the rows it scrolls past, so it needs an
+   opaque background of its own — antd's default is white, which is right for
+   the body but wrong under the emerald total row. */
+.sera-page .ant-table-summary .ant-table-cell-fix-left {
+  background: #ecfdf5;
+}
+
+/* ── Week navigation (Task 1) ──────────────────────────────────────────
+   Ported from the three-button toolbar at App.jsx:13389-13391 (`Btn`,
+   App.jsx:2282: outline default, emerald-800 primary). Scoped to
+   `.sera-week-nav` rather than every `.ant-btn` on the page: the same
+   toolbar also carries Pivot / Initialize Week / Fallback Mode buttons,
+   which keep antd's own blue theme — only the week-nav trio is meant to
+   read as sera's `Btn` here. */
+.sera-page .sera-week-nav .ant-btn {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.sera-page .sera-week-nav .ant-btn-default {
+  border-color: var(--sera-border);
+  color: var(--sera-text-soft);
+}
+
+.sera-page .sera-week-nav .ant-btn-default:hover {
+  border-color: var(--sera-accent);
+  color: var(--sera-accent);
+}
+
+.sera-page .sera-week-nav .ant-btn-primary {
+  background: var(--sera-accent);
+  border-color: var(--sera-accent);
+}
+
+.sera-page .sera-week-nav .ant-btn-primary:hover {
+  background: var(--sera-accent-hover);
+  border-color: var(--sera-accent-hover);
+}
+
+/* ── Sunday show/hide (Task 2) ──────────────────────────────────────────
+   Moved out of the toolbar into the table itself: a small +/- sitting at the
+   right-hand end of the day columns (normal view) or beside the last day row
+   label (pivot view — see OnumcilikTab.tsx's renderSundayToggle). Deliberately
+   NOT sized or coloured like a data cell — this is chrome, not a number. */
+.sera-page .sera-sunday-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--sera-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--sera-text-faint);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sera-page .sera-sunday-toggle:hover {
+  border-color: var(--sera-accent);
+  color: var(--sera-accent);
+}
+
+/* ── Tırlar: the trucks sheet ───────────────────────────────────────────
+   `TirlarTab` reuses the platform's <SheetGrid> with its `ios` variant pinned.
+   That variant is ALREADY a reproduction of this screen — Sera's topic
+   sections come from `sheetTopicOrder.ts`, the skin from `SheetVariantIos.css`
+   — so there is deliberately no grid styling here. Adding any would be a
+   liability rather than a gap: the grid is virtualised (@tanstack/react-virtual),
+   so a width or row-height declared in CSS that the virtualizer has not
+   measured desyncs the frozen header from the body as you scroll, and does it
+   silently — tests and `tsc` both stay green.
+
+   No card around it. Every other tab body sits in `.sera-card`; the sheet is
+   the page, the way it is on its own route, and a bordered box around a grid
+   that already has its own frame read as a small window inside the page
+   (owner, 2026-09-16). The panel keeps the class — the shell sets it for
+   every tab — and loses its chrome here.
+
+   Height: `.sheet-grid` is `flex: 1; min-height: 0` and scrolls inside its
+   parent, so every box above it needs a definite height or the grid resolves
+   to zero and the tab renders blank. <Content> is already fixed at
+   `100vh - 56px` (AppLayout), so the page takes `100% + 24px` of it — the
+   same reach its `min-height` has, into <Content>'s bottom padding that the
+   page's `-24px` margin cancels — and the tabs, panel and sheet share that as
+   a flex column. No pixel guess for the tab strip: it wraps to two lines on a
+   narrow window and the sheet simply gets less. When <ClosedSeasonBanner />
+   sits above the page, the page is pushed down by the banner's height and
+   <Content> scrolls by that much; closed-season browsing only. */
+
+.sera-page:has(.sera-sheet) {
+  height: calc(100% + 24px);
+  display: flex;
+  flex-direction: column;
+}
+
+.sera-page .sera-card:has(> .sera-sheet) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sera-sheet {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Edge to edge, like the Sheet's own route: out through the page's side
+     and bottom padding to the edges of <Content>. */
+  margin: 0 -24px -24px;
+}
+
+.sera-sheet--loading {
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Hasabat tab ────────────────────────────────────────────────────────
+   Ported from the "📊 Hasabat" tab at App.jsx:15319–15584: KpiCard, Panel,
+   the donut side legend and RankTable. The charts inside the panels are
+   ECharts in the platform's style (HasabatTab.charts.ts), so nothing here
+   reaches into a chart.
+
+   Tailwind values, resolved: emerald-50/200/500/900 #ecfdf5 #a7f3d0 #10b981
+   #064e3b; blue-50/200/900 #eff6ff #bfdbfe #1e3a8a; violet-50/200/900 #f5f3ff
+   #ddd6fe #4c1d95; amber-50/200/900 #fffbeb #fde68a #78350f; stone-100 #f5f5f4.
+   Header, rank number and share % text sit one stone step darker than the
+   source (stone-500/400 for 400/300) so they stay legible on white. */
+
+.sera-page .sera-hasabat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sera-page .sera-hasabat-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.sera-page .sera-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .sera-page .sera-kpis {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.sera-page .sera-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border: 1px solid;
+  border-radius: var(--sera-radius);
+}
+
+.sera-page .sera-kpi--emerald { background: #ecfdf5; border-color: #a7f3d0; color: #064e3b; }
+.sera-page .sera-kpi--blue    { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }
+.sera-page .sera-kpi--violet  { background: #f5f3ff; border-color: #ddd6fe; color: #4c1d95; }
+.sera-page .sera-kpi--amber   { background: #fffbeb; border-color: #fde68a; color: #78350f; }
+.sera-page .sera-kpi--stone   { background: var(--sera-surface); border-color: var(--sera-border); color: var(--sera-text-soft); }
+
+.sera-page .sera-kpi__label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.sera-page .sera-kpi__value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.sera-page .sera-kpi__sub {
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.sera-page .sera-hasabat__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .sera-page .sera-panels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sera-page .sera-panel--wide {
+    grid-column: span 2;
+  }
+}
+
+.sera-page .sera-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--sera-border);
+  border-radius: var(--sera-radius);
+}
+
+.sera-page .sera-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f5f5f4;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--sera-text-soft);
+}
+
+.sera-page .sera-panel__body {
+  padding: 12px;
+}
+
+/* Donut + side legend (App.jsx:15468). Stacks on a phone. */
+.sera-page .sera-donut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sera-page .sera-donut__chart {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.sera-page .sera-donut__legend {
+  flex: 1 1 160px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.sera-page .sera-donut__legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sera-page .sera-donut__swatch {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.sera-page .sera-donut__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-donut__pct {
+  font-weight: 600;
+  color: var(--sera-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* RankTable (App.jsx:15401). */
+.sera-page .sera-rank-wrap {
+  overflow-x: auto;
+}
+
+.sera-page .sera-rank {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sera-page .sera-rank th {
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f5f5f4;
+  font-weight: 500;
+  text-align: left;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-rank td {
+  padding: 4px 0;
+  border-top: 1px solid #fafaf9;
+  color: var(--sera-text-soft);
+}
+
+.sera-page .sera-rank td:first-child {
+  font-weight: 500;
+}
+
+.sera-page .sera-rank .sera-rank__num {
+  padding-left: 8px;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.sera-page .sera-rank .sera-rank__muted {
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-rank .sera-rank__strong {
+  font-weight: 600;
+  color: var(--sera-text);
+}
+
+.sera-page .sera-rank__share-col {
+  width: 112px;
+  padding-left: 12px;
+}
+
+.sera-page .sera-rank__pos {
+  display: inline-block;
+  width: 18px;
+  font-size: 10px;
+  color: var(--sera-text-faint);
+}
+
+.sera-page .sera-rank__share {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 12px;
+  color: var(--sera-text-muted);
+}
+
+.sera-page .sera-rank__share span {
+  width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sera-page .sera-rank__track {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  background: #f5f5f4;
+  border-radius: 999px;
+}
+
+.sera-page .sera-rank__fill {
+  height: 100%;
+  background: #10b981;
+  border-radius: 999px;
+}
+
+/* ── Datalar: Shipment Settings ─────────────────────────────────────────
+   The tab mounts the admin page unchanged; its tables already pick up the
+   data-table block above. Only its antd <Tabs> strip still carries the
+   platform's blue, so the active label and ink bar take the sera accent.
+   Scoped to `.sera-settings` (the Datalar wrapper): the Sheet's comment
+   composer also renders antd <Tabs> and can sit inside `.sera-page`. */
+
+.sera-page .sera-settings .ant-tabs-tab:hover,
+.sera-page .sera-settings .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--sera-accent);
+}
+
+.sera-page .sera-settings .ant-tabs-ink-bar {
+  background: var(--sera-accent);
+}

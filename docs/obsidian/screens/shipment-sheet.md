@@ -77,6 +77,8 @@ The Sheet ships **two visual variants of the same grid**. Settings modal → **D
 
 State: `sheetVariant` in `sheetStore` (`setSheetVariant`), persisted per browser to `localStorage` under `ygt-sheet-variant`. Like zoom and freeze this is a **view preference, deliberately not stored server-side** — it is not shared state and does not belong in `UserSheetRowPref`.
 
+**Pinning it from outside.** `SheetGrid` takes an optional `variant` prop that wins over the store, and forwards it to `SheetCell` (the cell sizes itself from the variant too). Only the Tır Takip → Tırlar tab passes it (`variant="ios"` — see [[tir-takip#The Tırlar tab]]); everywhere else it is omitted and the store decides, so this page is unaffected. It is a prop rather than a `setSheetVariant` call because that setter persists: pinning through the store would leave this page in the iOS skin after one visit to the tab.
+
 Two constraints the skin must respect, both already encoded in the file's header comment:
 
 - **Row height and column width come from JS, not CSS.** `VARIANT_DENSITY` in `constants/sheetRowConfig.ts` (`ios`: rows ×1.35, columns ×1.15) feeds `scaleSheetLayout(zoom, variant)`, which every layout consumer reads. Growing cells with CSS padding alone would leave the virtualizer's `estimateSize` and the `sheet-frozen-top` sticky `top: rowHeight` measuring a height that is no longer painted — overlapping rows and a clipped frozen band. The multiplier composes with zoom, so both still scale together.

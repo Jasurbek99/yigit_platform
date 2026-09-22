@@ -83,6 +83,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/packing-templates':   'export.packing_presets',
   '/transport/map':             'transport.map',
   '/admin/fleet':               'transport.fleet',
+  '/tir-takip':                 'tir_takip',
   '/worklog':                   'worklog',
   '/team/kpi':                  'team_kpi',
 };
