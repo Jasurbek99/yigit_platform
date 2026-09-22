@@ -3,6 +3,10 @@
 The Self Board (`/me/board`) generates **tasks** automatically as a shipment moves through its lifecycle. Each task is created when the shipment **enters a status**, is owned by a **role**, and completes in one of two ways.
 
 > Source of truth: `backend/apps/export/management/commands/seed_task_rules.py` (seeds the `TaskRule` rows). Live rules live in the `export_taskrule` table.
+>
+> The same catalog is readable **in the app** at `/export/task-rules` ([[../screens/task-rules]]),
+> rendered straight from those rows. For the system behind it — the four task kinds, the
+> deadline grammar, the lifecycle — see [[task]].
 
 ## Two kinds of completion
 
@@ -60,6 +64,7 @@ department's tasks.
 | **Customs entry (TM)** `gumruk_girish` | Trigger customs exit | document_team | auto: `customs_exit_at` |
 | **Customs exit (TM)** `gumruk_chykysh` | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
 | **Loading** `yuklenme` | Fill loading data | loading_dept_head | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
+| | **Quality inspection** | quality_inspector | **Mark Done** *(non-gating reminder — 4 quality certificates + `transit_days` + `transport_temp_c` + `shelf_life_days`; see below)* |
 | | Trigger departure | document_team | auto: `departed_at` |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |
 | | **Submit sales report** | sales_rep | **Mark Done** *(non-gating reminder — closed when the SalesReport is saved; see below)* |
@@ -77,7 +82,7 @@ department's tasks.
 `cancelled` are terminal and generate no tasks.
 
 **Mark Done tasks never gate auto-advance.** `auto_advance_if_ready()` checks only the non-`MANUAL_DONE`
-tasks on the step, so *Give documents* and *Submit sales report* are reminders — a shipment moves on
+tasks on the step, so *Give documents*, *Submit sales report* and *Quality inspection* are reminders — a shipment moves on
 without them. See [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]].
 
 ## Sales-report task wiring
@@ -118,3 +123,41 @@ python manage.py reconcile_tasks             # apply + re-resolve
 ```
 
 `seed_task_rules` calls the reconcile automatically after upserting rules.
+
+## Quality inspection (`yuklenme`) — why it is Mark Done
+
+This rule has been created twice. The first version (2026-06) was
+`ALL_FIELDS_FILLED` over the four quality-certificate flags and assigned to
+`greenhouse_manager`. It was soft-disabled the same month (commit `84f1a98`)
+after it froze real trucks: the flags gated `yuklenme → yola_chykdy`, and the
+greenhouse team tracked quality documents outside the Sheet, so nobody with the
+task had a UI path to clear it.
+
+Re-enabled 2026-09-22 with both causes fixed:
+
+- **Owner** — [[quality-inspector]] now exists and holds the `quality_document`
+  resource plus the three transit readings.
+- **Gating** — `MANUAL_DONE`, so it can never hold a departure. Deliberate: the
+  task carries `transit_days` and `transport_temp_c`, which are not knowable at
+  loading time. A field-based rule would sit open for days and block the truck
+  the whole while. `deadline_rule` is blank for the same reason.
+
+**Trigger chain.** Filling Sheet R19 "Ýükleme başlady" (`loading_started_at`)
+resolves *Trigger loading start* on `gumruk_chykysh`, which auto-advances the
+shipment into `yuklenme` — where this rule generates the task. The field is not
+a `yuklenme` trigger itself; it is the preceding step's.
+
+**Card behaviour.** The three plain shipment fields are editable inline on the
+task card. The four `quality.*` entries are dotted paths, and
+`fieldKeyToConfig()` returns `null` for any dotted key, so they render read-only
+there; the certificates themselves are UPLOADED in the ShipmentDetail quality
+section (`POST /export/shipments/{id}/quality-certificates/`).
+
+The rule's `target_fields` still name the four booleans rather than the
+certificate rows. That is deliberate, not a leftover: the booleans are derived
+from the scans, so they remain an honest "is this done" display, and the rule
+is MANUAL_DONE so nothing resolves off them.
+
+**Not retroactive.** Reactivating a rule does not backfill tasks. Shipments that
+were already at `yuklenme` on 2026-09-22 have no quality task; only shipments
+entering the step afterwards get one.

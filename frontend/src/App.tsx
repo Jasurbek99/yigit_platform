@@ -57,6 +57,7 @@ const MyTicketsPage = lazy(() => import('@/pages/feedback/MyTicketsPage'));
 const PublicFeedPage = lazy(() => import('@/pages/feedback/PublicFeedPage'));
 const AdminInboxPage = lazy(() => import('@/pages/feedback/AdminInboxPage'));
 const SelfBoard = lazy(() => import('@/pages/me/SelfBoard'));
+const TaskRulesPage = lazy(() => import('@/pages/export/TaskRulesPage'));
 const ShipmentBoard = lazy(() => import('@/pages/export/ShipmentBoard'));
 const DailyHarvestBoard = lazy(() => import('@/pages/export/DailyHarvestBoard'));
 const ContractList = lazy(() => import('@/pages/contracts/ContractList'));
@@ -255,6 +256,10 @@ export default function App() {
                   {/* Me / Self board */}
                   <Route path="me/board" element={
                     <ProtectedRoute pageCode="me.board"><SelfBoard /></ProtectedRoute>
+                  } />
+                  {/* Task Rules — the read-only catalog behind My Tasks */}
+                  <Route path="export/task-rules" element={
+                    <ProtectedRoute pageCode="export.task_rules"><TaskRulesPage /></ProtectedRoute>
                   } />
                   {/* Feedback module */}
                   <Route path="feedback/submit" element={

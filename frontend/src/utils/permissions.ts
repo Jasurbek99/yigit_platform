@@ -69,6 +69,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/analytics/clients-report':  'analytics.clients',
   '/director/stuck-shipments':  'director.stuck_shipments',
   '/me/board':                  'me.board',
+  '/export/task-rules':         'export.task_rules',
   '/feedback/submit':           'feedback.submit',
   '/feedback/my-tickets':       'feedback.my_tickets',
   '/feedback/public':           'feedback.public',

@@ -2140,3 +2140,30 @@ export interface IProcessNodeLink {
   route: string;
   is_active: boolean;
 }
+
+/**
+ * One row of the task-generation catalog (`GET /export/task-rules/`).
+ *
+ * `target_fields` arrives as a list — the backend stores it as a CSV CharField
+ * (MSSQL: no JSONField) but the serializer splits it, so never re-parse here.
+ * `step_order` / `step_phase` are null when the rule's status code no longer
+ * has a `ShipmentStatusType` row (a rule left behind by a retired status).
+ */
+export interface ITaskRule {
+  id: number;
+  step: string;
+  step_display: string;
+  step_order: number | null;
+  step_phase: string | null;
+  title_key: string;
+  assignee_role: string;
+  assignee_role_display: string;
+  target_fields: string[];
+  completion_rule: 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'manual_done';
+  completion_rule_display: string;
+  target_value: string;
+  deadline_rule: string;
+  condition_field: string;
+  condition_value: string;
+  is_active: boolean;
+}

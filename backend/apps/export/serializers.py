@@ -35,6 +35,7 @@ from apps.export.models import (
     ShipmentComment,
     Task,
     TaskCompletionRule,
+    TaskRule,
     TaskState,
 )
 
@@ -2489,3 +2490,60 @@ class BoardItemSerializer(serializers.ModelSerializer):
         if ref is None:
             return None
         return int((timezone.now() - ref).total_seconds())
+
+
+# ── Task rules (read-only reference) ─────────────────────────────────────
+
+class TaskRuleSerializer(serializers.ModelSerializer):
+    """One row of the task-generation catalog, for the Task Rules page.
+
+    Read-only. `target_fields` is a CSV CharField in the DB (MSSQL: no
+    JSONField) but ships as a LIST — the API must not leak the storage format.
+    `step` is a status code, so it carries the usual `_display` companion plus
+    `step_order` for lifecycle ordering, per the api-contract FK rule.
+    """
+
+    step_display = serializers.SerializerMethodField()
+    step_order = serializers.SerializerMethodField()
+    step_phase = serializers.SerializerMethodField()
+    assignee_role_display = serializers.SerializerMethodField()
+    target_fields = serializers.SerializerMethodField()
+    completion_rule_display = serializers.CharField(
+        source='get_completion_rule_display', read_only=True,
+    )
+
+    class Meta:
+        model = TaskRule
+        fields = [
+            'id', 'step', 'step_display', 'step_order', 'step_phase',
+            'title_key', 'assignee_role', 'assignee_role_display',
+            'target_fields', 'completion_rule', 'completion_rule_display',
+            'target_value', 'deadline_rule',
+            'condition_field', 'condition_value', 'is_active',
+        ]
+        read_only_fields = fields
+
+    def _status(self, obj):
+        return (self.context.get('status_map') or {}).get(obj.step)
+
+    def get_step_display(self, obj) -> str:
+        status = self._status(obj)
+        if status is None:
+            return obj.step
+        return status.name_en or status.name_tk
+
+    def get_step_order(self, obj) -> int | None:
+        status = self._status(obj)
+        return status.step_order if status else None
+
+    def get_step_phase(self, obj) -> str | None:
+        status = self._status(obj)
+        return status.phase if status else None
+
+    def get_assignee_role_display(self, obj) -> str:
+        return (self.context.get('role_labels') or {}).get(
+            obj.assignee_role, obj.assignee_role,
+        )
+
+    def get_target_fields(self, obj) -> list[str]:
+        return [f.strip() for f in (obj.target_fields or '').split(',') if f.strip()]

@@ -23,6 +23,7 @@ import {
   IconMessageCircle,
   IconInbox,
   IconClipboardList,
+  IconListCheck,
   IconPlant2,
   IconMapPin,
   IconReportAnalytics,
@@ -185,6 +186,7 @@ export default function AppLayout() {
     '/admin/staff-access': t('nav.admin_staff_access'),
     '/admin/process-links': t('nav.admin_process_links'),
     '/me/board': t('me.nav.board'),
+    '/export/task-rules': t('task_rules.nav'),
     '/contracts': t('nav.contracts.list'),
     '/sales': t('nav.sales.list'),
     '/documents': t('nav.documents'),
@@ -246,6 +248,11 @@ export default function AppLayout() {
         </Badge>
       ),
       label: t('me.nav.board'),
+    },
+    '/export/task-rules': {
+      key: '/export/task-rules',
+      icon: <IconListCheck size={15} />,
+      label: t('task_rules.nav'),
     },
     '/director/stuck-shipments': {
       key: '/director/stuck-shipments',
@@ -339,7 +346,7 @@ export default function AppLayout() {
   // The boss's menu — process-lifecycle order. Edit this list to change what
   // the boss sees — it affects nobody else.
   const BOSS_MENU_GROUPS: IMenuGroup[] = [
-    group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/director/stuck-shipments']),
+    group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/export/task-rules', '/director/stuck-shipments']),
     group('nav.group_planning', ['/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks']),
     // `/export/drafts` (Draft Shipment) and `/export/assign` (Assignment Board)
     // were dropped from BOTH sidebars by owner request, 2026-08-24 — same
@@ -378,6 +385,7 @@ export default function AppLayout() {
     group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks', '/export/pomidor-dukany']),
     group('nav.group_export', [
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
+      '/export/task-rules',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
       '/export/my-reports', '/export/advances', '/transport/map',
       '/export/domestic-sales', '/export/prices',

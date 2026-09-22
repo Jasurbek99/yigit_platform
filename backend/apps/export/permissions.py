@@ -57,3 +57,26 @@ class IsTaskActor(BasePermission):
         from apps.core.roles import task_roles_for
 
         return obj.assignee_role in task_roles_for(role) or role in _SUPERVISOR_ROLES
+
+
+class CanViewTaskRules(BasePermission):
+    """Read gate for the Task Rules reference endpoint.
+
+    Gated on the ``export.task_rules`` page row — the same row the nav entry and
+    the route guard read, so hiding the page in the admin matrix also closes the
+    endpoint behind it. Seeded visible for admin / director / export_manager /
+    document_team / boss; every other role gets a hidden row an admin can flip
+    without a deploy.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.is_superuser:
+            return True
+        role = getattr(user, 'role', None)
+        if not role:
+            return False
+        from apps.core.permissions import get_page_permissions
+        return get_page_permissions(role).get('export.task_rules', False)

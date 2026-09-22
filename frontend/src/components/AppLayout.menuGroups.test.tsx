@@ -86,12 +86,12 @@ function renderedMenuGroupLabels(): string[] {
   );
 }
 
-// The exact 46 route keys BOSS_MENU_GROUPS produces, in group + item order,
+// The exact 47 route keys BOSS_MENU_GROUPS produces, in group + item order,
 // transcribed from AppLayout.tsx. Exists so a future edit to the boss
 // composition (its whole reason for staying untouched by this refactor) has
 // a hard failure to trip, not just "still non-empty".
 const EXPECTED_BOSS_ORDERED_KEYS = [
-  '/', '/boss/dashboard', '/me/board', '/director/stuck-shipments',
+  '/', '/boss/dashboard', '/me/board', '/export/task-rules', '/director/stuck-shipments',
   '/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks',
   '/export/weightmaster',
   '/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard',
@@ -105,17 +105,18 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
 
-// The exact 46 route keys STAFF_MENU_GROUPS produces, in group + item order,
+// The exact 47 route keys STAFF_MENU_GROUPS produces, in group + item order,
 // transcribed directly from STAFF_MENU_GROUPS in AppLayout.tsx (not from the
 // task brief). Symmetric to EXPECTED_BOSS_ORDERED_KEYS above: an ordered
 // per-composition check is the only guard that catches an item landing in
 // the wrong group while the overall label list and the unordered 46-key set
 // both stay correct (e.g. moving /me/board into nav.group_main while moving
-// something else out of it to keep group_export's count at 13).
+// something else out of it to keep group_export's count unchanged).
 const EXPECTED_STAFF_ORDERED_KEYS = [
   '/', '/boss/dashboard', '/director/stuck-shipments',
   '/analytics/clients-report', '/export/blocks', '/export/pomidor-dukany',
   '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
+  '/export/task-rules',
   '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
   '/export/my-reports', '/export/advances', '/transport/map',
   '/export/domestic-sales', '/export/prices',
@@ -276,8 +277,8 @@ describe('AppLayout menu composition', () => {
     // grouped by process-phase (boss) vs. module (staff).
     const REMOVED_EVERYWHERE = ['/export/drafts', '/export/assign'];
 
-    expect(bossKeys).toHaveLength(46);
-    expect(staffKeys).toHaveLength(46);
+    expect(bossKeys).toHaveLength(47);
+    expect(staffKeys).toHaveLength(47);
     for (const key of REMOVED_EVERYWHERE) {
       expect(staffKeys).not.toContain(key);
       expect(bossKeys).not.toContain(key);

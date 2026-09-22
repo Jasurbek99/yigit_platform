@@ -55,16 +55,28 @@ from apps.export.models import (
     ExpenseCategory,
     FinansistAdvanceShipment,
     PackingTemplate,
-    Pallet, QualityDocument, QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
+    Pallet, QualityCertificate, QualityCertificateType, QualityDocument,
+    QuotaUsageRecord, SalesReport, Shipment, ShipmentComment,
     ShipmentBlockSource, ShipmentFirmSplit, SheetRowSetting, UserSheetRowPref,
     get_default_truck_weight,
 )
+from apps.export.models.task import TaskRule
+from apps.export.permissions import CanViewTaskRules
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
+from apps.export.services.files import (
+    MAX_FILES_PER_TYPE,
+    detect_mime,
+    sanitise_filename,
+    validate_quality_certificate,
+)
+from apps.export.services.quality import sync_certificate_flags
 from apps.export.serializers import (
     ExpenseCategorySerializer,
+    TaskRuleSerializer,
     PackingTemplateSerializer,
     PalletBulkUpsertSerializer,
     PalletSerializer,
+    QualityCertificateSerializer,
     QualityDocumentSerializer,
     OverdueShipmentSerializer,
     SalesReportSerializer,
@@ -4646,3 +4658,61 @@ class PackingTemplateViewSet(ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     filterset_fields = ['product_type', 'is_active']
     ordering_fields = ['sort_order', 'name']
+
+
+class TaskRuleViewSet(viewsets.ReadOnlyModelViewSet):
+    """The task-generation catalog, read-only — backs the Task Rules page.
+
+    One row per `TaskRule`: which shipment status opens the task, who owns it,
+    and what closes it. Read straight from `export_task_rule`, so the page never
+    drifts from the engine the way a hand-written list would.
+
+    GET /api/v1/export/task-rules/        — flat array, lifecycle order, NOT paginated
+    GET /api/v1/export/task-rules/{id}/   — one rule
+
+    Filter: ?is_active=true|false (default: every rule, active and inactive —
+    a deactivated rule is exactly what someone reading this page is looking for
+    when a task they expected never appeared).
+
+    Not season-scoped: rules are global configuration, not season data.
+    """
+
+    serializer_class = TaskRuleSerializer
+    permission_classes = [IsAuthenticated, CanViewTaskRules]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = TaskRule.objects.all()
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            qs = qs.filter(is_active=is_active.lower() in ('true', '1'))
+        # Lifecycle order: by the step's position in the status table, then by
+        # the rule's own id so a step's rules keep their seeded order. `step` is
+        # a status CODE, not an FK, so the ordering is applied in Python below.
+        return qs
+
+    def _status_map(self) -> dict:
+        from apps.core.models import ShipmentStatusType
+        return {s.code: s for s in ShipmentStatusType.objects.all()}
+
+    def get_serializer_context(self) -> dict:
+        context = super().get_serializer_context()
+        status_map = self._status_map()
+        context['status_map'] = status_map
+        from apps.core.models.user import ROLE_CHOICES
+        context['role_labels'] = dict(ROLE_CHOICES)
+        return context
+
+    def list(self, request, *args, **kwargs):
+        status_map = self._status_map()
+        rules = sorted(
+            self.filter_queryset(self.get_queryset()),
+            # Unknown step codes (a rule for a retired status) sort last rather
+            # than crashing the page.
+            key=lambda r: (
+                status_map[r.step].step_order if r.step in status_map else 10_000,
+                r.id,
+            ),
+        )
+        serializer = self.get_serializer(rules, many=True)
+        return Response(serializer.data)

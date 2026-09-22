@@ -44,6 +44,11 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('export.pallet_manifest',  'Pallet Manifest'),
     # Personal workspace
     ('me.board',                'My Tasks'),
+    # Task Rules — the read-only catalog behind My Tasks: which status opens
+    # each task, who owns it, what closes it. Non-admin prefix on purpose
+    # (AD-15): export_manager and document_team answer "why did I get this
+    # task?" daily, and the page is reference material, not configuration.
+    ('export.task_rules',       'Task Rules (how tasks are created)'),
     # Analytics (boss / director)
     ('analytics.boss',          'Boss Dashboard'),
     ('analytics.clients',       'Clients Report'),

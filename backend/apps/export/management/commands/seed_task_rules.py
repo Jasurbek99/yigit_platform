@@ -178,6 +178,54 @@ TASK_RULES: list[dict] = [
         'condition_value': '',
     },
     {
+        # Quality inspection, re-enabled 2026-09-22 for the new
+        # `quality_inspector` role. This rule was soft-disabled on 2026-06-06
+        # (commit 84f1a98) for two reasons, both addressed here:
+        #
+        #   1. It was ALL_FIELDS_FILLED, so the four quality flags GATED
+        #      yuklenme -> yola_chykdy and froze real trucks. It is MANUAL_DONE
+        #      now: is_step_trigger_satisfied() excludes MANUAL_DONE, so this
+        #      can never block a departure. Same shape, and the same reason, as
+        #      tasks.submit_sales_report on yola_chykdy.
+        #   2. It was assigned to greenhouse_manager, who "tracks quality docs
+        #      outside the Sheet" — no owner, no UI path. `quality_inspector`
+        #      owns the quality_document resource and both Sheet readings.
+        #
+        # `is_active` is set EXPLICITLY: the seeder builds `defaults` from this
+        # dict, and no other rule declares the key, so a rule left False in the
+        # DB would silently stay disabled and never generate a task.
+        #
+        # Trigger: filling R19 "Ýükleme başlady" (loading_started_at) resolves
+        # tasks.trigger_loading_start on gumruk_chykysh, which auto-advances the
+        # shipment into yuklenme — where this rule generates the task.
+        #
+        # The four quality.* entries are dotted paths: the task card shows them
+        # read-only (fieldKeyToConfig returns null for any dotted key) and the
+        # certificates are UPLOADED in the ShipmentDetail quality section.
+        # They still name the booleans rather than the certificate rows on
+        # purpose — the booleans are derived from the scans, so they stay an
+        # honest "is this done" display, and MANUAL_DONE means nothing resolves
+        # off them. The three plain
+        # shipment fields are editable inline on the card.
+        'step': 'yuklenme',
+        'title_key': 'tasks.quality_inspection',
+        'assignee_role': 'quality_inspector',
+        'target_fields': (
+            'quality.azyk_maglumatnama,quality.suriji_gozukdiriji,'
+            'quality.hil_sertifikaty,quality.kalibrowka_analiz,'
+            'transit_days,transport_temp_c,shelf_life_days'
+        ),
+        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
+        # Deliberately blank. Transit days and temperature are not knowable at
+        # loading time, so any deadline would render the card permanently
+        # overdue. submit_sales_report leaves it blank for the same reason.
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'is_active': True,
+    },
+    {
         'step': 'yuklenme',
         'title_key': 'tasks.trigger_departure',
         'assignee_role': 'document_team',
