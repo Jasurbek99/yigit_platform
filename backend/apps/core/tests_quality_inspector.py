@@ -118,13 +118,25 @@ class QualityInspectorRoleTests(TestCase):
         self.assertEqual(stale, set(), f'migration names unregistered pages: {sorted(stale)}')
 
     def test_migration_visible_set_matches_the_seeded_matrix(self):
-        """Live DB and fresh install must land on the same visible pages."""
+        """Live DB and fresh install must land on the same visible pages.
+
+        0054's snapshot plus every page granted to the role by a later
+        migration. The Tır Takip tabs are the only such set today: they are
+        handed to every role by a loop at the end of `seed_permissions`, and
+        the role predates the merge that registered them, so
+        `0058_quality_inspector_tir_takip_pages` carries them onto databases
+        that only ever ran migrations.
+        """
         seeded = set(
             RolePagePermission.objects
             .filter(role=ROLE, is_visible=True)
             .values_list('page_code', flat=True)
         )
-        self.assertEqual(seeded, _MIGRATION.VISIBLE_PAGES)
+        tir_takip = {
+            k for k in PAGE_REGISTRY
+            if k == 'tir_takip' or k.startswith('tir_takip.')
+        }
+        self.assertEqual(seeded, _MIGRATION.VISIBLE_PAGES | tir_takip)
 
     def test_migration_field_map_matches_the_seeded_matrix(self):
         """Only for resources that still HAVE grantable fields.
