@@ -14,6 +14,7 @@ import { useSetCellColor } from '@/hooks/useShipmentSheet';
 import { useShipmentContractStatus } from '@/hooks/useShipmentFirmContracts';
 import { useAuth } from '@/hooks/useAuth';
 import { SheetFleetWarning } from './SheetFleetWarning';
+import { SheetCellTruckAddress } from './SheetCellTruckAddress';
 import { canDo } from '@/utils/permissions';
 import { SHEET_PRESET_COLORS } from '@/constants/sheetOptions';
 import { scaleSheetLayout } from '@/constants/sheetRowConfig';
@@ -615,7 +616,12 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
-      <span className="sheet-cell__text" style={cellTextStyle}>{value}</span>
+      <span className="sheet-cell__text" style={cellTextStyle}>
+        {value}
+        {fieldKey === 'vehicle_live_status' && !isGapy && (
+          <SheetCellTruckAddress truckPlate={shipment.truck_plate} hasValue={!isEmpty(value)} />
+        )}
+      </span>
       {/* R15 only. Gapy Satyş trucks sell at the gate and are never fitted with
           a fleet tracker, so they get no pin (same reasoning as the truck_plate
           editor, which skips the fleet picker for them). */}

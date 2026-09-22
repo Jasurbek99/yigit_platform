@@ -1,5 +1,16 @@
 # Build / Test Log
 
+- [ ] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
+  To test: (1) open the Sheet, find a shipment whose truck plate matches a currently-positioned
+  device: the R15 "Vehicle Current Position" cell shows "<operator text> · <GPS address>" (or just
+  the address if the cell was empty), truncated with the rest of the cell; (2) a matched truck whose
+  last fix has no reverse-geocoded address (Traccar sometimes can't geocode) but is inside a named
+  geofence shows the geofence name instead (e.g. "· Garaž"), not a blank; (3) a shipment whose truck
+  has no live position at all, or is linked only via the manual device picker / truck head (not by
+  plate text), shows nothing inline — clicking the pin still opens the modal with the correct truck;
+  (4) Gapy Satyş rows: unaffected (no pin, cell stays plain text); (5) a different row (e.g. warehouse
+  notes) never shows a location even if its shipment has a GPS-matched truck.
+
 - [x] 2026-09-22 — Truck's current geofence shown on Fleet Map + Shipment location card (purple Tag) — TESTED 2026-09-22
   To test: (1) open `/transport/map`: a truck currently inside a geofence (e.g. "Garaž") shows a
   purple tag under its address in the sidebar row, and the same in its map popup; a truck outside

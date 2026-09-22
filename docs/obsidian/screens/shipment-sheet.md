@@ -613,6 +613,26 @@ click rather than on every Sheet open (operators are on public networks in KZ/RU
 child — React portals still bubble synthetic events up the React tree, so a click on the
 map would otherwise reach the cell's own `onClick`.
 
+**Inline GPS location suffix, next to the operator's own text (2026-09-19, geofence fallback
+added same day).** The cell's own `{value}` (the operator's free-text ETA note) is followed, in
+the same truncated line, by `SheetCellTruckAddress` — `" · <location>"` (or just the location if
+the cell is empty) when the shipment's `truck_plate` matches a currently-positioned device.
+`<location>` prefers the reverse-geocoded `address`; when Traccar has none for that fix (address
+geocoding can fail or be unavailable — a real, not edge, case) but the position still resolved to
+a `geofence_name`, that is shown instead, so a truck sitting in a named geofence with no street
+address still reads as something ("Garaž") rather than blank. Both empty, or no matching position
+at all (device never reported, or its last fix was invalid) → nothing renders. Unlike the
+pin/modal, this does **not** call `useShipmentTruckPosition` (would be the same flood the pin
+avoids); it reads `useLivePositions()` — the Fleet Map's single shared query, one request for
+every device, safe to mount on every R15 row because every consumer shares one cache entry keyed
+`['transport', 'live-positions']`. Matched client-side by normalized tractor-plate token only
+(mirrors `_tractor_token()`/`normalize_plate()` in `matching.py`, not re-implemented via a shared
+util — 4 lines, kept local to `SheetCellTruckAddress.tsx`) — **not** the full
+`resolve_device_for_shipment()` resolution order, so a shipment resolved only via a manual
+`ShipmentDeviceLink` or `truck_head_id` (plate text absent or different) shows nothing inline;
+the pin/modal still resolves those correctly. Own `title` on the address span, separate from the
+cell's own truncation-hint `title`.
+
 **Three dead ends, told apart — and resolved data is checked first.** The endpoint can return a
 device with no fix, so a single "no map" message would send an operator to the wrong row. The
 branch order is load-bearing: a position renders the map, then a resolved device explains itself,
