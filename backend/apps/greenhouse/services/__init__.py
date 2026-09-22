@@ -6,6 +6,7 @@ submission step — every cell save stamps its own timestamp.
 """
 from apps.greenhouse.services.legacy import (
     get_block_summary,
+    get_or_create_day_entry,
     initialize_harvest_week,
     initialize_upcoming_weeks,
 )
@@ -41,6 +42,7 @@ __all__ = [
     'initialize_harvest_week',
     'initialize_upcoming_weeks',
     'get_block_summary',
+    'get_or_create_day_entry',
     'set_plan_value',
     'set_forecast_value',
     'set_actual_value',

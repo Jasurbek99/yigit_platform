@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Card, Empty, Flex, Skeleton, Tag, Typography } from 'antd';
 import type { EChartsOption } from 'echarts';
 import { EChart } from '@/components/EChart';
+import { CHART_PALETTE } from '@/constants/styles';
 import {
   useClientsReport,
   type IClientsReportRow,
@@ -12,14 +13,9 @@ import { ClientsMatrixTable } from './ClientsMatrixTable';
 
 const { Title, Text } = Typography;
 
-const PALETTE = [
-  '#1677ff', '#52c41a', '#fa8c16', '#722ed1', '#13c2c2', '#eb2f96',
-  '#faad14', '#2f54eb', '#a0d911', '#fa541c', '#1890ff', '#9254de',
-];
-
 function pieOption(items: { name: string; value: number }[], title: string): EChartsOption {
   return {
-    color: PALETTE,
+    color: [...CHART_PALETTE],
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
     legend: { type: 'scroll', orient: 'horizontal', bottom: 0, textStyle: { fontSize: 11 } },
     series: [

@@ -38,6 +38,7 @@ from apps.export.views_pomidor_dukany import ProductionAnalysisView
 from apps.export.views_sheet_settings import SheetRowSettingViewSet
 from apps.export.views_user_preferences import UserSheetPreferencesView
 from apps.export.views_clients_report import ClientsReportViewSet
+from apps.export.views_tir_hasabat import TirHasabatViewSet
 
 router = DefaultRouter()
 
@@ -46,6 +47,9 @@ router.register('boss', BossAnalyticsViewSet, basename='boss-analytics')
 
 # Clients Report (live replacement for by_clients.xlsx)
 router.register('clients-report', ClientsReportViewSet, basename='clients-report')
+
+# Tır Takip Hasabat tab (sera-design report, live aggregates)
+router.register('tir-hasabat', TirHasabatViewSet, basename='tir-hasabat')
 
 # Main landing-page dashboard (all authenticated users)
 router.register('dashboard', DashboardViewSet, basename='dashboard')

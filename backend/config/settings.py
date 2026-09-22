@@ -484,6 +484,15 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=9, minute=0, day_of_week='sat'),
         'options': {'expires': 3600},
     },
+    # Initializes the current+next plan weeks and generates the block managers'
+    # "fill weekly plan" tasks. Fires 06:00 local (CELERY_TIMEZONE), i.e. before
+    # the working day. Idempotent, so a missed run self-heals the next morning;
+    # `expires` keeps a queued run from firing hours late after an outage.
+    'weekly-plan-setup': {
+        'task': 'apps.export.tasks.run_weekly_plan_setup',
+        'schedule': crontab(hour=6, minute=0),
+        'options': {'expires': 3600},
+    },
 }
 
 # ════════════════════════════════════════════════

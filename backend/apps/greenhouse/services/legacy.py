@@ -81,6 +81,78 @@ def initialize_harvest_week(
     return plans
 
 
+def get_or_create_day_entry(block_id: int, entry_date: datetime.date) -> HarvestDayEntry:
+    """Get or create the (WeeklyHarvestPlan, HarvestDayEntry) container for one
+    block/date, always targeting the ACTIVE season — never a browsed one.
+
+    Backs the create-on-write grid: the first value someone types into a cell
+    that has no row yet creates its container here, then the caller dispatches
+    the actual value write to set_plan_value/set_forecast_value/set_actual_value
+    exactly as a PATCH on an existing row would. A row created this way is
+    indistinguishable from one `initialize_harvest_week` (the cron backfill)
+    would have created — same weekday derivation, same season, same
+    `entered_by=NULL` "system-created" container semantics; only the eventual
+    HarvestDayEntry value writes carry a real user's attribution.
+
+    Args:
+        block_id: PK of an active, top-level GreenhouseBlock (sub-blocks are
+            not part of the weekly grid, matching initialize_harvest_week's
+            own block universe).
+        entry_date: Local calendar date the cell covers.
+
+    Returns:
+        The existing or newly created HarvestDayEntry.
+
+    Raises:
+        SeasonClosedError: entry_date falls within a season that is closed.
+        ValueError: no active season is configured; entry_date falls outside
+            the active season's date range (and inside no closed season
+            either); or block_id does not resolve to an active top-level block.
+    """
+    from apps.core.models import GreenhouseBlock, Season
+    from apps.core.seasons import assert_season_open, get_active_season
+
+    season = get_active_season()
+    if season is None:
+        raise ValueError('No active season configured.')
+
+    if not (season.start_date <= entry_date <= season.end_date):
+        # entry_date doesn't belong to the write target — if it belongs to a
+        # CLOSED season instead, surface the real write-freeze error (409)
+        # rather than silently stamping a cross-season row under the active
+        # season's key.
+        owning_season = Season.objects.filter(
+            start_date__lte=entry_date, end_date__gte=entry_date,
+        ).first()
+        if owning_season is not None:
+            assert_season_open(owning_season)
+        raise ValueError(
+            f'entry_date {entry_date.isoformat()} does not fall within the '
+            f"active season {season.name!r} ({season.start_date}..{season.end_date})."
+        )
+
+    try:
+        block = GreenhouseBlock.objects.get(
+            pk=block_id, is_active=True, parent__isnull=True,
+        )
+    except (GreenhouseBlock.DoesNotExist, ValueError, TypeError) as exc:
+        raise ValueError(f'Unknown or inactive block id {block_id!r}.') from exc
+
+    iso_year, iso_week, iso_weekday = entry_date.isocalendar()
+    weekday = iso_weekday - 1  # isocalendar(): 1=Mon..7=Sun; model: 0=Mon..6=Sun
+
+    with transaction.atomic():
+        plan, _ = WeeklyHarvestPlan.objects.get_or_create(
+            season=season, block=block, week_number=iso_week, year=iso_year,
+            defaults={'entered_by': None},
+        )
+        entry, _ = HarvestDayEntry.objects.get_or_create(
+            weekly_plan=plan, entry_date=entry_date,
+            defaults={'season': season, 'block': block, 'weekday': weekday},
+        )
+    return entry
+
+
 def initialize_upcoming_weeks(today=None, user=None) -> list[tuple[int, int]]:
     """Idempotently initialize the current and next ISO week for the active season.
 

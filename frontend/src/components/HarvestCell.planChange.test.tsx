@@ -24,6 +24,9 @@ function entry(overrides: Partial<IHarvestDayEntry> = {}): IHarvestDayEntry {
 }
 
 const managerProps = {
+  // `cellKey` became required when create-on-write landed: the grid keys every
+  // cell by `${block}-${entry_date}`, since a not-yet-created cell has no id.
+  cellKey: `7-${TODAY}`,
   canEditPlan: true, canEditActual: false, onSave: vi.fn(), onCellClick: vi.fn(),
   isAdmin: false, planOnly: true, savingKey: null, maxChangePct: 15, onRangeError: vi.fn(),
 };

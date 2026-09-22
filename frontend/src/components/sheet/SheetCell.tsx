@@ -8,7 +8,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentSheetItem, IRowConfig, ICommentTaskStatus, ISheetRowSettingForUser, IShipmentOptionType } from '@/types';
-import { useSheetStore } from '@/stores/sheetStore';
+import { useSheetStore, type TSheetVariant } from '@/stores/sheetStore';
 import { useShipmentOptions } from '@/hooks/useAdmin';
 import { useSetCellColor } from '@/hooks/useShipmentSheet';
 import { useShipmentContractStatus } from '@/hooks/useShipmentFirmContracts';
@@ -139,13 +139,21 @@ interface ISheetCellProps {
   rowSetting?: ISheetRowSettingForUser;
   /** Admin/operator-painted background for THIS cell (most specific layer). */
   cellColor?: string | null;
+  /**
+   * Design variant pinned by the grid's caller (see `SheetGrid`'s `variant`).
+   * Undefined on `/export/shipments/sheet`, where the store decides. It must
+   * reach this component because the variant sets row height and column
+   * width here too — a cell sized for `classic` inside a grid laid out for
+   * `ios` drifts out of line with its row and column.
+   */
+  variant?: TSheetVariant;
 }
 
 function isEmpty(value: string): boolean {
   return !value || value === '—';
 }
 
-function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting, cellColor = null }: ISheetCellProps) {
+function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, commentTaskState = null, rowSetting, cellColor = null, variant }: ISheetCellProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   // Granular store selectors — NEVER `useSheetStore()` without a selector here.
@@ -158,7 +166,8 @@ function SheetCellInner({ shipment, rowConfig, isEditable, commentCount = 0, com
   const setEditingCell = useSheetStore((s) => s.setEditingCell);
   const openCommentsForCell = useSheetStore((s) => s.openCommentsForCell);
   const sheetZoom = useSheetStore((s) => s.sheetZoom);
-  const sheetVariant = useSheetStore((s) => s.sheetVariant);
+  const storeVariant = useSheetStore((s) => s.sheetVariant);
+  const sheetVariant = variant ?? storeVariant;
   // Shared write/clear engine — same optimistic save paths used by the
   // clipboard hook (cut / paste / Delete) and the cell editor.
   const { clearCell } = useSheetCellWrite();

@@ -127,7 +127,8 @@
     "admin_expense_template": "Çykdajy şablony",
     "admin_packing_templates": "Gaplaýyş şablonlary",
     "documents": "Resminamalar",
-    "pomidor_dukany": "Pomidor Dükany"
+    "pomidor_dukany": "Pomidor Dükany",
+    "tir_takip": "Maşyn Yzarlamasy"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -271,6 +272,9 @@
     "week": "Hepde",
     "prev_week": "Öňki hepde",
     "next_week": "Indiki hepde",
+    "this_week": "Şu hepde",
+    "block_select_placeholder": "Ähli bloklar",
+    "block_filter_no_location": "Ýeri ýok",
     "blocks": "blok",
     "block": "Blok",
     "monday": "Duş",
@@ -326,6 +330,7 @@
     "total_plan": "Jemi meýilnama",
     "total_actual": "Jemi ýüklenen/eksport",
     "deficit": "Tapawut",
+    "today": "Şu gün",
     "est_trucks": "Çaklama",
     "late_submissions": "Gijä galan ýazgylar",
     "late_submissions_tooltip": "{{late}} gijä, {{critical}} agyr gijä galan",
@@ -3739,5 +3744,60 @@
     "toast_updated": "Hukuk görnüşi täzelendi",
     "toast_deleted": "Hukuk görnüşi pozuldy",
     "toast_error": "Ýalňyşlyk ýüze çykdy"
+  },
+  "tir_takip": {
+    "title": "Maşyn Yzarlamasy (Tır Takip)",
+    "no_tabs": "Bu sahypanyň hiç bir bölümine rugsadyňyz ýok.",
+    "tab_no_access": "Bu maglumata rugsadyňyz ýok. Administrator rugsatlar tablisasyndan berip biler.",
+    "tab_pending": "Bu bölümiň mazmuny heniz goşulmady.",
+    "tabs": {
+      "onumcilik": "Önümçilik",
+      "gaplama": "Gaplama",
+      "tirlar": "Tırlar",
+      "export_rapor": "Export Raporu",
+      "hasabat": "Hasabat",
+      "gumruk_ewrak": "Gümrük Ewraklary",
+      "kwota_takibi": "Kwota Takibi",
+      "sertnamalar": "Yurtdışı Sertnamaları",
+      "datalar": "Datalar"
+    },
+    "hasabat": {
+      "kpi": {
+        "total_trucks": "Jemi tır",
+        "total_kg": "Jemi kg",
+        "total_kg_sub": "tırlaryň arassa agramy",
+        "avg_kg": "Ortaça kg / tır",
+        "open_trucks": "Açyk tırlar",
+        "open_trucks_sub": "heniz barmadyk",
+        "arrived_trucks": "Baran tırlar"
+      },
+      "panel": {
+        "by_month": "Aýlar boýunça kg we tır sany",
+        "country_share": "Ýurtlar boýunça kg paýy",
+        "firm_share": "Eksport firmalar boýunça kg paýy",
+        "by_customer": "Müşderiler boýunça kg",
+        "by_block": "Bloklar boýunça kg",
+        "country_detail": "Ýurtlar — jikme-jik",
+        "firm_detail": "Eksport firmalar — jikme-jik",
+        "customer_detail": "Müşderiler — jikme-jik",
+        "by_variety": "Pomidor görnüşi boýunça"
+      },
+      "col": {
+        "country": "Ýurt",
+        "firm": "Firma",
+        "customer": "Müşderi",
+        "variety": "Görnüş",
+        "trucks": "Sany",
+        "kg": "Jemi kg",
+        "share": "Paý %"
+      },
+      "series_kg": "Jemi kg",
+      "month_bar_one": "{{kg}} · {{count}} tır",
+      "month_bar_other": "{{kg}} · {{count}} tır",
+      "unknown": "Näbelli",
+      "empty": "Tırlar bölüminde tır girilende hasabatlar awtomatik çykýar.",
+      "no_season": "Işjeň möwsüm ýok — hasabat görkezip bolmaýar.",
+      "scope_note": "Garalamalar, ýatyrylan, pozulan we arhiwdäki tırlar hasaba alynmaýar."
+    }
   }
 }

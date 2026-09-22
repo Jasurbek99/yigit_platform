@@ -71,6 +71,7 @@ const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePa
 const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
 const PackingTemplatePage = lazy(() => import('@/pages/admin/PackingTemplatePage'));
 const FleetMap = lazy(() => import('@/pages/transport/FleetMap'));
+const TirTakip = lazy(() => import('@/pages/sera/TirTakip'));
 const FleetAdminPage = lazy(() => import('@/pages/admin/FleetAdminPage'));
 
 const queryClient = new QueryClient({
@@ -312,6 +313,15 @@ export default function App() {
                       closes the endpoint behind it. */}
                   <Route path="transport/map" element={
                     <ProtectedRoute pageCode="transport.map"><FleetMap /></ProtectedRoute>
+                  } />
+                  {/* Tır Takip (Maşyn Yzarlamasy) — the sera-design tab shell.
+                      Guarded by the container code, which `canSeePage` grants
+                      whenever ANY `tir_takip.*` tab is visible, so revoking a
+                      single tab never costs the user the whole page. Every code
+                      is granted to all 15 roles by core migration 0051; the
+                      first revoke is an admin's checkbox, not a deploy. */}
+                  <Route path="tir-takip" element={
+                    <ProtectedRoute pageCode="tir_takip"><TirTakip /></ProtectedRoute>
                   } />
                   {/* Fleet admin (truck-head / trailer / driver CRUD). page_code
                       registered 2026-09-03, replacing the hardcoded fleet-editor

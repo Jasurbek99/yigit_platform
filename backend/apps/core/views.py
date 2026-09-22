@@ -197,7 +197,12 @@ class GreenhouseBlockViewSet(ReadOnlyModelViewSet):
 
     permission_classes = [IsAuthenticated]
     serializer_class = GreenhouseBlockSerializer
-    queryset = GreenhouseBlock.objects.filter(is_active=True).order_by('code')
+    # select_related: `location_name` would otherwise cost one query per block.
+    queryset = (
+        GreenhouseBlock.objects.filter(is_active=True)
+        .select_related('location')
+        .order_by('code')
+    )
 
 
 class LoadingLocationViewSet(ReadOnlyModelViewSet):

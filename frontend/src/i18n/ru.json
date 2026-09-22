@@ -127,7 +127,8 @@
     "admin_expense_template": "Шаблон расходов",
     "admin_packing_templates": "Шаблоны упаковки",
     "documents": "Документы",
-    "pomidor_dukany": "Pomidor Dükany"
+    "pomidor_dukany": "Pomidor Dükany",
+    "tir_takip": "Отслеживание машин"
   },
   "expense_template": {
     "title": "Шаблон категорий расходов",
@@ -273,6 +274,9 @@
     "week": "Неделя",
     "prev_week": "Предыдущая неделя",
     "next_week": "Следующая неделя",
+    "this_week": "Текущая неделя",
+    "block_select_placeholder": "Все блоки",
+    "block_filter_no_location": "Без местоположения",
     "blocks": "блоков",
     "block": "Блок",
     "monday": "Пн",
@@ -328,6 +332,7 @@
     "total_plan": "Всего план",
     "total_actual": "Всего загружено/экспорт",
     "deficit": "Дефицит",
+    "today": "Сегодня",
     "est_trucks": "Прогноз",
     "late_submissions": "Поздние ввода",
     "late_submissions_tooltip": "{{late}} поздних, {{critical}} критически поздних на этой неделе",
@@ -3736,5 +3741,62 @@
     "toast_updated": "Правовая форма обновлена",
     "toast_deleted": "Правовая форма удалена",
     "toast_error": "Произошла ошибка"
+  },
+  "tir_takip": {
+    "title": "Отслеживание машин (Tır Takip)",
+    "no_tabs": "У вас нет доступа ни к одному разделу этой страницы.",
+    "tab_no_access": "У вас нет доступа к этим данным. Администратор может выдать его в матрице прав.",
+    "tab_pending": "Содержимое этого раздела ещё не добавлено.",
+    "tabs": {
+      "onumcilik": "Производство",
+      "gaplama": "Упаковка",
+      "tirlar": "Фуры",
+      "export_rapor": "Отчёт по экспорту",
+      "hasabat": "Отчётность",
+      "gumruk_ewrak": "Таможенные документы",
+      "kwota_takibi": "Учёт квот",
+      "sertnamalar": "Зарубежные контракты",
+      "datalar": "Данные"
+    },
+    "hasabat": {
+      "kpi": {
+        "total_trucks": "Всего фур",
+        "total_kg": "Всего кг",
+        "total_kg_sub": "нетто фур",
+        "avg_kg": "Среднее кг / фура",
+        "open_trucks": "Открытые фуры",
+        "open_trucks_sub": "ещё не прибыли",
+        "arrived_trucks": "Прибывшие фуры"
+      },
+      "panel": {
+        "by_month": "Кг и фуры по месяцам",
+        "country_share": "Доля кг по странам",
+        "firm_share": "Доля кг по экспортным фирмам",
+        "by_customer": "Кг по клиентам",
+        "by_block": "Кг по блокам",
+        "country_detail": "Страны — подробно",
+        "firm_detail": "Экспортные фирмы — подробно",
+        "customer_detail": "Клиенты — подробно",
+        "by_variety": "По сортам томата"
+      },
+      "col": {
+        "country": "Страна",
+        "firm": "Фирма",
+        "customer": "Клиент",
+        "variety": "Сорт",
+        "trucks": "Фур",
+        "kg": "Всего кг",
+        "share": "Доля %"
+      },
+      "series_kg": "Всего кг",
+      "month_bar_one": "{{kg}} · {{count}} фура",
+      "month_bar_few": "{{kg}} · {{count}} фуры",
+      "month_bar_many": "{{kg}} · {{count}} фур",
+      "month_bar_other": "{{kg}} · {{count}} фуры",
+      "unknown": "Не указано",
+      "empty": "Отчёты появятся автоматически, когда фуры будут внесены во вкладке «Фуры».",
+      "no_season": "Нет активного сезона — отчёт пуст.",
+      "scope_note": "Черновики, а также отменённые, удалённые и архивные фуры не учитываются."
+    }
   }
 }

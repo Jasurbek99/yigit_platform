@@ -208,12 +208,29 @@ Service: `backend/apps/greenhouse/services/plan_change_service.py`. Notification
 | GET | `/api/v1/greenhouse/day-entries/` | List daily entries | filter `?season=&block=&from_date=&to_date=` |
 | GET | `/api/v1/greenhouse/day-entries/{id}/` | Day entry detail | IsAuthenticated |
 | PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin). Returns **202** (same body, `pending_change` filled) when a greenhouse manager's in-week plan edit was routed to approval instead of written (ADR-024); 200 otherwise, including a withdraw. | Service-layer permission gate |
+| PATCH | `/api/v1/greenhouse/day-entries/{id}/` | Update plan_value / forecast_value / actual_value (with optional `reason` for admin) | Service-layer permission gate |
+| POST | `/api/v1/greenhouse/day-entries/write-cell/` | **Create-on-write (2026-09-16).** Upsert one cell by `{block, entry_date}` instead of `id` — the container may not exist yet. Body: `{block, entry_date, plan_value? \| forecast_value? \| actual_value?, reason?}`; response is the same serialized `HarvestDayEntry` PATCH returns, **including the 202** when the write lands in a started week and becomes a PlanChangeRequest (ADR-024) — create-on-write does not bypass the approval gate. See "Create-on-write" below. | Service-layer permission gate (identical to PATCH) |
 | GET | `/api/v1/greenhouse/day-entries/{id}/history/` | Audit log + override snapshot | IsAuthenticated |
 | GET | `/api/v1/greenhouse/plan-change-requests/` | List the in-week revision queue/log (ADR-024). Filters `?status=&year=&week=&block=&season=` | IsAuthenticated, reads open to any authenticated user |
 | POST | `/api/v1/greenhouse/plan-change-requests/{id}/approve/` | Approve a pending request. Body `{"note": "..."}` optional | export_manager / admin / boss |
 | POST | `/api/v1/greenhouse/plan-change-requests/{id}/reject/` | Reject a pending request. Body `{"note": "..."}` optional | export_manager / admin / boss |
 
-**Submission endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`, or `submit_week/`. Per-cell PATCHes through `/day-entries/{id}/` are the only write path; each save stamps its own `plan_submitted_at` / `forecast_submitted_at`. There is no week-level "submit" step.
+**Submission endpoints REMOVED**: no more `submit/`, `approve/`, `reject/`, `bulk-submit/`, `bulk-approve/`, `bulk-reject/`, or `submit_week/`. Per-cell PATCHes through `/day-entries/{id}/` (or `write-cell/` when the row doesn't exist yet) are the write paths; each save stamps its own `plan_submitted_at` / `forecast_submitted_at`. There is no week-level "submit" step.
+
+#### Create-on-write (`write-cell`, 2026-09-16)
+
+Until this, a week's `HarvestDayEntry` rows had to exist before anyone could type into the grid — `initialize_harvest_week` (admin/director button) or the daily `run_weekly_plan_setup` cron (current + next ISO week only) were the only creators, so a week further out opened empty with nothing to edit. `write-cell` lets the **first value someone types create the container**: it resolves-or-creates the `(WeeklyHarvestPlan, HarvestDayEntry)` pair for `(block, entry_date)` via `get_or_create_day_entry()` (`greenhouse/services/legacy.py`, exported from `services/__init__.py`), then dispatches to the **exact same** `set_plan_value` / `set_forecast_value` / `set_actual_value` calls `partial_update` uses — every gate (role, `BlockManagerAssignment` ownership, the plan-week cutoff, the late-edit extension, the admin `reason` requirement) behaves identically to a PATCH on an existing row. A refused user gets the same error message on both paths.
+
+**A refused request leaves no rows behind.** The viewset admits any authenticated user and the role checks live inside the `set_*` services, so if the container were committed before the check ran, a role with no plan rights at all (`seller`, `transport`, …) could still scaffold empty weeks for any block and date in the active season — one refused request at a time. `write_cell` therefore runs the row creation and the gated writes in **one transaction**, and calls `transaction.set_rollback(True)` when *no* field in the payload was allowed. A mixed payload where one field went through keeps that write and its row — the same partial-success behaviour `partial_update` has — and a refusal on a row that already existed does not remove it, since the row predates the transaction. The first version committed the rows first; `test_refused_write_creates_no_rows` pins the fix, and fails if the rollback is removed.
+
+Container semantics deliberately mirror the cron: block must be an active **top-level** `GreenhouseBlock` (matching `initialize_harvest_week`'s own block universe), `weekday` is the same `isocalendar()` derivation, and `WeeklyHarvestPlan.entered_by` is left `NULL` — a create-on-write row is indistinguishable from a cron-created one. Only the eventual `HarvestDayEntry` value fields (`plan_submitted_by`, etc.) carry the real user's attribution.
+
+**Season**: always the ACTIVE season, never a browsed one (`get_active_season()`), matching `initialize-week`'s existing convention (see `WeeklyPlanGrid.tsx`'s `activeSeason` comment). `entry_date` must fall inside that season's `[start_date, end_date]` range or the write is refused:
+- `entry_date` lands inside a **closed** season instead → `409 {"error": "season_closed", "season": "...", "closed_at": "..."}` (the standard write-freeze shape, D1) — this is the one case `get_or_create_day_entry` raises `SeasonClosedError` rather than `ValueError`, so a client can never provoke a cross-season row by posting an old date while the active season has moved on.
+- No active season at all (the close→open gap) → `400 {"error": "No active season configured."}` — distinct from the 409 above; there is no season object to name.
+- `entry_date` outside both → `400 {"error": "entry_date ... does not fall within the active season ..."}`.
+
+Collection-level `POST /day-entries/` stays disabled (`create()` raises `MethodNotAllowed` → 405) — `write-cell` and `initialize_harvest_week` remain the only row-creating paths. Tests: `apps/greenhouse/tests/test_write_cell.py` (13 tests).
 
 **Config endpoints**:
 | Method | Endpoint | Auth |
@@ -253,10 +270,15 @@ Saturday 09:00: export_manager, boss and director get a bell message with next w
 
 ### Daily weekly-plan setup (`run_weekly_plan_setup`)
 
-A **separate daily cron** (not the 5-min dispatcher — week setup needs no 5-min cadence) auto-prepares the grid so block managers always open something complete:
+A **separate daily job** (not the 5-min dispatcher — week setup needs no 5-min cadence) auto-prepares the grid so block managers always open something complete. It runs from **Celery beat**, not a host crontab:
 
-```
-0 6 * * * cd /opt/ygt/backend && venv/bin/python manage.py run_weekly_plan_setup
+```python
+# config/settings.py — CELERY_BEAT_SCHEDULE
+'weekly-plan-setup': {
+    'task': 'apps.export.tasks.run_weekly_plan_setup',   # apps/export/tasks.py
+    'schedule': crontab(hour=6, minute=0),               # 06:00 CELERY_TIMEZONE
+    'options': {'expires': 3600},
+},
 ```
 
 For the **current and next ISO week** of the active season it runs, in order:
@@ -265,7 +287,9 @@ For the **current and next ISO week** of the active season it runs, in order:
 
 Both steps are idempotent (only insert what's missing). The command lives in **export** (not greenhouse) because it also calls the export-owned task generator — export may import greenhouse, not vice-versa. The manual buttons ("Initialize Week" admin/director, "Generate plan tasks" admin/export_manager/director) remain for ad-hoc back-fills.
 
-**Why this exists:** previously weeks were only initialized ad-hoc, so an under-initialized week showed a **block manager only the blocks that already had rows** while past/closed weeks looked complete — confirmed on the live DB, where past+current weeks carry all active blocks but **future weeks were 0 blocks** (and early-season weeks were partial, e.g. a single block). **Caveat:** it only helps where this daily cron is actually scheduled, and only covers current+next week — back-filling far-future or historical partial weeks still needs a manual "Initialize Week".
+**Why this exists:** previously weeks were only initialized ad-hoc, so an under-initialized week showed a **block manager only the blocks that already had rows** while past/closed weeks looked complete — confirmed on the live DB, where past+current weeks carry all active blocks but **future weeks were 0 blocks** (and early-season weeks were partial, e.g. a single block). **Caveat:** it covers current+next week only — back-filling far-future or historical partial weeks still needs a manual "Initialize Week".
+
+**Why beat and not crontab (2026-09-16):** it shipped as a documented host crontab line, installed on the beta server verbatim from the docs — pointing at `/opt/ygt/backend/venv/bin/python`, which is a bare-metal path while that server runs the platform under Docker out of `~/yigit_platform`. `CELERY_BEAT_SCHEDULE` carried no entry for it either, so nothing in the deployed system generated these tasks on a schedule and the "Generate plan tasks" button was the only creator. (That the crontab line failed on *every* run since deploy is inferred, not measured on the host — check `ls /opt/ygt/backend/venv/bin/python` and the `created_at` spread of existing `weekly_plan` tasks.) Beat already runs as its own container, ships with the code and needs no per-server path, so the schedule moved into `CELERY_BEAT_SCHEDULE`. The management command stays as the manual/backfill entry point. **Any host crontab line for `run_weekly_plan_setup` must be removed** or the job runs twice (harmless — idempotent — but misleading).
 
 ### Daily actual rollup
 
@@ -294,7 +318,11 @@ See `docs/operations/cron.md` for Linux + Windows Task Scheduler setup.
 
 **File**: `frontend/src/pages/export/WeeklyPlanGrid.tsx`
 
-**Layout**: week picker, pivot toggle, Show/Hide Sunday toggle, "Initialize" + "Submit week" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
+**Layout**: week picker, pivot toggle, Show/Hide Sunday toggle, "Generate plan tasks" + "Fallback Mode" buttons (role-gated), header tile row, grid table.
+
+**Rows are blocks, not plans (create-on-write, 2026-09-16).** Both views build their rows with `buildPlanGridRows(useGreenhouseBlocks(), plans)` (`pages/export/WeeklyPlanGrid.rows.ts`): one row per **active top-level** block, whether or not its week exists yet, ordered by `sort_order` then `code` and — for a block manager — their own blocks first. A day with no `HarvestDayEntry` renders `HarvestCell` with `entry={null}`; an editor can type into it, and the save goes to `write-cell` with `{block, entry_date, plan_value}` instead of a PATCH by id. The **Initialize Week button and the empty-week alert are gone**; the `initialize-week` endpoint and the daily `run_weekly_plan_setup` cron remain. Things that need a *real* plan object still read `plans`: the bulk late-edit grant/revoke id lists, `TruckAllocationTable`, and the truck-allocation panel's visibility. Sub-blocks (F1/F2) are never rows — `write-cell` refuses them. Manager names come from the plan, so a block whose week does not exist yet shows none until its first write.
+
+The Önümçilik tab in Tır Takip is a restyled copy of this grid and follows the same row model; see [[../screens/tir-takip]].
 
 **Deep-link params** (`?week=&year=&block=`): the grid reads these from `useSearchParams` on mount. A `weekly_plan` task link (`/export/plan?week=&year=&block={block_id}`) and the boss heatmap (`?block={block_code}`) now land on the linked ISO **week** — the initial `selectedWeek` is derived from `week`/`year` (via `dayjs(`${year}-01-04`).add(week-1,'week')`, since Jan 4 is always in ISO week 1) instead of always defaulting to today. Before this fix the grid ignored the URL, so clicking a task dropped the manager on the current/next week regardless of the task's week. The `block` param highlights the matching row (matched by `block` id **or** `block_code`, since the two link sources differ); it never filters — every block still renders.
 
@@ -340,7 +368,7 @@ The default admin cell puts that value under the **large** click target with the
 const planOnlyCells = true;
 ```
 
-`canEditActual` is defined as `isAdminLike && !planOnlyCells`, so it falls to `false` for admin too with no second edit.
+`canEditActual` is defined as `isAdminLike && !planOnlyCells`, so it falls to `false` for admin too with no second edit. Both grids that read this file — `pages/export/WeeklyPlanGrid.tsx` and its verbatim sera copy `pages/sera/OnumcilikTab.tsx` — change together.
 
 Two consequences worth knowing:
 
@@ -374,6 +402,8 @@ When `currentUser.role === 'admin'` edits any cell, `<AdminOverrideReasonModal>`
 | `useHarvestPlans({year, week})` | `GET /greenhouse/harvest-plans/?year=&week=` | `IApiListResponse<IWeeklyHarvestPlan>` |
 | `useDayEntries({season, block, from_date, to_date})` | `GET /greenhouse/day-entries/...` | `IApiListResponse<IHarvestDayEntry>` |
 | `useUpsertDayEntry()` | `PATCH /greenhouse/day-entries/{id}/` | mutation; body: `{plan_value? \| forecast_value? \| actual_value?, reason?}`; 202 response shows an info toast |
+| `useUpsertDayEntry()` | `PATCH /greenhouse/day-entries/{id}/` | mutation; body: `{plan_value? \| forecast_value? \| actual_value?, reason?}` |
+| `useUpsertDayEntry()` *(no `id`)* | `POST /greenhouse/day-entries/write-cell/` | Create-on-write: called with `{block, entry_date, plan_value?, reason?}` and no `id`. Same response and cache invalidation as the PATCH branch, plus `harvest-plans`, since a first write can create the week's plan. The old no-id branch POSTed to the collection, which always answered 405. |
 | `useDayEntryHistory(id)` | `GET /greenhouse/day-entries/{id}/history/` | `IDayEntryHistoryItem[]` |
 | `usePlanChangeRequests({status, year, week})` | `GET /greenhouse/plan-change-requests/...` | `IApiListResponse<IPlanChangeRequest>` (ADR-024) |
 | `useApprovePlanChange()` | `POST /greenhouse/plan-change-requests/{id}/approve/` | mutation, invalidates day-entries + plan-change-requests |

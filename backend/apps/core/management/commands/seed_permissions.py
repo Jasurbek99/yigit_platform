@@ -194,6 +194,20 @@ for _role in ('warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'
     PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | {'transport.fleet'}
 
 
+# ── Tır Takip pages (registered 2026-09-16) ─────────────────────────────
+# The container plus all nine tab codes, granted to EVERY role by default
+# (owner request: "by default have access for all user roles"). They are
+# matrix rows, not a hardcoded list, so an admin revokes a tab — or the whole
+# page — from the permission screen without a deploy.
+#
+# Derived from PAGE_REGISTRY rather than spelled out, so adding a tenth tab to
+# the registry grants it here automatically instead of silently defaulting it
+# to hidden.
+_TIR_TAKIP = {k for k in PAGE_REGISTRY if k == 'tir_takip' or k.startswith('tir_takip.')}
+for _role in PAGE_DEFAULTS:
+    PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | _TIR_TAKIP
+
+
 # ── Resource permission defaults ─────────────────────────────────────────
 # Derived from roles.py constants.
 # Format: {role: {resource_code: (can_view, can_create, can_edit, can_delete)}}

@@ -79,6 +79,28 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # matrix could not reach, so an admin could not grant or revoke either one.
     ('transport.map',           'Fleet Map (live GPS)'),
     ('transport.fleet',         'Fleet Management (trucks, trailers, drivers)'),
+    # Tır Takip (Maşyn Yzarlamasy) — the sera-design page. One container code
+    # plus one code per tab, so an admin can grant or revoke each tab
+    # separately from the admin permission screen.
+    #
+    # Nested codes here, against the "flat codes on purpose" note on
+    # export.shipments_sheet above. The exception holds because `tir_takip`
+    # renders NO content of its own — it is a tab shell. `canSeePage` grants a
+    # parent whenever any child is visible, and "the page is reachable if at
+    # least one of its tabs is" is exactly the semantics we want. The cost is
+    # that unchecking the container while a tab stays checked does nothing;
+    # that is honest for a pure container, and the reason the shipments codes
+    # had to stay flat (their parent is a real list page) does not apply.
+    ('tir_takip',               'Tır Takip (Maşyn Yzarlamasy)'),
+    ('tir_takip.onumcilik',     'Tır Takip: Önümçilik'),
+    ('tir_takip.gaplama',       'Tır Takip: Gaplama'),
+    ('tir_takip.tirlar',        'Tır Takip: Tırlar'),
+    ('tir_takip.export_rapor',  'Tır Takip: Export Raporu'),
+    ('tir_takip.hasabat',       'Tır Takip: Hasabat'),
+    ('tir_takip.gumruk_ewrak',  'Tır Takip: Gümrük Ewraklary'),
+    ('tir_takip.kwota_takibi',  'Tır Takip: Kwota Takibi'),
+    ('tir_takip.sertnamalar',   'Tır Takip: Yurtdışı Sertnamaları'),
+    ('tir_takip.datalar',       'Tır Takip: Datalar'),
     # Admin
     # Sales rep worklist + coverage admin
     ('export.sales_reports',    'Sales Reports'),
