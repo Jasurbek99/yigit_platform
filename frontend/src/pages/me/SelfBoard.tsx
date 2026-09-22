@@ -59,9 +59,12 @@ const PHASE_OPTIONS: ShipmentPhase[] = [
 
 /** Mirrors _SUPERVISOR_ROLES in backend/apps/core/views_me.py. These roles
  *  receive EVERY role's tasks from /me/tasks/, so only they get the role
- *  switcher — everyone else already sees just their own work. */
+ *  switcher — everyone else already sees just their own work.
+ *  document_team is carved OUT despite EXPORT_MANAGER_LIKE — its board must
+ *  stay scoped to its own tasks, not every role's. */
 const SUPERVISOR_ROLES: readonly string[] = [
-  'boss', 'admin', 'director', ...EXPORT_MANAGER_LIKE,
+  'boss', 'admin', 'director',
+  ...[...EXPORT_MANAGER_LIKE].filter((role) => role !== 'document_team'),
 ];
 
 // ─── Column definitions ──────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 ---
 title: Transport
 tags: [role, transport]
-related: [[roles-matrix]], [[shipment-lifecycle]], [[truck-allocation]]
+related: [[roles-matrix]], [[shipment-lifecycle]], [[truck-allocation]], [[quality-inspector]]
 ---
 
 # Transport
@@ -26,6 +26,12 @@ Steps 5-6 (they can trigger transitions):
 - **Peregruz** (transloading): at Kazakhstan hub, cargo may be transferred between trucks. Tracked via `has_peregruz` flag, `peregruz_city`, `peregruz_date` on Shipment.
 - **Vehicle condition**: `vehicle_condition` field (OK/ISSUE/BREAKDOWN/RETURNED) — transport reports vehicle state
 - **Truck capacity**: Standard 18,500 kg per truck
+
+> [!warning] Transit readings moved out 2026-09-22
+> `transit_days`, `transport_temp_c` and `shelf_life_days` — and Sheet row 26
+> (`transit_days_temp`) — now belong to [[quality-inspector]]. Transport held them
+> only because that role did not exist yet. Malik and Haltac keep the border,
+> vehicle, driver and truck/trailer fields.
 
 ## Processes They Participate In
 

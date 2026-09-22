@@ -1,6 +1,56 @@
 # Build / Test Log
 
-- [ ] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
+- [ ] 2026-09-22 — Task Rules page (`/export/task-rules`) + `GET /export/task-rules/` — NEEDS TEST
+  To test: (1) log in as `export_manager` (or admin) — a **Task Rules** entry appears in the sidebar
+  next to My Tasks, and the page lists every rule in lifecycle order starting at Draft; (2) check a
+  row you know, e.g. *Fill loading data* under Loading — role `loading_dept_head`, "Auto — when fields
+  are filled", tags for shipment_code / block_sources / variety / weight_net; (3) the gapy-satys pair
+  shows `is_gapy_satys = True` / `= False` in the **Only when** column, everything else "Always";
+  (4) deadlines read as words ("24 h after the status change", "Friday 18:00"), never the raw rule
+  string; (5) filter by role — only that role's rules remain; (6) flip **Show inactive** — the
+  soft-disabled rules appear, tagged Inactive; (7) log in as `transport` or `sales_rep` — no nav
+  entry, and opening /export/task-rules directly is refused; (8) in /admin/permissions, tick Task
+  Rules for `transport`, re-login — the page now opens for them (no deploy needed); (9) switch the
+  UI to Turkmen and Russian — every label and the explainer paragraphs are translated;
+  (10) scroll to "Tasks that do not come from a shipment" — three rows (weekly harvest
+  plan / local sell plan / truck allocation) with their role and trigger, and log in as
+  `greenhouse_manager` or `seller`: they can open the page, and the weekly-plan row is
+  the only description of their own queue (neither role has a rule in the catalog).
+
+- [ ] 2026-09-22 — Quality certificates became file uploads; boolean endpoint removed — NEEDS TEST
+  To test: (1) open a shipment's Detail → Quality Certificates as `t_quality_inspector`: four
+  upload slots, each showing "Missing" until a file is attached; (2) upload a JPG and a PDF to the
+  same certificate — both list with size and a working preview link, and the badge flips to a green
+  tick; (3) try a .png or a 15 MB file — rejected with a message, and the badge must NOT flip;
+  (4) delete the last scan of one certificate — its badge goes back to "Missing"; delete one of two
+  and the badge stays green; (5) **the regression that matters** — confirm the shipment's four
+  document columns on the Shipment List and the Sheet's document icons still match what is
+  uploaded; (6) confirm a `transport` user can still OPEN the card and see/preview the scans but
+  has no upload or delete button; (7) the old checkboxes must be gone everywhere.
+
+- [ ] 2026-09-22 — Quality-inspection task triggered by "Ýükleme başlady"; quality PATCH matrix-gated — NEEDS TEST
+  To test: (1) take a shipment at `gumruk_chykysh`, fill Sheet R19 "Ýükleme başlady" — the shipment
+  moves to `yuklenme` and `t_quality_inspector` sees a new "Hil barlagy" task on My Tasks; (2) open
+  that task card: transit days, transport temperature and shelf life are EDITABLE inline, the four
+  quality certificate rows are read-only; (3) open the same shipment's Detail → quality section as
+  the inspector and tick the four flags — they must SAVE (this 403'd before); (4) **the important
+  regression** — leave the quality task untouched, fill loading data + `departed_at`, and confirm the
+  shipment still advances to `yola_chykdy`. It must NOT be held at `yuklenme`; (5) confirm the four
+  roles that could already edit quality docs (admin, director, export_manager, document_team) still
+  can, and that a `transport` user still cannot. Note: shipments ALREADY at `yuklenme` get no task —
+  only ones entering the step from now on.
+
+- [x] 2026-09-22 — New `quality_inspector` role; transit/temp/shelf-life fields moved off `transport` — TESTED 2026-09-22
+  To test: (1) log in as `t_quality_inspector` / `Test1234!`: sidebar shows Dashboard, Shipments,
+  Sheet, Shipments Dashboard, Board + My Tasks/Feedback/Work Hours/Leaderboard — and NOT the Daily
+  Harvest Board; (2) on the Sheet, row 26 "transit days + temp" is editable — type `5 4` and confirm
+  it saves days=5, temp=4; every other row stays read-only; (3) tick the four quality-certificate
+  flags on a shipment and confirm they save; (4) **regression** — log in as a `transport` user
+  (Malik/Haltac): Sheet row 26 is now READ-ONLY for them, while border point, vehicle condition,
+  driver and truck/trailer rows still edit normally; (5) open `/admin/permissions` as admin, select
+  Quality Inspector, hit Save, reload — the matrix must come back unchanged (all 49 page rows intact).
+
+- [x] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
   To test: (1) open the Sheet, find a shipment whose truck plate matches a currently-positioned
   device: the R15 "Vehicle Current Position" cell shows "<operator text> · <GPS address>" (or just
   the address if the cell was empty), truncated with the rest of the cell; (2) a matched truck whose
@@ -11,7 +61,7 @@
   (4) Gapy Satyş rows: unaffected (no pin, cell stays plain text); (5) a different row (e.g. warehouse
   notes) never shows a location even if its shipment has a GPS-matched truck.
 
-- [x] 2026-09-22 — Truck's current geofence shown on Fleet Map + Shipment location card (purple Tag) — TESTED 2026-09-22
+- [x] 2026-09-22 — Truck's current geofence shown on Fleet Map + Shipment location card (purple Tag) — NEEDS TEST
   To test: (1) open `/transport/map`: a truck currently inside a geofence (e.g. "Garaž") shows a
   purple tag under its address in the sidebar row, and the same in its map popup; a truck outside
   every geofence shows neither; (2) open a shipment with a linked truck (Detail page, Transport
@@ -19,7 +69,13 @@
   address when the truck is in a geofence; (3) the tag itself shows the time it was first seen
   there, e.g. "Garaž · 9/18/2026, 4:03:45 PM" (not the true entry time — see docs).
 
-- [ ] 2026-09-18 — Current geofence per truck: `GET /api/v1/transport/geofences/current/` + geofence sync in the Traccar poller — NEEDS TEST
+- [x] 2026-09-22 — document_team's My tasks board scoped to its own tasks only (no longer sees every role's) — NEEDS TEST
+  To test: (1) log in as a document_team user, open My tasks (`/me/board`): only document_team-assigned
+  tasks appear, no role filter dropdown; (2) log in as export_manager: role filter dropdown still
+  present, still shows every role's tasks when no role is selected; (3) `python manage.py test
+  apps.export.tests_task_api` — 59/59 pass (ran locally, includes 3 new document_team-specific cases).
+
+- [x] 2026-09-18 — Current geofence per truck: `GET /api/v1/transport/geofences/current/` + geofence sync in the Traccar poller — NEEDS TEST
   To test: (1) with celery worker + beat running, open `/api/v1/transport/geofences/current/` while
   logged in: groups like "Garaž", "Turkmenabat", … with trucks, and a last group with
   `geofence_id: null`; (2) pick a truck that is moving (`is_online: true`) and check its geofence
@@ -36,11 +92,13 @@
   the cell shows the new value; (5) repeat step 1 and Reject with a note: the manager gets a
   notification that includes the note.
 
-- [ ] 2026-09-17 — **Awanslar → Gümrük çykdajylary: kategoriýa saýlanýan ýerde "Täze goş".** **To test:** (1) as finansist or document_team, open **Awanslar** → **Customs expenses** tab → **Çykdajy goş**; (2) open the **Kategoriýa** list — the 13 old categories are there, and **Täze goş** is under the list; (3) type a new name (e.g. *Ýol haky*) in the search, click **Täze goş** — a small form opens with the name filled in; add a Russian name, **Save** → toast, the new category is selected in the field; (4) save the expense — the table and the ledger's *by category* card show the new name; switch UI to Russian — the Russian name shows; (5) try **Täze goş** with an existing name (e.g. *Gümrüklemek*) → "already exists" toast, nothing added; empty Turkmen name → *Required*; (6) old expenses still show their category names; the category filter above the table lists the new category; (7) from a **Shipment Detail** → *Add expense*, the same picker works. Migration `export/0070_customs_expense_categories_as_data` is **applied to the shared DB** (13 categories seeded). Tests: new `tests_customs_expense_category` 13/13, `tests_customs_expense` + `tests_idempotency_endpoints` green; related modules 264/266 (2 failures in `tests_season_scoping` archive-bypass also fail on clean HEAD — pre-existing); `CustomsExpenseCategorySelect.test.tsx` 3/3; `tsc` clean. — NEEDS TEST
-
 - [ ] 2026-09-18 — **Saturday plan-fill summary + "Maşyn paýlanyşyny dolduryň" task for export_manager.** **To test (local, no waiting for Saturday):** (1) run `python manage.py shell -c "from apps.export.tasks import send_saturday_plan_summary; send_saturday_plan_summary()"`; (2) log in as export_manager: the bell has "Indiki hepdäniň hasyl plany dolduryldy: W…/2026: N% · …" with each greenhouse manager's % and their unfilled blocks; boss and director get the same message, document_team doesn't; (3) **My tasks** shows the card "Maşyn paýlanyşyny dolduryň" for next week; clicking it opens the weekly plan on that week; (4) fill trucks for every day that shows ≥ 1 truck of capacity in the Maşyn paýlanyşy table, reopen **My tasks**: the card is done; (5) run step 1 again: no second message, no second task. **On beta:** after deploying, rebuild `celery-worker celery-beat`, then check on Saturday 09:00. Migration `export/0071` (choice lists only, SQL no-op) is **applied to the shared DB**. It depends on the still-uncommitted `0070` (customs expenses), so commit that first. Tests: `tests_truck_allocation_tasks` 20/20; related task suites 116/116; `NotificationBell.test.tsx` 1/1; `tsc` clean. — NEEDS TEST
 
-- [ ] 2026-09-16 — **Saving the Permissions page now keeps rows for pages it doesn't know.** **To test (after deploying `main` to beta):** (1) check that `RolePagePermission.objects.filter(page_code__in=['worklog','team_kpi']).count()` is **30**. If not, re-create them with `seed_team_pages` from `core/0051` (see `docs/obsidian/processes/permissions-system.md`); (2) as admin, open **Admin → Permissions**, untick *Work Hours* for one role, **Save**, then tick it back and **Save** again; (3) the count is still 30, and the total row count (`RolePagePermission.objects.count()`) is unchanged; (4) the role's Work Hours menu entry disappears and comes back. **Before the deploy, don't press Save on the beta's Permissions page.** The old code there still deletes the 30 new rows. Tests: new `MatrixSaveKeepsUnknownCodesTests` 2/2 (both failed before the fix); `tests_permission_matrix` + `tests_boss_access` 43/44. The 1 failure is the known pre-existing boss/`export.harvest_board` assertion. — NEEDS TEST
+- [ ] 2026-09-17 — **Awanslar → Gümrük çykdajylary: kategoriýa saýlanýan ýerde "Täze goş".** **To test:** (1) as finansist or document_team, open **Awanslar** → **Customs expenses** tab → **Çykdajy goş**; (2) open the **Kategoriýa** list — the 13 old categories are there, and **Täze goş** is under the list; (3) type a new name (e.g. *Ýol haky*) in the search, click **Täze goş** — a small form opens with the name filled in; add a Russian name, **Save** → toast, the new category is selected in the field; (4) save the expense — the table and the ledger's *by category* card show the new name; switch UI to Russian — the Russian name shows; (5) try **Täze goş** with an existing name (e.g. *Gümrüklemek*) → "already exists" toast, nothing added; empty Turkmen name → *Required*; (6) old expenses still show their category names; the category filter above the table lists the new category; (7) from a **Shipment Detail** → *Add expense*, the same picker works. Migration `export/0070_customs_expense_categories_as_data` is **applied to the shared DB** (13 categories seeded). Tests: new `tests_customs_expense_category` 13/13, `tests_customs_expense` + `tests_idempotency_endpoints` green; related modules 264/266 (2 failures in `tests_season_scoping` archive-bypass also fail on clean HEAD — pre-existing); `CustomsExpenseCategorySelect.test.tsx` 3/3; `tsc` clean. — NEEDS TEST
+
+- [x] 2026-09-16 — **Saving the Permissions page now keeps rows for pages it doesn't know.** **To test (after deploying `main` to beta):** (1) check that `RolePagePermission.objects.filter(page_code__in=['worklog','team_kpi']).count()` is **30**. If not, re-create them with `seed_team_pages` from `core/0051` (see `docs/obsidian/processes/permissions-system.md`); (2) as admin, open **Admin → Permissions**, untick *Work Hours* for one role, **Save**, then tick it back and **Save** again; (3) the count is still 30, and the total row count (`RolePagePermission.objects.count()`) is unchanged; (4) the role's Work Hours menu entry disappears and comes back. **Before the deploy, don't press Save on the beta's Permissions page.** The old code there still deletes the 30 new rows. Tests: new `MatrixSaveKeepsUnknownCodesTests` 2/2 (both failed before the fix); `tests_permission_matrix` + `tests_boss_access` 43/44. The 1 failure is the known pre-existing boss/`export.harvest_board` assertion. — NEEDS TEST
+
+- [ ] 2026-09-16 — **Feedback/ticket screenshots show again on the beta server (10.10.11.25).** Cause was server config, not code: the untracked `docker-compose.deploy.yml` dropped the `backend/media` mount, so uploads were saved inside the container while nginx looked on the host (details: FINDINGS_BACKLOG F42). **Server steps must be run first** (rescue copy → overlay edit → recreate backend). **To test:** (1) open **Admin → Feedback**, open the ticket with the screenshot from this morning — the image must show, not a broken icon; (2) submit a new feedback with a screenshot, reopen it — the image shows; (3) as admin, reply to a ticket with a screenshot — the image shows in the thread and on **My Tickets**; (4) open a truck in **Fleet** and download one of today's tech-passport / license scans, and one driver passport — all still download; (5) upload a firm signature in **Admin → Firms** — it shows. Old attachment #4 (`feedback/2026/08/image.png`) is lost for good. — NEEDS TEST
 
 - [x] 2026-09-16 — **Work Hours and Team Leaderboard are now on the Permissions page and on Staff Page Access.** **To test:** (1) as admin, open **Admin → Permissions**, pick any role — under **Main** there are two new checkboxes, *Work Hours* and *Team Leaderboard*, both ticked; (2) untick *Work Hours* for one role (e.g. `seller`), save, log in as that role — the **Work hours** sidebar entry is gone and `/worklog` sends you to Unauthorized; the header time chip still shows your hours but no longer opens a page when clicked; (3) tick it back; (4) as a department head (e.g. loading_dept_head), open **Staff Page Access** — both pages are listed and can be toggled for your staff roles; (5) spot-check another role still sees both pages. Migration `core/0051_worklog_team_kpi_page_perms` is **applied to the shared DB** (30 rows, all visible). Tests: `tests_boss_access` + `tests_permission_matrix` 41/42 — the 1 failure is the known pre-existing boss/`export.harvest_board` assertion; `AppLayout.menuGroups.test.tsx` 14/14; `tsc` clean. — NEEDS TEST
 

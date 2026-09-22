@@ -77,7 +77,16 @@ Full data with nested related objects.
   "status_log": [
     { "status_display": "Loading", "changed_by_name": "Soltanmyrat", "changed_at": "...", "comment": "..." }
   ],
-  "quality": { "azyk_maglumatnama": true, "suriji_gozukdiriji": true, "...": "..." },
+  // The four flags are READ-ONLY (derived: true iff a scan of that type exists).
+  // Certificates are uploaded via POST /shipments/{id}/quality-certificates/.
+  "quality": {
+    "azyk_maglumatnama": true, "suriji_gozukdiriji": true, "...": "...",
+    "certificates": [
+      { "id": 7, "doc_type": "azyk_maglumatnama", "original_filename": "scan.pdf",
+        "mime_type": "application/pdf", "size_bytes": 204800,
+        "uploaded_at": "...", "uploaded_by_name": "...", "download_url": "..." }
+    ]
+  },
   "comments": [ { "user_name": "Gadam", "role": "export_manager", "content": "...", "created_at": "..." } ],
   "vehicle_condition": "OK",
   "vehicle_condition_note": null,
@@ -243,6 +252,55 @@ what seeds the frontend season store on load; there is no separate endpoint for 
 
 ### My work filter: `GET /api/v1/export/shipments/?my_work=true`
 Same response shape as list, filtered by role's active window server-side.
+
+### Task rules catalog: `GET /api/v1/export/task-rules/`
+
+Backs the **Task Rules** reference page (`/export/task-rules`) — the read-only catalog of
+which shipment status opens which task, who owns it, and what closes it.
+
+Gate: `IsAuthenticated` + `CanViewTaskRules`, which reads the **`export.task_rules` page row**
+(the same row the nav entry and the route guard read), so hiding the page in the admin matrix
+also closes the endpoint. Seeded visible for `admin` / `director` / `export_manager` /
+`document_team` / `boss`; every other role has an explicit hidden row an admin can flip.
+
+**Not paginated** — a flat array, like `/transport/geofences/current/`. Ordered by the status
+table's `step_order`; a rule whose `step` has no `ShipmentStatusType` row (a retired status)
+sorts **last** with `step_order: null` and `step_display` falling back to the raw code. Not
+season-scoped: rules are global configuration.
+
+Optional `?is_active=true|false`. **Default returns both** active and inactive rules — a
+deactivated rule is exactly what someone asking "why did my task never appear?" needs to see.
+
+`target_fields` is a **list**, never the stored string: the column is a CSV `CharField`
+(MSSQL forbids JSONField) and the serializer splits and trims it. Do not re-parse on the
+frontend.
+
+```json
+[
+  {
+    "id": 1,
+    "step": "draft",
+    "step_display": "Draft",
+    "step_order": 0,
+    "step_phase": "DRAFT",
+    "title_key": "tasks.set_destination",
+    "assignee_role": "export_manager",
+    "assignee_role_display": "Export Manager",
+    "target_fields": ["country", "customer", "import_firm"],
+    "completion_rule": "all_fields_filled",
+    "completion_rule_display": "All target fields filled",
+    "target_value": "",
+    "deadline_rule": "24h_after_status",
+    "condition_field": "",
+    "condition_value": "",
+    "is_active": true
+  }
+]
+```
+
+Read-only by design (`ReadOnlyModelViewSet`). Editing a `TaskRule` leaves existing open Tasks
+on their snapshotted `target_fields` until `reconcile_tasks` runs, so write verbs need that
+reconciliation wired in first.
 
 ### My tasks: `GET /api/v1/me/tasks/` and `GET /api/v1/me/kpi-today/`
 

@@ -47,6 +47,17 @@ Selecting a role is what makes the view complete.
 A non-supervisor sending `?assignee_role=` is silently ignored — their own-role lock is
 unconditional (covered by `test_non_supervisor_cannot_escape_own_role`).
 
+**`document_team` is explicitly excluded despite `EXPORT_MANAGER_LIKE` (2026-09-22).** The
+2026-09-09 "full clone, everything" parity decision put `document_team` in `_SUPERVISOR_ROLES`
+here too, so its board silently widened to every role's tasks — reported as a bug (the board
+should show only document_team's own queue). Carved back out, same shape as ADR-024's
+plan-approval carve-out: `_SUPERVISOR_ROLES = (frozenset({'boss','admin','director'}) |
+EXPORT_MANAGER_LIKE) - {'document_team'}` in `apps/core/views_me.py`, mirrored in
+`SelfBoard.tsx`'s local `SUPERVISOR_ROLES`. `export_manager` is unaffected — it still gets the
+role switcher and the all-roles view. Tests: `test_document_team_sees_only_own_role_tasks`,
+`test_document_team_cannot_widen_via_assignee_role`, `test_document_team_kpi_ignores_assignee_role`
+in `apps/export/tests_task_api.py`.
+
 ## SelfBoardTaskDrawer — Inline Task Completion
 
 ### Purpose

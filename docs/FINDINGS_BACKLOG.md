@@ -345,6 +345,25 @@ with `DJANGO_DEBUG=True` **specifically** so Django serves its own static files
 `static_files` volume is the prerequisite for turning DEBUG off — already tracked
 in `docs/PRE_PRODUCTION_CHECKLIST.md`.
 
+### F42 — HIGH: the beta overlay dropped the media mount (added 2026-09-16)
+
+Feedback screenshots uploaded fine (201) but rendered broken on 10.10.11.25.
+The server-only `docker-compose.deploy.yml` sets `backend: volumes: !override`
+with just `static_files:/app/static`, which discards the `./backend/media:/app/media`
+bind from `docker-compose.prod.yml`. Backend wrote into its container layer;
+nginx served the host directory → 404 (nginx log: `open() "/var/www/media/feedback/…"
+failed`). No code on `main` is wrong.
+
+Same cause, delayed symptom: 8 truck/driver scans from 2026-09-16 were readable
+only because the authenticated download view reads the container layer; the next
+`update.sh` rebuild would have deleted them. `feedback/2026/08/image.png`
+(attachment 4) is already gone. Fix + rescue steps: deployment-guide.md,
+**Uploaded files** point 4.
+
+Optional hardening: make `docker-compose.prod.yml` backend `volumes: !override`
+(static + media), so the overlay can drop its `volumes:` block. Its plain list
+does NOT remove the base `./backend:/app` mount, although its comment says it does.
+
 ---
 
 ## S1 / S2 — season FKs that disagree with their own dates (added 2026-08-23)

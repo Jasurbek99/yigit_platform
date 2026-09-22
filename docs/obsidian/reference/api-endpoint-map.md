@@ -44,7 +44,10 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/{id}/set-column-color/` | ShipmentViewSet.set_column_color | `useSetColumnColor` | ShipmentSheet (any authenticated viewer) |
 | GET | `/api/v1/export/shipments/overdue/` | ShipmentViewSet.overdue | `useOverdueShipments` | OverdueReports |
 | GET | `/api/v1/export/shipments/sheet/` | ShipmentViewSet.sheet | `useShipmentSheet` | ShipmentSheet |
-| PATCH | `/api/v1/export/shipments/{id}/quality/` | ShipmentViewSet.set_quality | `useShipmentDetail` (mutation) | ShipmentDetail (Document tab) |
+| GET | `/api/v1/export/shipments/{id}/quality-certificates/` | ShipmentViewSet.quality_certificates | `ShipmentQualityBody` | ShipmentDetail (Quality card) |
+| POST | `/api/v1/export/shipments/{id}/quality-certificates/` | ShipmentViewSet.quality_certificates | `ShipmentQualityBody` | ShipmentDetail (Quality card) — multipart `doc_type` + `files` |
+| POST | `/api/v1/export/shipments/{id}/quality-certificates/{cert_id}/delete/` | ShipmentViewSet.delete_quality_certificate | `ShipmentQualityBody` | ShipmentDetail (Quality card) |
+| GET | `/api/v1/export/shipments/{id}/quality-certificates/{cert_id}/download/` | ShipmentViewSet.download_quality_certificate | `<a href>` | ShipmentDetail (Quality card) |
 | POST | `/api/v1/export/shipments/{id}/comment/` | ShipmentViewSet.comment | `useShipmentDetail` (mutation) | CommentComposer |
 | POST/PATCH | `/api/v1/export/shipments/{id}/sales-report/` | ShipmentViewSet.set_sales_report | `useSaveSalesReport` | ShipmentDetail (Finance tab), SalesReportDrawer |
 | GET | `/api/v1/export/shipments/my-sales-reports/?needs_report=` | ShipmentViewSet.my_sales_reports | `useMySalesReports` | SalesRepReports — rep's worklist scoped to his customers (`customer__sales_rep`); mgmt/superuser see all step-4+ |
@@ -111,6 +114,7 @@ Per-pallet weighing data filled during loading (`Pallet` model: gross, crate_typ
 | POST | `/api/v1/export/tasks/{id}/unblock/` | TaskViewSet.unblock | `useUnblockTask` | TaskCard |
 | POST | `/api/v1/export/tasks/{id}/complete/` | TaskViewSet.complete | `useCompleteTask` | TaskCard |
 | POST | `/api/v1/export/tasks/{id}/cancel/` | TaskViewSet.cancel | `useCancelTask` | TaskCard |
+| GET | `/api/v1/export/task-rules/` | TaskRuleViewSet (list) | `useTaskRules` | TaskRulesPage (`/export/task-rules`) — read-only, flat array, gated on the `export.task_rules` page row |
 
 **Task list filters:** `?assignee_role=&assignee_user=&state=&shipment=&step=&overdue=true`
 
@@ -443,3 +447,20 @@ as for truck heads (admin page uses it; the picker does not). Consumed by the
 | GET | `/api/v1/core/cities/` | `useCities` | CitySelect |
 | GET | `/api/v1/core/customers/` | `useCustomers` | CustomerSelect |
 | GET | `/api/v1/core/truck-destinations/?is_active=true` | `useTruckDestinations` | TruckForecast |
+
+## Quality certificates (2026-09-22)
+
+`PATCH /shipments/{id}/quality/` is **gone**. The four certificate flags are
+derived from uploaded scans, so there is no boolean write path any more.
+
+- Writes (`POST` upload, `POST .../delete/`) are gated on the
+  `quality_document` RESOURCE (`can_edit`), not on `shipment` — the ViewSet's
+  class-level `resource_code` would map the upload to `shipment.can_create`,
+  which `quality_inspector` correctly lacks. See `resource_edit_permission`.
+- Reads (list, download) keep the default `shipment.can_view` gate: the flags
+  are already visible to anyone who can open the shipment.
+- Removal is a POST because `ShipmentViewSet` withholds the DELETE method so a
+  shipment cannot be destroyed through the API.
+- Upload is multipart: `doc_type` (one of the four codes) + one or more
+  `files`. Max 5 files per `doc_type`, 10 MB each, `.jpg`/`.jpeg`/`.pdf`
+  validated by magic bytes. All-or-nothing — one bad file rejects the batch.

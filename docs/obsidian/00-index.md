@@ -6,7 +6,7 @@ tags: [moc, index]
 # YGT Platform Knowledge Base
 
 > Django + React platform for greenhouse tomato export operations (YGT Holding).
-> 40+ models | 43 pages | 12-step shipment lifecycle (state machine v2) | 14 roles (incl. `admin` per AD-15) | 3 languages (TM/RU/EN)
+> 40+ models | 44 pages | 12-step shipment lifecycle (state machine v2) | 15 roles (incl. `admin` per AD-15) | 3 languages (TM/RU/EN)
 
 ## Process Map
 
@@ -89,6 +89,7 @@ flowchart LR
 | [[export-manager]] | All processes | 1-13 |
 | [[document-team]] | Shipment lifecycle, quality docs | 1-6 |
 | [[transport]] | Shipment lifecycle, trucks | 1-9 |
+| [[quality-inspector]] | Quality certificates, transit readings | None (field edits only) |
 | [[sales-rep]] | Shipment lifecycle, prices | 7-12 |
 | [[finansist]] | Advances, reconciliation | 1-13 |
 | [[greenhouse-manager]] | Harvest planning, domestic sales | Plan grid only |
@@ -107,6 +108,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/main-dashboard]] — Main dashboard at `/` — stat cards, alerts panel, routes overview, active shipments table wired to `GET /api/v1/export/dashboard/summary/`
 - [[screens/shipment-sheet]] — Excel-style spreadsheet at `/export/shipments/sheet/` — virtualised columns, inline cell edit, dynamic field permissions
 - [[screens/self-board]] — Personal task board at `/me/board` — inline task completion with editable fields and SheetCellEditor integration
+- [[screens/task-rules]] — Task Rules reference at `/export/task-rules` — the live `export_task_rule` catalog: which status opens each task, who owns it, what closes it; read-only, gated on `export.task_rules`
 - [[screens/feedback-module]] — Centralised in-app feedback at `/feedback/*` and `/admin/feedback` — bug/suggestion/question tickets with screenshot attachments, three reply modes, public knowledge feed
 - [[screens/contract-list]] — Contracts list page at `/contracts` — ProTable with grouped columns, create modal, show-ended toggle (P4 Slice A)
 - [[screens/contract-detail]] — Contract detail page at `/contracts/:id` — header Descriptions + four tabs; Faktura tab with contract-sale CRUD (P4 Slice B)
@@ -125,6 +127,8 @@ See [[roles-matrix]] for the full capability matrix.
 - [[data-model-map]] — All 40+ models with ER diagram and field lists
 - [[contracts-contract-model]] — Contract model (P4 Slice A): fields, status enum, computed properties, API endpoints
 - [[contracts-contract-sale-model]] — Contract Sale model (P4 Slice B): fields, status enum, rollup service, auto-compute total_usd, API endpoints
+- [[task]] — Task system end to end: the four task kinds, what triggers each, completion rules, deadline grammar, lifecycle, known limits
+- [[task-rules]] — Per-step catalog of shipment task rules + the deputy role-equivalence table
 - [[status-codes]] — 12 active statuses + `cancelled` + 3 retired: codes, phases, trigger fields, roles
 - [[deployment-guide]] — Docker, MSSQL, env vars, seed commands
 - [[data-imports]] — 14 management commands for data migration

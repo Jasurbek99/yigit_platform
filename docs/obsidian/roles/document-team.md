@@ -13,6 +13,8 @@ related: [[roles-matrix]], [[shipment-lifecycle]], [[quality-documents]]
 >
 > Still admin-only, for `export_manager` and `document_team` alike: the permission matrix, user create/edit/delete and role changes, and the feedback admin inbox. The document team reads the user list (for the comments/mentions picker) and nothing more.
 >
+> **Carve-out (2026-09-22):** the My tasks board (`/me/board`, `MeTaskListView`) is NOT part of the clone — `document_team` was pulled back out of `_SUPERVISOR_ROLES` there, so its board shows only its own queue, exactly like a regular role. `export_manager` keeps the cross-role "sees every role's tasks" oversight view. Same pattern as ADR-024's plan-approval carve-out — see [[../processes/permissions-system#`EXPORT_MANAGER_LIKE` — document_team is an export_manager peer (2026-09-09)]].
+>
 > Mechanism: `EXPORT_MANAGER_LIKE` in `apps/core/roles.py` (code) plus `core/0042_document_team_export_manager_parity` (matrix rows). **Point-in-time** — the two roles hold independent permission rows afterwards, so a later grant to `export_manager` does not propagate. See [[roles-matrix]] and [[../processes/permissions-system#`EXPORT_MANAGER_LIKE` — document_team is an export_manager peer (2026-09-09)]].
 
 ## Who

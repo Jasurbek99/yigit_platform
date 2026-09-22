@@ -135,6 +135,41 @@ successfully and then render as broken images (all fixed 2026-08-27):
    `up -d --build`. A host bind rather than a named volume **on purpose**: the
    beta host already holds the live uploads at `./backend/media`, and a named
    volume would mount over that directory and hide them.
+4. **No overlay may drop that mount.** The beta host's untracked
+   `docker-compose.deploy.yml` had `backend: volumes: !override` listing only
+   `static_files:/app/static`. `!override` REPLACES the list, so the media bind
+   from `docker-compose.prod.yml` was silently discarded. Uploads still returned
+   201 but landed in the container layer, while nginx served the host directory:
+   feedback screenshots 404'd (found 2026-09-16), and truck/driver scans, which
+   are read back through an authenticated view, worked until the next rebuild
+   would delete them. Any overlay that overrides backend `volumes` must re-list
+   **both** entries:
+
+   ```yaml
+   backend:
+     volumes: !override
+       - static_files:/app/static
+       - ./backend/media:/app/media
+   ```
+
+   Check the MERGED config, not the files — it must show the media bind and
+   must NOT show `./backend:/app`:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+     -f docker-compose.deploy.yml config | grep -A6 'volumes:'
+   docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{println}}{{end}}' \
+     yigit_platform-backend-1   # must list .../backend/media -> /app/media
+   ```
+
+   **Before recreating a backend that ran without the mount**, copy its uploads
+   out first — recreating deletes them:
+
+   ```bash
+   S=media-backup/container-rescue-$(date +%F)
+   mkdir -p $S && docker cp yigit_platform-backend-1:/app/media/. $S/
+   cp -rn $S/. backend/media/        # -n: never overwrite host files
+   ```
 
 Verify after deploy (from any LAN machine):
 
