@@ -77,6 +77,7 @@ _VALID_ROLES: frozenset[str] = frozenset([
     'accountant',
     'greenhouse_manager',
     'seller',
+    'quality_inspector',
     'boss',
 ])
 

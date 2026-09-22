@@ -23,6 +23,7 @@ from apps.export.models import (
     PackingTemplate,
     PackingTemplateShare,
     Pallet,
+    QualityCertificate,
     QualityDocument,
     SalesReport,
     SalesReportLineItem,
@@ -46,12 +47,54 @@ class TomatoVarietyInlineSerializer(serializers.ModelSerializer):
         fields = ['id', 'code', 'name', 'is_experimental']
 
 
+class QualityCertificateSerializer(serializers.ModelSerializer):
+    """One uploaded certificate scan.
+
+    ``download_url`` points at the authenticated streaming action, never at
+    /media/ — nginx aliases that path with no auth on this deployment.
+    """
+
+    download_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.CharField(
+        source='uploaded_by.get_full_name', read_only=True, default='',
+    )
+
+    class Meta:
+        model = QualityCertificate
+        fields = [
+            'id', 'doc_type', 'original_filename', 'mime_type', 'size_bytes',
+            'uploaded_at', 'uploaded_by_name', 'download_url',
+        ]
+
+    def get_download_url(self, obj) -> str:
+        return (
+            f'/api/v1/export/shipments/{obj.quality_document.shipment_id}'
+            f'/quality-certificates/{obj.id}/download/'
+        )
+
+
 class QualityDocumentSerializer(serializers.ModelSerializer):
-    """Serializer for quality inspection document flags."""
+    """Quality certificates for a shipment.
+
+    The four flags are READ-ONLY: they are derived from `certificates` by
+    ``services/quality.py::sync_certificate_flags``. Until 2026-09-22 they were
+    writable checkboxes; a tick now requires an uploaded scan. They stay in the
+    payload because ShipmentList, the Sheet document icons and the task card
+    all read them.
+    """
+
+    certificates = QualityCertificateSerializer(many=True, read_only=True)
 
     class Meta:
         model = QualityDocument
-        fields = ['azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty', 'kalibrowka_analiz']
+        fields = [
+            'azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty',
+            'kalibrowka_analiz', 'certificates',
+        ]
+        read_only_fields = [
+            'azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty',
+            'kalibrowka_analiz',
+        ]
 
 
 class SalesReportLineItemSerializer(serializers.ModelSerializer):

@@ -259,7 +259,11 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         # the real transit_days field's perm.
         'row_number': 26,
         'field_key': 'transit_days_temp',
-        'default_who_key': 'sheet.who.transport',
+        # Moved off transport 2026-09-22 with the fields themselves — the
+        # 'quality' who-key has carried a label in all three languages since
+        # the Sheet was built, and was orphaned only because no matching role
+        # existed. See backfill_sheet_row_defaults.WHO_TO_ROLE.
+        'default_who_key': 'sheet.who.quality',
         'label_key': 'sheet.row.transit_temp',
         'input_type': 'text',
         'style': 'base',

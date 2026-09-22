@@ -9,4 +9,5 @@ export const ROLE_COLOR: Record<string, string> = {
   finansist: 'gold',
   accountant: 'purple',
   seller: 'volcano',
+  quality_inspector: 'magenta',
 };

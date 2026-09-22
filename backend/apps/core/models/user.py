@@ -25,6 +25,12 @@ ROLE_CHOICES = [
     ('accountant', 'Accountant'),
     ('greenhouse_manager', 'Greenhouse Manager'),
     ('seller', 'Seller'),
+    # quality_inspector (Hil Gözegçi): owns the quality-certificate flags and
+    # the transit-days / transport-temperature / shelf-life readings. Split out
+    # of `transport` 2026-09-22 — those fields were seeded to transport with the
+    # comment "R27 transit days + temp (quality inspector)" because no such role
+    # existed yet. Operational only: no user/permission admin (AD-15).
+    ('quality_inspector', 'Quality Inspector'),
     ('boss', 'Boss'),
 ]
 

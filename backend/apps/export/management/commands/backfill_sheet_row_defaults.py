@@ -9,7 +9,7 @@ For each entry in DEFAULT_SHEET_ROWS:
     ``default_who_key``;
   * if the row has zero SheetRowRoleTrigger rows, seed it with the role(s)
     derived from default_who_key via WHO_TO_ROLE (skips when the mapping
-    yields no role — e.g. ``sheet.who.quality``).
+    yields no role, e.g. an unmapped ``sheet.who.<name>``).
 
 Add-only: existing SheetRowRoleTrigger rows are NEVER deleted or modified.
 The command is idempotent and safe to re-run.
@@ -34,7 +34,8 @@ from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 
 # Maps the ``default_who_key`` slug (e.g. 'soltanmyrat') to the role(s) that
 # should own that row, sourced from docs/DOMAIN.md. Confirmed with the user
-# 2026-06-02. 'quality' has no matching role in ROLE_CHOICES and is skipped.
+# 2026-06-02. 'quality' was skipped until 2026-09-22 — it had no matching role
+# in ROLE_CHOICES until `quality_inspector` was split out of `transport`.
 WHO_TO_ROLE: dict[str, list[str]] = {
     'gadam':       ['export_manager'],
     'aganazar':    ['export_manager'],
@@ -48,7 +49,7 @@ WHO_TO_ROLE: dict[str, list[str]] = {
     'babageldi':   ['finansist'],
     'logist':      ['transport'],
     'transport':   ['transport'],
-    # 'quality' intentionally omitted — no matching ROLE_CHOICES entry.
+    'quality':     ['quality_inspector'],
 }
 
 LANGS = ('tk', 'ru', 'en')
@@ -137,7 +138,7 @@ class Command(BaseCommand):
             'label_fields_filled': 0,
             'who_fields_filled': 0,
             'triggers_added': 0,
-            'rows_skipped_quality': 0,
+            'rows_skipped_no_role': 0,
             'rows_already_complete': 0,
         }
         triggers_to_create: list[SheetRowRoleTrigger] = []
@@ -205,7 +206,7 @@ class Command(BaseCommand):
                 who_slug = who_key.rsplit('.', 1)[-1]
                 target_roles = WHO_TO_ROLE.get(who_slug, [])
                 if not target_roles:
-                    stats['rows_skipped_quality'] += 1
+                    stats['rows_skipped_no_role'] += 1
                     continue
 
                 # setting.pk is None when this is a dry-run creation; skip the

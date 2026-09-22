@@ -756,7 +756,12 @@
     "azyk_maglumatnama": "Food Certificate (Azyk Maglumatnama)",
     "suriji_gozukdiriji": "Driver Certificate (Sürüji Görkezijisi)",
     "hil_sertifikaty": "Quality Certificate",
-    "kalibrowka_analiz": "Calibration Analysis"
+    "kalibrowka_analiz": "Calibration Analysis",
+    "missing": "Missing",
+    "no_scans": "No scan uploaded",
+    "upload": "Upload scan",
+    "max_reached": "Maximum 5 files",
+    "delete_confirm": "Delete this scan?"
   },
   "shipment_create": {
     "title": "New Shipment",
@@ -2993,7 +2998,8 @@
       "quality.azyk_maglumatnama": "Food Certificate",
       "quality.suriji_gozukdiriji": "Phytosanitary",
       "quality.hil_sertifikaty": "Quality Certificate",
-      "quality.kalibrowka_analiz": "Calibration Analysis"
+      "quality.kalibrowka_analiz": "Calibration Analysis",
+      "has_peregruz": "Has transshipment"
     },
     "edit_in_detail": "Edit in shipment detail",
     "fill_loading_data": "Fill loading data",

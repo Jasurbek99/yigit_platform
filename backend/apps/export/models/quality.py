@@ -2,11 +2,33 @@ from django.db import models
 from apps.core.db_utils import cyrillic_collation, schema_table
 
 
-class QualityDocument(models.Model):
-    """Quality inspection document flags for a shipment.
+class QualityCertificateType(models.TextChoices):
+    """The four documents that must physically accompany the cargo."""
 
-    One record per shipment. All four boolean fields correspond to physical
-    documents that must accompany the cargo.
+    AZYK_MAGLUMATNAMA = 'azyk_maglumatnama', 'Azyk maglumatnamasy'
+    SURIJI_GOZUKDIRIJI = 'suriji_gozukdiriji', 'Sürüji gözükdirijisi'
+    HIL_SERTIFIKATY = 'hil_sertifikaty', 'Hil sertifikaty'
+    KALIBROWKA_ANALIZ = 'kalibrowka_analiz', 'Kalibrowka analizi'
+
+
+class QualityDocument(models.Model):
+    """Quality certificates for a shipment — one record per shipment.
+
+    The four boolean columns are DERIVED, not entered. Each is True iff at
+    least one :class:`QualityCertificate` scan of that type exists. Before
+    2026-09-22 they were operator-set checkboxes; a tick now requires an
+    uploaded file, so the flag cannot claim a certificate that is not there.
+
+    They are kept as real columns on purpose rather than becoming properties:
+    ``boss_analytics`` and ``dashboard_summary`` filter on them in the ORM, and
+    ShipmentList's four columns and the Sheet payload's document icons read
+    them through ``doc_azyk``-style serializer fields. Keeping the columns is
+    what let the upload feature land without touching any of those four.
+
+    Like the AD-1 timestamps, a denormalized column needs exactly one writer:
+    ``services/quality.py::sync_certificate_flags``. Never assign these fields
+    anywhere else — a stale True is a certificate the dashboard counts and the
+    truck does not carry.
     """
 
     shipment = models.OneToOneField(
@@ -22,6 +44,51 @@ class QualityDocument(models.Model):
 
     def __str__(self) -> str:
         return f'QualityDoc for {self.shipment.shipment_code}'
+
+
+class QualityCertificate(models.Model):
+    """A scan of one quality certificate — JPG or PDF, one or many per type.
+
+    Same shape as ``transport.DriverDocument`` and ``ContractAttachment``, and
+    served the same way: only through the authenticated download action, never
+    a direct /media/ URL. nginx aliases /media/ with no auth on this
+    deployment, and these documents carry firm and inspection detail.
+
+    Several rows per ``doc_type`` are allowed on purpose: certificates run to
+    more than one page, and a re-issued certificate should not silently
+    overwrite the one that travelled with an earlier truck.
+
+    File validation (size, extension, magic bytes) happens at the service layer
+    (``export.services.files.validate_quality_certificate``) before a row is
+    saved.
+    """
+
+    quality_document = models.ForeignKey(
+        QualityDocument, on_delete=models.CASCADE, related_name='certificates',
+    )
+    doc_type = models.CharField(
+        max_length=32, choices=QualityCertificateType.choices, db_index=True,
+    )
+
+    # === File ===
+    file = models.FileField(upload_to='quality_certificates/%Y/%m/')
+    original_filename = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=100)
+    size_bytes = models.IntegerField()
+
+    # === Audit ===
+    uploaded_by = models.ForeignKey(
+        'core.User', on_delete=models.PROTECT,
+        related_name='uploaded_quality_certificates',
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = schema_table('export', 'quality_certificates')
+        ordering = ['doc_type', '-uploaded_at']
+
+    def __str__(self) -> str:
+        return f'{self.get_doc_type_display()}: {self.original_filename}'
 
 
 class ShipmentComment(models.Model):

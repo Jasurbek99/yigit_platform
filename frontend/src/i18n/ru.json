@@ -758,7 +758,12 @@
     "azyk_maglumatnama": "Продовольственный сертификат",
     "suriji_gozukdiriji": "Сертификат водителя",
     "hil_sertifikaty": "Сертификат качества",
-    "kalibrowka_analiz": "Калибровочный анализ"
+    "kalibrowka_analiz": "Калибровочный анализ",
+    "missing": "Нет",
+    "no_scans": "Скан не загружен",
+    "upload": "Загрузить скан",
+    "max_reached": "Максимум 5 файлов",
+    "delete_confirm": "Удалить этот скан?"
   },
   "shipment_create": {
     "title": "Новая отгрузка",
@@ -2995,7 +3000,8 @@
       "quality.azyk_maglumatnama": "Пищевой сертификат",
       "quality.suriji_gozukdiriji": "Фитосанитарный",
       "quality.hil_sertifikaty": "Сертификат качества",
-      "quality.kalibrowka_analiz": "Калибровочный анализ"
+      "quality.kalibrowka_analiz": "Калибровочный анализ",
+      "has_peregruz": "Есть перегруз"
     },
     "edit_in_detail": "Редактировать в деталях отгрузки",
     "fill_loading_data": "Заполнить данные загрузки",

@@ -28,6 +28,7 @@ ROLES = [
     'greenhouse_manager',
     'loading_dept_head',
     'loading_dept_head_deputy',
+    'quality_inspector',
     'seller',
     'weight_master',
 ]

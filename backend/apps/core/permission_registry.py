@@ -232,9 +232,13 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'export_firm', 'weight_kg', 'amount_usd', 'invoice_number', 'split_order',
     ],
     'shipment_block_source': ['block', 'weight_kg', 'harvest_date'],
-    'quality_document': [
-        'azyk_maglumatnama', 'suriji_gozukdiriji', 'hil_sertifikaty', 'kalibrowka_analiz',
-    ],
+    # Empty since 2026-09-22, like sheet_row_setting: the four flags became
+    # DERIVED columns when certificates turned into file uploads, so there is
+    # no field on this resource anyone can be granted edit on. Access is
+    # controlled at the RESOURCE level (can_edit gates upload and delete).
+    # Listing them here would render tickboxes on /admin/permissions that
+    # change nothing.
+    'quality_document': [],
     'sales_report': [
         'price_per_kg', 'total_usd', 'weight_sold_kg', 'weight_rejected_kg',
         'transport_cost_usd', 'market_fee_usd', 'other_expenses_usd', 'notes',

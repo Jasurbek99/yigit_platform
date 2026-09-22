@@ -65,6 +65,7 @@ export const WHO_KEY_ROLE: Record<string, string> = {
   'sheet.who.babageldi': 'finansist',
   'sheet.who.arap': 'sales_rep',
   'sheet.who.aganazar': 'export_manager',
+  'sheet.who.quality': 'quality_inspector',
 };
 
 /** Who-keys that name no single owner and must never be grouped or banded —

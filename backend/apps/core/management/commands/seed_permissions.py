@@ -130,6 +130,11 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
         _HARVEST_BOARD,
     } | _UNIVERSAL,
+    # quality_inspector: transport's shipment surfaces minus the harvest board
+    # — the inspector works the truck, not the greenhouse plan.
+    'quality_inspector': {
+        'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
+    } | _UNIVERSAL,
     'sales_rep': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         'export.advances', _BOARD,
@@ -284,6 +289,15 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'shipment': _VE,
         'shipment_comment': _VCE,
     },
+    # quality_inspector: edits the shipment's quality readings and owns the
+    # quality-certificate record outright. quality_document was previously
+    # reachable only through the _ALL_RESOURCES wildcard held by
+    # admin/director/export_manager/document_team/boss.
+    'quality_inspector': {
+        'shipment': _VE,
+        'quality_document': _VCE,
+        'shipment_comment': _VCE,
+    },
     'sales_rep': {
         'shipment': _VE,
         'sales_report': _VCE,           # Arap creates sales reports
@@ -357,7 +371,6 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
         'shipment': ['*'],
         'shipment_firm_split': ['*'],
         'shipment_block_source': ['*'],
-        'quality_document': ['*'],
         'sales_report': ['*'],
         'weekly_plan': ['*'],
         'quota_issuance': ['*'],
@@ -424,7 +437,6 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     # ── transport (Haltac, Malik, Transport bölüm, Hil Gözegçi) ─────
     # Excel: R15 vehicle status, R23 responsible, R24 truck/trailer,
     # R28 driver, R29 driver phone (via driver FK), R30 border point,
-    # R27 transit days + temp (quality inspector)
     # R31 border exit time (AD-1, via transition)
     'transport': {
         'shipment': [
@@ -433,7 +445,10 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'vehicle_responsible', 'truck_head_id', 'trailer_id', 'driver_id',
             # R23/R27/R28 — operator-entered plate, driver name, driver phone
             'truck_plate', 'driver_name', 'driver_phone',
-            'border_point', 'transit_days', 'transport_temp_c', 'shelf_life_days',
+            # R27 transit_days / transport_temp_c / shelf_life_days moved to
+            # quality_inspector 2026-09-22 — they were only ever here because
+            # that role did not exist.
+            'border_point',
             # R30 — Haltac logs the TM border-exit time (was AD-1, now operator-entered).
             'border_crossed_at',
             # R21 — greenhouse-departure. sheet_rows.py's default_who_key for
@@ -446,6 +461,14 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             # cell "work" for most edits.
             'departed_at',
         ],
+    },
+    # ── quality_inspector (Hil Gözegçi) ──────────────────────────────
+    # Excel R26: the combined "transit days + temp" cell, plus shelf life.
+    # `transit_days_temp` is a virtual sheet key that can_edit_sheet_field
+    # delegates to the real `transit_days` perm, so granting transit_days is
+    # what opens that cell.
+    'quality_inspector': {
+        'shipment': ['transit_days', 'transport_temp_c', 'shelf_life_days'],
     },
     # ── sales_rep (Arap, Aganazar) ───────────────────────────────────
     # Excel: R12 city, R33 peregruz, R34 peregruz time, R35 arrival (AD-1),
@@ -490,7 +513,6 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
         'shipment': ['*'],
         'shipment_firm_split': ['*'],
         'shipment_block_source': ['*'],
-        'quality_document': ['*'],
         'sales_report': ['*'],
         'weekly_plan': ['*'],
         'quota_issuance': ['*'],
@@ -501,7 +523,6 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
         'shipment': ['*'],
         'shipment_firm_split': ['*'],
         'shipment_block_source': ['*'],
-        'quality_document': ['*'],
         'sales_report': ['*'],
         'weekly_plan': ['*'],
         'quota_issuance': ['*'],
@@ -534,6 +555,13 @@ FIELD_DEFAULTS['document_team']['quota_usage'] = ['*']
 
 # boss: wildcard on every resource. Uses a comprehension rather than admin's
 # hand-enumerated list so a newly registered resource is covered automatically.
+#
+# This deliberately still covers resources whose field list is empty
+# (`quality_document` since its flags became derived, `sheet_row_setting`).
+# Such a row grants nothing — `can_edit_field` resolves '*' against
+# RESOURCE_FIELDS, which is [] — and `tests_boss_access` pins the
+# "one row per registered resource" shape, so narrowing it here would be a
+# cosmetic change that breaks a deliberate expectation.
 FIELD_DEFAULTS['boss'] = {r: ['*'] for r in _ALL_RESOURCES}
 
 

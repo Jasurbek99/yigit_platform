@@ -124,10 +124,34 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   ],
   comment_count: 1,
   quality: {
+    // The four flags are derived from `certificates` server-side, so the mock
+    // keeps them consistent: two types have a scan, two do not.
     azyk_maglumatnama: true,
     suriji_gozukdiriji: true,
     hil_sertifikaty: false,
     kalibrowka_analiz: false,
+    certificates: [
+      {
+        id: 1,
+        doc_type: 'azyk_maglumatnama',
+        original_filename: 'azyk-maglumatnama.pdf',
+        mime_type: 'application/pdf',
+        size_bytes: 248_192,
+        uploaded_at: '2026-01-02T09:15:00Z',
+        uploaded_by_name: 'Hil Gözegçi',
+        download_url: '/api/v1/export/shipments/1/quality-certificates/1/download/',
+      },
+      {
+        id: 2,
+        doc_type: 'suriji_gozukdiriji',
+        original_filename: 'suriji-gozukdiriji.jpg',
+        mime_type: 'image/jpeg',
+        size_bytes: 1_048_576,
+        uploaded_at: '2026-01-02T09:17:00Z',
+        uploaded_by_name: 'Hil Gözegçi',
+        download_url: '/api/v1/export/shipments/1/quality-certificates/2/download/',
+      },
+    ],
   },
   sales_report: null,
   weight_to_load_kg: null,

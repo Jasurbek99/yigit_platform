@@ -43,6 +43,7 @@ const ALL_ROLES: UserRole[] = [
   'accountant',
   'greenhouse_manager',
   'seller',
+  'quality_inspector',
   'boss',
 ];
 
@@ -74,6 +75,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   accountant: 'purple',
   greenhouse_manager: 'lime',
   seller: 'cyan',
+  quality_inspector: 'purple',
   boss: 'magenta',
 };
 

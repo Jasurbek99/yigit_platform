@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 
 from django.db import transaction
+from django.http import FileResponse
 from django.db.models import (
     Count,
     Exists,
@@ -190,6 +191,34 @@ class ShipmentViewSet(ModelViewSet):
         )
         if is_pallet_write:
             return [IsAuthenticated(), SeasonNotClosed()]
+        is_quality_write = (
+            action == 'delete_quality_certificate'
+            or (action == 'quality_certificates' and self.request.method == 'POST')
+        )
+        if is_quality_write:
+            # These write (and read) the `quality_document` resource, not
+            # `shipment`. DynamicResourcePermission reads the ViewSet's single
+            # class-level resource_code, so it maps the upload POST to
+            # shipment.can_create and the DELETE to shipment.can_delete — both
+            # False for quality_inspector, which must never create or delete a
+            # shipment but does own the certificates. Same shape as
+            # set_firm_splits below; `resource_edit_permission` is the documented
+            # factory for "a POST on this ViewSet that writes another resource".
+            # can_edit (not can_create) is the right flag: all six roles holding
+            # quality_document have it, and adding a scan is an edit of the
+            # shipment's document set.
+            #
+            # WRITES only. Listing the scans and streaming one keep the default
+            # shipment.can_view gate: the four flags are already visible to
+            # anyone who can open the shipment (detail payload, ShipmentList
+            # columns, Sheet document icons), so gating the file list on
+            # quality_document would 403 the card for roles that can read the
+            # rest of the page.
+            return [
+                IsAuthenticated(),
+                SeasonNotClosed(),
+                resource_edit_permission('quality_document')(),
+            ]
         if action == 'set_sales_report':
             # This action writes the `sales_report` resource (where sales_rep
             # HAS create rights), not `shipment`. The frontend always POSTs, so
@@ -2868,29 +2897,130 @@ class ShipmentViewSet(ModelViewSet):
 
         return Response({'fields': sorted(SWAPPABLE_FIELDS)})
 
-    @action(detail=True, methods=['patch'], url_path='quality')
-    def set_quality(self, request, pk=None):
-        """PATCH /api/v1/export/shipments/{id}/quality/
+    @action(detail=True, methods=['get', 'post'], url_path='quality-certificates')
+    def quality_certificates(self, request, pk=None):
+        """List this shipment's certificate scans, or upload one or more.
 
-        Creates or updates the QualityDocument for a shipment.
-        Restricted to export_manager, document_team, and director roles.
-        Returns full shipment detail on success.
+        Multipart files are read from the ``files`` form key and `doc_type`
+        names which of the four certificates they belong to, so one request can
+        carry every page of a single certificate. Every file is validated
+        (size, .jpg/.pdf extension, magic bytes) before any row is written — a
+        half-accepted upload would leave the operator guessing which page
+        landed. Returns the shipment's full certificate list either way.
+
+        Replaces the boolean `PATCH /quality/` endpoint (removed 2026-09-22):
+        the four flags are now derived from these rows, so a certificate cannot
+        be claimed without the scan to back it.
         """
-        if getattr(request.user, 'role', None) not in PRIVILEGED_ROLES | {'document_team'}:
-            return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
-
         shipment = self.get_object()
         quality, _ = QualityDocument.objects.get_or_create(shipment=shipment)
-        quality_serializer = QualityDocumentSerializer(quality, data=request.data, partial=True)
-        quality_serializer.is_valid(raise_exception=True)
-        quality_serializer.save()
+
+        if request.method == 'GET':
+            return Response(
+                QualityCertificateSerializer(
+                    quality.certificates.all(), many=True,
+                ).data
+            )
+
+        doc_type = request.data.get('doc_type')
+        if doc_type not in QualityCertificateType.values:
+            return Response(
+                {'error': f'doc_type must be one of {QualityCertificateType.values}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        files = request.FILES.getlist('files')
+        if not files:
+            return Response(
+                {'error': 'No files provided.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing = quality.certificates.filter(doc_type=doc_type).count()
+        if existing + len(files) > MAX_FILES_PER_TYPE:
+            return Response(
+                {'error': f'Maximum {MAX_FILES_PER_TYPE} files allowed per certificate.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate every file before writing any row.
+        for f in files:
+            validate_quality_certificate(f)
+
+        for f in files:
+            QualityCertificate.objects.create(
+                quality_document=quality,
+                doc_type=doc_type,
+                file=f,
+                original_filename=sanitise_filename(f.name),
+                mime_type=detect_mime(f),
+                size_bytes=f.size,
+                uploaded_by=request.user,
+            )
+
+        sync_certificate_flags(quality)
         logger.info(
-            'QualityDocument for %s updated by %s',
-            shipment.shipment_code,
-            request.user.username,
+            'Quality certificates (%s x%d) uploaded for %s by %s',
+            doc_type, len(files), shipment.shipment_code, request.user.username,
         )
-        detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
-        return Response(detail_serializer.data)
+        return Response(
+            QualityCertificateSerializer(quality.certificates.all(), many=True).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True, methods=['post'],
+        url_path='quality-certificates/(?P<cert_id>[0-9]+)/delete',
+    )
+    def delete_quality_certificate(self, request, pk=None, cert_id=None):
+        """Remove one certificate scan and re-derive the flags.
+
+        POST, not DELETE: this ViewSet sets
+        ``http_method_names = ['get', 'post', 'patch', 'head', 'options']`` so
+        that ``DELETE /shipments/{id}/`` cannot destroy a shipment. Adding
+        'delete' back for this sub-resource would re-expose `destroy` on the
+        parent. Same shape as the existing `hard-delete` / `soft-delete`
+        actions on this ViewSet.
+        """
+        shipment = self.get_object()
+        quality = QualityDocument.objects.filter(shipment=shipment).first()
+        certificate = (
+            quality.certificates.filter(pk=cert_id).first() if quality else None
+        )
+        if certificate is None:
+            return Response(
+                {'error': 'Certificate not found.'}, status=status.HTTP_404_NOT_FOUND,
+            )
+
+        certificate.delete()
+        # Deleting the last scan of a type must clear its flag, or the
+        # dashboard keeps counting a certificate the truck does not carry.
+        sync_certificate_flags(quality)
+        return Response(
+            QualityCertificateSerializer(quality.certificates.all(), many=True).data
+        )
+
+    @action(
+        detail=True, methods=['get'],
+        url_path='quality-certificates/(?P<cert_id>[0-9]+)/download',
+    )
+    def download_quality_certificate(self, request, pk=None, cert_id=None):
+        """Stream one certificate scan inline, for preview in a new tab."""
+        shipment = self.get_object()
+        quality = QualityDocument.objects.filter(shipment=shipment).first()
+        certificate = (
+            quality.certificates.filter(pk=cert_id).first() if quality else None
+        )
+        if certificate is None:
+            return Response(
+                {'error': 'Certificate not found.'}, status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return FileResponse(
+            certificate.file.open('rb'),
+            content_type=certificate.mime_type or 'application/octet-stream',
+            as_attachment=False,
+            filename=certificate.original_filename,
+        )
 
     @action(detail=True, methods=['post'], url_path='comment')
     @idempotent

@@ -36,6 +36,7 @@ export const ROLE_CHOICES: ReadonlyArray<{ value: string; labelKey: string }> = 
   { value: 'accountant',         labelKey: 'roles.accountant' },
   { value: 'greenhouse_manager', labelKey: 'roles.greenhouse_manager' },
   { value: 'seller',             labelKey: 'roles.seller' },
+  { value: 'quality_inspector',  labelKey: 'roles.quality_inspector' },
   { value: 'boss',               labelKey: 'roles.boss' },
 ] as const;
 

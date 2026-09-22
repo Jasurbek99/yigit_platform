@@ -7,7 +7,13 @@ from .shipment import (
 )
 from .pallet import Pallet
 from .packing_template import PackingTemplate, PackingTemplateShare, PRODUCT_TYPE_CHOICES
-from .quality import QualityDocument, ShipmentComment, SalesReport
+from .quality import (
+    QualityCertificate,
+    QualityCertificateType,
+    QualityDocument,
+    SalesReport,
+    ShipmentComment,
+)
 from .expense_category import ExpenseCategory
 from .sales import (
     SalesReportLineItem,
@@ -55,6 +61,8 @@ __all__ = [
     'ShipmentFirmSplit',
     'ShipmentBlockSource',
     'VEHICLE_CONDITION_CHOICES',
+    'QualityCertificate',
+    'QualityCertificateType',
     'QualityDocument',
     'ShipmentComment',
     'SalesReport',

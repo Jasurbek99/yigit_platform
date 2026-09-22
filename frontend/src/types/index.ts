@@ -21,6 +21,7 @@ export type UserRole =
   | 'accountant'
   | 'greenhouse_manager'
   | 'seller'
+  | 'quality_inspector'
   | 'boss';
 
 export interface IResourcePermission {
@@ -1135,11 +1136,33 @@ export interface IPriceEntry {
   created_at: string;
 }
 
+export type QualityCertificateType =
+  | 'azyk_maglumatnama'
+  | 'suriji_gozukdiriji'
+  | 'hil_sertifikaty'
+  | 'kalibrowka_analiz';
+
+/** One uploaded certificate scan. `download_url` is the authenticated
+ *  streaming route — never a raw /media/ path (nginx serves those unauthed). */
+export interface IQualityCertificate {
+  id: number;
+  doc_type: QualityCertificateType;
+  original_filename: string;
+  mime_type: string;
+  size_bytes: number;
+  uploaded_at: string;
+  uploaded_by_name: string;
+  download_url: string;
+}
+
+/** The four flags are DERIVED server-side (true iff a scan of that type
+ *  exists) and are read-only everywhere since 2026-09-22. */
 export interface IShipmentQuality {
   azyk_maglumatnama: boolean;
   suriji_gozukdiriji: boolean;
   hil_sertifikaty: boolean;
   kalibrowka_analiz: boolean;
+  certificates: IQualityCertificate[];
 }
 
 // ─── Sales Report (rich, line-item + expense tables) ──────────────────────────

@@ -756,7 +756,12 @@
     "azyk_maglumatnama": "Azyk maglumatnama",
     "suriji_gozukdiriji": "Sürüji görkezijisi",
     "hil_sertifikaty": "Hil sertifikaty",
-    "kalibrowka_analiz": "Kalibrowka analizi"
+    "kalibrowka_analiz": "Kalibrowka analizi",
+    "missing": "Ýok",
+    "no_scans": "Skan ýüklenmedi",
+    "upload": "Skan ýükle",
+    "max_reached": "Iň köp 5 faýl",
+    "delete_confirm": "Bu skany pozmaly?"
   },
   "shipment_create": {
     "title": "Täze ýük",
@@ -2998,7 +3003,8 @@
       "quality.azyk_maglumatnama": "Azyk maglumaty",
       "quality.suriji_gozukdiriji": "Fitosanitariya",
       "quality.hil_sertifikaty": "Hil sertifikaty",
-      "quality.kalibrowka_analiz": "Kalibrowka analizi"
+      "quality.kalibrowka_analiz": "Kalibrowka analizi",
+      "has_peregruz": "Peregruz bar"
     },
     "edit_in_detail": "Iberişiň jikme-jikliginde redaktirle",
     "fill_loading_data": "Ýüklemek maglumatyny doldur",
