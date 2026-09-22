@@ -14,7 +14,10 @@ vi.mock('@/services/api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
 
-const api = vi.mocked(apiModule);
+// `{ deep: true }`: the axios instance's get/post are overloaded signatures,
+// so a shallow vi.mocked() leaves them typed as the real functions and every
+// .mockResolvedValue below fails to typecheck.
+const api = vi.mocked(apiModule, { deep: true });
 
 const AZYK: IQualityCertificate = {
   id: 7,

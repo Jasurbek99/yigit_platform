@@ -262,7 +262,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('staff and boss reach the same 47-key set, grouped differently, and neither surfaces the removed pages', () => {
+  it('staff and boss reach the same 48-key set, grouped differently, and neither surfaces the removed pages', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -277,8 +277,10 @@ describe('AppLayout menu composition', () => {
     // grouped by process-phase (boss) vs. module (staff).
     const REMOVED_EVERYWHERE = ['/export/drafts', '/export/assign'];
 
-    expect(bossKeys).toHaveLength(47);
-    expect(staffKeys).toHaveLength(47);
+    // 46 until 2026-09-22, when two branches each added one entry and merged:
+    // `/export/task-rules` (Task Rules reference) and `/tir-takip` (Tır Takip).
+    expect(bossKeys).toHaveLength(48);
+    expect(staffKeys).toHaveLength(48);
     for (const key of REMOVED_EVERYWHERE) {
       expect(staffKeys).not.toContain(key);
       expect(bossKeys).not.toContain(key);
