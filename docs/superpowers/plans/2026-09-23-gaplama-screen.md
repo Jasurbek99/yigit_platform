@@ -752,9 +752,12 @@ class GaplamaBoardView(APIView):
                 {'error': f'Window may not exceed {MAX_WINDOW_DAYS} days.'}, status=400,
             )
 
-        season, error_response = resolve_season(request)
-        if error_response is not None:
-            return error_response
+        # resolve_season() itself raises NotFound (unknown season id) or
+        # PermissionDenied (closed season without closed_season.can_view) — DRF's
+        # default exception handler converts those to 404/403 automatically, so
+        # nothing extra is needed here. It returns None only during the
+        # close→open gap (no active season and no ?season= given).
+        season = resolve_season(request)
         if season is None:
             return Response({'days': [], 'trucks': []})
 
@@ -768,12 +771,13 @@ class GaplamaBoardView(APIView):
         return Response(board)
 ```
 
-**Before wiring this in, check the exact signature of `resolve_season`** — grep
-`backend/apps/export/services/harvest_forecast.py` or `views_harvest_forecast.py` for how
-the existing `remaining` endpoint calls it (this plan assumes it returns
-`(season, error_response_or_none)` and returns `None` season during the close→open gap —
-verify against the real helper and adjust the four lines above to match its actual return
-shape before running tests).
+**Verified against the real helper** (`backend/apps/core/seasons.py:58-89`):
+`resolve_season(request) -> Season | None` reads `?season=`, falls back to
+`get_active_season()`, and **raises** `NotFound` (unknown id) or `PermissionDenied`
+(closed season without `closed_season.can_view`) rather than returning an error tuple —
+DRF's `APIView.dispatch()` catches both automatically and converts them to 404/403
+responses, so the view needs no explicit handling for either case. It returns `None`
+only during the close→open gap, which the code above already handles.
 
 - [ ] **Step 5: Wire the URL**
 
