@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sumByLocation, truckCountByDay, trucksForDay, isPartialTruck, weekTotal } from './GaplamaTab.totals';
+import { sumByLocation, truckCountByDay, trucksForDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
 import type { IGaplamaDay, IGaplamaTruck } from '@/types';
 
 const days: IGaplamaDay[] = [
@@ -17,6 +17,13 @@ const trucks: IGaplamaTruck[] = [
 describe('sumByLocation', () => {
   it('groups available_kg by location for a given day', () => {
     expect(sumByLocation(days, '2026-09-21', 'available_kg')).toEqual({ dusak: 8000, kaka: 5000 });
+  });
+  it('buckets null-location rows under the "other" key', () => {
+    const daysWithNull: IGaplamaDay[] = [
+      { date: '2026-09-21', block_id: 1, block_code: 'A', location: 'dusak', plan_kg: 20000, loaded_kg: 12000, carried_in_kg: 0, available_kg: 8000, over_kg: 0 },
+      { date: '2026-09-21', block_id: 2, block_code: 'B', location: null, plan_kg: 5000, loaded_kg: 0, carried_in_kg: 0, available_kg: 5000, over_kg: 0 },
+    ];
+    expect(sumByLocation(daysWithNull, '2026-09-21', 'available_kg')).toEqual({ dusak: 8000, other: 5000 });
   });
 });
 
@@ -40,6 +47,31 @@ describe('isPartialTruck', () => {
   it('does not flag a full truck', () => {
     const full = { ...trucks[0], block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 18500 }] };
     expect(isPartialTruck(full, 18500)).toBe(false);
+  });
+});
+
+describe('truckTotalKg', () => {
+  it('sums weight_kg from a single block source', () => {
+    expect(truckTotalKg(trucks[0])).toBe(12000);
+  });
+  it('sums weight_kg across multiple block sources', () => {
+    const multiBlock: IGaplamaTruck = {
+      id: 2,
+      shipment_code: '2109002/26',
+      export_code: null,
+      date: '2026-09-21',
+      status: 1,
+      status_code: 'draft',
+      status_display: 'Draft',
+      country: null,
+      customer: null,
+      block_sources: [
+        { block_id: 1, block_code: 'A', weight_kg: 10000 },
+        { block_id: 2, block_code: 'B', weight_kg: 8000 },
+        { block_id: 3, block_code: 'C', weight_kg: 2000 },
+      ],
+    };
+    expect(truckTotalKg(multiBlock)).toBe(20000);
   });
 });
 

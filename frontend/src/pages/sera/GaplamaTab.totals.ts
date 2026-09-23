@@ -12,8 +12,9 @@ export function sumByLocation(
 ): Record<string, number> {
   const out: Record<string, number> = {};
   for (const row of days) {
-    if (row.date !== date || !row.location) continue;
-    out[row.location] = (out[row.location] ?? 0) + (row[field as keyof IGaplamaDay] as number);
+    if (row.date !== date) continue;
+    const key = row.location ?? 'other';
+    out[key] = (out[key] ?? 0) + row[field];
   }
   return out;
 }
