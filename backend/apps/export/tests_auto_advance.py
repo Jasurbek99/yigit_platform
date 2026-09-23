@@ -17,7 +17,7 @@ Run:
 """
 from django.test import TestCase
 
-from apps.core.models import Season, ShipmentStatusType, User
+from apps.core.models import BorderPoint, Season, ShipmentStatusType, User
 from apps.export.management.commands.seed_task_rules import (
     Command as SeedTaskRulesCommand,
 )
@@ -130,6 +130,9 @@ class DraftAutoAdvanceTests(TestCase):
         shipment.driver_name = 'Test Driver'
         shipment.driver_phone = '+99363391774'
         shipment.truck_plate = 'AB1234'
+        # tasks.set_border_point gates the draft step the same way (transport,
+        # ALL_FIELDS_FILLED, non-gapy only).
+        shipment.border_point = BorderPoint.objects.create(name='Farap')
         shipment.documents_status = 'ready'
         shipment.save()
 

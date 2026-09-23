@@ -84,6 +84,38 @@ TASK_RULES: list[dict] = [
         'condition_value': 'True',
     },
     {
+        # Serhet nokady — the border point the truck will cross at. Transport
+        # owns the field (permission_registry TRANSPORT field list) and the
+        # Sheet surfaces it at R29 as a dropdown, so there is a UI path both on
+        # the Sheet and inline on the task card (TaskCardEditor.helpers.ts).
+        # It is read by the TIR carnet / CMR overlay (_border_point_name() in
+        # contracts/services/document_context.py), which is why it belongs on
+        # `draft`, alongside document prep, rather than later in the lifecycle.
+        #
+        # condition is_gapy_satys=False is REQUIRED, not cosmetic: the R29 row
+        # carries gapy_hidden=True, so a gapy shipment has no way to fill it and
+        # an unconditional ALL_FIELDS_FILLED rule would put a permanently
+        # unresolvable gating task on every gapy draft (the weight_gross lesson,
+        # see tasks.fill_loading_data below). Gapy is a domestic sale — no
+        # border is crossed at all.
+        #
+        # Gating: ALL_FIELDS_FILLED, so this joins the draft → gumruk_girish
+        # gate. Per the 2026-09-23 decision this applies to NEW drafts only —
+        # do NOT run `backfill_tasks` for this rule: the 69 non-gapy drafts that
+        # were open when it shipped have no Task row for it and stay unblocked
+        # (`is_step_trigger_satisfied` reads Task rows, not rules, and
+        # `reconcile_tasks` is a mutator that never emits new tasks).
+        'step': 'draft',
+        'title_key': 'tasks.set_border_point',
+        'assignee_role': 'transport',
+        'target_fields': 'border_point',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': 'is_gapy_satys',
+        'condition_value': 'False',
+    },
+    {
         'step': 'draft',
         'title_key': 'tasks.give_documents',
         'assignee_role': 'transport',

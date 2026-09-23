@@ -113,13 +113,14 @@ class DraftCreationGeneratesTasksTests(TestCase):
         self.assertEqual(resp.status_code, 201, resp.data)
         ship_id = resp.data['id']
         tasks = Task.objects.filter(shipment_id=ship_id, step='draft')
-        # Default is_gapy_satys=False → 5 tasks generate (gapy variant gated out)
-        self.assertEqual(tasks.count(), 5)
+        # Default is_gapy_satys=False → 6 tasks generate (gapy variant gated out)
+        self.assertEqual(tasks.count(), 6)
         title_keys = set(tasks.values_list('title_key', flat=True))
         self.assertIn('tasks.set_destination', title_keys)
         self.assertIn('tasks.pick_export_firms', title_keys)
         self.assertIn('tasks.assign_driver', title_keys)
         self.assertIn('tasks.give_documents', title_keys)
+        self.assertIn('tasks.set_border_point', title_keys)
         self.assertIn('tasks.start_documents_prep', title_keys)
         # Conditional out:
         self.assertNotIn('tasks.give_documents_gapy', title_keys)
@@ -139,7 +140,7 @@ class DraftCreationGeneratesTasksTests(TestCase):
         ship_id = resp.data['id']
         self.assertEqual(
             Task.objects.filter(shipment_id=ship_id, step='draft').count(),
-            5,
+            6,
         )
 
     def test_draft_creation_without_shipment_code_auto_generates(self):

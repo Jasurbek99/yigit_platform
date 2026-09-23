@@ -57,6 +57,7 @@ department's tasks.
 | **Draft** | Set destination | export_manager | auto: `country` + `customer` + `import_firm` |
 | | Pick export firms | document_team | auto: add a firm split |
 | | Assign driver | transport | auto: `driver_name` + `driver_phone` + `truck_plate` — *only if not gapy-satys* |
+| | Set border point | transport | auto: `border_point` — *only if not gapy-satys* |
 | | Give documents | transport | **Mark Done** — *only if not gapy-satys* |
 | | Give documents (gapy) | document_team | **Mark Done** — *only if gapy-satys* |
 | | Assign driver (gapy) | document_team | auto: `driver_name` + `driver_phone` + `truck_plate` — *only if gapy-satys* |
@@ -84,6 +85,25 @@ department's tasks.
 **Mark Done tasks never gate auto-advance.** `auto_advance_if_ready()` checks only the non-`MANUAL_DONE`
 tasks on the step, so *Give documents*, *Submit sales report* and *Quality inspection* are reminders — a shipment moves on
 without them. See [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]].
+
+## Border point (Serhet nokady)
+
+`Set border point` is a **gating** draft task: `border_point` feeds the TIR carnet and the
+CMR overlay (`_border_point_name()` in `contracts/services/document_context.py`), so transport
+picks it while the documents are still being prepared rather than after they are printed.
+
+Two things about it:
+
+- **Gapy shipments never get it.** R29 carries `gapy_hidden=True`, so a gapy draft has no UI
+  path to the field; an unconditional rule would hang an unresolvable gating task on every
+  gapy draft. The seed row therefore carries `condition_field='is_gapy_satys'` / `'False'`.
+- **It was NOT backfilled.** When the rule shipped (2026-09-23) 69 of the 70 open non-gapy
+  drafts had no border point. Those drafts have no `Task` row for the rule and are not gated —
+  `is_step_trigger_satisfied()` reads Task rows, and `reconcile_tasks` is a mutator that never
+  emits new tasks. Running `backfill_tasks` would gate all of them at once.
+
+It does not block document generation itself: the TIR carnet dialog accepts a typed border
+point, which is used only when the shipment has none.
 
 ## Sales-report task wiring
 

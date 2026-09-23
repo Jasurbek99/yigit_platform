@@ -1,4 +1,12 @@
 
+- [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
+  To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
+  (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
+  (3) leave it empty, finish every other draft task incl. documents_status = ready — the draft must NOT advance
+  to Gümrük giriş until the border point is filled;
+  (4) create a **Gapy satyş** draft — no such task appears (row 29 is hidden for gapy);
+  (5) an OLD draft that already existed must keep advancing as before (no task, no gate).
+  NOTE: takes effect on the server only after `python manage.py seed_task_rules`.
 - [ ] 2026-09-22 — Task Rules page (`/export/task-rules`) + `GET /export/task-rules/` — NEEDS TEST
   To test: (1) log in as `export_manager` (or admin) — a **Task Rules** entry appears in the sidebar
   next to My Tasks, and the page lists every rule in lifecycle order starting at Draft; (2) check a
