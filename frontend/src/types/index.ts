@@ -839,6 +839,7 @@ export interface IGreenhouseConfig {
   notification_lead_minutes: number;
   truck_capacity_kg: string;            // Decimal as string
   plan_change_max_pct: string;          // Decimal as string, default "15.00"
+  gaplama_carry_days: number;           // default 2 — see GreenhouseConfig.gaplama_carry_days
   operating_days_bitmask: number;       // bits 0â€“6 = Monâ€“Sun
   timezone_name: string;
   updated_by: number | null;

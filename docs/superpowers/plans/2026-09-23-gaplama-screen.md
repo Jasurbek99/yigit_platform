@@ -1646,7 +1646,8 @@ import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { BlockFilterSelect } from './BlockFilterSelect';
 import GaplamaTruckForm from './GaplamaTruckForm';
 import { sumByLocation, trucksForDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
-import type { IGaplamaTruck } from '@/types';
+import type { IGaplamaTruck, IGreenhouseBlock } from '@/types';
+import type { IPlanGridRow } from '@/pages/export/WeeklyPlanGrid.rows';
 import './sera.css';
 
 dayjs.extend(isoWeek);
@@ -1670,16 +1671,42 @@ export default function GaplamaTab() {
 
   const { data: config } = useGreenhouseConfig();
   const carryDays = config?.gaplama_carry_days ?? 2;
-  const truckCapacityKg = config?.truck_capacity_kg ?? 18500;
+  // Decimal-as-string, per the api-contract convention — coerce at the point
+  // of use, same as useGaplama.ts's queryFn does for the board response.
+  const truckCapacityKg = Number(config?.truck_capacity_kg) || 18500;
 
   const fetchFrom = weekStart.subtract(carryDays, 'day').format('YYYY-MM-DD');
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
   const { data: board, isLoading } = useGaplamaBoard(fetchFrom, fetchTo);
 
   const { data: blocksData } = useGreenhouseBlocks();
-  const blocks = (blocksData ?? []).filter(
-    (b: any) => selectedBlockIds === null || selectedBlockIds.includes(b.id),
+  // Top-level, active blocks only — sub-blocks and inactive blocks never
+  // appear in the board's days[] rows either (backend/apps/export/services/
+  // gaplama.py filters the same way), so including them here would render
+  // grid rows with no matching data.
+  const topLevelBlocks = (blocksData ?? []).filter(
+    (b: IGreenhouseBlock) => b.parent === null && b.is_active,
   );
+  const blocks = topLevelBlocks.filter(
+    (b) => selectedBlockIds === null || selectedBlockIds.includes(b.id),
+  );
+
+  // BlockFilterSelect (already on the branch, built for Önümçilik) takes
+  // IPlanGridRow[], not a bare block list — its grouped-by-location dropdown
+  // reads only block/code/name/location_name from each row. Gaplama has no
+  // per-block plan to attach, so `plan` and the plan-derived fields are
+  // always empty; the filter option list itself only needs the block facts.
+  const filterRows: IPlanGridRow[] = topLevelBlocks.map((b) => ({
+    key: `block-${b.id}`,
+    block: b.id,
+    block_code: b.code,
+    block_name: b.name || b.code,
+    location: b.location,
+    location_name: b.location_name,
+    plan: null,
+    block_manager_names: [],
+    late_edit_active: false,
+  }));
 
   const boardDays = (board?.days ?? []).filter((d) => days.includes(d.date));
   const trucks = board?.trucks ?? [];
@@ -1695,26 +1722,34 @@ export default function GaplamaTab() {
     return map;
   }, [boardDays]);
 
-  // D16 grouping: blocks bucketed by GreenhouseBlock.location (Dusak/Kaka/Owadandepe),
-  // in a stable, human-sensible order. Blocks with an unrecognized/missing location
-  // fall into their own trailing group rather than being silently dropped.
-  const LOCATION_ORDER = ['dusak', 'kaka', 'owadandepe'];
+  // D16 grouping: blocks bucketed by GreenhouseBlock.location_name (the display
+  // string — "Dusak"/"Kaka"/"Owadandepe" per LoadingLocation.name), NOT
+  // `location` (that field is the location's numeric id, and the board's
+  // IGaplamaDay.location carries the same name string this groups by, so the
+  // two must match on the name, not the id). A block with no location falls
+  // into its own trailing "other" group instead of being silently dropped.
+  const LOCATION_KEY_FALLBACK = 'other';
   const blocksByLocation = useMemo(() => {
-    const map: Record<string, any[]> = {};
+    const map: Record<string, IGreenhouseBlock[]> = {};
     for (const block of blocks) {
-      const loc = block.location ?? 'other';
+      const loc = block.location_name ?? LOCATION_KEY_FALLBACK;
       map[loc] = map[loc] ?? [];
       map[loc].push(block);
     }
     return map;
   }, [blocks]);
-  const locationOrder = [
-    ...LOCATION_ORDER.filter((loc) => blocksByLocation[loc]?.length),
-    ...Object.keys(blocksByLocation).filter((loc) => !LOCATION_ORDER.includes(loc)),
-  ];
+  const locationOrder = Object.keys(blocksByLocation)
+    .filter((loc) => loc !== LOCATION_KEY_FALLBACK)
+    .sort((a, b) => a.localeCompare(b))
+    .concat(blocksByLocation[LOCATION_KEY_FALLBACK]?.length ? [LOCATION_KEY_FALLBACK] : []);
 
+  // location_name is already the real display string (a place name, not a
+  // code), except for the synthetic 'other' bucket, which needs the one
+  // translated fallback label.
   function locationLabel(location: string, tFn: typeof t): string {
-    return tFn(`tir_takip.gaplama.location_${location}`, location);
+    return location === LOCATION_KEY_FALLBACK
+      ? tFn('tir_takip.gaplama.location_other')
+      : location;
   }
 
   function availableFor(blockId: number, date: string): number {
@@ -1749,7 +1784,7 @@ export default function GaplamaTab() {
           {t('tir_takip.gaplama.this_week')}
         </Button>
         <Button onClick={() => setWeekOffset((w) => w + 1)}>{t('tir_takip.gaplama.next_week')} ▶</Button>
-        <BlockFilterSelect selected={selectedBlockIds} onChange={setSelectedBlockIds} />
+        <BlockFilterSelect rows={filterRows} value={selectedBlockIds} onChange={setSelectedBlockIds} />
       </div>
 
       {isLoading ? (
@@ -1780,7 +1815,7 @@ export default function GaplamaTab() {
                 <tr className="sera-gaplama-location-header">
                   <td colSpan={days.length + 2}>{locationLabel(location, t)}</td>
                 </tr>
-                {blocksByLocation[location].map((block: any) => (
+                {blocksByLocation[location].map((block: IGreenhouseBlock) => (
                   <tr key={block.id}>
                     <td className="sera-gaplama-block-name">{block.name}</td>
                     {days.map((d) => {
@@ -1813,7 +1848,7 @@ export default function GaplamaTab() {
                   ))}
                   <td>
                     {blocksByLocation[location].reduce(
-                      (sum: number, b: any) => sum + weekTotal(rowsByBlock[b.id] ?? [], 'available_kg'),
+                      (sum: number, b: IGreenhouseBlock) => sum + weekTotal(rowsByBlock[b.id] ?? [], 'available_kg'),
                       0,
                     )}
                   </td>
@@ -1891,7 +1926,7 @@ export default function GaplamaTab() {
             today={today}
             editingTruck={editingTruck ?? undefined}
             availableByBlock={availableByBlockToday}
-            blocks={blocks.map((b: any) => ({ id: b.id, code: b.code, label: b.name }))}
+            blocks={blocks.map((b) => ({ id: b.id, code: b.code, label: b.name || b.code }))}
             truckCapacityKg={truckCapacityKg}
             onDone={closeForm}
             onCancel={closeForm}
@@ -1912,7 +1947,7 @@ export default function GaplamaTab() {
                 </tr>
               </thead>
               <tbody>
-                {blocks.map((block: any) => {
+                {blocks.map((block: IGreenhouseBlock) => {
                   const rows = (rowsByBlock[block.id] ?? []).filter(
                     (r) => selectedDay === null || r.date === selectedDay,
                   );
@@ -2283,14 +2318,14 @@ the `form.*` sub-keys: `day_label`, `kg_label`, `available_hint`, `add_block`,
 following the voice of the existing `tir_takip.*` block in the same file (Turkmen for tk,
 matching the register the other Sera tabs use).
 
-**The `location_*` keys need adding by hand, not by grep**: `GaplamaTab.tsx`'s
-`locationLabel()` builds the key as a template literal
-(`` `tir_takip.gaplama.location_${location}` ``), which the grep pattern above (a literal
-`'...'` string match) will not catch. Add `location_dusak`, `location_kaka`,
-`location_owadandepe` explicitly (values: "Dusak", "Kaka", "Owadandepe" — same three names
-`OnumcilikTab.tsx`'s block-group chip selector already uses, per `feedback_sera_copies_leave_originals`
-memory — copy them verbatim rather than re-translating). Also add `location_other` as a
-fallback label for a block with no/unrecognized `location` value.
+**Only one `location_*` key is needed, and it needs adding by hand, not by grep:**
+`location_other` — the fallback label for a block with no `location_name` at all.
+`GaplamaTab.tsx`'s `locationLabel()` shows every real location's own `location_name`
+string directly (e.g. "Dusak"/"Kaka"/"Owadandepe" — the actual `LoadingLocation.name`
+values, already correct in whatever language they were entered in, same as
+`OnumcilikTab.tsx`'s block-group chip selector shows them), and only falls back to
+`t('tir_takip.gaplama.location_other')` — a literal string call the grep pattern above
+DOES catch — for the synthetic no-location bucket. No per-location keys to translate.
 
 - [ ] **Step 2: Add minimal `.sera-*` CSS**
 
