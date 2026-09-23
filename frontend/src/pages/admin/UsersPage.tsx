@@ -75,7 +75,10 @@ const ROLE_COLORS: Record<UserRole, string> = {
   accountant: 'purple',
   greenhouse_manager: 'lime',
   seller: 'cyan',
-  quality_inspector: 'purple',
+  // 'yellow', not 'purple': purple is accountant's here and in
+  // permissions/roleColors.ts, and the two maps have to agree for the same
+  // role. It is the one antd preset neither map had already spent.
+  quality_inspector: 'yellow',
   boss: 'magenta',
 };
 
