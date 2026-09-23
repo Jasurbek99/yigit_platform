@@ -33,27 +33,38 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     walked window — a block-day with nothing planned still needs to report
     carried_in_kg/available_kg (e.g. a carry-in bucket expiring with no new plan).
 
-    5 queries regardless of data volume: config lookup, active-block roster, one grouped
-    HarvestDayEntry read, one grouped ShipmentBlockSource read, one flat
-    Shipment+block_sources read (no prefetch_related, so it doesn't fan out per truck).
+    5 queries regardless of data volume: config lookup, active-block roster (top-level AND
+    sub-blocks — see the parent-map note below), one grouped HarvestDayEntry read, one
+    grouped ShipmentBlockSource read, one flat Shipment+block_sources read (no
+    prefetch_related, so it doesn't fan out per truck).
+
+    Sub-block grain: HarvestDayEntry is always written at top-level (parent) grain, and
+    write_block_sources() normalizes new ShipmentBlockSource writes to parent grain too
+    (services/block_sources.py) — but legacy/bypass rows targeting a sub-block directly do
+    exist (observed on the live DB). Both loaded_kg and trucks[].block_sources fold any
+    sub-block id through `parent_of` to its top-level ancestor, so a sub-block-targeted row
+    still counts toward the right block instead of silently vanishing from loaded_kg (which
+    would over-state available_kg and under-state over_kg) or reporting the wrong block.
     """
     config = GreenhouseConfig.get_solo()
     carry_days = config.gaplama_carry_days
     walk_start = from_date - timedelta(days=carry_days)
 
-    # Top-level blocks only — HarvestDayEntry and ShipmentBlockSource are both
-    # written at parent grain (services/block_sources.py:5, sub-blocks like F1/F2
-    # are merged into F before either table is touched), matching the same
-    # is_active + parent__isnull=True filter used by views_daily_board.py and
-    # pomidor_dukany.py for the same reason.
-    blocks = list(
+    # ALL active blocks (top-level and sub-blocks) in one query — needed both for the
+    # top-level roster (days[] rows) and to fold sub-block ids to their parent below.
+    all_blocks = list(
         GreenhouseBlock.objects
-        .filter(is_active=True, parent__isnull=True)
+        .filter(is_active=True)
         .select_related('location')
         .order_by('code')
     )
-    block_meta: dict[int, tuple[str, str]] = {
-        b.id: (b.code, b.location.name if b.location_id else None) for b in blocks
+    code_by_id: dict[int, str] = {b.id: b.code for b in all_blocks}
+    parent_of: dict[int, int] = {b.id: (b.parent_id or b.id) for b in all_blocks}
+    # Top-level blocks only — matches the is_active + parent__isnull=True filter used by
+    # views_daily_board.py and pomidor_dukany.py for the same reason (plan/board grain).
+    block_meta: dict[int, tuple[str, str | None]] = {
+        b.id: (b.code, b.location.name if b.location_id else None)
+        for b in all_blocks if b.parent_id is None
     }
 
     plan_rows = (
@@ -70,7 +81,7 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     loaded_rows = (
         ShipmentBlockSource.objects
         .filter(
-            block_id__in=block_meta,
+            block_id__in=parent_of,
             shipment__date__range=(walk_start, to_date),
             shipment__season=season,
             weight_kg__isnull=False,
@@ -80,10 +91,10 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
         .annotate(loaded_kg=Sum('weight_kg'))
         .order_by()
     )
-    loaded_map: dict[tuple[int, date], Decimal] = {
-        (row['block_id'], row['shipment__date']): (row['loaded_kg'] or Decimal(0))
-        for row in loaded_rows
-    }
+    loaded_map: dict[tuple[int, date], Decimal] = {}
+    for row in loaded_rows:
+        key = (parent_of.get(row['block_id'], row['block_id']), row['shipment__date'])
+        loaded_map[key] = loaded_map.get(key, Decimal(0)) + (row['loaded_kg'] or Decimal(0))
 
     block_ids = list(block_meta)
     all_days = [walk_start + timedelta(days=i) for i in range((to_date - walk_start).days + 1)]
@@ -143,7 +154,7 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
             'id', 'shipment_code', 'export_code', 'date',
             'status_id', 'status__code', 'status__name_en',
             'country_id', 'customer_id',
-            'block_sources__block_id', 'block_sources__block__code', 'block_sources__weight_kg',
+            'block_sources__block_id', 'block_sources__weight_kg',
         )
         .order_by('-date', '-id')
     )
@@ -166,10 +177,23 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
             }
             trucks_by_id[row['id']] = truck
             trucks_out.append(truck)
-        truck['block_sources'].append({
-            'block_id': row['block_sources__block_id'],
-            'block_code': row['block_sources__block__code'],
-            'weight_kg': row['block_sources__weight_kg'],
-        })
+
+        raw_block_id = row['block_sources__block_id']
+        parent_id = parent_of.get(raw_block_id, raw_block_id)
+        parent_code = code_by_id.get(parent_id, code_by_id.get(raw_block_id))
+        weight_kg = row['block_sources__weight_kg']
+        existing_source = next(
+            (bs for bs in truck['block_sources'] if bs['block_id'] == parent_id), None,
+        )
+        if existing_source is not None:
+            # Same truck had both a parent-grain row and a sub-block row (or two
+            # different sub-blocks under the same parent) — fold into one entry.
+            existing_source['weight_kg'] += weight_kg
+        else:
+            truck['block_sources'].append({
+                'block_id': parent_id,
+                'block_code': parent_code,
+                'weight_kg': weight_kg,
+            })
 
     return {'days': days_out, 'trucks': trucks_out}

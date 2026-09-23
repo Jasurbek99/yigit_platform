@@ -1,13 +1,24 @@
 """build_gaplama_board() — the FIFO carry-over calculation.
 
-Covers the 9 scenarios from the Gaplama Screen plan's Task 2 brief plus a
-query-count regression test. Season/ShipmentStatusType/GreenhouseBlock
-fixtures follow the pattern already used in tests_draft_promote.py (direct
-ORM creation, ShipmentStatusType seeded inline per test class since
-DJANGO_TESTING=true skips the seeding migrations).
+Covers the 9 scenarios from the Gaplama Screen plan's Task 2 brief, a query-count
+regression test, and three review-driven additions: a FIFO-order test that survives
+expiry (totals alone can't distinguish FIFO from LIFO), a two-block isolation test
+(buckets must not bleed between blocks), and a sub-block grain-folding test (a
+ShipmentBlockSource row pointing at a sub-block must still count toward its parent's
+loaded_kg and be reported at parent grain in trucks[]).
+
+Season/ShipmentStatusType/GreenhouseBlock fixtures follow the pattern already used in
+tests_draft_promote.py (direct ORM creation, ShipmentStatusType seeded inline per test
+class since DJANGO_TESTING=true skips the seeding migrations).
+
+Flat `tests_*.py` naming (not a `tests/` package) — this app's convention everywhere
+else (tests_draft_promote.py, tests_truck_allocation_tasks.py, ...). A `tests/` package
+with an `__init__.py` would shadow the existing `apps/export/tests.py` module (Python
+resolves the package over the same-named module), breaking `manage.py test apps.export`
+discovery for ~49 pre-existing test classes.
 
 Run:
-    python manage.py test apps.export.tests.test_gaplama_board --keepdb
+    python manage.py test apps.export.tests_gaplama_board --keepdb
 """
 from datetime import date
 from decimal import Decimal
@@ -54,25 +65,27 @@ class GaplamaBoardTest(TestCase):
         self.config.gaplama_carry_days = 2
         self.config.save()
 
-    def _plan(self, entry_date, kg):
+    def _plan(self, entry_date, kg, block=None):
+        block = block or self.block
         iso_year, iso_week, _ = entry_date.isocalendar()
         plan, _ = WeeklyHarvestPlan.objects.get_or_create(
-            season=self.season, block=self.block, week_number=iso_week, year=iso_year,
+            season=self.season, block=block, week_number=iso_week, year=iso_year,
         )
         HarvestDayEntry.objects.create(
-            weekly_plan=plan, season=self.season, block=self.block,
+            weekly_plan=plan, season=self.season, block=block,
             entry_date=entry_date, weekday=entry_date.weekday(),
             plan_value=Decimal(kg),
         )
 
-    def _truck(self, ship_date, kg, status_code='draft'):
+    def _truck(self, ship_date, kg, status_code='draft', block=None):
+        block = block or self.block
         status = ShipmentStatusType.objects.get(code=status_code)
         shipment = Shipment.objects.create(
             shipment_code=f'T{ship_date.strftime("%m%d")}-{Shipment.objects.count()}',
             date=ship_date, season=self.season, status=status,
         )
         ShipmentBlockSource.objects.create(
-            shipment=shipment, block=self.block, weight_kg=Decimal(kg),
+            shipment=shipment, block=block, weight_kg=Decimal(kg),
         )
         return shipment
 
@@ -96,9 +109,14 @@ class GaplamaBoardTest(TestCase):
     def test_remainder_expires_after_carry_days(self):
         self._plan(date(2026, 9, 21), 20000)   # Monday: 20000 remains, carry_days=2
         # No truck at all this test — nothing consumed.
-        board = build_gaplama_board(date(2026, 9, 24), date(2026, 9, 24), self.season)
-        # Monday + 2 days = Wed is still live; Thu (2026-09-24) is one day past expiry.
-        thursday = board['days'][0]
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 24), self.season)
+        # Monday + 2 days = Wed is still live (lower bound); Thu is one day past
+        # expiry (upper bound). Window includes the source day (09-21) so the plan
+        # row is actually inside plan_map and expiry logic — not the lookback
+        # cutoff — is what's under test.
+        wednesday = next(r for r in board['days'] if r['date'] == date(2026, 9, 23))
+        thursday = next(r for r in board['days'] if r['date'] == date(2026, 9, 24))
+        self.assertEqual(wednesday['carried_in_kg'], Decimal(20000))
         self.assertEqual(thursday['carried_in_kg'], Decimal(0))
 
     def test_negative_never_carries(self):
@@ -140,6 +158,25 @@ class GaplamaBoardTest(TestCase):
         # Tuesday and left Monday, which expires by Thursday (Mon+2=Wed) -> 0.
         self.assertEqual(thursday['carried_in_kg'], Decimal(10000))
 
+    def test_carry_over_does_not_bleed_between_blocks(self):
+        # A plausible refactor (hoisting the FIFO bucket queue out of the per-block
+        # loop) would silently share carry-over across blocks. Every other test in
+        # this file uses only self.block, so it wouldn't catch that. Two distinct
+        # top-level blocks here: A leaves a remainder, B must never see it.
+        block_a = GreenhouseBlock.objects.create(
+            code='A', name='A', location=self.location, is_active=True,
+        )
+        block_b = GreenhouseBlock.objects.create(
+            code='B', name='B', location=self.location, is_active=True,
+        )
+        self._plan(date(2026, 9, 21), 10000, block=block_a)   # Monday: A leaves 10000
+        self._plan(date(2026, 9, 22), 3000, block=block_b)    # Tuesday: B's own plan only
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 22), self.season)
+        b_tuesday = next(
+            r for r in board['days'] if r['block_id'] == block_b.id and r['date'] == date(2026, 9, 22)
+        )
+        self.assertEqual(b_tuesday['carried_in_kg'], Decimal(0))
+
     def test_cancelled_shipments_excluded(self):
         self._plan(date(2026, 9, 21), 20000)
         self._truck(date(2026, 9, 21), 12000, status_code='cancelled')
@@ -169,10 +206,8 @@ class GaplamaBoardTest(TestCase):
         self.assertEqual(monday['carried_in_kg'], Decimal(0))
 
     def test_sub_blocks_excluded_from_days(self):
-        # F1 is an active sub-block of F (parent-grain normalization means real
-        # HarvestDayEntry/ShipmentBlockSource rows never target it directly — see
-        # apps/export/services/block_sources.py — but it can still exist as an
-        # active row and must not show up as a permanent all-zero board entry).
+        # F1 is an active sub-block of F. It must not show up as its own permanent
+        # all-zero board entry — days[] is top-level blocks only.
         GreenhouseBlock.objects.create(
             code='F1', name='F1', location=self.location, is_active=True, parent=self.block,
         )
@@ -180,6 +215,30 @@ class GaplamaBoardTest(TestCase):
         board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
         block_ids = {row['block_id'] for row in board['days']}
         self.assertEqual(block_ids, {self.block.id})
+
+    def test_sub_block_loaded_folds_into_parent(self):
+        # A ShipmentBlockSource row can point at a sub-block directly (13/151 rows
+        # on the live dev DB do, despite write_block_sources() normally normalizing
+        # to parent grain at write time — legacy/bypass data exists). If loaded_kg
+        # only ever looked at top-level block ids, this kg would vanish from the
+        # parent's loaded_kg (over-stating available_kg, under-stating over_kg) and
+        # from trucks[].block_sources it would report the wrong block entirely.
+        parent = GreenhouseBlock.objects.create(
+            code='O', name='O', location=self.location, is_active=True,
+        )
+        sub = GreenhouseBlock.objects.create(
+            code='O1', name='O1', location=self.location, is_active=True, parent=parent,
+        )
+        self._plan(date(2026, 9, 21), 20000, block=parent)
+        shipment = self._truck(date(2026, 9, 21), 5000, block=sub)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
+        row = next(r for r in board['days'] if r['block_id'] == parent.id)
+        self.assertEqual(row['loaded_kg'], Decimal(5000))
+        truck = next(t for t in board['trucks'] if t['id'] == shipment.id)
+        self.assertEqual(len(truck['block_sources']), 1)
+        self.assertEqual(truck['block_sources'][0]['block_id'], parent.id)
+        self.assertEqual(truck['block_sources'][0]['block_code'], 'O')
+        self.assertEqual(truck['block_sources'][0]['weight_kg'], Decimal(5000))
 
     def test_trucks_list_shape(self):
         self._plan(date(2026, 9, 21), 20000)
@@ -192,7 +251,8 @@ class GaplamaBoardTest(TestCase):
         self.assertIsNone(truck['country'])
 
     def test_query_count_flat_as_trucks_grow(self):
-        # 1 config lookup (GreenhouseConfig.get_solo) + 1 active-block roster +
+        # 1 config lookup (GreenhouseConfig.get_solo) + 1 active-block roster (now
+        # unfiltered by parent, so sub-blocks ride along in the same single query) +
         # 1 plan aggregate + 1 loaded aggregate + 1 trucks list (flat values() JOIN,
         # not prefetch_related, so the per-shipment block_sources ride along in the
         # same query). The brief's comment said 3 (config + block roster uncounted);
