@@ -43,6 +43,41 @@ describe('useGaplamaBoard', () => {
       ),
     );
   });
+
+  it('coerces carried_out_kg, carry_in_breakdown[].kg and week_totals decimals', async () => {
+    (api.get as any).mockResolvedValue({
+      data: {
+        days: [{ date: '2026-09-22', block_id: 5, block_code: 'F', location: 'dusak',
+                 plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '8000.00',
+                 carry_in_breakdown: [{ origin_date: '2026-09-21', kg: '8000.00' }],
+                 available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '0.00' }],
+        trucks: [],
+        week_totals: [{ block_id: 5, block_code: 'F', location: 'dusak',
+                        plan_kg: '10000.00', loaded_kg: '2000.00', over_kg: '0.00',
+                        available_kg: '8000.00' }],
+      },
+    });
+    const { result } = renderHook(() => useGaplamaBoard('2026-09-21', '2026-09-27'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const day = result.current.data?.days[0];
+    expect(day?.carried_out_kg).toBe(0);
+    expect(day?.carry_in_breakdown).toEqual([{ origin_date: '2026-09-21', kg: 8000 }]);
+    expect(typeof day?.carry_in_breakdown[0].kg).toBe('number');
+
+    const total = result.current.data?.week_totals[0];
+    expect(total).toEqual({
+      block_id: 5, block_code: 'F', location: 'dusak',
+      plan_kg: 10000, loaded_kg: 2000, over_kg: 0, available_kg: 8000,
+    });
+  });
+
+  it('defaults week_totals to [] when the backend omits it (empty-board responses)', async () => {
+    (api.get as any).mockResolvedValue({ data: { days: [], trucks: [] } });
+    const { result } = renderHook(() => useGaplamaBoard('2026-09-21', '2026-09-27'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.week_totals).toEqual([]);
+  });
 });
 
 describe('useUpdateTruckBlocks', () => {

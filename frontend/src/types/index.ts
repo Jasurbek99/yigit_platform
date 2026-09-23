@@ -1882,6 +1882,12 @@ export interface IDraftAssignPayload {
 
 // ─── Gaplama Board ────────────────────────────────────────────────────────────
 
+/** One live carry-over bucket contributing to a day's carried_in_kg, oldest first. */
+export interface IGaplamaCarryInBucket {
+  origin_date: string;
+  kg: number;
+}
+
 export interface IGaplamaDay {
   date: string;
   block_id: number;
@@ -1890,8 +1896,30 @@ export interface IGaplamaDay {
   plan_kg: number;
   loaded_kg: number;
   carried_in_kg: number;
+  /** The live buckets making up carried_in_kg, captured before this day's own
+   * consumption — what the day started with, for the "+N (from day X)" tooltip. */
+  carry_in_breakdown: IGaplamaCarryInBucket[];
   available_kg: number;
   over_kg: number;
+  /** The fresh remainder this day hands forward to tomorrow (0 if none) — for the
+   * "N →" outgoing marker. Covers only THIS day's own leftover, not aged carry-in
+   * that also moves on. */
+  carried_out_kg: number;
+}
+
+/** Week-aggregate per block. plan_kg/loaded_kg/over_kg are real sums (each day's
+ * figure is an independent event); available_kg is the LAST day's value in the
+ * requested window, not a sum — see build_gaplama_board's docstring (design spec
+ * D8/I1): summing available_kg across days double-counts a remainder that stays
+ * live for several days. */
+export interface IGaplamaWeekTotal {
+  block_id: number;
+  block_code: string;
+  location: string | null;
+  plan_kg: number;
+  loaded_kg: number;
+  over_kg: number;
+  available_kg: number;
 }
 
 export interface IGaplamaTruckSource {

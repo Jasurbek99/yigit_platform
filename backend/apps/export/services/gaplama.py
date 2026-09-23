@@ -185,8 +185,10 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
 
     # Week totals — pure post-processing of days_out already in memory, no new query.
     # available_kg is the LAST day's value per block (see docstring); plan/loaded/over
-    # are real sums. Blocks with no days_out (no plan, no truck) are skipped, matching
-    # what the grid would show — nothing to total.
+    # are real sums. Every active top-level block gets a days_out row for every day in
+    # a non-empty window (see the class docstring), so `rows` is never actually empty
+    # here — the guard below is defensive only, for an inverted/empty window slipping
+    # through some future caller that bypasses the view's own from_date>to_date check.
     week_totals: list[dict] = []
     days_by_block: dict[int, list[dict]] = {}
     for row in days_out:

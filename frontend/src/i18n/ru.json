@@ -3891,6 +3891,7 @@
         "day_label": "День",
         "kg_label": "Кг",
         "available_hint": "доступно: {{kg}} кг",
+        "available_hint_with_carry": "доступно: {{kg}} кг (из них {{carried}} со вчера)",
         "add_block": "+ Добавить блок",
         "partial_tag": "Не полная",
         "total_label": "Итого",

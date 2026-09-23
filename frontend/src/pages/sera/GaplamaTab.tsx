@@ -36,12 +36,17 @@ export default function GaplamaTab(): JSX.Element {
   const weekContainsToday = days.includes(today);
 
   const { data: config } = useGreenhouseConfig();
-  const carryDays = config?.gaplama_carry_days ?? 2;
   // Decimal-as-string, per the api-contract convention — coerce at the point
   // of use, same as useGaplama.ts's queryFn does for the board response.
   const truckCapacityKg = Number(config?.truck_capacity_kg) || 18500;
 
-  const fetchFrom = weekStart.subtract(carryDays, 'day').format('YYYY-MM-DD');
+  // Exactly the displayed week — NOT `weekStart - gaplama_carry_days`. The
+  // server already does its own carry-over lookback internally regardless of
+  // what from_date is requested (build_gaplama_board's walk_start = from_date
+  // - carry_days), so widening the request here was redundant, and it used
+  // to inflate week_totals' summed fields (plan/loaded/over) with days
+  // outside the week actually shown (2026-09-23 addendum, final-review I1).
+  const fetchFrom = weekStart.format('YYYY-MM-DD');
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
   const { data: board, isLoading, isError } = useGaplamaBoard(fetchFrom, fetchTo);
 
@@ -82,10 +87,22 @@ export default function GaplamaTab(): JSX.Element {
   const boardDays = (board?.days ?? []).filter(
     (d) => days.includes(d.date) && visibleBlockIds.has(d.block_id),
   );
-  // Trucks from the carry-days lookback (fetchFrom starts `carryDays` before
-  // Monday) must not leak into the displayed week's truck list/count — they
-  // have no matching day column to filter them by.
+  // Defensive: the board endpoint's own internal carry-over lookback could in
+  // principle still surface a truck dated before `fetchFrom` on some future
+  // response shape; keep it out of the displayed week's truck list/count
+  // regardless — it would have no matching day column to filter it by.
   const trucks = (board?.trucks ?? []).filter((tr) => days.includes(tr.date));
+
+  // Week-aggregate "available" figures (D8/I1, 2026-09-23) — server-computed,
+  // never a client-side sum of available_kg across days (that double-counts
+  // a remainder that stays live for several days). Scoped to the active
+  // block filter, same as boardDays above. Plain object build, not useMemo —
+  // visibleBlockIds is a fresh Set every render, so memoizing on it would
+  // never actually hit cache.
+  const weekTotalsByBlock: Record<number, number> = {};
+  for (const total of board?.week_totals ?? []) {
+    if (visibleBlockIds.has(total.block_id)) weekTotalsByBlock[total.block_id] = total.available_kg;
+  }
 
   const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
 
@@ -144,6 +161,17 @@ export default function GaplamaTab(): JSX.Element {
   function buildAvailableByBlock(date: string): Record<number, number> {
     const map: Record<number, number> = {};
     for (const b of topLevelBlocks) map[b.id] = capForBlockDate(b.id, date);
+    return map;
+  }
+
+  // The plain (un-clamped, un-edit-adjusted) carry-in portion of that cap —
+  // informational only ("12 000 (2 000 ýaňky günden)", design spec §3②), not
+  // authoritative. Same unfiltered block set and raw-board source as above.
+  function buildCarriedInByBlock(date: string): Record<number, number> {
+    const map: Record<number, number> = {};
+    for (const b of topLevelBlocks) {
+      map[b.id] = (board?.days ?? []).find((r) => r.block_id === b.id && r.date === date)?.carried_in_kg ?? 0;
+    }
     return map;
   }
 
@@ -212,6 +240,12 @@ export default function GaplamaTab(): JSX.Element {
                       const row = rowsByBlock[block.id]?.find((r) => r.date === d);
                       const over = row?.over_kg ?? 0;
                       const carried = row?.carried_in_kg ?? 0;
+                      const carriedOut = row?.carried_out_kg ?? 0;
+                      // Oldest bucket first, one line per origin day — matches
+                      // the FIFO consumption order (design spec §3①).
+                      const carryTooltip = (row?.carry_in_breakdown ?? [])
+                        .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: ${b.kg} kg`)
+                        .join('\n');
                       return (
                         <td key={d}>
                           {over > 0 ? (
@@ -219,7 +253,12 @@ export default function GaplamaTab(): JSX.Element {
                           ) : (
                             <span>{row?.available_kg ?? 0}</span>
                           )}
-                          {carried > 0 && <div className="sera-gaplama-carry-in">+{carried}</div>}
+                          {carried > 0 && (
+                            <div className="sera-gaplama-carry-in" title={carryTooltip}>+{carried}</div>
+                          )}
+                          {carriedOut > 0 && (
+                            <div className="sera-gaplama-carry-out">{carriedOut} →</div>
+                          )}
                           {row && row.plan_kg > 0 && (
                             <div className="sera-gaplama-plan-hint">
                               {t('tir_takip.gaplama.plan_hint', { kg: row.plan_kg })}
@@ -228,7 +267,7 @@ export default function GaplamaTab(): JSX.Element {
                         </td>
                       );
                     })}
-                    <td>{weekTotal(rowsByBlock[block.id] ?? [], 'available_kg')}</td>
+                    <td>{weekTotalsByBlock[block.id] ?? 0}</td>
                   </tr>
                 ))}
                 <tr className="sera-gaplama-location-subtotal">
@@ -238,7 +277,7 @@ export default function GaplamaTab(): JSX.Element {
                   ))}
                   <td>
                     {blocksByLocation[location].reduce(
-                      (sum: number, b: IGreenhouseBlock) => sum + weekTotal(rowsByBlock[b.id] ?? [], 'available_kg'),
+                      (sum: number, b: IGreenhouseBlock) => sum + (weekTotalsByBlock[b.id] ?? 0),
                       0,
                     )}
                   </td>
@@ -297,7 +336,7 @@ export default function GaplamaTab(): JSX.Element {
               {days.map((d) => (
                 <td key={d}>{weekTotal(boardDays.filter((r) => r.date === d), 'available_kg')}</td>
               ))}
-              <td>{weekTotal(boardDays, 'available_kg')}</td>
+              <td>{Object.values(weekTotalsByBlock).reduce((sum, kg) => sum + kg, 0)}</td>
             </tr>
           </tfoot>
         </table>
@@ -327,6 +366,7 @@ export default function GaplamaTab(): JSX.Element {
             today={today}
             editingTruck={editingTruck ?? undefined}
             availableByBlock={buildAvailableByBlock(editingTruck ? editingTruck.date : today)}
+            carriedInByBlock={buildCarriedInByBlock(editingTruck ? editingTruck.date : today)}
             blocks={topLevelBlocks.map((b) => ({ id: b.id, code: b.code, label: b.name || b.code }))}
             truckCapacityKg={truckCapacityKg}
             onDone={closeForm}
@@ -352,12 +392,19 @@ export default function GaplamaTab(): JSX.Element {
                   const rows = (rowsByBlock[block.id] ?? []).filter(
                     (r) => selectedDay === null || r.date === selectedDay,
                   );
+                  // With no day selected this is a week total — read
+                  // week_totals (D8/I1), not a sum of available_kg across
+                  // days. With ONE day selected, `rows` already holds just
+                  // that day's own row, so summing it is a correct no-op.
+                  const available = selectedDay === null
+                    ? weekTotalsByBlock[block.id] ?? 0
+                    : weekTotal(rows, 'available_kg');
                   return (
                     <tr key={block.id}>
                       <td>{block.name || block.code}</td>
                       <td>{weekTotal(rows, 'plan_kg')}</td>
                       <td>{weekTotal(rows, 'loaded_kg')}</td>
-                      <td>{weekTotal(rows, 'available_kg')}</td>
+                      <td>{available}</td>
                     </tr>
                   );
                 })}

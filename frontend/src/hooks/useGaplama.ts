@@ -1,14 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
-import type { IGaplamaDay, IGaplamaTruck } from '@/types';
+import type { IGaplamaDay, IGaplamaTruck, IGaplamaWeekTotal } from '@/types';
 
 interface IGaplamaBoardResponse {
   days: IGaplamaDay[];
   trucks: IGaplamaTruck[];
+  week_totals: IGaplamaWeekTotal[];
 }
 
 // Raw shapes exactly as the backend sends them, before the fetch-boundary
 // coercion below — decimal fields arrive as strings (api-contract convention).
+interface IGaplamaCarryInBucketRaw {
+  origin_date: string;
+  kg: string;
+}
+
 interface IGaplamaDayRaw {
   date: string;
   block_id: number;
@@ -17,8 +23,10 @@ interface IGaplamaDayRaw {
   plan_kg: string;
   loaded_kg: string;
   carried_in_kg: string;
+  carry_in_breakdown: IGaplamaCarryInBucketRaw[];
   available_kg: string;
   over_kg: string;
+  carried_out_kg: string;
 }
 
 interface IGaplamaTruckSourceRaw {
@@ -40,9 +48,22 @@ interface IGaplamaTruckRaw {
   block_sources: IGaplamaTruckSourceRaw[];
 }
 
+interface IGaplamaWeekTotalRaw {
+  block_id: number;
+  block_code: string;
+  location: string | null;
+  plan_kg: string;
+  loaded_kg: string;
+  over_kg: string;
+  available_kg: string;
+}
+
 interface IGaplamaBoardResponseRaw {
   days: IGaplamaDayRaw[];
   trucks: IGaplamaTruckRaw[];
+  // Omitted by the two early-return empty-board responses on older deploys —
+  // defaulted to [] below, same as days/trucks already are.
+  week_totals?: IGaplamaWeekTotalRaw[];
 }
 
 function coerceDay(raw: IGaplamaDayRaw): IGaplamaDay {
@@ -51,8 +72,13 @@ function coerceDay(raw: IGaplamaDayRaw): IGaplamaDay {
     plan_kg: Number(raw.plan_kg) || 0,
     loaded_kg: Number(raw.loaded_kg) || 0,
     carried_in_kg: Number(raw.carried_in_kg) || 0,
+    carry_in_breakdown: (raw.carry_in_breakdown ?? []).map((b) => ({
+      origin_date: b.origin_date,
+      kg: Number(b.kg) || 0,
+    })),
     available_kg: Number(raw.available_kg) || 0,
     over_kg: Number(raw.over_kg) || 0,
+    carried_out_kg: Number(raw.carried_out_kg) || 0,
   };
 }
 
@@ -66,10 +92,21 @@ function coerceTruck(raw: IGaplamaTruckRaw): IGaplamaTruck {
   };
 }
 
+function coerceWeekTotal(raw: IGaplamaWeekTotalRaw): IGaplamaWeekTotal {
+  return {
+    ...raw,
+    plan_kg: Number(raw.plan_kg) || 0,
+    loaded_kg: Number(raw.loaded_kg) || 0,
+    over_kg: Number(raw.over_kg) || 0,
+    available_kg: Number(raw.available_kg) || 0,
+  };
+}
+
 /**
  * Fetches the Gaplama board (plan / loaded / carry-in / available per block-day,
- * plus opened trucks) for a date range. Decimal strings are coerced to numbers
- * here, at the fetch boundary — never at the usage site (api-contract skill).
+ * week-aggregate totals, plus opened trucks) for a date range. Decimal strings are
+ * coerced to numbers here, at the fetch boundary — never at the usage site
+ * (api-contract skill).
  */
 export function useGaplamaBoard(fromDate: string, toDate: string) {
   return useQuery({
@@ -81,6 +118,7 @@ export function useGaplamaBoard(fromDate: string, toDate: string) {
       return {
         days: (data.days ?? []).map(coerceDay),
         trucks: (data.trucks ?? []).map(coerceTruck),
+        week_totals: (data.week_totals ?? []).map(coerceWeekTotal),
       };
     },
     staleTime: 15_000,

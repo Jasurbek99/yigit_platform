@@ -3892,6 +3892,7 @@
         "day_label": "Gün",
         "kg_label": "Kg",
         "available_hint": "elýeterli: {{kg}} kg",
+        "available_hint_with_carry": "elýeterli: {{kg}} kg ({{carried}} ýaňky günden)",
         "add_block": "+ Blok goş",
         "partial_tag": "Doly däl",
         "total_label": "Jemi",

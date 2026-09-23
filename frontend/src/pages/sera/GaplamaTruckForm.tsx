@@ -14,6 +14,10 @@ interface IGaplamaTruckFormProps {
   today: string;
   editingTruck?: IGaplamaTruck;
   availableByBlock: Record<number, number>;
+  /** Informational only (design spec §3②) — the plain carried_in_kg for each
+   * block on the relevant date, shown as a parenthetical in the row hint. Not
+   * part of the cap enforcement; `availableByBlock`/`capFor` stay authoritative. */
+  carriedInByBlock: Record<number, number>;
   blocks: { id: number; code: string; label: string }[];
   truckCapacityKg: number;
   onDone: () => void;
@@ -133,6 +137,7 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
         {rows.map((row, idx) => {
           const cap = capFor(row.blockId, props);
           const invalid = rowExceedsCap(row);
+          const carriedIn = props.carriedInByBlock[row.blockId] ?? 0;
           return (
             <Space key={idx} align="start">
               <Select
@@ -151,7 +156,9 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
                 onChange={(kg) => updateRow(idx, { kg: kg ?? null })}
               />
               <span className="sera-gaplama-form-cap">
-                {t('tir_takip.gaplama.form.available_hint', { kg: cap })}
+                {carriedIn > 0
+                  ? t('tir_takip.gaplama.form.available_hint_with_carry', { kg: cap, carried: carriedIn })
+                  : t('tir_takip.gaplama.form.available_hint', { kg: cap })}
               </span>
               {rows.length > 1 && (
                 <Button type="text" onClick={() => removeRow(idx)}>

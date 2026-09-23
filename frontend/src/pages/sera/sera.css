@@ -858,6 +858,15 @@
 .sera-page .sera-gaplama-carry-in {
   font-size: 10px;
   color: #059669;
+  cursor: help;
+}
+
+/* This cell's own unclaimed remainder moving on to tomorrow ("N →") — moved,
+   not unpacked (design spec §3①). Amber, not the carry-in green, so the two
+   directions read as distinct at a glance. */
+.sera-page .sera-gaplama-carry-out {
+  font-size: 10px;
+  color: #d97706;
 }
 
 .sera-page .sera-gaplama-plan-hint {

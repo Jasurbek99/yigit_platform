@@ -3887,6 +3887,7 @@
         "day_label": "Day",
         "kg_label": "Kg",
         "available_hint": "available: {{kg}} kg",
+        "available_hint_with_carry": "available: {{kg}} kg ({{carried}} carried from yesterday)",
         "add_block": "+ Add block",
         "partial_tag": "Partial",
         "total_label": "Total",

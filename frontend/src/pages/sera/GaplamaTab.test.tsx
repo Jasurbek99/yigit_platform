@@ -246,16 +246,119 @@ describe('GaplamaTab', () => {
     expect(container.querySelector('table.sera-gaplama-grid')).toBeNull();
   });
 
+  // 2026-09-23 addendum: the server does its own gaplama_carry_days lookback
+  // internally (walk_start = from_date - carry_days) regardless of what
+  // from_date the client sends — the client widening its own request was
+  // redundant, and inflated week_totals' summed fields with days outside the
+  // displayed week. Fixed: the client now asks for exactly [Monday, Sunday].
+  it('requests from_date=Monday, not Monday minus gaplama_carry_days', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    renderTab();
+    await waitFor(() => {
+      const call = (api.get as any).mock.calls.find(([url]: [string]) => url.includes('/export/gaplama/board/'));
+      expect(call?.[0]).toContain(`from_date=${THIS_MONDAY}`);
+    });
+  });
+
+  // I1 (final review): a remainder that stays live for several days used to
+  // get summed once per day it appeared in, inflating the week-total column.
+  // The fix reads week_totals.available_kg (the server's already-correct,
+  // non-duplicated last-day figure) instead of summing available_kg itself.
+  it('reads the per-block week-total cell from week_totals, not a sum of available_kg across days', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    const tuesday = dayjs(THIS_MONDAY).add(1, 'day').format('YYYY-MM-DD');
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) {
+        return Promise.resolve({
+          data: {
+            // Same remainder alive on both days -- summing available_kg
+            // across them would (wrongly) read 16000; week_totals says 8000.
+            days: [
+              { date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                plan_kg: '8000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                carry_in_breakdown: [], available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '8000.00' },
+              { date: tuesday, block_id: 1, block_code: 'A', location: 'Dusak',
+                plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '8000.00',
+                carry_in_breakdown: [{ origin_date: THIS_MONDAY, kg: '8000.00' }],
+                available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '0.00' },
+            ],
+            trucks: [],
+            week_totals: [{ block_id: 1, block_code: 'A', location: 'Dusak',
+                            plan_kg: '8000.00', loaded_kg: '0.00', over_kg: '0.00', available_kg: '8000.00' }],
+          },
+        });
+      }
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({
+          data: { results: [{ id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak' }] },
+        });
+      }
+      if (url.includes('/greenhouse-config')) {
+        return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    const { container } = renderTab();
+    await waitFor(() => {
+      const row = container.querySelector('tbody tr:not(.sera-gaplama-location-header):not(.sera-gaplama-location-subtotal)');
+      const weekCell = row?.querySelectorAll('td')[row.querySelectorAll('td').length - 1];
+      expect(weekCell?.textContent).toBe('8000');
+    });
+  });
+
+  it('shows a carry-in tooltip naming the origin day, and a carry-out marker', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) {
+        return Promise.resolve({
+          data: {
+            days: [{ date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                     plan_kg: '5000.00', loaded_kg: '0.00', carried_in_kg: '2000.00',
+                     carry_in_breakdown: [{ origin_date: '2026-01-01', kg: '2000.00' }],
+                     available_kg: '7000.00', over_kg: '0.00', carried_out_kg: '7000.00' }],
+            trucks: [],
+            week_totals: [],
+          },
+        });
+      }
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({
+          data: { results: [{ id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak' }] },
+        });
+      }
+      if (url.includes('/greenhouse-config')) {
+        return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    const { container } = renderTab();
+    await waitFor(() => {
+      const carryIn = container.querySelector('.sera-gaplama-carry-in');
+      expect(carryIn?.textContent).toContain('2000');
+      expect(carryIn?.getAttribute('title')).toContain('01.01');
+      const carryOut = container.querySelector('.sera-gaplama-carry-out');
+      expect(carryOut?.textContent).toContain('7000');
+    });
+  });
+
   it('excludes trucks from the carry-days lookback (before Monday) from the truck list', async () => {
     (useAuth as any).mockReturnValue({
       user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
     });
-    // gaplama_carry_days: 2 means the board is fetched from 2 days before
-    // Monday — a truck dated the day before Monday is inside that fetch
-    // window (so the board API legitimately returns it) but outside the
-    // displayed week (`days`). The pre-fix bug rendered `trucks` unfiltered,
-    // so this truck would show up in "Açylan tırlar" and inflate the count
-    // even though clicking any visible day column could never reveal it.
+    // The board endpoint's OWN internal lookback (walk_start = from_date -
+    // gaplama_carry_days, inside build_gaplama_board) can still legitimately
+    // return a truck dated before the requested from_date on a real backend
+    // response shape, even though the client no longer asks for that range
+    // itself — this test pins the defensive client-side filter that keeps
+    // such a row out of the displayed week's truck list regardless.
     const beforeMonday = dayjs(THIS_MONDAY).subtract(1, 'day').format('YYYY-MM-DD');
     (api.get as any).mockImplementation((url: string) => {
       if (url.includes('/export/gaplama/board/')) {

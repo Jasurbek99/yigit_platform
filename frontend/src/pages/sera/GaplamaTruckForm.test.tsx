@@ -13,6 +13,7 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof GaplamaTruckF
     mode: 'create' as const,
     today: '2026-09-21',
     availableByBlock: { 1: 12000, 2: 6500 },
+    carriedInByBlock: { 1: 0, 2: 0 },
     blocks: [{ id: 1, code: 'A', label: 'A' }, { id: 2, code: 'B', label: 'B' }],
     truckCapacityKg: 18500,
     onDone: vi.fn(),
@@ -54,6 +55,20 @@ describe('GaplamaTruckForm — create', () => {
     expect(body.block_sources).toEqual([{ block_id: 1, weight_kg: 12000 }]);
   });
 
+  // Design spec §3②: "12 000 (2 000 ýaňky günden)" — the row hint shows the
+  // carry-in portion of the cap as a parenthetical, sourced from the raw
+  // carried_in_kg for that block/date (informational, not authoritative —
+  // `cap` itself, already computed, stays the enforced number).
+  it('shows the carry-in portion of the cap as a parenthetical hint', () => {
+    renderForm({ availableByBlock: { 1: 12000, 2: 6500 }, carriedInByBlock: { 1: 2000, 2: 0 } });
+    expect(screen.getByText('tir_takip.gaplama.form.available_hint_with_carry')).toBeInTheDocument();
+  });
+
+  it('shows the plain hint (no parenthetical) when nothing carried in', () => {
+    renderForm({ availableByBlock: { 1: 12000, 2: 6500 }, carriedInByBlock: { 1: 0, 2: 0 } });
+    expect(screen.getByText('tir_takip.gaplama.form.available_hint')).toBeInTheDocument();
+  });
+
   it('merges duplicate block rows client-side', async () => {
     (api.post as any).mockResolvedValue({ data: { id: 1, shipment_code: '2109001/26' } });
     renderForm();
@@ -78,7 +93,7 @@ describe('GaplamaTruckForm — edit', () => {
     };
     // available_kg for block 1 already excludes this truck's own load (server figure);
     // the form must present 12000 (available) + 8000 (this truck's own) = 20000 as the cap.
-    renderForm({ mode: 'edit', editingTruck, availableByBlock: { 1: 12000 } });
+    renderForm({ mode: 'edit', editingTruck, availableByBlock: { 1: 12000 }, carriedInByBlock: { 1: 0 } });
     const kgInput = screen.getAllByLabelText(/kg/i)[0] as HTMLInputElement;
     expect(kgInput).toHaveValue(8000);
     fireEvent.change(kgInput, { target: { value: '19000' } });
