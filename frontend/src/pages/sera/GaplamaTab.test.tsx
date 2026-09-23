@@ -215,4 +215,60 @@ describe('GaplamaTab', () => {
     });
     expect(screen.queryByText('CARRY-DAY-TRUCK')).not.toBeInTheDocument();
   });
+
+  it('remounts the form with the clicked truck\'s own data when Üýtget is clicked while the create form is still open', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) {
+        return Promise.resolve({
+          data: {
+            days: [{ date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                     plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                     available_kg: '8000.00', over_kg: '0.00' }],
+            trucks: [{
+              id: 9, shipment_code: '2109001/26', export_code: null, date: THIS_MONDAY,
+              status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+              block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 3000 }],
+            }],
+          },
+        });
+      }
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({
+          data: { results: [{ id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak' }] },
+        });
+      }
+      if (url.includes('/greenhouse-config')) {
+        return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+      }
+      if (url.includes('/core/shipment-options')) {
+        return Promise.resolve({ data: { results: [] } });
+      }
+      if (url.includes('/core/tomato-varieties')) {
+        return Promise.resolve({ data: { results: [] } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    renderTab();
+
+    // Open the create form and type into it — nothing here is submitted.
+    const openButton = await screen.findByRole('button', { name: /tir_takip\.gaplama\.open_truck/ });
+    fireEvent.click(openButton);
+    const createKgInput = (await screen.findAllByLabelText(/kg/i))[0] as HTMLInputElement;
+    fireEvent.change(createKgInput, { target: { value: '1234' } });
+    expect(createKgInput).toHaveValue(1234);
+
+    // Without submitting, click Üýtget on truck 9 (block 1, 3000 kg). Without a
+    // `key` on <GaplamaTruckForm>, React would keep the same instance and the
+    // form's own useState(initialRows) would never re-run — it would flip to
+    // mode="edit" while still showing the stale 1234 from the create row.
+    const editButton = await screen.findByRole('button', { name: /tir_takip\.gaplama\.edit/ });
+    fireEvent.click(editButton);
+
+    const editKgInput = (await screen.findAllByLabelText(/kg/i))[0] as HTMLInputElement;
+    expect(editKgInput).toHaveValue(3000); // truck 9's own allocation, not the leftover 1234
+  });
 });

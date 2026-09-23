@@ -310,6 +310,17 @@ export default function GaplamaTab(): JSX.Element {
           )
         ) : (
           <GaplamaTruckForm
+            // Forces a remount whenever "what we're editing" changes —
+            // without this, clicking Üýtget on a truck while the create
+            // form is still open (rows typed, unsubmitted) changes
+            // `editingTruck`/`mode` but React keeps the same instance
+            // (same position, no key), so the form's own
+            // useState(initialRows) never re-runs: it would report
+            // mode="edit" while still showing the stale create-mode rows,
+            // and submitting would write the wrong block/kg data to the
+            // wrong truck. Same reasoning covers Üýtget on truck A then,
+            // without submitting, Üýtget on truck B.
+            key={editingTruck ? `edit-${editingTruck.id}` : 'create'}
             mode={editingTruck ? 'edit' : 'create'}
             today={today}
             editingTruck={editingTruck ?? undefined}

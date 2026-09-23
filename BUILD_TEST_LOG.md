@@ -21,6 +21,12 @@
   filter while the week-total respected it); (10) a truck opened 1–2 days before this Monday (inside
   the carry-days lookback the board API fetches for the carry-in calc) must NOT appear in "Açylan
   tırlar" or count toward the truck total — it has no day column of its own to filter it into view.
+  ADDITIONAL STEP after the same-day form-remount fix: (11) click "Tır Aç", type a kg value into the
+  create form WITHOUT submitting it, then click "Üýtget" on any truck in the list below — the form
+  must switch to that truck's own block/kg values, not keep showing the leftover create-mode input;
+  repeat by clicking "Üýtget" on a second truck without submitting the first edit — the form must
+  reset to the second truck's own values each time, never carrying over the previous truck's
+  in-progress edit.
 - [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
