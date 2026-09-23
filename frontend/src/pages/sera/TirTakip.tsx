@@ -3,6 +3,7 @@ import { Spin } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeePage } from '@/utils/permissions';
+import GaplamaTab from './GaplamaTab';
 import HasabatTab from './HasabatTab';
 import OnumcilikTab from './OnumcilikTab';
 import TirlarTab from './TirlarTab';
@@ -82,6 +83,7 @@ interface ISeraTabBody {
  */
 const TAB_BODIES: Record<string, ISeraTabBody> = {
   onumcilik: { requires: 'export.plan', node: <OnumcilikTab /> },
+  gaplama: { requires: 'export.plan', node: <GaplamaTab /> },
   // Tirlar is the Shipment Sheet, so it carries the Sheet's own page code on
   // top of the tab code for the same reason Onumcilik carries `export.plan`:
   // the tab code is granted to all 15 roles, `export.shipments_sheet` is not.
