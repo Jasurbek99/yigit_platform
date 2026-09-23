@@ -2167,3 +2167,36 @@ export interface ITaskRule {
   condition_value: string;
   is_active: boolean;
 }
+
+// ─── Gaplama Board ────────────────────────────────────────────────────────────
+
+export interface IGaplamaDay {
+  date: string;
+  block_id: number;
+  block_code: string;
+  location: string | null;
+  plan_kg: number;
+  loaded_kg: number;
+  carried_in_kg: number;
+  available_kg: number;
+  over_kg: number;
+}
+
+export interface IGaplamaTruckSource {
+  block_id: number;
+  block_code: string;
+  weight_kg: number;
+}
+
+export interface IGaplamaTruck {
+  id: number;
+  shipment_code: string;
+  export_code: string | null;
+  date: string;
+  status: number;
+  status_code: string;
+  status_display: string;
+  country: number | null;
+  customer: number | null;
+  block_sources: IGaplamaTruckSource[];
+}
