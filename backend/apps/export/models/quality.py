@@ -72,7 +72,12 @@ class QualityCertificate(models.Model):
 
     # === File ===
     file = models.FileField(upload_to='quality_certificates/%Y/%m/')
-    original_filename = models.CharField(max_length=255)
+    # Cyrillic_General_CI_AS: the name comes off the uploader's phone, so it is
+    # routinely Turkmen or Russian ('сертификат_1.jpg'). Without the collation
+    # MSSQL compares and sorts it byte-wise — see .claude/rules/mssql-compat.md.
+    original_filename = models.CharField(
+        max_length=255, db_collation='Cyrillic_General_CI_AS',
+    )
     mime_type = models.CharField(max_length=100)
     size_bytes = models.IntegerField()
 
