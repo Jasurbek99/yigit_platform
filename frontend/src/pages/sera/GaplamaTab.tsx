@@ -40,12 +40,16 @@ export default function GaplamaTab(): JSX.Element {
   // of use, same as useGaplama.ts's queryFn does for the board response.
   const truckCapacityKg = Number(config?.truck_capacity_kg) || 18500;
 
-  // Exactly the displayed week — NOT `weekStart - gaplama_carry_days`. The
-  // server already does its own carry-over lookback internally regardless of
-  // what from_date is requested (build_gaplama_board's walk_start = from_date
-  // - carry_days), so widening the request here was redundant, and it used
-  // to inflate week_totals' summed fields (plan/loaded/over) with days
-  // outside the week actually shown (2026-09-23 addendum, final-review I1).
+  // Exactly the displayed week — NOT `weekStart - gaplama_carry_days`.
+  // Widening the request here used to inflate week_totals' summed fields
+  // (plan/loaded/over) with days outside the week actually shown
+  // (2026-09-23, final-review I1). Removing the widening is safe ONLY
+  // because the server's own internal lookback was deepened to compensate
+  // (build_gaplama_board's walk_start is now 2×gaplama_carry_days before
+  // from_date, not 1× — see that function's docstring): a single
+  // carry_days of server-side lookback protects from_date's OWN zero-seed
+  // boundary, but not the correctness of walk_start's own day, which a
+  // narrower client request would otherwise have silently degraded.
   const fetchFrom = weekStart.format('YYYY-MM-DD');
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
   const { data: board, isLoading, isError } = useGaplamaBoard(fetchFrom, fetchTo);

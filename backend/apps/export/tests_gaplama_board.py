@@ -200,9 +200,49 @@ class GaplamaBoardTest(TestCase):
         row = board['days'][0]
         self.assertEqual(row['loaded_kg'], Decimal(0))
 
+    def test_lookback_depth_survives_a_narrow_client_window(self):
+        # Final-review frontend fix (2026-09-23): the client now requests
+        # exactly [Monday, Sunday] -- no client-side widening by carry_days.
+        # If the server's own lookback depth were still exactly carry_days
+        # (the original design), a bucket created carry_days-1 days before
+        # walk_start would be invisible to the walk, understating carried_in
+        # on days that depend on it -- here, Monday's.
+        #
+        # carry_days=2. Friday: plan 10000, unconsumed -> alive through Sun.
+        # Saturday: plan 10000, loaded 3000 -- the load should draw from
+        # Friday's real bucket FIRST (FIFO), leaving Saturday's own 10000
+        # plan fully untouched, so Saturday's own remainder is 10000 (not
+        # 7000, which is what a walk that couldn't see Friday would compute:
+        # 10000 - max(0, 3000-0) = 7000). Saturday's own bucket (10000) is
+        # then still alive on Monday (Sat + carry_days = Mon), so a 3000 kg
+        # understatement on Saturday would silently reach Monday's own
+        # carried_in_kg -- the first day the user actually looks at.
+        friday = date(2026, 9, 18)
+        saturday = date(2026, 9, 19)
+        monday = date(2026, 9, 21)
+        self._plan(friday, 10000)
+        self._plan(saturday, 10000)
+        self._truck(saturday, 3000)
+        # The client's actual request, per GaplamaTab.tsx post-fix: from_date
+        # = Monday, not Monday - carry_days.
+        board = build_gaplama_board(monday, monday, self.season)
+        row = board['days'][0]
+        self.assertEqual(row['date'], monday)
+        # Friday's bucket has already expired by Monday under carry_days=2
+        # ((Mon-Fri).days=3 > 2) -- only Saturday's own (correctly FIFO'd)
+        # 10000 remainder is still live. A walk that couldn't see Friday
+        # would have computed Saturday's remainder as 7000, understating
+        # this by 3000.
+        self.assertEqual(row['carried_in_kg'], Decimal(10000))
+
     def test_lookback_boundary_starts_with_zero_carry_in(self):
-        # gaplama_carry_days=2. Plant a huge remainder 3 days before the window start,
-        # i.e. outside even the lookback — it must not leak in as carry-in.
+        # gaplama_carry_days=2 -> the walk now looks back 2*carry_days (4 days,
+        # since 2026-09-23) from Monday, so Thursday (4 days before) sits
+        # exactly at walk_start and IS computed. But a bucket obeys its own
+        # carry_days expiry regardless of how far back the walk starts: a
+        # Thursday remainder is alive only through Saturday and is gone by
+        # Sunday, well before Monday -- proving expiry is independent of
+        # lookback depth, not "outside the lookback" as such.
         self._plan(date(2026, 9, 17), 50000)   # Thursday, no truck — remains 50000
         self._plan(date(2026, 9, 21), 1000)    # Monday (window start)
         board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)

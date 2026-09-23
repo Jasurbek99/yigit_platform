@@ -190,15 +190,21 @@ labelled "available"/"Galan" read this array, never `weekTotal(days, 'available_
 - **Season:** `resolve_season()` — 404 unknown, 403 closed without `closed_season.can_view`,
   `[]` during the close→open gap.
 - **Window:** both dates required; inverted → 400; over 31 days → 400; **clamped to the
-  season**. The client asks for **Monday − `gaplama_carry_days`** through Sunday so the
-  week's first carry-in is real; the server still returns rows only for the asked range, with
-  the carry-in already folded in.
+  season**. The client asks for exactly the days it displays — Monday through Sunday, no
+  client-side widening (fixed 2026-09-23, final-review I1: widening used to inflate
+  `week_totals`' summed fields with days outside the shown week). Getting the first
+  displayed day's carry-in right is entirely the server's job — see the lookback rule below.
 - **Carry-over lookback cut-off.** The FIFO walk needs earlier days to seed the first
-  returned day's buckets, which regresses indefinitely if left open-ended. Fixed rule: the
-  server walks from **`from_date − gaplama_carry_days`** through `to_date`; the walk's
-  **first day always starts with zero carry-in**, whatever it actually was. This bounds the
-  error to buckets older than `gaplama_carry_days` before the requested window, which are
-  buckets that would have expired by then in any case. Only `days[]` rows inside
+  returned day's buckets, which regresses indefinitely if left open-ended. Fixed rule
+  (revised 2026-09-23): the server walks from **`from_date − 2×gaplama_carry_days`** through
+  `to_date`; the walk's **first computed day always starts with zero carry-in**, whatever it
+  actually was. A single `gaplama_carry_days` of lookback only protects `from_date` from that
+  zero-seed error directly — it does not protect `from_date` from an error in `walk_start`'s
+  OWN day, which itself needs `gaplama_carry_days` of visibility to compute correctly and
+  then forward that correctness through every later day the resulting bucket reaches.
+  Doubling the lookback closes that one level of the chain (this is a bounded approximation,
+  not a proof for arbitrarily long chains — the same kind of accepted bound the original
+  single-`carry_days` rule always was, one level deeper). Only `days[]` rows inside
   `[from_date, to_date]` are returned; the lookback days exist purely to seed buckets and are
   computed but not emitted.
 - **Queries:** one `HarvestDayEntry` read and one `ShipmentBlockSource` read, both grouped in

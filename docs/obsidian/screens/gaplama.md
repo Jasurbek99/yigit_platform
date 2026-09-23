@@ -39,11 +39,26 @@ its own plan plus its carry-in never goes negative on screen — the overshoot i
 renders as a `0 ⚠` cell with a tooltip ("N kg artyk / over"). A day that finishes with
 plan left over seeds a **FIFO bucket** consumable for `GreenhouseConfig.gaplama_carry_days`
 days after it was created (default 2) — oldest bucket first. A negative remainder never
-carries forward; only a positive one does. The board walks `carry_days` days before the
-requested window specifically so a bucket created just before Monday is still visible (and
-spendable) inside the displayed week — those lookback days' own rows and trucks are fetched
-but filtered out of what the grid renders (`GaplamaTab.tsx` re-filters `board.days`/
-`board.trucks` down to the 7 displayed dates after the wider fetch).
+carries forward; only a positive one does. Each day's leftover also carries a small `N →`
+marker (the day's own fresh remainder moving on), and a `+N` badge tooltips the origin
+day(s) it came from (`carry_in_breakdown`) — both added 2026-09-23.
+
+**The client asks for exactly the displayed week (Monday–Sunday), no widening** — fixed
+2026-09-23, since widening used to inflate `week_totals`' summed fields with days outside
+the week shown. Getting the first displayed day's carry-in right is entirely the server's
+job: `build_gaplama_board` walks from `2×carry_days` before `from_date` (not `1×` — a
+single `carry_days` only protects `from_date`'s own zero-seed boundary, not the correctness
+of `walk_start`'s own day, which itself needs `carry_days` of visibility to compute right
+before it can forward that correctness to Monday). Those lookback days are computed but
+never emitted in `days[]`.
+
+**Week totals are not a client-side sum.** `week_totals[]` on the board response gives
+`plan_kg`/`loaded_kg`/`over_kg` as real sums (each day's figure is independent) and
+`available_kg` as the **last day's** value in the window — summing `available_kg` across
+days would double-count a remainder that stays live for several days. `GaplamaTab.tsx`'s
+week-aggregate cells (the per-block week column, location subtotals' week cell, the Galan
+footer, and Haftalyk Özet's "available" column when no single day is selected) all read
+this array rather than summing client-side.
 
 ## Opening a truck
 
