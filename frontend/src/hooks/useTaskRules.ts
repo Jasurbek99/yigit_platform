@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
+import { MOCK_TASK_RULES } from '@/mock/taskRules';
 import type { ITaskRule } from '@/types';
+
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 
 /**
  * The task-generation catalog behind My Tasks.
@@ -13,6 +16,7 @@ export function useTaskRules() {
   return useQuery({
     queryKey: ['task-rules'],
     queryFn: async (): Promise<ITaskRule[]> => {
+      if (USE_MOCK) return MOCK_TASK_RULES;
       const { data } = await api.get<ITaskRule[]>('/export/task-rules/');
       return data;
     },
