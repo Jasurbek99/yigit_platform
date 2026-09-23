@@ -1827,7 +1827,11 @@ export interface IDraftFirmSplitInput {
 }
 
 export interface IDraftCreatePayload {
-  shipment_code: string;
+  // Optional — the server auto-generates it when omitted (see
+  // ShipmentCreateSerializer.shipment_code, required=False, in
+  // backend/apps/export/serializers.py). Callers that pick a code
+  // themselves (e.g. DraftComposerModal) still supply it.
+  shipment_code?: string;
   date: string;
   is_draft: true;
   block_sources?: { block_id: number; weight_kg: number }[];

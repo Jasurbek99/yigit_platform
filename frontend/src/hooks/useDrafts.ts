@@ -68,7 +68,9 @@ export function useCreateDraft() {
         // No-op in mock mode — optimistically return a stub.
         const stub: IShipmentDraft = {
           id: Date.now(),
-          shipment_code: payload.shipment_code,
+          // shipment_code is optional on the payload (server auto-generates
+          // it when omitted) — mock the same fallback here.
+          shipment_code: payload.shipment_code ?? dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Mock User',
@@ -325,7 +327,9 @@ export function useCreateDestinationDraft() {
       if (USE_MOCK) {
         const stub: IShipmentDraft = {
           id: Date.now(),
-          shipment_code: payload.shipment_code,
+          // shipment_code is optional on the payload (server auto-generates
+          // it when omitted) — mock the same fallback here.
+          shipment_code: payload.shipment_code ?? dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Gadam (mock)',

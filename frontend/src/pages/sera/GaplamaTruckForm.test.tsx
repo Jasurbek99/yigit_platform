@@ -28,7 +28,7 @@ describe('GaplamaTruckForm — create', () => {
 
   it('disables submit when no row has kg', () => {
     renderForm();
-    expect(screen.getByRole('button', { name: /tır aç/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.open_truck' })).toBeDisabled();
   });
 
   it('caps a row at the block\'s available kg and refuses more', () => {
@@ -36,7 +36,7 @@ describe('GaplamaTruckForm — create', () => {
     const kgInput = screen.getAllByLabelText(/kg/i)[0] as HTMLInputElement;
     fireEvent.change(kgInput, { target: { value: '15000' } }); // block 1 has 12000 available
     expect(kgInput).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByRole('button', { name: /tır aç/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.open_truck' })).toBeDisabled();
   });
 
   it('submits with skip_forecast_check, today\'s date, weight_net = sum, no shipment_code', async () => {
@@ -44,7 +44,7 @@ describe('GaplamaTruckForm — create', () => {
     renderForm();
     const kgInput = screen.getAllByLabelText(/kg/i)[0] as HTMLInputElement;
     fireEvent.change(kgInput, { target: { value: '12000' } });
-    fireEvent.click(screen.getByRole('button', { name: /tır aç/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'tir_takip.gaplama.form.open_truck' }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const [, body] = (api.post as any).mock.calls[0];
     expect(body.skip_forecast_check).toBe(true);
@@ -57,12 +57,12 @@ describe('GaplamaTruckForm — create', () => {
   it('merges duplicate block rows client-side', async () => {
     (api.post as any).mockResolvedValue({ data: { id: 1, shipment_code: '2109001/26' } });
     renderForm();
-    fireEvent.click(screen.getByRole('button', { name: /blok goş/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'tir_takip.gaplama.form.add_block' }));
     const kgInputs = screen.getAllByLabelText(/kg/i) as HTMLInputElement[];
     fireEvent.change(kgInputs[0], { target: { value: '5000' } });
     // second row also block 1 (default selection) with 5000 more — total 10000, under 12000 cap
     fireEvent.change(kgInputs[1], { target: { value: '5000' } });
-    fireEvent.click(screen.getByRole('button', { name: /tır aç/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'tir_takip.gaplama.form.open_truck' }));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
     const [, body] = (api.post as any).mock.calls[0];
     expect(body.block_sources).toEqual([{ block_id: 1, weight_kg: 10000 }]);

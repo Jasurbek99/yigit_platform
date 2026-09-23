@@ -7,7 +7,7 @@ import { useUpdateTruckBlocks } from '@/hooks/useGaplama';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { VarietySelect } from '@/components/VarietySelect';
 import { useShipmentOptions } from '@/hooks/useAdmin';
-import type { IGaplamaTruck, IDraftCreatePayload } from '@/types';
+import type { IGaplamaTruck } from '@/types';
 
 interface IGaplamaTruckFormProps {
   mode: 'create' | 'edit';
@@ -103,24 +103,20 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
       return;
     }
 
-    // shipment_code is optional server-side (auto-generated when omitted —
-    // backend/apps/export/serializers.py ShipmentCreateSerializer.shipment_code,
-    // required=False). IDraftCreatePayload types it as required because every
-    // other caller supplies one; this cast documents the deliberate omission
-    // rather than widening the shared type from this single-purpose form.
-    const payload = {
-      is_draft: true,
-      date: props.today,
-      skip_forecast_check: true,
-      block_sources: blockSources,
-      weight_net: totalKg,
-      export_code: exportCode || undefined,
-      harvest_status: harvestStatus,
-      varieties: variety ? [variety] : undefined,
-    } as IDraftCreatePayload;
-
+    // shipment_code deliberately omitted — the server auto-generates it
+    // (backend/apps/export/serializers.py ShipmentCreateSerializer.shipment_code,
+    // required=False).
     try {
-      await createDraft.mutateAsync(payload);
+      await createDraft.mutateAsync({
+        is_draft: true,
+        date: props.today,
+        skip_forecast_check: true,
+        block_sources: blockSources,
+        weight_net: totalKg,
+        export_code: exportCode || undefined,
+        harvest_status: harvestStatus,
+        varieties: variety ? [variety] : undefined,
+      });
       toast.success(t('tir_takip.gaplama.form.toast_created'));
       props.onDone();
     } catch {
@@ -165,7 +161,7 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
             </Space>
           );
         })}
-        <Button onClick={addRow}>{t('tir_takip.gaplama.form.blok goş')}</Button>
+        <Button onClick={addRow}>{t('tir_takip.gaplama.form.add_block')}</Button>
       </Space>
 
       {props.mode === 'create' && (
@@ -197,7 +193,7 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
         <Button type="primary" disabled={submitDisabled} onClick={handleSubmit}>
           {props.mode === 'edit'
             ? t('tir_takip.gaplama.form.save')
-            : t('tir_takip.gaplama.form.tır aç')}
+            : t('tir_takip.gaplama.form.open_truck')}
         </Button>
         <Button onClick={props.onCancel}>{t('tir_takip.gaplama.form.cancel')}</Button>
       </Space>
