@@ -333,6 +333,11 @@ export default function AppLayout() {
     // `tir_takip` code is granted to all 15 roles by core migration 0051, so
     // everyone sees it today and an admin can revoke it without a deploy.
     '/tir-takip': { key: '/tir-takip', icon: <IconTruckDelivery size={15} />, label: t('nav.tir_takip') },
+    // Gaplama standalone page — the design's second entry point for the same
+    // Weekly-Plan-minus-trucks screen as the tir_takip.gaplama tab. Same code,
+    // same rule as the /tir-takip item above: NO `roles` array, so an admin
+    // toggle in the permission matrix is the only thing that hides it.
+    '/export/gaplama': { key: '/export/gaplama', icon: <IconTruckDelivery size={15} />, label: t('nav.gaplama') },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
     '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
     '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
@@ -376,7 +381,7 @@ export default function AppLayout() {
     group('nav.group_prep', ['/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
-      '/export/shipments/dashboard', '/transport/map', '/tir-takip',
+      '/export/shipments/dashboard', '/transport/map', '/tir-takip', '/export/gaplama',
     ]),
     group('nav.group_docs', ['/documents', '/admin/packing-templates']),
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
@@ -400,7 +405,7 @@ export default function AppLayout() {
       '/export/task-rules',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
       '/export/my-reports', '/export/advances', '/transport/map',
-      '/export/domestic-sales', '/export/prices', '/tir-takip',
+      '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
@@ -441,7 +446,7 @@ export default function AppLayout() {
   // the header goes with them — a white bar above a green page is the mismatch
   // the design was meant to avoid. Keep this in step with the routes that
   // actually mount a sera page; nothing else in the app reads it.
-  const isSeraPage = location.pathname === '/tir-takip';
+  const isSeraPage = location.pathname === '/tir-takip' || location.pathname === '/export/gaplama';
 
   const selectedKey = location.pathname.startsWith('/shipments/')
     ? '/export/shipments'

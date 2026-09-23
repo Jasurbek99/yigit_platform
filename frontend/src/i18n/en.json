@@ -129,7 +129,8 @@
     "admin_packing_templates": "Packing Templates",
     "documents": "Documents",
     "pomidor_dukany": "Pomidor Dükany",
-    "tir_takip": "Truck Tracking"
+    "tir_takip": "Truck Tracking",
+    "gaplama": "Packing"
   },
   "expense_template": {
     "title": "Expense Category Template",

@@ -129,7 +129,8 @@
     "admin_packing_templates": "Шаблоны упаковки",
     "documents": "Документы",
     "pomidor_dukany": "Pomidor Dükany",
-    "tir_takip": "Отслеживание машин"
+    "tir_takip": "Отслеживание машин",
+    "gaplama": "Гаплама"
   },
   "expense_template": {
     "title": "Шаблон категорий расходов",
