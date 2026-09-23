@@ -29,42 +29,53 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
                  status_display, country, customer,
                  block_sources: [{block_id, block_code, weight_kg}]}
 
-    Every active block gets a day-row even when it has zero plan/loaded activity in the
-    walked window — a block-day with nothing planned still needs to report
-    carried_in_kg/available_kg (e.g. a carry-in bucket expiring with no new plan).
+    Every active top-level block gets a day-row even when it has zero plan/loaded activity
+    in the walked window — a block-day with nothing planned still needs to report
+    carried_in_kg/available_kg (e.g. a carry-in bucket expiring with no new plan). Sub-blocks
+    never get their own day-row, but their kg is folded into their parent's loaded_kg and
+    trucks[].block_sources (see below) — they're excluded from days[], not from the data.
 
-    5 queries regardless of data volume: config lookup, active-block roster (top-level AND
-    sub-blocks — see the parent-map note below), one grouped HarvestDayEntry read, one
-    grouped ShipmentBlockSource read, one flat Shipment+block_sources read (no
-    prefetch_related, so it doesn't fan out per truck).
+    5 queries regardless of data volume: config lookup, a block roster (ALL blocks, active
+    and inactive, top-level and sub — see the parent-map note below — one query), one
+    grouped HarvestDayEntry read, one grouped ShipmentBlockSource read, one flat
+    Shipment+block_sources read (no prefetch_related, so it doesn't fan out per truck).
 
     Sub-block grain: HarvestDayEntry is always written at top-level (parent) grain, and
     write_block_sources() normalizes new ShipmentBlockSource writes to parent grain too
     (services/block_sources.py) — but legacy/bypass rows targeting a sub-block directly do
-    exist (observed on the live DB). Both loaded_kg and trucks[].block_sources fold any
+    exist (observed on the live DB, though zero today per a direct query — kept as a
+    defensive fold, not a hypothetical). Both loaded_kg and trucks[].block_sources fold any
     sub-block id through `parent_of` to its top-level ancestor, so a sub-block-targeted row
     still counts toward the right block instead of silently vanishing from loaded_kg (which
     would over-state available_kg and under-state over_kg) or reporting the wrong block.
+    `code_by_id`/`parent_of` are built from EVERY block (not just active ones) precisely so
+    this fold still resolves a block_code for a ShipmentBlockSource row that targets an
+    inactive block or a sub-block whose parent has since been deactivated — `days[]` itself
+    stays active-top-level-only via the explicit `b.is_active` check in `block_meta` below.
     """
     config = GreenhouseConfig.get_solo()
     carry_days = config.gaplama_carry_days
     walk_start = from_date - timedelta(days=carry_days)
 
-    # ALL active blocks (top-level and sub-blocks) in one query — needed both for the
-    # top-level roster (days[] rows) and to fold sub-block ids to their parent below.
+    # ALL blocks — active and inactive, top-level and sub — in one query. code_by_id/
+    # parent_of must cover inactive blocks too, so a ShipmentBlockSource row still resolves
+    # to a real code/parent even when it targets a block (or a block whose parent) has since
+    # been deactivated; block_meta below is what actually restricts days[] to active
+    # top-level blocks.
     all_blocks = list(
         GreenhouseBlock.objects
-        .filter(is_active=True)
         .select_related('location')
         .order_by('code')
     )
     code_by_id: dict[int, str] = {b.id: b.code for b in all_blocks}
     parent_of: dict[int, int] = {b.id: (b.parent_id or b.id) for b in all_blocks}
-    # Top-level blocks only — matches the is_active + parent__isnull=True filter used by
-    # views_daily_board.py and pomidor_dukany.py for the same reason (plan/board grain).
+    # Active top-level blocks only — matches the is_active + parent__isnull=True filter
+    # used by views_daily_board.py and pomidor_dukany.py for the same reason (plan/board
+    # grain). Filtered here in Python (not in the query above) since the query above must
+    # stay unfiltered for the parent-map fold to work for inactive blocks.
     block_meta: dict[int, tuple[str, str | None]] = {
         b.id: (b.code, b.location.name if b.location_id else None)
-        for b in all_blocks if b.parent_id is None
+        for b in all_blocks if b.parent_id is None and b.is_active
     }
 
     plan_rows = (

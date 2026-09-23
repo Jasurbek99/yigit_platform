@@ -216,6 +216,19 @@ class GaplamaBoardTest(TestCase):
         block_ids = {row['block_id'] for row in board['days']}
         self.assertEqual(block_ids, {self.block.id})
 
+    def test_inactive_top_level_block_excluded_from_days(self):
+        # block_meta filters on b.is_active explicitly in Python now (the roster query
+        # itself is unfiltered, to let code_by_id/parent_of resolve inactive blocks for
+        # the sub-block fold below) — this pins that filter directly, since no other
+        # test creates an inactive block at all.
+        inactive = GreenhouseBlock.objects.create(
+            code='Z', name='Z', location=self.location, is_active=False,
+        )
+        self._plan(date(2026, 9, 21), 20000, block=inactive)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
+        block_ids = {row['block_id'] for row in board['days']}
+        self.assertNotIn(inactive.id, block_ids)
+
     def test_sub_block_loaded_folds_into_parent(self):
         # A ShipmentBlockSource row can point at a sub-block directly (13/151 rows
         # on the live dev DB do, despite write_block_sources() normally normalizing
@@ -231,14 +244,18 @@ class GaplamaBoardTest(TestCase):
         )
         self._plan(date(2026, 9, 21), 20000, block=parent)
         shipment = self._truck(date(2026, 9, 21), 5000, block=sub)
+        # Same truck ALSO has a row at parent grain directly (unique_together is
+        # (shipment, block), so O and O1 can coexist on one shipment) — this must
+        # merge with the sub-block row into a single block_sources entry, not two.
+        ShipmentBlockSource.objects.create(shipment=shipment, block=parent, weight_kg=Decimal(3000))
         board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
         row = next(r for r in board['days'] if r['block_id'] == parent.id)
-        self.assertEqual(row['loaded_kg'], Decimal(5000))
+        self.assertEqual(row['loaded_kg'], Decimal(8000))
         truck = next(t for t in board['trucks'] if t['id'] == shipment.id)
         self.assertEqual(len(truck['block_sources']), 1)
         self.assertEqual(truck['block_sources'][0]['block_id'], parent.id)
         self.assertEqual(truck['block_sources'][0]['block_code'], 'O')
-        self.assertEqual(truck['block_sources'][0]['weight_kg'], Decimal(5000))
+        self.assertEqual(truck['block_sources'][0]['weight_kg'], Decimal(8000))
 
     def test_trucks_list_shape(self):
         self._plan(date(2026, 9, 21), 20000)
