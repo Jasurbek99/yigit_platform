@@ -827,7 +827,7 @@ export interface IGaplamaDay {
   date: string;
   block_id: number;
   block_code: string;
-  location: string;
+  location: string | null;
   plan_kg: number;
   loaded_kg: number;
   carried_in_kg: number;
@@ -867,10 +867,10 @@ export function useUpdateTruckBlocks(): UseMutationResult<void, unknown, { shipm
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import { useGaplamaBoard } from './useGaplama';
 
-vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -921,7 +921,7 @@ Expected: FAIL — `Failed to resolve import "./useGaplama"`
 ```ts
 // frontend/src/hooks/useGaplama.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import type { IGaplamaDay, IGaplamaTruck } from '@/types';
 
 interface IGaplamaBoardResponse {
@@ -1206,10 +1206,10 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps): JSX.Ele
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import GaplamaTruckForm from './GaplamaTruckForm';
 
-vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 
 function renderForm(overrides: Partial<React.ComponentProps<typeof GaplamaTruckForm>> = {}) {
@@ -1541,11 +1541,11 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import GaplamaTab from './GaplamaTab';
 
-vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
 vi.mock('@/hooks/useSeasonReadOnly', () => ({ useSeasonReadOnly: () => false }));
