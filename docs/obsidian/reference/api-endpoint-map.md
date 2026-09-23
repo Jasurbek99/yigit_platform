@@ -58,7 +58,7 @@ tags: [reference, api, backend, frontend]
 | POST | `/api/v1/export/shipments/{id}/firm-splits/` | ShipmentViewSet.set_firm_splits | `useShipmentDetail` (mutation) | ShipmentDetail |
 | GET | `/api/v1/export/shipments/{id}/tasks/` | ShipmentViewSet.tasks_list | `useShipmentTasks` | ShipmentDetail (Tasks tab) |
 
-**Season scoping (AD-16):** `?season=<id>` works the same way on every list endpoint marked "season-scoped" in this map — shipments, Sheet, Kanban board, harvest plans, day entries, truck allocations/destinations, local-sell plans, contracts, contract-sales, comments, tasks, quota-usage, advances, customs-expenses, document-packets, clients-report, tir-hasabat. Omitted → the active season. An unknown id → `404`. A closed id without the `closed_season.can_view` resource permission → `403`. No active season at all (the close→open gap) → the list returns empty, not unfiltered (D7 — fail closed). Detail-by-id routes (e.g. `GET /shipments/{id}/`) are NOT season-scoped by design — a direct link always resolves, closed season or not; mutating that row still 409s per the write freeze below. `quota-issuances`, `admin/*` reference-data endpoints, and `sales-rep-coverage` are explicit opt-outs (see AD-16 / design spec §4.5) — passing `?season=` to them is a no-op.
+**Season scoping (AD-16):** `?season=<id>` works the same way on every list endpoint marked "season-scoped" in this map — shipments, Sheet, Kanban board, harvest plans, day entries, truck allocations/destinations, local-sell plans, contracts, contract-sales, comments, tasks, quota-usage, advances, customs-expenses, document-packets, clients-report, tir-hasabat, gaplama-board. Omitted → the active season. An unknown id → `404`. A closed id without the `closed_season.can_view` resource permission → `403`. No active season at all (the close→open gap) → the list returns empty, not unfiltered (D7 — fail closed). Detail-by-id routes (e.g. `GET /shipments/{id}/`) are NOT season-scoped by design — a direct link always resolves, closed season or not; mutating that row still 409s per the write freeze below. `quota-issuances`, `admin/*` reference-data endpoints, and `sales-rep-coverage` are explicit opt-outs (see AD-16 / design spec §4.5) — passing `?season=` to them is a no-op.
 
 **Write freeze (AD-16):** any mutation against a row anchored to a **closed** season — directly (`Shipment.season`) or by join (e.g. `Comment.shipment.season`) — returns `409 {"error":"season_closed","season":"<name>","closed_at":"<iso>"}` instead of applying. This includes status transitions, the Sheet bulk-edit, the two-row Join, and creates that target a closed season via the request body.
 
@@ -173,6 +173,14 @@ See [[screens/main-dashboard]] for the full response contract.
 | GET | `/api/v1/export/tir-hasabat/` | TirHasabatViewSet.list | `useTirHasabat` | TirTakip → HasabatTab |
 
 Permission: `CanViewTirHasabat` — `tir_takip.hasabat` **and** `analytics.clients` (superuser bypass). Season-scoped (`?season=`, by FK). Cache: 60 s per season. Returns `season`, `kpis`, `by_month` and six `by_*` groupings of `{rows: [{name, trucks, kg}], total_kg}`. See [[screens/tir-takip#The Hasabat tab]].
+
+### Gaplama board
+
+| Method | Endpoint | ViewSet | Hook | Page |
+|--------|----------|---------|------|------|
+| GET | `/api/v1/export/gaplama/board/?from_date=&to_date=[&season=]` | GaplamaBoardView.get | `useGaplamaBoard` | TirTakip → GaplamaTab · GaplamaPage (`/export/gaplama`) |
+
+Permission: `CanViewTirGaplama` — `tir_takip.gaplama` **and** `export.plan` (superuser bypass). Season-scoped (`?season=`, same rules as below; no active season → `{"days": [], "trucks": []}`). Window capped at 31 days (`400` otherwise). Returns `{days: [...], trucks: [...]}` — per-block-day plan/loaded/carried-in/available/over kg (decimal strings) plus opened trucks with their `block_sources`. See [[screens/gaplama]].
 
 ### Planning & Finance
 

@@ -609,6 +609,59 @@ shipments **minus** `draft`, `cancelled`, soft-deleted and archived.
 - Month = `TruncMonth(Shipment.date)`, `'YYYY-MM'`, oldest first.
 - No active season → `season: null` with the same shape, all zeros / empty.
 
+### Gaplama board: `GET /api/v1/export/gaplama/board/?from_date=&to_date=[&season=]`
+
+Backs the **Gaplama** tab on `/tir-takip` and its standalone twin at `/export/gaplama`
+(`GaplamaTab.tsx`, both entry points render the same component; `useGaplamaBoard`). The
+Weekly Plan minus kg already loaded onto opened trucks, plus a carried-over remainder from
+earlier days — see `backend/apps/export/services/gaplama.py::build_gaplama_board` for the
+FIFO carry-over rule. `from_date`/`to_date` are required `YYYY-MM-DD`; the window may not
+exceed 31 days (`400` otherwise). **Gated server-side on two page codes** —
+`tir_takip.gaplama` and `export.plan` (`CanViewTirGaplama`; superuser bypass); either
+missing → 403. Season-scoped the same way as every list endpoint (`?season=`, default
+active; `404` unknown id; `403` closed without `closed_season.can_view`); no active season
+at all → `{"days": [], "trucks": []}`.
+
+```json
+{
+  "days": [
+    {
+      "date": "2026-09-23", "block_id": 4, "block_code": "B", "location": "Dusak",
+      "plan_kg": "5000.00", "loaded_kg": "2000.00", "carried_in_kg": "500.00",
+      "available_kg": "3500.00", "over_kg": "0.00"
+    }
+  ],
+  "trucks": [
+    {
+      "id": 812, "shipment_code": "23SP812/26", "export_code": null, "date": "2026-09-23",
+      "status": 1, "status_code": "draft", "status_display": "Draft",
+      "country": null, "customer": null,
+      "block_sources": [ { "block_id": 4, "block_code": "B", "weight_kg": "2000.00" } ]
+    }
+  ]
+}
+```
+
+- **Every `*_kg` field is a decimal string** (`str(Decimal)` at the view boundary, per the
+  convention below) — coerce on the frontend at the fetch boundary, same as every other
+  Decimal field. `useGaplamaBoard` does this in its `queryFn`, not at the render site.
+- `days[]` covers every **active top-level** block — sub-block and inactive-block kg is
+  folded into the parent's `loaded_kg`/`block_sources`, never reported under its own id.
+  A block-day with zero plan and zero loaded still gets a row (e.g. a carry-in bucket
+  expiring with nothing new planned).
+- `available_kg = max(0, carried_in_kg + plan_kg - loaded_kg)` — never negative. An
+  overshoot is reported separately as `over_kg`, never as a negative `available_kg`.
+- `trucks[]` is every shipment in `[from_date, to_date]` (not walked back like `days[]`)
+  with at least one non-null `block_sources` row, cancelled excluded. `country`/`customer`
+  are `null` while the truck is still a bare supply row (not yet joined on the Sheet) —
+  that is also the Üýtget edit-eligibility check on the frontend (`status_code == 'draft'`
+  and both null).
+- `status_display` is `status__name_en` — **always English**, not locale-aware. Use
+  `status_code` to key your own translated label if the UI needs one; `GaplamaTab.tsx`
+  currently renders `status_display` as-is in the truck list.
+- The requested `[from_date, to_date]` is clamped to the resolved season's own date range
+  before the query runs (`clamped_from`/`clamped_to`) — a default window is not a bound.
+
 ### Current geofence per truck: `GET /api/v1/transport/geofences/current/`
 
 Which Traccar geofence each truck is in right now, grouped by geofence. Gate: `IsAuthenticated` +
@@ -670,7 +723,7 @@ quota-firm-balances, advances, customs-expenses, document-packets, clients-repor
 optional `?season=<id>`:
 entries, truck allocations/destinations, local-sell plans, contracts, contract-sales,
 comments, tasks, quota-usage, quota-issuances, quota-firm-balances, advances,
-customs-expenses, document-packets, clients-report, tir-hasabat) accepts an optional `?season=<id>`:
+customs-expenses, document-packets, clients-report, tir-hasabat, gaplama-board) accepts an optional `?season=<id>`:
 
 - Omitted → the active (write-target) season.
 - Unknown id → `404`.

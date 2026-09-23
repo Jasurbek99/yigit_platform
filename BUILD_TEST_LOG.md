@@ -1,4 +1,12 @@
 
+- [ ] 2026-09-23 — Gaplama screen (board endpoint, grid, Tır Aç/Üýtget form, tab + standalone page) — NEEDS TEST
+  Whole-feature entry covering Tasks 1-10 of the Gaplama plan (endpoint, FIFO calc, grid, form,
+  tab wiring, standalone `/export/gaplama` page + sidebar entry). The detailed per-scenario test
+  steps for the grid/form itself are in the entry directly below this one (Task 7) — that entry's
+  "NOTE: not yet wired into TAB_BODIES" is now stale: both entry points are wired as of Task 9.
+  To additionally test the two entry points: (1) `/tir-takip` → Gaplama tab renders the board;
+  (2) `/export/gaplama` (sidebar, export group) renders the identical board standalone; (3) a role
+  with `tir_takip.gaplama` but not `export.plan` sees the no-access panel on both.
 - [ ] 2026-09-23 — GaplamaTab.tsx: week grid (blocks grouped by location, plan/loaded/available/over/carry-in per day), weekly summary, opened-truck list, Tır Aç / Üýtget toggle (Task 7 of the Gaplama screen plan) — NEEDS TEST
   To test: (1) open the Gaplama tab as `loading_dept_head` — the week grid shows blocks grouped by
   location with per-location subtotal rows, a "Tır Aç" button appears; (2) as `sales_rep` (no
