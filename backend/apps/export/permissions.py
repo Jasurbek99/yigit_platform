@@ -109,3 +109,29 @@ class CanViewTirHasabat(BasePermission):
             return False
         pages = get_page_permissions(role)
         return all(pages.get(code, False) for code in self.PAGE_CODES)
+
+
+class CanViewTirGaplama(BasePermission):
+    """Read gate for the Gaplama board — tab and standalone page alike.
+
+    Needs BOTH page codes, mirroring CanViewTirHasabat: `tir_takip.gaplama` is the
+    entry point's own code (tab + standalone page, per the design's D7/D10 — they
+    share one code), `export.plan` is the audience of the Weekly Plan data this
+    board is a read of.
+    """
+
+    PAGE_CODES = ('tir_takip.gaplama', 'export.plan')
+
+    def has_permission(self, request, view) -> bool:
+        from apps.core.permissions import get_page_permissions
+
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.is_superuser:
+            return True
+        role = getattr(user, 'role', None)
+        if not role:
+            return False
+        pages = get_page_permissions(role)
+        return all(pages.get(code, False) for code in self.PAGE_CODES)

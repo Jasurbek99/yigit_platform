@@ -39,6 +39,7 @@ from apps.export.views_sheet_settings import SheetRowSettingViewSet
 from apps.export.views_user_preferences import UserSheetPreferencesView
 from apps.export.views_clients_report import ClientsReportViewSet
 from apps.export.views_tir_hasabat import TirHasabatViewSet
+from apps.export.views_gaplama import GaplamaBoardView
 
 router = DefaultRouter()
 
@@ -124,4 +125,8 @@ urlpatterns = router.urls + [
     # Pomidor Dükany — planned vs achieved production per block.
     # GET /api/v1/export/production-analysis/?date_from=&date_to=&blocks=
     path('production-analysis/', ProductionAnalysisView.as_view(), name='production-analysis'),
+
+    # Gaplama board — Weekly Plan minus opened trucks, with carry-over.
+    # GET /api/v1/export/gaplama/board/?from_date=&to_date=[&season=]
+    path('gaplama/board/', GaplamaBoardView.as_view(), name='gaplama-board'),
 ]

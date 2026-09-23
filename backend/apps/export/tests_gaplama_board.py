@@ -23,14 +23,18 @@ Run:
 from datetime import date
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from apps.core.models import (
     GreenhouseBlock,
     GreenhouseConfig,
     LoadingLocation,
+    RolePagePermission,
     Season,
     ShipmentStatusType,
+    User,
 )
 from apps.export.models import Shipment, ShipmentBlockSource
 from apps.export.services.gaplama import build_gaplama_board
@@ -281,3 +285,152 @@ class GaplamaBoardTest(TestCase):
             self._truck(date(2026, 9, 21), 1000)
         with self.assertNumQueries(5):
             build_gaplama_board(date(2026, 9, 21), date(2026, 9, 27), self.season)
+
+
+class GaplamaBoardViewTest(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.season = Season.objects.create(
+            name='2026/2027', start_date=date(2026, 9, 1), end_date=date(2027, 8, 31),
+            is_active=True,
+        )
+        self.location = LoadingLocation.objects.create(name='Dusak')
+        self.block = GreenhouseBlock.objects.create(
+            code='GB', name='GB-Ýyladyşhana', location=self.location, is_active=True,
+        )
+        _make_status('draft', 0, 'Draft')
+        GreenhouseConfig.objects.all().delete()
+        self.config = GreenhouseConfig.get_solo()
+        self.config.gaplama_carry_days = 2
+        self.config.save()
+        self.client = APIClient()
+
+    def _plan(self, entry_date, kg):
+        iso_year, iso_week, _ = entry_date.isocalendar()
+        plan, _ = WeeklyHarvestPlan.objects.get_or_create(
+            season=self.season, block=self.block, week_number=iso_week, year=iso_year,
+        )
+        HarvestDayEntry.objects.create(
+            weekly_plan=plan, season=self.season, block=self.block,
+            entry_date=entry_date, weekday=entry_date.weekday(),
+            plan_value=Decimal(kg),
+        )
+
+    def _truck(self, ship_date, kg):
+        status = ShipmentStatusType.objects.get(code='draft')
+        shipment = Shipment.objects.create(
+            shipment_code=f'T{ship_date.strftime("%m%d")}-{Shipment.objects.count()}',
+            date=ship_date, season=self.season, status=status,
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=shipment, block=self.block, weight_kg=Decimal(kg),
+        )
+        return shipment
+
+    def _user(self, role, tir_takip_gaplama=True, export_plan=True):
+        user = User.objects.create_user(username=f'u_{role}', password='x', role=role)
+        # NOTE: RolePagePermission's boolean field is `is_visible`, not `can_view`
+        # (confirmed against apps/core/models/role_permissions.py and the working
+        # pattern in tests_tir_hasabat.py's `_grant()` helper) — the brief's literal
+        # snippet used `can_view`, which doesn't exist on the model.
+        RolePagePermission.objects.update_or_create(
+            role=role, page_code='tir_takip.gaplama', defaults={'is_visible': tir_takip_gaplama},
+        )
+        RolePagePermission.objects.update_or_create(
+            role=role, page_code='export.plan', defaults={'is_visible': export_plan},
+        )
+        return user
+
+    def test_requires_both_page_codes(self):
+        user = self._user('loading_dept_head', tir_takip_gaplama=True, export_plan=False)
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-21', 'to_date': '2026-09-21',
+        })
+        self.assertEqual(resp.status_code, 403)
+
+    def test_200_with_both_codes(self):
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-21', 'to_date': '2026-09-21',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('days', resp.json())
+        self.assertIn('trucks', resp.json())
+
+    def test_inverted_dates_400(self):
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-22', 'to_date': '2026-09-21',
+        })
+        self.assertEqual(resp.status_code, 400)
+
+    def test_over_31_days_400(self):
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-01', 'to_date': '2026-10-05',
+        })
+        self.assertEqual(resp.status_code, 400)
+
+    def test_unknown_season_404(self):
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-21', 'to_date': '2026-09-21', 'season': 999999,
+        })
+        self.assertEqual(resp.status_code, 404)
+
+    def test_missing_dates_400(self):
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_decimals_serialize_as_strings(self):
+        # DRF's default JSONEncoder renders Decimal as a JSON number (float(obj)), not
+        # a string — this pins the view's explicit str() coercion against that default,
+        # per the endpoint's documented contract ("decimals as strings").
+        self._plan(date(2026, 9, 21), 20000)
+        self._truck(date(2026, 9, 21), 12000)
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-21', 'to_date': '2026-09-21',
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        day = body['days'][0]
+        for field in ('plan_kg', 'loaded_kg', 'carried_in_kg', 'available_kg', 'over_kg'):
+            self.assertIsInstance(day[field], str)
+        truck = body['trucks'][0]
+        self.assertIsInstance(truck['block_sources'][0]['weight_kg'], str)
+        self.assertEqual(Decimal(truck['block_sources'][0]['weight_kg']), Decimal(12000))
+
+    def test_window_clamped_to_season_not_defaulted(self):
+        # from_date sits before the season's start_date — the view must clamp the
+        # walked window to the season boundary, not merely pass the raw dates through.
+        self._plan(date(2026, 9, 1), 5000)
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-08-25', 'to_date': '2026-09-02',
+        })
+        self.assertEqual(resp.status_code, 200)
+        days = resp.json()['days']
+        self.assertTrue(days)
+        earliest = min(date.fromisoformat(d['date']) for d in days)
+        self.assertGreaterEqual(earliest, self.season.start_date)
+
+    def test_close_open_gap_returns_empty_board(self):
+        self.season.is_active = False
+        self.season.save()
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-21', 'to_date': '2026-09-21',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {'days': [], 'trucks': []})
