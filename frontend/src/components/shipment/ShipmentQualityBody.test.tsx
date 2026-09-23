@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { toast } from 'sonner';
 import apiModule from '@/services/api';
 import { ShipmentQualityBody } from './ShipmentQualityBody';
 import { MOCK_SHIPMENT_DETAIL } from '@/mock/shipmentDetail';
@@ -13,6 +14,8 @@ import type { IQualityCertificate } from '@/types';
 vi.mock('@/services/api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 // `{ deep: true }`: the axios instance's get/post are overloaded signatures,
 // so a shallow vi.mocked() leaves them typed as the real functions and every
@@ -75,6 +78,41 @@ describe('ShipmentQualityBody', () => {
     // The first slot rendered is azyk_maglumatnama.
     expect((body as FormData).get('doc_type')).toBe('azyk_maglumatnama');
     expect((body as FormData).getAll('files')).toHaveLength(1);
+  });
+
+  it('surfaces the server reason when an upload is refused', async () => {
+    // The validator refuses per file and names it ("hil.pdf: not a PDF"), which
+    // is worth more than a generic failure. Without this the button just stops
+    // spinning and the operator believes the scan was stored.
+    api.post.mockRejectedValue({
+      response: { data: { error: 'hil.pdf: file is larger than 10 MB.' } },
+    });
+    const { container } = renderBody();
+    await screen.findByRole('link', { name: 'azyk-scan.pdf' });
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File(['x'], 'hil.pdf', { type: 'application/pdf' }),
+    );
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('hil.pdf: file is larger than 10 MB.'),
+    );
+  });
+
+  it('falls back to a generic message when the refusal carries no reason', async () => {
+    api.post.mockRejectedValue(new Error('network down'));
+    const { container } = renderBody();
+    await screen.findByRole('link', { name: 'azyk-scan.pdf' });
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await userEvent.upload(
+      input,
+      new File(['x'], 'hil.pdf', { type: 'application/pdf' }),
+    );
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
   });
 
   it('removes a scan by POST, not DELETE — the ViewSet forbids DELETE', async () => {

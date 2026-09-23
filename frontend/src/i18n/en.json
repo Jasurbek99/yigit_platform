@@ -766,6 +766,9 @@
     "no_scans": "No scan uploaded",
     "upload": "Upload scan",
     "max_reached": "Maximum 5 files",
+    "upload_error": "Could not upload the certificate.",
+    "delete_error": "Could not delete the certificate.",
+    "load_error": "Could not load the certificates.",
     "delete_confirm": "Delete this scan?"
   },
   "shipment_create": {

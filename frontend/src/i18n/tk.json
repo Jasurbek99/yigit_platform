@@ -766,6 +766,9 @@
     "no_scans": "Skan ýüklenmedi",
     "upload": "Skan ýükle",
     "max_reached": "Iň köp 5 faýl",
+    "upload_error": "Sertifikat ýüklenip bilinmedi.",
+    "delete_error": "Sertifikat pozulyp bilinmedi.",
+    "load_error": "Sertifikatlar ýüklenip bilinmedi.",
     "delete_confirm": "Bu skany pozmaly?"
   },
   "shipment_create": {

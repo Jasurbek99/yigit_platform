@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 import api from '@/services/api';
 import type { IQualityCertificate, IShipmentDetail, IShipmentQuality } from '@/types';
@@ -49,10 +50,22 @@ export function ShipmentQualityBody({ shipment, canEditQuality }: IShipmentQuali
   const id = String(shipment.id);
   const listUrl = `/export/shipments/${id}/quality-certificates/`;
 
-  const { data: certificates = [], isLoading } = useQuery({
+  const { data: certificates = [], isLoading, isError } = useQuery({
     queryKey: ['shipment-quality-certificates', id],
     queryFn: async () => (await api.get<IQualityCertificate[]>(listUrl)).data,
   });
+
+  /**
+   * The upload validator refuses per file and says why — wrong magic bytes, over
+   * 10 MB, more than MAX_FILES_PER_TYPE of this kind. Those messages name the
+   * offending file, so they are worth more to the operator than a generic
+   * failure, and the request is all-or-nothing: nothing was stored.
+   */
+  function certificateErrorMessage(err: unknown, fallback: string): string {
+    const data = (err as { response?: { data?: { error?: string; detail?: string } } })
+      ?.response?.data;
+    return data?.error ?? data?.detail ?? fallback;
+  }
 
   function refresh() {
     void queryClient.invalidateQueries({ queryKey: ['shipment-quality-certificates', id] });
@@ -68,6 +81,7 @@ export function ShipmentQualityBody({ shipment, canEditQuality }: IShipmentQuali
       await api.post(listUrl, form);
     },
     onSuccess: refresh,
+    onError: (err) => toast.error(certificateErrorMessage(err, t('quality.upload_error'))),
   });
 
   const removeMutation = useMutation({
@@ -78,10 +92,12 @@ export function ShipmentQualityBody({ shipment, canEditQuality }: IShipmentQuali
       await api.post(`${listUrl}${certificateId}/delete/`);
     },
     onSuccess: refresh,
+    onError: (err) => toast.error(certificateErrorMessage(err, t('quality.delete_error'))),
   });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {isError && <Text type="danger">{t('quality.load_error')}</Text>}
       {QUALITY_FIELDS.map((field) => {
         const own = certificates.filter((c) => c.doc_type === field);
         const isFull = own.length >= MAX_FILES_PER_TYPE;
