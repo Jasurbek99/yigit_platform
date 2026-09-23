@@ -41,9 +41,14 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     carry_days = config.gaplama_carry_days
     walk_start = from_date - timedelta(days=carry_days)
 
+    # Top-level blocks only — HarvestDayEntry and ShipmentBlockSource are both
+    # written at parent grain (services/block_sources.py:5, sub-blocks like F1/F2
+    # are merged into F before either table is touched), matching the same
+    # is_active + parent__isnull=True filter used by views_daily_board.py and
+    # pomidor_dukany.py for the same reason.
     blocks = list(
         GreenhouseBlock.objects
-        .filter(is_active=True)
+        .filter(is_active=True, parent__isnull=True)
         .select_related('location')
         .order_by('code')
     )

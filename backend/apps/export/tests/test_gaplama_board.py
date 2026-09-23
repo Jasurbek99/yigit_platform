@@ -124,6 +124,22 @@ class GaplamaBoardTest(TestCase):
         # Remaining carry-in reaching Wednesday's available: (10000 Mon + 10000 Tue) - 15000 = 5000.
         self.assertEqual(wednesday['available_kg'], Decimal(5000))
 
+    def test_fifo_order_survives_expiry(self):
+        # totals-only assertions (available_kg from a sum) can't distinguish FIFO from
+        # LIFO or any other consumption order — only expiry timing can, because it
+        # matters WHICH bucket got drained. carry_days=2.
+        self._plan(date(2026, 9, 21), 10000)   # Monday bucket
+        self._plan(date(2026, 9, 22), 10000)   # Tuesday bucket
+        self._plan(date(2026, 9, 23), 0)
+        self._truck(date(2026, 9, 23), 10000)  # Wednesday: drains exactly one bucket
+        self._plan(date(2026, 9, 24), 0)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 24), self.season)
+        thursday = next(r for r in board['days'] if r['date'] == date(2026, 9, 24))
+        # FIFO drains Monday's bucket first, so Tuesday's 10000 is still live on
+        # Thursday (Tue+2=Thu, still within carry_days). LIFO would have drained
+        # Tuesday and left Monday, which expires by Thursday (Mon+2=Wed) -> 0.
+        self.assertEqual(thursday['carried_in_kg'], Decimal(10000))
+
     def test_cancelled_shipments_excluded(self):
         self._plan(date(2026, 9, 21), 20000)
         self._truck(date(2026, 9, 21), 12000, status_code='cancelled')
@@ -151,6 +167,19 @@ class GaplamaBoardTest(TestCase):
         board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
         monday = board['days'][0]
         self.assertEqual(monday['carried_in_kg'], Decimal(0))
+
+    def test_sub_blocks_excluded_from_days(self):
+        # F1 is an active sub-block of F (parent-grain normalization means real
+        # HarvestDayEntry/ShipmentBlockSource rows never target it directly — see
+        # apps/export/services/block_sources.py — but it can still exist as an
+        # active row and must not show up as a permanent all-zero board entry).
+        GreenhouseBlock.objects.create(
+            code='F1', name='F1', location=self.location, is_active=True, parent=self.block,
+        )
+        self._plan(date(2026, 9, 21), 20000)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
+        block_ids = {row['block_id'] for row in board['days']}
+        self.assertEqual(block_ids, {self.block.id})
 
     def test_trucks_list_shape(self):
         self._plan(date(2026, 9, 21), 20000)
