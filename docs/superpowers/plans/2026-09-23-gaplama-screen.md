@@ -51,7 +51,7 @@ Query (frontend), MSSQL (no JSONField/ArrayField/DISTINCT ON).
 | `backend/apps/export/permissions.py` | `CanViewTirGaplama` |
 | `backend/apps/export/views_gaplama.py` | `GaplamaBoardView` |
 | `backend/apps/export/urls.py` | route |
-| `backend/apps/export/tests/test_gaplama_board.py` | backend tests |
+| `backend/apps/export/tests_gaplama_board.py` | backend tests |
 | `frontend/src/types/index.ts` | `IGaplamaDay`, `IGaplamaTruck`, `IGaplamaTruckSource` |
 | `frontend/src/hooks/useGaplama.ts` | `useGaplamaBoard`, `useUpdateTruckBlocks` |
 | `frontend/src/pages/sera/GaplamaTab.tsx` | the grid + weekly summary + truck list (§3 ①③④) |
@@ -184,7 +184,7 @@ and every downstream screen and (in Plan 2) task/notification is correct by cons
 
 **Files:**
 - Create: `backend/apps/export/services/gaplama.py`
-- Test: `backend/apps/export/tests/test_gaplama_board.py`
+- Test: `backend/apps/export/tests_gaplama_board.py`
 
 **Interfaces:**
 - Consumes: `HarvestDayEntry` (`plan_value`, `block`, `entry_date`, `season`) from
@@ -229,7 +229,7 @@ def build_gaplama_board(
 - [ ] **Step 1: Write the failing tests**
 
 ```python
-# backend/apps/export/tests/test_gaplama_board.py
+# backend/apps/export/tests_gaplama_board.py
 from datetime import date
 from decimal import Decimal
 from django.test import TestCase
@@ -372,7 +372,7 @@ needed, not a guaranteed-correct fixture API).
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: FAIL — `ModuleNotFoundError: No module named 'apps.export.services.gaplama'`
 
 - [ ] **Step 3: Write the implementation**
@@ -538,7 +538,7 @@ after that cleanup to confirm nothing depended on the dead line.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: PASS (9 tests). If `test_fifo_consumes_oldest_bucket_first` fails, check the
 bucket-consumption loop order — it must consume from the front of the deque (oldest) first,
 which `for bucket in buckets` does since buckets are appended at the end and expired from
@@ -561,7 +561,7 @@ Append this to `GaplamaBoardTest` in the same file.
 
 - [ ] **Step 6: Run full test file again**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: PASS (10 tests). If the query count is off, check that `.values().annotate()`
 querysets are evaluated once (not inside the per-block loop) — `plan_map`/`loaded_map`
 must be built from a single query each, before the `for block in blocks` loop.
@@ -569,7 +569,7 @@ must be built from a single query each, before the `for block in blocks` loop.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add backend/apps/export/services/gaplama.py backend/apps/export/tests/test_gaplama_board.py
+git add backend/apps/export/services/gaplama.py backend/apps/export/tests_gaplama_board.py
 git commit -m "feat(export): add build_gaplama_board with FIFO carry-over
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
@@ -584,7 +584,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Modify: `backend/apps/export/permissions.py` — add `CanViewTirGaplama` after
   `CanViewTirHasabat`
 - Modify: `backend/apps/export/urls.py:36` (import) and after line 122 (route)
-- Test: append to `backend/apps/export/tests/test_gaplama_board.py`
+- Test: append to `backend/apps/export/tests_gaplama_board.py`
 
 **Interfaces:**
 - Consumes: `build_gaplama_board(from_date, to_date, season)` from Task 2.
@@ -594,7 +594,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - [ ] **Step 1: Write the failing tests**
 
 ```python
-# append to backend/apps/export/tests/test_gaplama_board.py
+# append to backend/apps/export/tests_gaplama_board.py
 from rest_framework.test import APIClient
 from apps.core.models import User
 
@@ -666,7 +666,7 @@ class GaplamaBoardViewTest(TestCase):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board.GaplamaBoardViewTest -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board.GaplamaBoardViewTest -v 2`
 Expected: FAIL — 404 on the URL (not yet routed) or import error.
 
 - [ ] **Step 3: Add `CanViewTirGaplama`**
@@ -793,14 +793,14 @@ After line 122 (`path('harvest-forecast/remaining/', ...)`), add:
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: PASS (15 tests total — 10 from Task 2 + 5 from this task's view tests).
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add backend/apps/export/views_gaplama.py backend/apps/export/permissions.py \
-        backend/apps/export/urls.py backend/apps/export/tests/test_gaplama_board.py
+        backend/apps/export/urls.py backend/apps/export/tests_gaplama_board.py
 git commit -m "feat(export): add GET /export/gaplama/board/ endpoint
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
