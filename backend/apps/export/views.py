@@ -4391,7 +4391,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
 
         Permission: assignee_role or supervisor roles.
         """
-        from apps.export.models import TaskState, TaskCompletionRule
+        from apps.export.models import Task, TaskState, TaskCompletionRule
         from apps.export.serializers import TaskDetailSerializer
 
         task = self.get_object()
@@ -4421,6 +4421,26 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
                 {'error': 'Cannot complete a cancelled task.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Gapy-Satys: documents cannot be handed to a driver nobody has
+        # identified yet. Fails OPEN when no assign_driver task exists at all
+        # (legacy shipments predating this rule, or a season that never ran
+        # reconcile_tasks) or when it's CANCELLED — this is an ordering gate,
+        # not a hard dependency, so a missing/cancelled sibling never
+        # permanently strands the documents task.
+        if task.title_key == 'tasks.give_documents_gapy' and task.shipment_id:
+            driver_task = (
+                Task.objects.filter(
+                    shipment_id=task.shipment_id, title_key='tasks.assign_driver',
+                )
+                .exclude(state=TaskState.CANCELLED)
+                .first()
+            )
+            if driver_task is not None and driver_task.state != TaskState.DONE:
+                return Response(
+                    {'error': 'Assign a driver before handing over documents.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         now = timezone.now()
         task.state = TaskState.DONE

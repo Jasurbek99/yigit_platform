@@ -1,4 +1,16 @@
 
+- [ ] 2026-09-23 — Gapy-Satyş driver assignment: passport series + issue date, 2 drivers, ordering gate before document handover — NEEDS TEST
+  To test: (1) create/open a shipment with **Gapy satys = Yes**, open the Sheet, click the **Driver
+  name** cell: a popup opens (not plain text) asking name, phone, passport series, passport date,
+  and the same 4 fields for a second driver; (2) fill name + passport series + date only (leave
+  phone blank), click Done — the **My tasks** "Assign driver" task for that shipment (document_team)
+  auto-completes; (3) on a fresh Gapy shipment, try to mark "Hand over documents" done from My tasks
+  BEFORE assigning a driver — rejected (400); assign the driver first, then it succeeds; (4)
+  generate the CMR or TIR carnet for that shipment — the passport prints without the generate-time
+  dialog asking for it; (5) confirm nothing changed for a non-Gapy shipment: Driver name cell still
+  opens the fleet picker, no passport fields anywhere. `python manage.py test apps.export.tests_task_api apps.contracts.tests.test_document_generation` — all pass (9 new backend
+  cases); frontend `npx vitest run src/components/sheet/SheetGapyDriverEditor.test.tsx` — 7/7 pass.
+
 - [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;

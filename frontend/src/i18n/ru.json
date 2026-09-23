@@ -2723,6 +2723,8 @@
       "trailer": "Прицеп",
       "driver_name": "Имя водителя",
       "driver_phone": "Телефон водителя",
+      "driver_passport_serial": "Серия паспорта",
+      "driver_passport_issue_date": "Дата выдачи паспорта",
       "vehicle_responsible": "Ответственный за транспорт",
       "vehicle_condition": "Состояние транспорта",
       "vehicle_condition_note": "Заметка по состоянию",

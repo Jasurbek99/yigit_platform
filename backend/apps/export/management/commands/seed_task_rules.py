@@ -69,14 +69,22 @@ TASK_RULES: list[dict] = [
         'condition_value': 'False',
     },
     {
-        # Gapy shipments: document_team fills name + phone + plate (transport
-        # team is not involved in gapy logistics). Shares title_key with the
-        # transport variant; the upsert key includes condition so both rows
-        # coexist without collision.
+        # Gapy shipments: document_team fills name + plate + passport (transport
+        # team is not involved in gapy logistics, and the driver is never a
+        # fleet driver — HARD RULE, see Shipment.driver_passport_serial).
+        # driver_phone is intentionally NOT required: it is contact info, not
+        # something document generation reads. Passport series + issue date ARE
+        # required — the CMR/TIR carnet need them (see _driver_passports() in
+        # contracts/services/document_context.py) and, unlike a fleet driver,
+        # there is no Driver.passport_serial to fall back on. Shares title_key
+        # with the transport variant; the upsert key includes condition so both
+        # rows coexist without collision. A second driver is optional here too,
+        # matching the non-gapy variant — driver_2_* fields are deliberately
+        # absent from target_fields.
         'step': 'draft',
         'title_key': 'tasks.assign_driver',
         'assignee_role': 'document_team',
-        'target_fields': 'driver_name,driver_phone,truck_plate',
+        'target_fields': 'driver_name,truck_plate,driver_passport_serial,driver_passport_issue_date',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': '24h_after_status',

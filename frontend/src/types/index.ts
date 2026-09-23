@@ -310,6 +310,13 @@ export interface IShipmentListItem {
   truck_plate_2: string | null;
   driver_2_name: string | null;
   driver_2_phone: string | null;
+  // Gapy-Satys driver passports — no field_key of their own, written via the
+  // driver_name cell's gapy overlay. Never linked to the transport.Driver
+  // fleet table.
+  driver_passport_serial: string | null;
+  driver_passport_issue_date: string | null;
+  driver_2_passport_serial: string | null;
+  driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
   has_peregruz: boolean;
@@ -442,6 +449,13 @@ export interface IShipmentSheetItem {
   driver_2_id: number | null;
   driver_2_name: string | null;
   driver_2_phone: string | null;
+  // Gapy-Satys driver passports — no field_key of their own, written via the
+  // driver_name cell's gapy overlay. Never linked to the transport.Driver
+  // fleet table.
+  driver_passport_serial: string | null;
+  driver_passport_issue_date: string | null;
+  driver_2_passport_serial: string | null;
+  driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
   has_peregruz: boolean;

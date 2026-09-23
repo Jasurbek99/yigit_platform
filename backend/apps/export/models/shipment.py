@@ -161,6 +161,19 @@ class Shipment(models.Model):
     driver_2_id = models.BigIntegerField(null=True, blank=True)
     driver_2_name = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
     driver_2_phone = models.CharField(max_length=30, blank=True, null=True)
+    # === Gapy-Satys driver passports (2026-09-23) ===
+    # Gapy shipments run on the local buyer's own truck and driver — HARD RULE,
+    # same as driver_id/truck_head_id above — so these are plain columns, never
+    # a link into transport.Driver (that table is fleet-only). Document
+    # generation (CMR, TIR carnet) needs a passport number per driver; without
+    # a persisted field it had to be re-typed into a generate-time dialog every
+    # single time (see _driver_passports() in contracts/services/document_context.py).
+    # Written by the driver_name cell's gapy overlay, same shape as driver_2_name
+    # above — no field_key of their own, gated via _REVERSE_FIELD_DELEGATES.
+    driver_passport_serial = models.CharField(max_length=50, blank=True, null=True)
+    driver_passport_issue_date = models.DateField(null=True, blank=True)
+    driver_2_passport_serial = models.CharField(max_length=50, blank=True, null=True)
+    driver_2_passport_issue_date = models.DateField(null=True, blank=True)
     transport_temp_c = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     transit_days = models.IntegerField(null=True, blank=True)
     shelf_life_days = models.IntegerField(null=True, blank=True)

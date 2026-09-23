@@ -2726,6 +2726,8 @@
       "trailer": "Tirkeg",
       "driver_name": "Sürüjiniň ady",
       "driver_phone": "Sürüjiniň telefony",
+      "driver_passport_serial": "Pasport seriýasy",
+      "driver_passport_issue_date": "Pasportyň berlen senesi",
       "vehicle_responsible": "Transportyň jogapkäri",
       "vehicle_condition": "Transportyň ýagdaýy",
       "vehicle_condition_note": "Ýagdaý belligi",

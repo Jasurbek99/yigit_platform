@@ -539,6 +539,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'trailer_id',
             'truck_plate', 'driver_name', 'driver_phone',
             'truck_plate_2', 'driver_2_name', 'driver_2_phone',
+            'driver_passport_serial', 'driver_passport_issue_date',
+            'driver_2_passport_serial', 'driver_2_passport_issue_date',
             'transport_temp_c', 'transit_days',
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Operational planning
@@ -760,6 +762,10 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # write them and the same three cells render both values.
             'truck_head_2_id', 'truck_plate_2',
             'driver_2_id', 'driver_2_name', 'driver_2_phone',
+            # Gapy-Satys driver passports — same overlay-only shape as driver_2_*
+            # above, never linked to transport.Driver (fleet-only table).
+            'driver_passport_serial', 'driver_passport_issue_date',
+            'driver_2_passport_serial', 'driver_2_passport_issue_date',
             'transport_temp_c', 'transit_days',
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Finance
@@ -1589,6 +1595,10 @@ _ALL_PATCHABLE_FIELDS = {
     # _REVERSE_FIELD_DELEGATES onto the R23/R27/R28 rows.
     'truck_head_2_id', 'truck_plate_2',
     'driver_2_id', 'driver_2_name', 'driver_2_phone',
+    # Gapy-Satys driver passports — written by the driver_name cell's gapy
+    # overlay, gated through _REVERSE_FIELD_DELEGATES onto that row.
+    'driver_passport_serial', 'driver_passport_issue_date',
+    'driver_2_passport_serial', 'driver_2_passport_issue_date',
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
     # Operator-entered timestamps — sheet R19/R20/R21/R25/R30/R31/R32/R35/R41/R42.

@@ -949,9 +949,26 @@ Querystring `?season=<id>` overrides the active season; default scopes to `seaso
 stays `'text'`, and `SheetCellEditor` special-cases `field_key === 'driver_name'`: for a
 **non-gapy** shipment it renders `SheetDriverSelectEditor` (one select over the `Z_TIRWEB`
 driver registry, active-only, portaled the same way) and saves
-`driver_id` + `driver_name` in **one** `patchMultiMutation` with Sheet undo capture. For a
-**gapy_satyş** shipment it stays the plain text `<Input>` — local buyers bring their own truck
-*and* their own driver, so picking from the company registry there would pollute it.
+`driver_id` + `driver_name` in **one** `patchMultiMutation` with Sheet undo capture.
+
+**`driver_name` — Gapy-Satyş free-text overlay (2026-09-23).** For a **gapy_satyş** shipment
+the cell no longer falls through to a plain `<Input>` — it renders `SheetGapyDriverEditor`
+instead, the free-text counterpart to `SheetDriverSelectEditor` above: same portaled-panel
+shape, but every field is typed, never picked (local buyers bring their own truck *and* their
+own driver — picking from the company registry there would pollute it, same HARD RULE as
+`truck_plate`). Asks for name, phone (optional) and **passport series + issue date** for up to
+two drivers — the passport fields are new (`driver_passport_serial`,
+`driver_passport_issue_date`, and the `driver_2_*` pair), plain `Shipment` columns with no
+Sheet row or `field_key` of their own, gated through `_REVERSE_FIELD_DELEGATES` onto this row
+like `driver_2_name`/`driver_2_id` already are. They exist because document generation (CMR,
+TIR carnet) needs a passport per driver and a Gapy shipment has no fleet `Driver` record to
+read one from — see [[../processes/document-generation#Gapy-Satyş driver passports]]. The
+`tasks.assign_driver` rule for Gapy shipments requires name + truck plate + both passport
+fields to auto-resolve; phone is deliberately not required (contact info only, never printed
+on a document). Since this task-panel field list is shared with `/me/board`'s task drawer
+(`SelfBoardShipmentFieldList`, `fields` mode), clicking `driver_name` there opens the exact
+same overlay — see [[self-board#Role filter (supervisors only)|self-board.md]] and
+[[../reference/task-rules]].
 
 The same picker (`components/DriverSelect.tsx`) also backs the ShipmentDetail transport card and
 the edit drawer via `ShipmentDriverSelector`, so the three surfaces cannot disagree about
