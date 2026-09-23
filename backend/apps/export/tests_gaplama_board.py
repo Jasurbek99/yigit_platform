@@ -286,6 +286,107 @@ class GaplamaBoardTest(TestCase):
         with self.assertNumQueries(5):
             build_gaplama_board(date(2026, 9, 21), date(2026, 9, 27), self.season)
 
+    # --- carried_out_kg / carry_in_breakdown / week_totals (2026-09-23 addendum) ---
+
+    def test_carried_out_kg_matches_next_days_carried_in(self):
+        # Monday: 10000 planned, nothing loaded -> the whole 10000 carries out.
+        self._plan(date(2026, 9, 21), 10000)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 22), self.season)
+        monday = next(r for r in board['days'] if r['date'] == date(2026, 9, 21))
+        tuesday = next(r for r in board['days'] if r['date'] == date(2026, 9, 22))
+        self.assertEqual(monday['carried_out_kg'], Decimal(10000))
+        self.assertEqual(tuesday['carried_in_kg'], monday['carried_out_kg'])
+
+    def test_carried_out_kg_zero_when_fully_consumed(self):
+        self._plan(date(2026, 9, 21), 10000)
+        self._truck(date(2026, 9, 21), 10000)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
+        self.assertEqual(board['days'][0]['carried_out_kg'], Decimal(0))
+
+    def test_carry_in_breakdown_empty_when_nothing_carried(self):
+        self._plan(date(2026, 9, 21), 5000)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
+        self.assertEqual(board['days'][0]['carry_in_breakdown'], [])
+
+    def test_carry_in_breakdown_names_origin_day_and_kg(self):
+        self._plan(date(2026, 9, 21), 8000)  # Monday: fully unconsumed, carries out
+        self._plan(date(2026, 9, 22), 0)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 22), self.season)
+        tuesday = next(r for r in board['days'] if r['date'] == date(2026, 9, 22))
+        self.assertEqual(
+            tuesday['carry_in_breakdown'],
+            [{'origin_date': date(2026, 9, 21), 'kg': Decimal(8000)}],
+        )
+
+    def test_carry_in_breakdown_lists_two_origin_days_oldest_first(self):
+        # carry_days=2: Monday's remainder is still alive on Wednesday alongside
+        # Tuesday's own fresh remainder -> Wednesday's carry-in is composed of both.
+        self._plan(date(2026, 9, 21), 8000)
+        self._plan(date(2026, 9, 22), 5000)
+        self._plan(date(2026, 9, 23), 0)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 23), self.season)
+        wednesday = next(r for r in board['days'] if r['date'] == date(2026, 9, 23))
+        self.assertEqual(
+            wednesday['carry_in_breakdown'],
+            [
+                {'origin_date': date(2026, 9, 21), 'kg': Decimal(8000)},
+                {'origin_date': date(2026, 9, 22), 'kg': Decimal(5000)},
+            ],
+        )
+
+    def test_carry_in_breakdown_reflects_partial_consumption(self):
+        # Monday leaves 8000; Tuesday consumes 3000 of it -> Wednesday's breakdown
+        # for that bucket shows the remaining 5000, not the original 8000.
+        self._plan(date(2026, 9, 21), 8000)
+        self._truck(date(2026, 9, 22), 3000)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 22), self.season)
+        tuesday = next(r for r in board['days'] if r['date'] == date(2026, 9, 22))
+        # carry_in_breakdown is the state GOING INTO the day, before that day's own
+        # consumption -- so Tuesday's breakdown still shows the full 8000 (what
+        # Tuesday started with); the reduction shows up in what Tuesday carries OUT.
+        self.assertEqual(
+            tuesday['carry_in_breakdown'],
+            [{'origin_date': date(2026, 9, 21), 'kg': Decimal(8000)}],
+        )
+        self.assertEqual(tuesday['carried_out_kg'], Decimal(0))
+        self.assertEqual(tuesday['available_kg'], Decimal(5000))
+
+    def test_week_totals_available_is_last_day_not_a_sum(self):
+        # The exact double-counting scenario from the final review (I1): a Monday
+        # remainder that stays live through Wednesday must not be summed 3x.
+        self._plan(date(2026, 9, 21), 10000)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 23), self.season)
+        totals = {t['block_id']: t for t in board['week_totals']}
+        row = totals[self.block.id]
+        self.assertEqual(row['available_kg'], Decimal(10000))  # NOT 30000
+        self.assertEqual(row['plan_kg'], Decimal(10000))  # Σ plan is a real sum
+
+    def test_week_totals_loaded_and_over_are_real_sums(self):
+        self._plan(date(2026, 9, 21), 5000)
+        self._plan(date(2026, 9, 22), 5000)
+        self._truck(date(2026, 9, 21), 8000)  # over by 3000 on Monday
+        self._truck(date(2026, 9, 22), 6000)  # over by 1000 on Tuesday
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 22), self.season)
+        row = next(t for t in board['week_totals'] if t['block_id'] == self.block.id)
+        self.assertEqual(row['loaded_kg'], Decimal(14000))
+        self.assertEqual(row['over_kg'], Decimal(4000))  # 3000 + 1000, two real events
+
+    def test_week_totals_one_row_per_active_top_level_block(self):
+        other_block = GreenhouseBlock.objects.create(
+            code='G', name='G', location=self.location, is_active=True,
+        )
+        self._plan(date(2026, 9, 21), 1000, block=other_block)
+        board = build_gaplama_board(date(2026, 9, 21), date(2026, 9, 21), self.season)
+        block_ids = {t['block_id'] for t in board['week_totals']}
+        self.assertEqual(block_ids, {self.block.id, other_block.id})
+
+    def test_week_totals_query_count_unchanged(self):
+        # The week_totals aggregation is pure post-processing of days_out already in
+        # memory -- must not add a query.
+        self._plan(date(2026, 9, 21), 100000)
+        with self.assertNumQueries(5):
+            build_gaplama_board(date(2026, 9, 21), date(2026, 9, 27), self.season)
+
 
 class GaplamaBoardViewTest(TestCase):
     def setUp(self):
@@ -409,6 +510,34 @@ class GaplamaBoardViewTest(TestCase):
         self.assertIsInstance(truck['block_sources'][0]['weight_kg'], str)
         self.assertEqual(Decimal(truck['block_sources'][0]['weight_kg']), Decimal(12000))
 
+    def test_carried_out_kg_and_week_totals_serialize_as_strings(self):
+        self._plan(date(2026, 9, 21), 20000)
+        self._truck(date(2026, 9, 21), 12000)
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-21', 'to_date': '2026-09-21',
+        })
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        day = body['days'][0]
+        self.assertIsInstance(day['carried_out_kg'], str)
+        self.assertEqual(day['carry_in_breakdown'], [])
+        totals = body['week_totals'][0]
+        for field in ('plan_kg', 'loaded_kg', 'over_kg', 'available_kg'):
+            self.assertIsInstance(totals[field], str)
+
+    def test_carry_in_breakdown_kg_serializes_as_string(self):
+        self._plan(date(2026, 9, 21), 10000)
+        user = self._user('loading_dept_head')
+        self.client.force_authenticate(user)
+        resp = self.client.get('/api/v1/export/gaplama/board/', {
+            'from_date': '2026-09-21', 'to_date': '2026-09-22',
+        })
+        self.assertEqual(resp.status_code, 200)
+        tuesday = next(d for d in resp.json()['days'] if d['date'] == '2026-09-22')
+        self.assertEqual(tuesday['carry_in_breakdown'], [{'origin_date': '2026-09-21', 'kg': '10000.00'}])
+
     def test_window_clamped_to_season_not_defaulted(self):
         # from_date sits before the season's start_date — the view must clamp the
         # walked window to the season boundary, not merely pass the raw dates through.
@@ -433,4 +562,4 @@ class GaplamaBoardViewTest(TestCase):
             'from_date': '2026-09-21', 'to_date': '2026-09-21',
         })
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), {'days': [], 'trucks': []})
+        self.assertEqual(resp.json(), {'days': [], 'trucks': [], 'week_totals': []})

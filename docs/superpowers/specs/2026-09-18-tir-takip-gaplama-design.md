@@ -65,13 +65,28 @@ location (D16) and a grand total. Per cell, straight from the server (§4):
 
 - **large:** `available` (already clamped at 0).
 - **small, grey:** `plan N`, when something was loaded or carried.
-- **`+2 000`** when kg were carried in, tooltip naming the origin day.
-- **`2 000 →`** when this cell's remainder moves on — *moved*, not *unpacked*.
+- **`+2 000`** when kg were carried in (`carried_in_kg > 0`), tooltip built from
+  `carry_in_breakdown` (oldest bucket first: `"18.09: 2 000 kg"`, one line per origin day).
+- **`2 000 →`** when this cell's remainder moves on (`carried_out_kg > 0`) — *moved*, not
+  *unpacked*.
 - **⚠** when `over_kg > 0`; the cell shows 0 and the tooltip says by how much.
 
 Footer rows: **JEMI plan**, **Tır sany** (per location, ÷ `truck_capacity_kg`, 2 decimals),
 **📦 Açylan tırlar** (chips per day + week count), **Düýnki galyndy** (carried in),
-**Galan** (Σ available).
+**Galan**.
+
+**Galan corrected 2026-09-23 (final-review finding I1):** the week/location/grand-total
+figures are **not** `Σ available` across days — a remainder that stays live for
+`gaplama_carry_days` appears in `available_kg` on every one of those days, so summing it
+double- or triple-counts the same kg. `Galan`'s week cells (and every other week-aggregate
+column that reads "available" — the location subtotal's week cell, Haftalyk Özet's
+"Galan" column) read from the board's **`week_totals[]`** array instead: `plan_kg`/
+`loaded_kg`/`over_kg` are real sums (each day's figure is an independent event), but
+`available_kg` is the **last day's value** in the requested window for that block — per
+the FIFO walk's own conservation proof (Task 2's review), that is exactly "what's still
+claimable, right now, as of the end of this window," with no double-count and expired
+buckets already excluded. The per-day cells above were never wrong; only the
+week-aggregate columns were.
 
 Clicking a day header selects it and filters ④⑤; clicking again clears. View state only.
 
@@ -113,7 +128,8 @@ client-side (`ShipmentBlockSource` is unique on shipment+block).
 
 ### ③ Haftalyk Özet
 
-Per block: Plan | Tıra giden | Galan (+ ⚠), subtotalled per location, plus JEMI.
+Per block: Plan | Tıra giden | Galan (+ ⚠), subtotalled per location, plus JEMI. Galan here
+reads from `week_totals[]` too — see the correction under §3①.
 
 ### ④ Açylan tırlar — with edit (D13)
 
@@ -132,25 +148,40 @@ country, no customer. After the join the row is edited on the Sheet. No delete (
 One service owns the rule (D8): `export/services/gaplama.py`.
 
 ```
-build_gaplama_board(date_from, date_to, season) -> {days: [...], trucks: [...]}
+build_gaplama_board(date_from, date_to, season) -> {days: [...], trucks: [...], week_totals: [...]}
 ```
 
 Per (block, date), walking days in order per block:
 
 ```
-loaded(d)      = Σ ShipmentBlockSource.weight_kg, shipment.date == d, status != cancelled
-buckets        = positive remainders of earlier days, each live for gaplama_carry_days days
-consume(d)     = loaded(d) takes from the OLDEST live bucket first, then from plan(d)
-available(d)   = max(0, plan(d) + live buckets − loaded(d))
-over_kg(d)     = max(0, loaded(d) − (plan(d) + live buckets))
-carried_in(d)  = Σ live buckets at the start of d
+loaded(d)         = Σ ShipmentBlockSource.weight_kg, shipment.date == d, status != cancelled
+buckets           = positive remainders of earlier days, each live for gaplama_carry_days days
+consume(d)        = loaded(d) takes from the OLDEST live bucket first, then from plan(d)
+available(d)      = max(0, plan(d) + live buckets − loaded(d))
+over_kg(d)        = max(0, loaded(d) − (plan(d) + live buckets))
+carried_in(d)     = Σ live buckets at the start of d, BEFORE d's own consumption
+carry_in_breakdown(d) = the live buckets themselves, oldest first: [{origin_date, kg}, ...]
+carried_out(d)    = what's left of d's own plan after d's own loads — the fresh bucket d
+                     hands to tomorrow (0 if none)
 ```
 
 `days[]` rows carry `date, block_id, block_code, location, plan_kg, loaded_kg, carried_in_kg,
-available_kg, over_kg`. `trucks[]` carries `id, shipment_code, export_code, date, status,
-status_code, status_display, country, customer, block_sources[{block_id, block_code,
-weight_kg}]` — `country`/`customer` so ④ can decide whether **Üýtget** shows. Every decimal
-is a **string**; the hook converts with `Number()` in its `queryFn`.
+carry_in_breakdown, available_kg, over_kg, carried_out_kg`. `trucks[]` carries `id,
+shipment_code, export_code, date, status, status_code, status_display, country, customer,
+block_sources[{block_id, block_code, weight_kg}]` — `country`/`customer` so ④ can decide
+whether **Üýtget** shows. Every decimal is a **string**; the hook converts with `Number()`
+in its `queryFn`.
+
+**`week_totals[]`** (added 2026-09-23, final-review finding I1) — one row per block that has
+any `days[]` activity in the window: `{block_id, block_code, location, plan_kg, loaded_kg,
+over_kg, available_kg}`. `plan_kg`/`loaded_kg`/`over_kg` are `Σ` over the returned days (each
+day's figure is a real, independent event — safe to sum). `available_kg` is **not** a sum —
+it's the **last day's** `available_kg` for that block in `[from_date, to_date]`. Summing
+`available_kg` across days would double-count a remainder that stays live for several days
+(FIFO's own conservation proof — Σ buckets leaving day d == available_kg(d) — means the
+last day's figure already IS the correct, non-duplicated "still claimable now" total). Pure
+post-processing of `days_out`, no extra query. Frontend week-total cells for anything
+labelled "available"/"Galan" read this array, never `weekTotal(days, 'available_kg')`.
 
 `GET /api/v1/export/gaplama/board/?from_date=&to_date=[&season=]`
 

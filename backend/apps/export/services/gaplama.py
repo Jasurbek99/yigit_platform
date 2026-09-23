@@ -21,13 +21,34 @@ from apps.greenhouse.models import HarvestDayEntry
 
 
 def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
-    """Return {'days': [...], 'trucks': [...]} for the window [from_date, to_date].
+    """Return {'days': [...], 'trucks': [...], 'week_totals': [...]} for the window.
 
     days[i] = {date, block_id, block_code, location, plan_kg, loaded_kg,
-               carried_in_kg, available_kg, over_kg}
+               carried_in_kg, carry_in_breakdown, available_kg, over_kg, carried_out_kg}
     trucks[i] = {id, shipment_code, export_code, date, status, status_code,
                  status_display, country, customer,
                  block_sources: [{block_id, block_code, weight_kg}]}
+    week_totals[i] = {block_id, block_code, location, plan_kg, loaded_kg, over_kg,
+                       available_kg}
+
+    carry_in_breakdown is the live buckets making up carried_in_kg, oldest first —
+    [{origin_date, kg}, ...], captured BEFORE this day's own consumption (so it shows
+    what the day started with, not what survives it). carried_out_kg is the fresh
+    remainder this day contributes to tomorrow's carry-in pool (0 if none) — together
+    these answer "where did a carry-in number come from" and "where is an unclaimed
+    number going", which the day/available_kg/over_kg fields alone don't show.
+
+    week_totals fixes a real bug (2026-09-23 final-review finding I1): summing
+    available_kg across days double/triple-counts a remainder that stays live for
+    several days (it appears in available_kg on EVERY day it's still unclaimed). This
+    violates D8 ("the frontend renders and sums; it does not own the rule") if left to
+    the frontend, so the correct week total lives here: plan_kg/loaded_kg/over_kg are
+    real sums (each day's figure is an independent event, safe to add), but
+    available_kg is the LAST day's value in [from_date, to_date] for that block — the
+    FIFO walk's conservation invariant (proven in Task 2's review: Σ buckets leaving a
+    day == that day's available_kg) guarantees this is the correct "still claimable,
+    right now, as of the end of this window" figure, with no double-count and expired
+    buckets already excluded.
 
     Every active top-level block gets a day-row even when it has zero plan/loaded activity
     in the walked window — a block-day with nothing planned still needs to report
@@ -121,6 +142,10 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
                 buckets.popleft()
 
             carried_in_kg = sum((b[0] for b in buckets), Decimal(0))
+            # Snapshot BEFORE today's consumption loop below touches the buckets —
+            # this is what the day started with, which is what a "where did this
+            # carry-in come from" tooltip should show.
+            carry_in_breakdown = [{'origin_date': b[1], 'kg': b[0]} for b in buckets]
             plan_kg = plan_map.get((block_id, d), Decimal(0))
             loaded_kg = loaded_map.get((block_id, d), Decimal(0))
 
@@ -152,9 +177,35 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
                     'plan_kg': plan_kg,
                     'loaded_kg': loaded_kg,
                     'carried_in_kg': carried_in_kg,
+                    'carry_in_breakdown': carry_in_breakdown,
                     'available_kg': available_kg,
                     'over_kg': over_kg,
+                    'carried_out_kg': remainder_today,
                 })
+
+    # Week totals — pure post-processing of days_out already in memory, no new query.
+    # available_kg is the LAST day's value per block (see docstring); plan/loaded/over
+    # are real sums. Blocks with no days_out (no plan, no truck) are skipped, matching
+    # what the grid would show — nothing to total.
+    week_totals: list[dict] = []
+    days_by_block: dict[int, list[dict]] = {}
+    for row in days_out:
+        days_by_block.setdefault(row['block_id'], []).append(row)
+    for block_id in block_ids:
+        rows = days_by_block.get(block_id)
+        if not rows:
+            continue
+        block_code, location = block_meta[block_id]
+        last_row = max(rows, key=lambda r: r['date'])
+        week_totals.append({
+            'block_id': block_id,
+            'block_code': block_code,
+            'location': location,
+            'plan_kg': sum((r['plan_kg'] for r in rows), Decimal(0)),
+            'loaded_kg': sum((r['loaded_kg'] for r in rows), Decimal(0)),
+            'over_kg': sum((r['over_kg'] for r in rows), Decimal(0)),
+            'available_kg': last_row['available_kg'],
+        })
 
     truck_rows = (
         Shipment.objects
@@ -207,4 +258,4 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
                 'weight_kg': weight_kg,
             })
 
-    return {'days': days_out, 'trucks': trucks_out}
+    return {'days': days_out, 'trucks': trucks_out, 'week_totals': week_totals}

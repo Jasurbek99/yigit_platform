@@ -10,7 +10,10 @@ from apps.export.services.gaplama import build_gaplama_board
 
 MAX_WINDOW_DAYS = 31
 
-_DAY_DECIMAL_FIELDS = ('plan_kg', 'loaded_kg', 'carried_in_kg', 'available_kg', 'over_kg')
+_DAY_DECIMAL_FIELDS = (
+    'plan_kg', 'loaded_kg', 'carried_in_kg', 'available_kg', 'over_kg', 'carried_out_kg',
+)
+_WEEK_TOTAL_DECIMAL_FIELDS = ('plan_kg', 'loaded_kg', 'over_kg', 'available_kg')
 
 
 def _stringify_decimals(board: dict) -> dict:
@@ -25,16 +28,22 @@ def _stringify_decimals(board: dict) -> dict:
     for day in board['days']:
         for field in _DAY_DECIMAL_FIELDS:
             day[field] = str(day[field])
+        for bucket in day['carry_in_breakdown']:
+            bucket['kg'] = str(bucket['kg'])
     for truck in board['trucks']:
         for source in truck['block_sources']:
             source['weight_kg'] = str(source['weight_kg'])
+    for total in board.get('week_totals', []):
+        for field in _WEEK_TOTAL_DECIMAL_FIELDS:
+            total[field] = str(total[field])
     return board
 
 
 class GaplamaBoardView(APIView):
     """GET /api/v1/export/gaplama/board/?from_date=&to_date=[&season=]
 
-    Response 200: {"days": [...], "trucks": [...]} — see build_gaplama_board's docstring.
+    Response 200: {"days": [...], "trucks": [...], "week_totals": [...]} — see
+    build_gaplama_board's docstring.
     Response 400: bad/missing/inverted dates, or a window over 31 days.
     Response 403: missing tir_takip.gaplama or export.plan.
     Response 404: unknown season id.
@@ -71,13 +80,13 @@ class GaplamaBoardView(APIView):
         # close→open gap (no active season and no ?season= given).
         season = resolve_season(request)
         if season is None:
-            return Response({'days': [], 'trucks': []})
+            return Response({'days': [], 'trucks': [], 'week_totals': []})
 
         # Clamp to the season — "a default window is not a bound" (api-contract).
         clamped_from = max(from_date, season.start_date)
         clamped_to = min(to_date, season.end_date)
         if clamped_from > clamped_to:
-            return Response({'days': [], 'trucks': []})
+            return Response({'days': [], 'trucks': [], 'week_totals': []})
 
         board = build_gaplama_board(clamped_from, clamped_to, season)
         return Response(_stringify_decimals(board))
