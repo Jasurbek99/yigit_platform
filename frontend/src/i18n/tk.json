@@ -3864,6 +3864,7 @@
       "this_week": "Bu hepde",
       "next_week": "Indiki hepde",
       "loading": "Ýüklenýär...",
+      "error_load": "Gaplama tagtasyny ýüklemek başartmady. Gaýtadan synanyşyň.",
       "block": "Blok",
       "week_total": "Hepdelik jemi",
       "over_tooltip": "{{kg}} kg artyk",

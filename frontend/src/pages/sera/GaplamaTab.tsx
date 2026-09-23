@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Button } from 'antd';
+import { Alert, Button } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -43,7 +43,7 @@ export default function GaplamaTab(): JSX.Element {
 
   const fetchFrom = weekStart.subtract(carryDays, 'day').format('YYYY-MM-DD');
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
-  const { data: board, isLoading } = useGaplamaBoard(fetchFrom, fetchTo);
+  const { data: board, isLoading, isError } = useGaplamaBoard(fetchFrom, fetchTo);
 
   const { data: blocksData } = useGreenhouseBlocks();
   // Top-level, active blocks only — sub-blocks and inactive blocks never
@@ -175,7 +175,9 @@ export default function GaplamaTab(): JSX.Element {
         <BlockFilterSelect rows={filterRows} value={selectedBlockIds} onChange={setSelectedBlockIds} />
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <Alert type="error" message={t('tir_takip.gaplama.error_load')} showIcon />
+      ) : isLoading ? (
         <div>{t('tir_takip.gaplama.loading')}</div>
       ) : (
         <table className="sera-gaplama-grid">
@@ -205,7 +207,7 @@ export default function GaplamaTab(): JSX.Element {
                 </tr>
                 {blocksByLocation[location].map((block: IGreenhouseBlock) => (
                   <tr key={block.id}>
-                    <td className="sera-gaplama-block-name">{block.name}</td>
+                    <td className="sera-gaplama-block-name">{block.name || block.code}</td>
                     {days.map((d) => {
                       const row = rowsByBlock[block.id]?.find((r) => r.date === d);
                       const over = row?.over_kg ?? 0;
@@ -352,7 +354,7 @@ export default function GaplamaTab(): JSX.Element {
                   );
                   return (
                     <tr key={block.id}>
-                      <td>{block.name}</td>
+                      <td>{block.name || block.code}</td>
                       <td>{weekTotal(rows, 'plan_kg')}</td>
                       <td>{weekTotal(rows, 'loaded_kg')}</td>
                       <td>{weekTotal(rows, 'available_kg')}</td>
@@ -379,7 +381,14 @@ export default function GaplamaTab(): JSX.Element {
                 {trucks
                   .filter((tr) => selectedDay === null || tr.date === selectedDay)
                   .map((truck) => {
-                    const canEdit = canCreate && truck.status_code === 'draft'
+                    // Üýtget writes through TWO server-side gates: POST
+                    // block-sources (shipment.create) then PATCH weight_net
+                    // (shipment.edit + a field grant) — visibility must
+                    // match both, or a create-but-not-edit role can rewrite
+                    // the truck's split, then 403 on the weight sync.
+                    const canEdit = canCreate
+                      && canDoBackendGated(user, 'shipment', 'edit')
+                      && truck.status_code === 'draft'
                       && truck.country == null && truck.customer == null;
                     return (
                       <tr key={truck.id}>

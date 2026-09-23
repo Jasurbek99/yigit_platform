@@ -127,7 +127,7 @@ describe('GaplamaTab', () => {
 
   it('resolves the edit-form cap from the truck\'s own date, not from today', async () => {
     (useAuth as any).mockReturnValue({
-      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true, edit: true } } },
     });
     // Board only has an available_kg row for NOT_TODAY (the truck's own
     // date) — deliberately nothing for TODAY. The pre-fix bug always
@@ -174,6 +174,78 @@ describe('GaplamaTab', () => {
     expect(kgInput).not.toHaveAttribute('aria-invalid', 'true');
   });
 
+  // I3: Üýtget writes through TWO server-side gates (POST block-sources
+  // needs shipment.create, PATCH weight_net needs shipment.edit). A role
+  // with create but not edit must not see the button at all — otherwise it
+  // could rewrite the truck's split and then 403 on the weight sync,
+  // leaving a half-saved truck.
+  it('hides the Üýtget button for a role with shipment.create but not shipment.edit', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true, edit: false } } },
+    });
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) {
+        return Promise.resolve({
+          data: {
+            days: [{ date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                     plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                     available_kg: '8000.00', over_kg: '0.00' }],
+            trucks: [{
+              id: 9, shipment_code: '2109001/26', export_code: null, date: THIS_MONDAY,
+              status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+              block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 2000 }],
+            }],
+          },
+        });
+      }
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({
+          data: { results: [{ id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak' }] },
+        });
+      }
+      if (url.includes('/greenhouse-config')) {
+        return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    renderTab();
+    await waitFor(() => {
+      expect(screen.getByText('2109001/26')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: /tir_takip\.gaplama\.edit/ })).not.toBeInTheDocument();
+  });
+
+  // I4: a failed board query must render a visible error, not silently fall
+  // through the `?? 0` fallbacks into an all-zero grid that reads as a real
+  // (wrong) "nothing available to pack" answer.
+  it('renders an error message instead of a zero-filled grid when the board query fails', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) {
+        return Promise.reject(new Error('network error'));
+      }
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({
+          data: { results: [{ id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak' }] },
+        });
+      }
+      if (url.includes('/greenhouse-config')) {
+        return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    const { container } = renderTab();
+
+    await waitFor(() => {
+      expect(screen.getByText('tir_takip.gaplama.error_load')).toBeInTheDocument();
+    });
+    expect(container.querySelector('table.sera-gaplama-grid')).toBeNull();
+  });
+
   it('excludes trucks from the carry-days lookback (before Monday) from the truck list', async () => {
     (useAuth as any).mockReturnValue({
       user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
@@ -218,7 +290,7 @@ describe('GaplamaTab', () => {
 
   it('remounts the form with the clicked truck\'s own data when Üýtget is clicked while the create form is still open', async () => {
     (useAuth as any).mockReturnValue({
-      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true, edit: true } } },
     });
     (api.get as any).mockImplementation((url: string) => {
       if (url.includes('/export/gaplama/board/')) {

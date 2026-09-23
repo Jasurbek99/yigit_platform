@@ -102,6 +102,11 @@ export function useCreateDraft() {
       queryClient.invalidateQueries({
         predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
       });
+      // GaplamaTruckForm (create mode) submits through this hook — the
+      // Gaplama board's available_kg must reflect the newly-opened truck
+      // immediately, or a second truck can be opened against capacity
+      // that's already been claimed by the first.
+      queryClient.invalidateQueries({ queryKey: ['gaplama-board'] });
     },
   });
 }

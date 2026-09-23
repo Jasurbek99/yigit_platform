@@ -7,7 +7,45 @@ interface IGaplamaBoardResponse {
   trucks: IGaplamaTruck[];
 }
 
-function coerceDay(raw: any): IGaplamaDay {
+// Raw shapes exactly as the backend sends them, before the fetch-boundary
+// coercion below — decimal fields arrive as strings (api-contract convention).
+interface IGaplamaDayRaw {
+  date: string;
+  block_id: number;
+  block_code: string;
+  location: string | null;
+  plan_kg: string;
+  loaded_kg: string;
+  carried_in_kg: string;
+  available_kg: string;
+  over_kg: string;
+}
+
+interface IGaplamaTruckSourceRaw {
+  block_id: number;
+  block_code: string;
+  weight_kg: string;
+}
+
+interface IGaplamaTruckRaw {
+  id: number;
+  shipment_code: string;
+  export_code: string | null;
+  date: string;
+  status: number;
+  status_code: string;
+  status_display: string;
+  country: number | null;
+  customer: number | null;
+  block_sources: IGaplamaTruckSourceRaw[];
+}
+
+interface IGaplamaBoardResponseRaw {
+  days: IGaplamaDayRaw[];
+  trucks: IGaplamaTruckRaw[];
+}
+
+function coerceDay(raw: IGaplamaDayRaw): IGaplamaDay {
   return {
     ...raw,
     plan_kg: Number(raw.plan_kg) || 0,
@@ -18,10 +56,10 @@ function coerceDay(raw: any): IGaplamaDay {
   };
 }
 
-function coerceTruck(raw: any): IGaplamaTruck {
+function coerceTruck(raw: IGaplamaTruckRaw): IGaplamaTruck {
   return {
     ...raw,
-    block_sources: (raw.block_sources ?? []).map((s: any) => ({
+    block_sources: (raw.block_sources ?? []).map((s) => ({
       ...s,
       weight_kg: Number(s.weight_kg) || 0,
     })),
@@ -37,7 +75,7 @@ export function useGaplamaBoard(fromDate: string, toDate: string) {
   return useQuery({
     queryKey: ['gaplama-board', fromDate, toDate],
     queryFn: async (): Promise<IGaplamaBoardResponse> => {
-      const { data } = await api.get<{ days: any[]; trucks: any[] }>(
+      const { data } = await api.get<IGaplamaBoardResponseRaw>(
         `/export/gaplama/board/?from_date=${fromDate}&to_date=${toDate}`,
       );
       return {
@@ -52,8 +90,16 @@ export function useGaplamaBoard(fromDate: string, toDate: string) {
 /**
  * Edits an existing Gaplama truck's block/kg split (the Üýtget form). Writes through
  * the existing block-sources endpoint, then syncs weight_net to the new total —
- * both calls the Sheet's own editors already make. Invalidates the board so the
- * grid reflects the edit immediately.
+ * both calls the Sheet's own editors already make.
+ *
+ * Two-call write, two separate server-side gates (POST block-sources needs
+ * shipment.can_create, PATCH weight_net needs shipment.can_edit + a field
+ * grant) — the first call can land and the second can still 403, leaving the
+ * split rewritten but the total weight stale. Invalidation therefore runs in
+ * onSettled, not onSuccess: whichever calls actually landed, the user must
+ * see the shipment's real current state, not a stale cache, on success OR
+ * failure. Invalidates drafts/shipments too — the Sheet and Drafts page read
+ * this same shipment through those query keys, not just gaplama-board.
  */
 export function useUpdateTruckBlocks() {
   const queryClient = useQueryClient();
@@ -73,8 +119,10 @@ export function useUpdateTruckBlocks() {
       const weightNet = vars.rows.reduce((sum, r) => sum + r.weight_kg, 0);
       await api.patch(`/export/shipments/${vars.shipmentId}/`, { weight_net: weightNet });
     },
-    onSuccess: () => {
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['gaplama-board'] });
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
     },
   });
 }

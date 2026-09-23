@@ -1,8 +1,9 @@
+import type { ReactNode } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import api from '@/services/api';
-import { useGaplamaBoard } from './useGaplama';
+import { useGaplamaBoard, useUpdateTruckBlocks } from './useGaplama';
 
 vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 
@@ -41,5 +42,57 @@ describe('useGaplamaBoard', () => {
         '/export/gaplama/board/?from_date=2026-09-19&to_date=2026-09-27',
       ),
     );
+  });
+});
+
+describe('useUpdateTruckBlocks', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function clientWrapper(client: QueryClient) {
+    return function InnerWrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    };
+  }
+
+  // I2: the Sheet and Drafts page read this same shipment through the
+  // 'drafts'/'shipments' query keys, not just 'gaplama-board' — all three
+  // must be invalidated or those surfaces stay stale after an edit.
+  it('invalidates gaplama-board, drafts and shipments on success', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    (api.patch as any).mockResolvedValue({ data: {} });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+
+    const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
+    result.current.mutate({ shipmentId: 9, rows: [{ block_id: 1, weight_kg: 5000 }] });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['gaplama-board'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['drafts'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shipments'] });
+  });
+
+  // I3: the two-call write (POST block-sources, then PATCH weight_net) has
+  // no rollback — if the second call 403s after the first landed, the split
+  // is already rewritten server-side. The board (and drafts/shipments) must
+  // still refetch on this partial failure so the UI shows the real current
+  // state instead of a stale cache.
+  it('still invalidates gaplama-board, drafts and shipments when the second (PATCH) call fails', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    (api.patch as any).mockRejectedValue(new Error('403 forbidden'));
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
+
+    const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
+    result.current.mutate({ shipmentId: 9, rows: [{ block_id: 1, weight_kg: 5000 }] });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['gaplama-board'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['drafts'] });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shipments'] });
   });
 });

@@ -3859,6 +3859,7 @@
       "this_week": "This week",
       "next_week": "Next week",
       "loading": "Loading...",
+      "error_load": "Failed to load the packing board. Please try again.",
       "block": "Block",
       "week_total": "Week total",
       "over_tooltip": "{{kg}} kg over",
