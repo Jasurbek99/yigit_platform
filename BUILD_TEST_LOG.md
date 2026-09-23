@@ -9,6 +9,18 @@
   `location_name` groups under "Beýleki"/"Другое"/"Other" instead of disappearing.
   NOTE: not yet wired into `TirTakip.tsx`'s `TAB_BODIES` (that's Task 9) — only reachable by
   mounting `GaplamaTab` directly until then.
+  ADDITIONAL STEPS after the 2026-09-23 edit-cap/filter fix (post-review, same day): (7) click
+  "Üýtget" on an already-open truck from a PAST day of the current week (not today) — the kg input's
+  available hint/cap must reflect that truck's own date's `available_kg`, not today's; typing a
+  value between the truck's old cap and its real cap must NOT show the red/invalid state; (8) set the
+  block filter (dropdown in the header) to a single block, then "Üýtget" a truck sourced from a
+  DIFFERENT block — that other block must still be selectable and correctly capped in the form, not
+  stuck at 0 kg / missing from the dropdown; (9) with that same block filter active, compare the
+  per-location subtotal row's day cells against the week-total cell in the same row and against the
+  single visible block row above it — all three must agree (previously the day cells ignored the
+  filter while the week-total respected it); (10) a truck opened 1–2 days before this Monday (inside
+  the carry-days lookback the board API fetches for the carry-in calc) must NOT appear in "Açylan
+  tırlar" or count toward the truck total — it has no day column of its own to filter it into view.
 - [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;

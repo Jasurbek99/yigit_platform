@@ -74,8 +74,18 @@ export default function GaplamaTab(): JSX.Element {
     late_edit_active: false,
   }));
 
-  const boardDays = (board?.days ?? []).filter((d) => days.includes(d.date));
-  const trucks = board?.trucks ?? [];
+  // Scoped to the displayed week AND the active block filter — every grid
+  // row, footer total and location subtotal reads from this, so a block
+  // filter stays consistent everywhere instead of the per-block rows
+  // respecting it while the aggregate rows silently summed the whole board.
+  const visibleBlockIds = new Set(blocks.map((b) => b.id));
+  const boardDays = (board?.days ?? []).filter(
+    (d) => days.includes(d.date) && visibleBlockIds.has(d.block_id),
+  );
+  // Trucks from the carry-days lookback (fetchFrom starts `carryDays` before
+  // Monday) must not leak into the displayed week's truck list/count — they
+  // have no matching day column to filter them by.
+  const trucks = (board?.trucks ?? []).filter((tr) => days.includes(tr.date));
 
   const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
 
@@ -118,12 +128,24 @@ export default function GaplamaTab(): JSX.Element {
       : location;
   }
 
-  function availableFor(blockId: number, date: string): number {
-    return boardDays.find((r) => r.block_id === blockId && r.date === date)?.available_kg ?? 0;
+  // Resolved against the RAW, unfiltered board — never `boardDays` (scoped to
+  // the displayed week + active block filter). The truck form needs the
+  // server's real available_kg for whatever specific date it's capping
+  // against, which for an edit-mode truck opened from the carry-days
+  // lookback isn't even inside `boardDays` at all.
+  function capForBlockDate(blockId: number, date: string): number {
+    return (board?.days ?? []).find((r) => r.block_id === blockId && r.date === date)?.available_kg ?? 0;
   }
 
-  const availableByBlockToday: Record<number, number> = {};
-  for (const b of blocks) availableByBlockToday[b.id] = availableFor(b.id, today);
+  // Built over `topLevelBlocks` (unfiltered by selectedBlockIds), never
+  // `blocks` — the form must be able to cap and offer a block that the grid's
+  // own block filter currently hides, or an edit on a truck sourced from a
+  // filtered-out block would show it with a 0 cap and no way to select it.
+  function buildAvailableByBlock(date: string): Record<number, number> {
+    const map: Record<number, number> = {};
+    for (const b of topLevelBlocks) map[b.id] = capForBlockDate(b.id, date);
+    return map;
+  }
 
   function openCreateForm() {
     setEditingTruck(null);
@@ -291,8 +313,8 @@ export default function GaplamaTab(): JSX.Element {
             mode={editingTruck ? 'edit' : 'create'}
             today={today}
             editingTruck={editingTruck ?? undefined}
-            availableByBlock={availableByBlockToday}
-            blocks={blocks.map((b) => ({ id: b.id, code: b.code, label: b.name || b.code }))}
+            availableByBlock={buildAvailableByBlock(editingTruck ? editingTruck.date : today)}
+            blocks={topLevelBlocks.map((b) => ({ id: b.id, code: b.code, label: b.name || b.code }))}
             truckCapacityKg={truckCapacityKg}
             onDone={closeForm}
             onCancel={closeForm}
