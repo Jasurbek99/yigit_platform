@@ -984,8 +984,13 @@ export function useUpdateTruckBlocks() {
       shipmentId: number;
       rows: { block_id: number; weight_kg: number }[];
     }) => {
+      // The real request body key is "blocks", not "block_sources" — verified
+      // against ShipmentViewSet.set_block_sources (backend/apps/export/views.py:3223-3291):
+      // `blocks_data = request.data.get('blocks', [])`. Sending weight_kg on every
+      // row (never 0/omitted) avoids the endpoint's auto-split-by-weight_net path,
+      // which only activates when weight_kg is missing/0/"0"/"0.00".
       await api.post(`/export/shipments/${vars.shipmentId}/block-sources/`, {
-        block_sources: vars.rows,
+        blocks: vars.rows.map((r) => ({ block_id: r.block_id, weight_kg: r.weight_kg })),
       });
       const weightNet = vars.rows.reduce((sum, r) => sum + r.weight_kg, 0);
       await api.patch(`/export/shipments/${vars.shipmentId}/`, { weight_net: weightNet });
@@ -1001,11 +1006,14 @@ Add the two new interfaces (`IGaplamaDay`, `IGaplamaTruckSource`, `IGaplamaTruck
 `frontend/src/types/index.ts`, placed near `IShipmentDraft` (around line 1774) since they
 describe the same domain (drafts/shipments).
 
-**Verify the exact request-body shape for `POST /shipments/{id}/block-sources/`** against
-`backend/apps/export/views.py:3081-3153` (from the earlier research) before finalizing —
-this plan assumes `{block_sources: [{block_id, weight_kg}]}`; confirm the field name isn't
-`block_ids`-only for this particular endpoint (it accepts both shapes per the earlier
-research — use the one that always carries kg).
+**Request-body shape verified** against `backend/apps/export/views.py:3223-3291`
+(`ShipmentViewSet.set_block_sources`): the body key is `"blocks"`, each entry
+`{block_id, weight_kg, harvest_date?}` — `weight_kg` is optional there in general (the
+endpoint auto-splits `weight_net` evenly when it's omitted/0), but this hook always sends
+it explicitly since the Gaplama form always knows each row's kg. `weight_net` on the
+shipment itself IS patchable directly (`_ALL_PATCHABLE_FIELDS`,
+`backend/apps/export/serializers.py:1569-1574`), so the follow-up `PATCH` call is correct
+as written.
 
 - [ ] **Step 4: Run test to verify it passes**
 
