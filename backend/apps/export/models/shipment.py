@@ -348,6 +348,51 @@ class Shipment(models.Model):
     def __str__(self) -> str:
         return self.shipment_code
 
+    # Destination country as it was loaded from the DB, so save() can tell a
+    # country *change* from any other save. Without it, editing any field of an
+    # old shipment would stamp a border point on it — the silent backfill the
+    # 2026-09-23 decision ruled out (26e438d1 left 69 open drafts unfilled).
+    _loaded_country_id = None
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        # Django passes attnames here, and 'country_id' is absent when the
+        # column was deferred — reading it then would fire a refresh query.
+        if 'country_id' in field_names:
+            instance._loaded_country_id = instance.country_id
+        return instance
+
+    def _fill_border_point_from_country(self, kwargs: dict) -> None:
+        """Serhet nokady default: a newly routed truck inherits its destination
+        country's configured crossing (Country.border_point).
+
+        Only on a country change, and only into an empty cell — transport stays
+        free to overwrite it in Sheet R29. Filling it here (before the row is
+        written) means resolve_for_shipment() in save() sees the value and
+        closes the tasks.set_border_point gate in the same request.
+        """
+        if self.country_id is None or self.country_id == self._loaded_country_id:
+            return
+        if self.border_point_id is not None:
+            return
+
+        from apps.core.models import Country
+        default_id = (
+            Country.objects.filter(pk=self.country_id)
+            .values_list('border_point_id', flat=True)
+            .first()
+        )
+        if not default_id:
+            return
+
+        self.border_point_id = default_id
+        # An update_fields save writes only the named columns, so the new
+        # border point would be dropped unless it joins the list.
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            kwargs['update_fields'] = list(update_fields) + ['border_point']
+
     def save(self, *args, **kwargs):
         """Save, trigger task auto-resolution, then attempt status auto-advance.
 
@@ -375,7 +420,9 @@ class Shipment(models.Model):
         auto-resolution, call resolve_for_shipment() explicitly at the call
         site.
         """
+        self._fill_border_point_from_country(kwargs)
         super().save(*args, **kwargs)
+        self._loaded_country_id = self.country_id
 
         from apps.export.services.task_rules import resolve_for_shipment
         resolved = resolve_for_shipment(self)

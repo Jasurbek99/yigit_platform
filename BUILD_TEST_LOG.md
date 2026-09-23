@@ -1,4 +1,13 @@
-
+- [x] 2026-09-23 — Per-country border point ("Serhet nokady") on Truck Destinations, auto-filled onto shipments — TESTED
+  To test: (1) open **Admin → Truck Destinations**, edit a country-linked row (e.g. Gazagystan) —
+  a new **Border Point** select appears; pick one and save; the table column shows it;
+  (2) create a NEW draft and set its destination country to that country — Sheet row 29
+  "Serhet nokady" is already filled, and transport's "Serhet nokadyny belle" task is closed;
+  (3) change row 29 to a different crossing — your choice sticks and is not overwritten;
+  (4) set a country that has NO border point configured — row 29 stays empty and the task stays open;
+  (5) open an OLD draft with an empty row 29 and edit any other cell — row 29 must stay empty
+  (no backfill);
+  (6) try setting a border point on **Gapy Satyş** (no country) — it is refused.
 - [ ] 2026-09-23 — Gapy-Satyş driver assignment: passport series + issue date, 2 drivers, ordering gate before document handover — NEEDS TEST
   To test: (1) create/open a shipment with **Gapy satys = Yes**, open the Sheet, click the **Driver
   name** cell: a popup opens (not plain text) asking name, phone, passport series, passport date,

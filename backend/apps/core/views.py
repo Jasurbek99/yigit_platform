@@ -248,7 +248,7 @@ class TruckDestinationViewSet(ModelViewSet):
 
     permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     serializer_class = TruckDestinationSerializer
-    queryset = TruckDestination.objects.select_related('country').all()
+    queryset = TruckDestination.objects.select_related('country', 'country__border_point').all()
     filterset_fields = ['is_active']
 
 

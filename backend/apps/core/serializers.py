@@ -190,10 +190,53 @@ class CrateTypeSerializer(serializers.ModelSerializer):
 
 class TruckDestinationSerializer(serializers.ModelSerializer):
     country_name = serializers.CharField(source='country.name_en', read_only=True, default=None)
+    # "Serhet nokady" — lives on Country (see TruckDestination.country_border_point),
+    # edited here because this page is where admins manage destinations. Writing it
+    # updates the Country row, so two destinations sharing a country share the value.
+    border_point = serializers.PrimaryKeyRelatedField(
+        source='country_border_point',
+        queryset=BorderPoint.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    border_point_name = serializers.CharField(
+        source='country_border_point.name', read_only=True, default=None
+    )
 
     class Meta:
         model = TruckDestination
-        fields = ['id', 'name', 'country', 'country_name', 'sort_order', 'is_active', 'is_default']
+        fields = ['id', 'name', 'country', 'country_name', 'border_point', 'border_point_name',
+                  'sort_order', 'is_active', 'is_default']
+
+    def validate(self, attrs: dict) -> dict:
+        """Reject a border point on a row with no country — it has nowhere to go."""
+        if 'country_border_point' in attrs and attrs['country_border_point'] is not None:
+            country = attrs.get('country', getattr(self.instance, 'country', None))
+            if country is None:
+                raise serializers.ValidationError(
+                    {'border_point': 'Set a country first — the border point is stored on it.'}
+                )
+        return attrs
+
+    def create(self, validated_data: dict) -> TruckDestination:
+        border_point = validated_data.pop('country_border_point', serializers.empty)
+        instance = super().create(validated_data)
+        self._save_border_point(instance, border_point)
+        return instance
+
+    def update(self, instance: TruckDestination, validated_data: dict) -> TruckDestination:
+        border_point = validated_data.pop('country_border_point', serializers.empty)
+        instance = super().update(instance, validated_data)
+        self._save_border_point(instance, border_point)
+        return instance
+
+    @staticmethod
+    def _save_border_point(instance: TruckDestination, border_point) -> None:
+        if border_point is serializers.empty or instance.country_id is None:
+            return
+        if instance.country.border_point_id != getattr(border_point, 'pk', None):
+            instance.country.border_point = border_point
+            instance.country.save(update_fields=['border_point'])
 
 
 class BorderPointSerializer(serializers.ModelSerializer):

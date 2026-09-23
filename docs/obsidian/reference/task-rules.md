@@ -92,15 +92,23 @@ without them. See [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v
 CMR overlay (`_border_point_name()` in `contracts/services/document_context.py`), so transport
 picks it while the documents are still being prepared rather than after they are printed.
 
-Two things about it:
+Three things about it:
 
+- **It often closes itself.** Since 2026-09-23 a destination country can carry a default
+  crossing (`Country.border_point`, edited on the Truck Destinations page — see
+  [[truck-allocation]]). `Shipment.save()` copies it into an empty `border_point` when the
+  country changes, before `resolve_for_shipment()` runs, so for a country that has one the
+  task is created and resolved in the same request. Transport still owns R29 and can change
+  the value; a country with no default leaves the task as a real gate.
 - **Gapy shipments never get it.** R29 carries `gapy_hidden=True`, so a gapy draft has no UI
   path to the field; an unconditional rule would hang an unresolvable gating task on every
   gapy draft. The seed row therefore carries `condition_field='is_gapy_satys'` / `'False'`.
 - **It was NOT backfilled.** When the rule shipped (2026-09-23) 69 of the 70 open non-gapy
   drafts had no border point. Those drafts have no `Task` row for the rule and are not gated —
   `is_step_trigger_satisfied()` reads Task rows, and `reconcile_tasks` is a mutator that never
-  emits new tasks. Running `backfill_tasks` would gate all of them at once.
+  emits new tasks. Running `backfill_tasks` would gate all of them at once. The country
+  default does not backfill them either — it fires only on a country *change*, so those
+  drafts keep their empty border point until someone re-routes or fills them.
 
 It does not block document generation itself: the TIR carnet dialog accepts a typed border
 point, which is used only when the shipment has none.

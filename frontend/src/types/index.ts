@@ -1321,6 +1321,9 @@ export interface ITruckDestination {
   name: string;
   country: number | null;
   country_name: string | null;
+  /** "Serhet nokady" — stored on the country, edited from this page. */
+  border_point: number | null;
+  border_point_name: string | null;
   sort_order: number;
   is_active: boolean;
   is_default: boolean;

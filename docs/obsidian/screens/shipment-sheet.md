@@ -113,6 +113,14 @@ Translation strings (`sheet.who.*`, `sheet.row.*`) stay in `frontend/src/i18n/{t
 
 Dropdown rows whose `options_source` is fixed (e.g. `vehicle_condition`) resolve via `frontend/src/constants/sheetOptions.ts` `SHEET_OPTIONS_REGISTRY`. Dynamic dropdowns (`country`, `customer`, `border_point`, etc.) keep using their dedicated TanStack Query hooks.
 
+**R29 `border_point` ("Serhet nokady") arrives pre-filled.** When the destination country on
+R11 is set (here, on `/assign/`, or at create), `Shipment.save()` copies that country's
+default crossing — `Country.border_point`, managed on the Truck Destinations admin page — into
+an empty `border_point`. It is a default, not a lock: the dropdown stays editable by transport,
+and a value already chosen is never overwritten. Countries with no default leave R29 empty as
+before. See [[truck-allocation]] for the storage decision and [[task-rules]] for what it does
+to the `Set border point` gate.
+
 ### Role blocks (role bands)
 
 The Sheet is **transposed** — fields are rows, shipments are columns — so "give each role its own block of columns" means a contiguous run of **rows** per role, headed by a labelled band row.
