@@ -1625,7 +1625,7 @@ import { canDoBackendGated } from '@/utils/permissions';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { BlockFilterSelect } from './BlockFilterSelect';
 import GaplamaTruckForm from './GaplamaTruckForm';
-import { sumByLocation, trucksForDay, truckCountByDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
+import { sumByLocation, trucksForDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
 import type { IGaplamaTruck } from '@/types';
 import './sera.css';
 
