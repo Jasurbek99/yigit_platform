@@ -3857,6 +3857,23 @@
       "empty": "Tırlar bölüminde tır girilende hasabatlar awtomatik çykýar.",
       "no_season": "Işjeň möwsüm ýok — hasabat görkezip bolmaýar.",
       "scope_note": "Garalamalar, ýatyrylan, pozulan we arhiwdäki tırlar hasaba alynmaýar."
+    },
+    "gaplama": {
+      "form": {
+        "day_label": "Gün",
+        "kg_label": "Kg",
+        "available_hint": "elýeterli: {{kg}} kg",
+        "blok goş": "+ Blok goş",
+        "partial_tag": "Doly däl",
+        "total_label": "Jemi",
+        "save": "Ýatda sakla",
+        "tır aç": "Tır Aç",
+        "cancel": "Ýatyr",
+        "harvest_status_ph": "Ýygym ýagdaýy",
+        "toast_created": "Tır açyldy",
+        "toast_updated": "Tır üýtgedildi",
+        "toast_error": "Ýalňyşlyk ýüze çykdy"
+      }
     }
   }
 }

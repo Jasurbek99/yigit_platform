@@ -3852,6 +3852,23 @@
       "empty": "Reports appear automatically once trucks are entered in the Trucks tab.",
       "no_season": "No active season — nothing to report.",
       "scope_note": "Drafts and cancelled, deleted or archived trucks are not counted."
+    },
+    "gaplama": {
+      "form": {
+        "day_label": "Day",
+        "kg_label": "Kg",
+        "available_hint": "available: {{kg}} kg",
+        "blok goş": "+ Add block",
+        "partial_tag": "Partial",
+        "total_label": "Total",
+        "save": "Save",
+        "tır aç": "Open truck",
+        "cancel": "Cancel",
+        "harvest_status_ph": "Harvest status",
+        "toast_created": "Truck opened",
+        "toast_updated": "Truck updated",
+        "toast_error": "Something went wrong"
+      }
     }
   }
 }
