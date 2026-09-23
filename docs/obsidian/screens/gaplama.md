@@ -47,10 +47,13 @@ day(s) it came from (`carry_in_breakdown`) — both added 2026-09-23.
 2026-09-23, since widening used to inflate `week_totals`' summed fields with days outside
 the week shown. Getting the first displayed day's carry-in right is entirely the server's
 job: `build_gaplama_board` walks from `2×carry_days` before `from_date` (not `1×` — a
-single `carry_days` only protects `from_date`'s own zero-seed boundary, not the correctness
-of `walk_start`'s own day, which itself needs `carry_days` of visibility to compute right
-before it can forward that correctness to Monday). Those lookback days are computed but
-never emitted in `days[]`.
+single `carry_days` of lookback only protects `from_date`'s own zero-seed boundary, not the
+correctness of the day that WOULD have been that boundary under the old 1x rule, which
+itself needs `carry_days` of visibility to compute right before it can forward that
+correctness to Monday). Those lookback days are computed but never emitted in `days[]`.
+**This is a bounded approximation, not a proof for arbitrarily long chains** — see
+`build_gaplama_board`'s own docstring and the design spec's §4 Window note for the exact
+caveat and a residual-error example.
 
 **Week totals are not a client-side sum.** `week_totals[]` on the board response gives
 `plan_kg`/`loaded_kg`/`over_kg` as real sums (each day's figure is independent) and

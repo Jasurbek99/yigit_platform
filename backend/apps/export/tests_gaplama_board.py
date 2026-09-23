@@ -235,7 +235,7 @@ class GaplamaBoardTest(TestCase):
         # this by 3000.
         self.assertEqual(row['carried_in_kg'], Decimal(10000))
 
-    def test_lookback_boundary_starts_with_zero_carry_in(self):
+    def test_bucket_expires_before_window_regardless_of_lookback_depth(self):
         # gaplama_carry_days=2 -> the walk now looks back 2*carry_days (4 days,
         # since 2026-09-23) from Monday, so Thursday (4 days before) sits
         # exactly at walk_start and IS computed. But a bucket obeys its own

@@ -77,19 +77,27 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     config = GreenhouseConfig.get_solo()
     carry_days = config.gaplama_carry_days
     # 2x carry_days, not 1x (2026-09-23 fix). The walk's first computed day
-    # always starts with zero carry-in — that day's OWN remainder_today can
-    # therefore be wrong if a REAL bucket should have been feeding it, which
-    # then propagates forward through every later day that bucket would have
-    # reached. A single carry_days of lookback only protects from_date itself
-    # from that zero-seed error; it does NOT protect from_date from an error
-    # in walk_start's own remainder_today, which depends on visibility
-    # carry_days before walk_start in turn. Doubling the lookback closes that
-    # one level of the chain — walk_start's own day is now itself seeded from
-    # real data, so its remainder_today (and everything it feeds forward) is
-    # correct by the time the walk reaches from_date. (This restores the
-    # exact effective depth the frontend used to provide by accident, before
-    # 2026-09-23 removed its own redundant client-side widening — see
-    # GaplamaTab.tsx and the design spec §4 Window note.)
+    # (walk_start) always starts with zero carry-in — that day's OWN
+    # remainder_today can therefore be wrong if a REAL bucket should have
+    # fed it, which then propagates forward through every later day that
+    # bucket would have reached. A single carry_days of lookback only
+    # protects `from_date` from ITS OWN zero-seed error; it does nothing for
+    # an error already baked into walk_start's own remainder_today, which
+    # needed its own carry_days of visibility to be right. Doubling the
+    # lookback closes exactly that one hop of the chain: `from_date -
+    # carry_days` (the day that would have been walk_start under the old
+    # 1x rule) is now itself seeded from real data.
+    #
+    # This is a BOUNDED APPROXIMATION, not a proof for arbitrarily long
+    # chains — the same kind of accepted bound the original 1x rule always
+    # was, one hop deeper. A chain of understated remainders spanning 3+
+    # hops (e.g. an unconsumed plan on day X, then day X+carry_days also
+    # under-loaded against day X's bucket, then that day's OWN remainder
+    # feeding forward again) can still leave a residual error inside
+    # `carry_days` days of from_date. Restores the exact effective depth
+    # the frontend used to provide by accident before 2026-09-23 removed
+    # its own redundant client-side widening — see GaplamaTab.tsx and the
+    # design spec §4 Window note, which carries the same caveat.
     walk_start = from_date - timedelta(days=carry_days * 2)
 
     # ALL blocks — active and inactive, top-level and sub — in one query. code_by_id/

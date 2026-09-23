@@ -149,11 +149,10 @@ export default function GaplamaTab(): JSX.Element {
       : location;
   }
 
-  // Resolved against the RAW, unfiltered board — never `boardDays` (scoped to
-  // the displayed week + active block filter). The truck form needs the
-  // server's real available_kg for whatever specific date it's capping
-  // against, which for an edit-mode truck opened from the carry-days
-  // lookback isn't even inside `boardDays` at all.
+  // Resolved against the RAW, unfiltered board — never `boardDays` (also
+  // scoped to the active block filter). The truck form must be able to cap
+  // and offer a block the grid's own filter currently hides (§ buildAvailableByBlock
+  // below), so the cap lookup itself must ignore that filter too.
   function capForBlockDate(blockId: number, date: string): number {
     return (board?.days ?? []).find((r) => r.block_id === blockId && r.date === date)?.available_kg ?? 0;
   }
