@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import dayjs from 'dayjs';
+import isoWeek from 'dayjs/plugin/isoWeek';
 import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import GaplamaTab from './GaplamaTab';
+
+dayjs.extend(isoWeek);
 
 vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -12,8 +16,14 @@ vi.mock('@/hooks/useSeasonReadOnly', () => ({ useSeasonReadOnly: () => false }))
 
 function renderTab() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(<QueryClientProvider client={qc}><GaplamaTab /></QueryClientProvider>);
+  return render(<QueryClientProvider client={qc}><GaplamaTab /></QueryClientProvider>);
 }
+
+// Computed from the real clock (no fake timers — GaplamaTab uses TanStack
+// Query, whose async resolution doesn't mix well with vi.useFakeTimers()
+// without manually advancing them) so the board fixture's date always lands
+// inside "this week" (weekOffset 0), whichever day this suite runs on.
+const THIS_MONDAY = dayjs().isoWeekday(1).format('YYYY-MM-DD');
 
 describe('GaplamaTab', () => {
   beforeEach(() => {
@@ -22,7 +32,13 @@ describe('GaplamaTab', () => {
       if (url.includes('/export/gaplama/board/')) {
         return Promise.resolve({
           data: {
-            days: [{ date: '2026-09-21', block_id: 1, block_code: 'A', location: 'dusak',
+            // location / location_name both come from the same backend field
+            // (LoadingLocation.name via block.location.name — see
+            // apps/export/services/gaplama.py and apps/core/serializers.py's
+            // GreenhouseBlockSerializer.location_name) — kept identical here
+            // so the location-grouping join in GaplamaTab is actually
+            // exercised, not accidentally passed by mismatched casing.
+            days: [{ date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
                      plan_kg: '20000.00', loaded_kg: '12000.00', carried_in_kg: '0.00',
                      available_kg: '8000.00', over_kg: '0.00' }],
             trucks: [],
@@ -70,5 +86,24 @@ describe('GaplamaTab', () => {
     });
     renderTab();
     expect(screen.queryByRole('button', { name: /tir_takip\.gaplama\.open_truck/ })).not.toBeInTheDocument();
+  });
+
+  it('groups the per-location subtotal by GreenhouseBlock.location_name, joined against IGaplamaDay.location', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    const { container } = renderTab();
+
+    // Column order: [label, Mon..Sun, week total]. The board fixture's only
+    // row is block 1 / this Monday / available_kg 8000, under location
+    // "Dusak" — if the join used the wrong key (e.g. mismatched casing, or
+    // grouping by the `location` id instead of `location_name`), this cell
+    // would silently read 0 while the block row above it still shows 8000.
+    await waitFor(() => {
+      const subtotalRow = container.querySelector('tr.sera-gaplama-location-subtotal');
+      expect(subtotalRow).not.toBeNull();
+      const mondayCell = subtotalRow?.querySelectorAll('td')[1];
+      expect(mondayCell?.textContent).toBe('8000');
+    });
   });
 });

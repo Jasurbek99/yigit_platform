@@ -1,4 +1,14 @@
 
+- [ ] 2026-09-23 — GaplamaTab.tsx: week grid (blocks grouped by location, plan/loaded/available/over/carry-in per day), weekly summary, opened-truck list, Tır Aç / Üýtget toggle (Task 7 of the Gaplama screen plan) — NEEDS TEST
+  To test: (1) open the Gaplama tab as `loading_dept_head` — the week grid shows blocks grouped by
+  location with per-location subtotal rows, a "Tır Aç" button appears; (2) as `sales_rep` (no
+  `shipment.create`), the button is hidden; (3) click a day column header — the weekly summary and
+  truck list below filter to that day, click again to clear; (4) click "Tır Aç" — the form (Task 6)
+  opens in place of the button, capped at each block's remaining `available_kg`; (5) a block that
+  hits its plan shows the over-capacity "⚠" marker in its day cell; (6) a location with no
+  `location_name` groups under "Beýleki"/"Другое"/"Other" instead of disappearing.
+  NOTE: not yet wired into `TirTakip.tsx`'s `TAB_BODIES` (that's Task 9) — only reachable by
+  mounting `GaplamaTab` directly until then.
 - [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
