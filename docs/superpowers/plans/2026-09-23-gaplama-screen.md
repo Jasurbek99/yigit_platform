@@ -1320,8 +1320,8 @@ import { toast } from 'sonner';
 import { useCreateDraft } from '@/hooks/useDrafts';
 import { useUpdateTruckBlocks } from '@/hooks/useGaplama';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
-import { VarietySelect } from '@/components/shipment/VarietySelect'; // adjust to actual export path
-import { useShipmentOptions } from '@/hooks/useShipmentOptions'; // adjust to actual hook path
+import { VarietySelect } from '@/components/VarietySelect';
+import { useShipmentOptions } from '@/hooks/useAdmin';
 import type { IGaplamaTruck } from '@/types';
 
 interface IGaplamaTruckFormProps {
@@ -1350,7 +1350,8 @@ function capFor(blockId: number, props: IGaplamaTruckFormProps): number {
 }
 
 export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const createDraft = useCreateDraft();
   const updateBlocks = useUpdateTruckBlocks();
 
@@ -1480,7 +1481,13 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
             placeholder={t('tir_takip.gaplama.form.harvest_status_ph')}
             value={harvestStatus}
             onChange={setHarvestStatus}
-            options={harvestStatusOptions.map((o: any) => ({ value: o.value, label: o.label }))}
+            options={harvestStatusOptions
+              .filter((o) => o.is_active)
+              .map((o) => ({
+                value: o.code,
+                label: lang.startsWith('ru') && o.label_ru ? o.label_ru
+                  : lang.startsWith('en') && o.label_en ? o.label_en : o.label_tk,
+              }))}
           />
           <VarietySelect value={variety} onChange={setVariety} />
         </>
@@ -1504,10 +1511,11 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
 }
 ```
 
-**Before finalizing, verify the actual import paths** for `OfficialCodeEditor`,
-`VarietySelect`, and `useShipmentOptions` against `frontend/src/components/draft/
-OfficialCodeEditor.tsx`, `frontend/src/components/shipment/SupplyDraftModal.tsx` (which
-imports both) — copy its exact import lines rather than guessing paths.
+**Import paths verified** against `frontend/src/components/shipment/SupplyDraftModal.tsx:5-9`,
+which imports the same three: `VarietySelect` from `@/components/VarietySelect`,
+`OfficialCodeEditor` from `@/components/draft/OfficialCodeEditor`, and `useShipmentOptions`
+from `@/hooks/useAdmin` (not a dedicated `useShipmentOptions.ts` file) — the import lines
+above are the real ones, already correct.
 
 - [ ] **Step 4: Run test to verify it passes**
 
