@@ -52,3 +52,55 @@ class PerBlockCarryDaysTests(TestCase):
             row['carry_in_breakdown'],
             [{'origin_date': self.monday, 'kg': Decimal('10000'), 'age_days': 2}],
         )
+
+
+class WalkWindowSizedByWidestBlockTests(TestCase):
+    """Neither fixture above proves the walk WINDOW (walk_start) is sized by the
+    widest block's carry_days — both sit inside a 4-day lookback that a window
+    sized by the SHORT block (2) or the pre-2026-09-24 global constant (also 2)
+    would satisfy just as well. If walk_start were ever narrowed off the widest
+    block, a long-carry block's older bucket would silently vanish from the
+    board and nothing above would catch it.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.query_day = date(2026, 6, 20)
+        Season.objects.update(is_active=False)
+        cls.season = Season.objects.create(
+            name='WW-season',
+            start_date=cls.query_day - timedelta(days=200),
+            end_date=cls.query_day + timedelta(days=200),
+            is_active=True,
+        )
+        cls.short = GreenhouseBlock.objects.create(code='WWSHORT', carry_days=2, is_active=True)
+        cls.long = GreenhouseBlock.objects.create(code='WWLONG', carry_days=7, is_active=True)
+
+        # walk_start = from_date - 2 * max_carry_days (gaplama.py). max_carry_days
+        # here must be 7 (LONG) for the entry below to be seen at all — a walk
+        # sized by SHORT (2) or a constant 2 computes walk_start = query_day - 4
+        # and the DB query for plan_rows never even fetches this entry_date.
+        #
+        # entry_date = query_day - 7 sits in the one narrow band that proves it:
+        #   >= query_day - 14  (inside the correct/wide window -> must be seen)
+        #   <  query_day - 4   (outside a narrow window sized by 2 -> must be missed)
+        # and its age at query_day is exactly 7 — equal to LONG's own carry_days,
+        # so LONG's per-block bucket expiry (`age > carry_days`) has not evicted it
+        # either. Only a window-sizing regression can make this bucket disappear.
+        cls.entry_date = cls.query_day - timedelta(days=7)
+        plan = WeeklyHarvestPlan.objects.create(
+            season=cls.season, block=cls.long,
+            week_number=cls.entry_date.isocalendar().week,
+            year=cls.entry_date.isocalendar().year,
+        )
+        HarvestDayEntry.objects.create(
+            weekly_plan=plan, season=cls.season, block=cls.long,
+            entry_date=cls.entry_date, weekday=cls.entry_date.weekday(),
+            plan_value=Decimal('5000'),
+        )
+
+    def test_long_block_bucket_survives_only_if_window_uses_the_widest_carry_days(self):
+        board = build_gaplama_board(self.query_day, self.query_day, self.season)
+        row = next(r for r in board['days'] if r['block_id'] == self.long.id)
+        origins = {b['origin_date'] for b in row['carry_in_breakdown']}
+        self.assertIn(self.entry_date, origins)
