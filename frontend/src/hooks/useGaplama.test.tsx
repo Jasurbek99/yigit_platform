@@ -78,6 +78,23 @@ describe('useGaplamaBoard', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data?.week_totals).toEqual([]);
   });
+
+  it('coerces the batch age alongside kg', async () => {
+    (api.get as any).mockResolvedValue({
+      data: {
+        days: [{ date: '2026-06-03', block_id: 1, block_code: 'A', location: 'Duşak',
+                 plan_kg: '9000', loaded_kg: '0', carried_in_kg: '4000',
+                 carry_in_breakdown: [{ origin_date: '2026-06-01', kg: '4000', age_days: 2 }],
+                 available_kg: '13000', over_kg: '0', carried_out_kg: '9000' }],
+        trucks: [], week_totals: [],
+      },
+    });
+    const { result } = renderHook(() => useGaplamaBoard('2026-06-03', '2026-06-03'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.days[0].carry_in_breakdown[0]).toEqual({
+      origin_date: '2026-06-01', kg: 4000, age_days: 2,
+    });
+  });
 });
 
 describe('useUpdateTruckBlocks', () => {

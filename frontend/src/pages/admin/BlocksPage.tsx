@@ -119,7 +119,7 @@ export default function BlocksPage() {
 
   async function handleSubmit() {
     const values = await form.validateFields();
-    const payload: Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'variety_main_name' | 'variety_secondary_name' | 'location_name'> = {
+    const payload: Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'variety_main_name' | 'variety_secondary_name' | 'location_name' | 'carry_days'> = {
       code: values.code,
       name: values.name || null,
       parent: null,
@@ -138,7 +138,7 @@ export default function BlocksPage() {
     if (editTarget) {
       updateBlock.mutate({ id: editTarget.id, ...payload });
     } else {
-      createBlock.mutate(payload as Omit<IGreenhouseBlock, 'id' | 'manager_name'>);
+      createBlock.mutate(payload as Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'carry_days'>);
     }
   }
 

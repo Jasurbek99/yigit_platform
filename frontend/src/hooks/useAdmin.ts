@@ -368,7 +368,7 @@ export function useAdminBlock(id: number | undefined) {
 export function useCreateBlock(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Omit<IGreenhouseBlock, 'id' | 'manager_name'>) =>
+    mutationFn: (payload: Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'carry_days'>) =>
       api.post<IGreenhouseBlock>('/greenhouse/admin/blocks/', payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-blocks-full'] });

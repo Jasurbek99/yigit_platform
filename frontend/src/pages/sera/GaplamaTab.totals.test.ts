@@ -5,7 +5,7 @@ import type { IGaplamaDay, IGaplamaTruck } from '@/types';
 const days: IGaplamaDay[] = [
   { date: '2026-09-21', block_id: 1, block_code: 'A', location: 'dusak', plan_kg: 20000, loaded_kg: 12000, carried_in_kg: 0, carry_in_breakdown: [], available_kg: 8000, over_kg: 0, carried_out_kg: 0 },
   { date: '2026-09-21', block_id: 2, block_code: 'B', location: 'kaka', plan_kg: 5000, loaded_kg: 0, carried_in_kg: 0, carry_in_breakdown: [], available_kg: 5000, over_kg: 0, carried_out_kg: 0 },
-  { date: '2026-09-22', block_id: 1, block_code: 'A', location: 'dusak', plan_kg: 10000, loaded_kg: 0, carried_in_kg: 8000, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 8000 }], available_kg: 18000, over_kg: 0, carried_out_kg: 0 },
+  { date: '2026-09-22', block_id: 1, block_code: 'A', location: 'dusak', plan_kg: 10000, loaded_kg: 0, carried_in_kg: 8000, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 8000, age_days: 1 }], available_kg: 18000, over_kg: 0, carried_out_kg: 0 },
 ];
 
 const trucks: IGaplamaTruck[] = [

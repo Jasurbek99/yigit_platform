@@ -13,6 +13,7 @@ interface IGaplamaBoardResponse {
 interface IGaplamaCarryInBucketRaw {
   origin_date: string;
   kg: string;
+  age_days: number;
 }
 
 interface IGaplamaDayRaw {
@@ -75,6 +76,7 @@ function coerceDay(raw: IGaplamaDayRaw): IGaplamaDay {
     carry_in_breakdown: (raw.carry_in_breakdown ?? []).map((b) => ({
       origin_date: b.origin_date,
       kg: Number(b.kg) || 0,
+      age_days: b.age_days,
     })),
     available_kg: Number(raw.available_kg) || 0,
     over_kg: Number(raw.over_kg) || 0,

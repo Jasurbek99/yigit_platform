@@ -1550,6 +1550,8 @@ export interface IGreenhouseBlock {
   sort_order?: number;
   is_active: boolean;
   sub_blocks: IGreenhouseBlockSub[];
+  /** How many days a leftover from this block stays loadable (default 7). */
+  carry_days: number;
 }
 
 export interface IBlockAssignment {
@@ -1886,6 +1888,8 @@ export interface IDraftAssignPayload {
 export interface IGaplamaCarryInBucket {
   origin_date: string;
   kg: number;
+  /** Days between this bucket's harvest day and the board day it is shown on. */
+  age_days: number;
 }
 
 export interface IGaplamaDay {
