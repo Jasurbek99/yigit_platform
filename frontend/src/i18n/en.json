@@ -1484,7 +1484,8 @@
     "kind_mention": "You were mentioned",
     "kind_task_assigned": "Task assigned to you",
     "kind_task_done": "Your task was marked done",
-    "weekly_plan_summary": "Next week's harvest plan filled:"
+    "weekly_plan_summary": "Next week's harvest plan filled:",
+    "tasks_changed": "Task list changed for this shipment"
   },
   "common": {
     "optional": "optional",

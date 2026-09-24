@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Badge, Button, Popover, Typography } from 'antd';
 import { IconBell } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { useNotifications, useMarkAllRead } from '@/hooks/useNotifications';
+import { useNotifications, useMarkAllRead, useMarkOneRead } from '@/hooks/useNotifications';
 import type { INotification } from '@/types';
 import { COLORS } from '@/constants/styles';
 
@@ -22,6 +23,7 @@ const KIND_COLOR: Record<INotification['kind'], string> = {
   mention: COLORS.primary,
   task_assigned: COLORS.orange,
   task_done: COLORS.success,
+  tasks_changed: COLORS.orange,
   feedback_resolved: COLORS.success,
   feedback_rejected: COLORS.danger,
   weekly_plan_summary: COLORS.primary,
@@ -31,6 +33,8 @@ function notificationText(n: INotification, t: TFunction): string {
   if (n.kind === 'action_required') return t('notifications.action_required', { shipment_code: n.message });
   // The message is language-neutral ("W39/2026: 78% · Maral 25% (B, C) · …").
   if (n.kind === 'weekly_plan_summary') return `${t('notifications.weekly_plan_summary')} ${n.message}`;
+  // The counts are language-neutral ("2309002/26: +1 -1 ~0").
+  if (n.kind === 'tasks_changed') return `${t('notifications.tasks_changed')} — ${n.message}`;
   return n.message;
 }
 
@@ -39,6 +43,19 @@ export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const { data: notifications = [] } = useNotifications();
   const markAllRead = useMarkAllRead();
+  const markOneRead = useMarkOneRead();
+  const navigate = useNavigate();
+
+  // Every notification carries a `link`, but nothing used to read it - the rows
+  // were inert text, so a notification naming a shipment could not take anyone
+  // to it. Rows without a link stay inert but still mark themselves read.
+  const handleRowClick = (n: INotification) => {
+    if (!n.read_at) markOneRead.mutate(n.id);
+    if (n.link) {
+      setIsOpen(false);
+      navigate(n.link);
+    }
+  };
 
   const unreadCount = notifications.filter((n) => !n.read_at).length;
 
@@ -75,8 +92,10 @@ export function NotificationBell() {
         notifications.slice(0, 30).map((n) => (
           <div
             key={n.id}
+            onClick={() => handleRowClick(n)}
             style={{
               padding: '8px 16px',
+              cursor: n.link ? 'pointer' : 'default',
               background: n.read_at ? undefined : '#f0f5ff',
               borderLeft: n.read_at ? undefined : `3px solid ${KIND_COLOR[n.kind]}`,
               borderBottom: '1px solid #f5f5f5',

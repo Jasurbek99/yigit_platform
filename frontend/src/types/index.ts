@@ -1620,7 +1620,7 @@ export interface IAdminUser {
 
 export interface INotification {
   id: number;
-  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary';
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'tasks_changed' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary';
   message: string;
   link: string | null;
   read_at: string | null;
