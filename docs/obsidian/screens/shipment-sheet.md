@@ -707,6 +707,21 @@ The menu item is **disabled (greyed out)** rather than the whole menu being supp
 
 Hidden cells (`gapy_hidden && is_gapy_satys` — the `—` placeholder rows) are the only ones that skip the Dropdown wrapper entirely; they have no semantic content to act on.
 
+**Which rows are hidden on a Gapy-Satyş column (ten, as of 2026-09-24).** A gapy shipment is a
+domestic gate sale that completes the moment it leaves the greenhouse, so every row describing
+the road, the destination or a later sale is blanked to `—`:
+
+| Rows | Fields | Why |
+|------|--------|-----|
+| R29–R32 | `border_point`, `border_crossed_at`, `dest_entry_at`, `customs_entry_at` | No border is crossed, no destination customs cleared |
+| R33–R35 | `has_peregruz`, `peregruz_date`, `arrived_at` | No road, so no transshipment and nothing to arrive at |
+| R41–R43 | `sale_started_at`, `sale_ended_at`, `sales_report_date` | The sale happened at the gate, before departure; there is no foreign sales report |
+
+R33–R35 and R41–R43 were added when gapy shipments stopped walking the export chain — see
+[[../processes/shipment-lifecycle#Gapy-Satyş ends at loading]]. The flag is **frontend-only**:
+the backend does not reject a write to a hidden field, it is `SheetCell.tsx` that renders the
+placeholder and `SheetGrid.tsx` that skips the cell in keyboard navigation.
+
 ## Permissions
 
 **The real authority, for every Sheet cell, is `can_edit_sheet_field` / `get_sheet_edit_map` /

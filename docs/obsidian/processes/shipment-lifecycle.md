@@ -63,6 +63,7 @@ stateDiagram-v2
     draft --> gumruk_girish
     gumruk_girish --> gumruk_chykysh
     gumruk_chykysh --> yuklenme
+    yuklenme --> tamamlandy: is_gapy_satys
     yuklenme --> yola_chykdy
     yola_chykdy --> serhet_gechdi
     serhet_gechdi --> dest_entry
@@ -90,7 +91,7 @@ Each transition is strictly linear (no skipping steps, no going back). The `TRAN
 | 0 | `draft` | Draft | `document_team` | see [[#Leaving `draft` — four triggers plus a join guard]] | `gumruk_girish` |
 | 1 | `gumruk_girish` | Customs Entry | `document_team` | `customs_exit_at` (R25) | `gumruk_chykysh` |
 | 2 | `gumruk_chykysh` | Customs Exit | `loading_dept_head` (+ deputy) | `loading_started_at` (R19) | `yuklenme` |
-| 3 | `yuklenme` | Loading | `document_team` | `shipment_code` + `block_sources` (R8) + `variety` (R38) + `weight_net` (R37), and `departed_at` (R21) | `yola_chykdy` |
+| 3 | `yuklenme` | Loading | `document_team` | `shipment_code` + `block_sources` (R8) + `variety` (R38) + `weight_net` (R37), and `departed_at` (R21) | `tamamlandy` if `is_gapy_satys`, else `yola_chykdy` |
 | 4 | `yola_chykdy` | Departed | `transport` | `border_crossed_at` (R30) | `serhet_gechdi` |
 | 5 | `serhet_gechdi` | Crossed TM Border | `sales_rep` | `dest_entry_at` (R31) | `dest_entry` |
 | 6 | `dest_entry` | Destination Entry | `sales_rep` | `customs_entry_at` (R32) | `barysh_gumrugi` |
@@ -183,6 +184,41 @@ The forward chain is linear, but a shipment can be **cancelled** from any non-te
 - **Visibility**: cancelled shipments are excluded from the operational list by default — reveal them with `?show_cancelled=true` or an explicit `?status_code=cancelled` filter. They never appear on the Kanban board (no `CANCELLED` phase column). Detail pages remain reachable.
 
 `cancelled` is not included in `allowed_transitions`, so the forward TransitionButton never offers it.
+
+### Gapy-Satyş ends at loading
+
+A **Gapy Satyş** shipment is a domestic gate sale — the buyer takes the goods at the greenhouse.
+It crosses no border, clears no destination customs, arrives nowhere and produces no foreign
+sales report. So `yuklenme` forks on `is_gapy_satys`: filling `departed_at` (R21,
+"Ýyladyşhanadan çykdy") sends a gapy shipment straight to **`tamamlandy`**, the same terminal
+status every other shipment finishes on.
+
+Before this, gapy shipments were walked down the full export chain and **jammed in
+`yola_chykdy`**: that step's trigger is `border_crossed_at` (R30), which is `gapy_hidden`, so no
+operator could ever fill it. The only way past was a privileged role hand-clicking through
+three steps describing events that never happened.
+
+- **No new status.** `is_gapy_satys` already marks these rows; a 14th status would have carried
+  no extra information while every kanban phase map, archive query, KPI and i18n file learned
+  about it. See [[../../ADR#ADR-025]].
+- **Known wart**: `tamamlandy` is labelled "Report received & Completed". A gapy shipment reaches
+  it without a sales report, so for gapy rows half that label is untrue. The flag is what
+  distinguishes them.
+- **Flipping `is_gapy_satys` late** (on a shipment already past `yuklenme`) does **not**
+  retro-complete it — accepted operator error, deliberately unguarded. Cancel and re-create.
+- Ten Sheet rows are hidden on a gapy column: R29–R32 (road, destination) plus R33–R35 and
+  R41–R43 (transshipment, arrival, sale, report).
+- **Manual transitions honour the predicate on this fork.** `transition_to()` used to ignore edge
+  predicates entirely, which made `tamamlandy` reachable from `yuklenme` for any shipment — and
+  `tamamlandy` has no outgoing edge at all, not even `cancelled` (ADR-019), so a wrong pick was
+  unrecoverable. `PREDICATE_ADVISORY_STEPS` in `services/shipment.py` now lists the one fork where
+  predicates stay advisory: `barysh_gumrugi`, whose branches are both live intermediate steps.
+- **A gapy completion is quiet**: no `finansist` notification (the `tamamlandy` entry in
+  `STATUS_NOTIFY_ROLES` is for the sales-report hand-off) and no row in
+  `/shipments/my-sales-reports/?needs_report=true`.
+- **Frontend**: `RouteTimelineRail` and the dashboard's `DetailSlideBody` render a five-step route
+  for gapy, and `ShipmentRow` does not flag it "report missing" — it is judged by `arrived_at`,
+  whose Sheet row is hidden for gapy.
 
 ### Soft delete (trash flag)
 
