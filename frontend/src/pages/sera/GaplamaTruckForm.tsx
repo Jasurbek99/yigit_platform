@@ -115,10 +115,17 @@ function blockCapFor(blockId: number, props: IGaplamaTruckFormProps): number {
   return base;
 }
 
-/** Batches named by a seeded edit row that the live `batchesByBlock` no
- * longer lists (Gap: the board's own trucks[] carries no harvest_date, so
- * edit mode seeds from `editingTruckBatches` instead — see that prop's doc
- * comment). Computed once, from the props the form mounted with; not
+/** One orphan entry per seeded edit row — EVERY row, not only one the live
+ * `batchesByBlock` fails to list a date for (2026-09-25, round 2: a
+ * null-date-only version of this reopened invalid one save later — see the
+ * inline comment below). `effectiveBatches` is what actually decides what
+ * each entry is FOR: a date with no live match at all keeps its own kg as
+ * an exact cap (a genuinely expired/unknown batch — the board's own
+ * trucks[] carries no harvest_date, so edit mode seeds from
+ * `editingTruckBatches` instead, see that prop's doc comment, and a batch
+ * can have since expired between seeding and now); a date that DOES have a
+ * live match gets its cap raised to at least this row's own kg, never
+ * lowered. Computed once, from the props the form mounted with; not
  * recomputed as `rows` changes. */
 function computeOrphans(props: IGaplamaTruckFormProps): Record<number, IGaplamaBatch[]> {
   if (props.mode !== 'edit' || !props.editingTruck) return {};
