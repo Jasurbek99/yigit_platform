@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sumByLocation, truckCountByDay, trucksForDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
+import { sumByLocation, truckCountByDay, trucksForDay, isPartialTruck, weekTotal, truckTotalKg, truckCountByLocation } from './GaplamaTab.totals';
 import type { IGaplamaDay, IGaplamaTruck } from '@/types';
 
 const days: IGaplamaDay[] = [
@@ -81,5 +81,20 @@ describe('weekTotal', () => {
   });
   it('sums a field across all days and all blocks when no blockId given', () => {
     expect(weekTotal(days, 'plan_kg')).toBe(20000 + 5000 + 10000);
+  });
+});
+
+describe('truckCountByLocation', () => {
+  // D16: a truck can't load across locations, so two locations each holding
+  // 10 000 kg (< 18 500 alone) must never combine into "1 truck" just
+  // because their sum crosses the capacity.
+  it('floors each location before summing, never floors the grand total', () => {
+    expect(truckCountByLocation({ dusak: 10000, kaka: 10000 }, 18500)).toBe(0);
+  });
+  it('sums whole trucks across locations once each clears capacity on its own', () => {
+    expect(truckCountByLocation({ dusak: 37000, kaka: 18500 }, 18500)).toBe(3);
+  });
+  it('returns 0 for an empty map', () => {
+    expect(truckCountByLocation({}, 18500)).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Alert, Button } from 'antd';
+import { Alert, Button, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -11,21 +11,31 @@ import { canDoBackendGated } from '@/utils/permissions';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { BlockFilterSelect } from './BlockFilterSelect';
 import GaplamaTruckForm from './GaplamaTruckForm';
-import { sumByLocation, trucksForDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
-import type { IGaplamaTruck, IGreenhouseBlock } from '@/types';
+import { sumByLocation, trucksForDay, isPartialTruck, truckCountByLocation, truckTotalKg } from './GaplamaTab.totals';
+import type { IGaplamaDay, IGaplamaTruck, IGreenhouseBlock } from '@/types';
 import type { IPlanGridRow } from '@/pages/export/WeeklyPlanGrid.rows';
 import './sera.css';
 
 dayjs.extend(isoWeek);
 
 const DAY_COUNT = 7;
+const LOCATION_KEY_FALLBACK = 'other';
+
+/** Grouped-thousands display, kept consistent with the rest of the app
+ * (DraftComposerModal, salesReportUtils, etc. all use the same locale). */
+function fmt(kg: number): string {
+  return kg.toLocaleString('ru-RU');
+}
 
 export default function GaplamaTab(): JSX.Element {
   const { t } = useTranslation();
   const { user } = useAuth();
   const isReadOnly = useSeasonReadOnly();
   const [weekOffset, setWeekOffset] = useState(0);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState(dayjs().format('YYYY-MM-DD'));
+  const [mode, setMode] = useState<'day' | 'week'>('day');
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [foldOpen, setFoldOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<IGaplamaTruck | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<number[] | null>(null);
@@ -63,7 +73,9 @@ export default function GaplamaTab(): JSX.Element {
     (b: IGreenhouseBlock) => b.parent === null && b.is_active,
   );
   const blocks = topLevelBlocks.filter(
-    (b) => selectedBlockIds === null || selectedBlockIds.includes(b.id),
+    (b) =>
+      (selectedBlockIds === null || selectedBlockIds.includes(b.id))
+      && (selectedLocation === null || (b.location_name ?? LOCATION_KEY_FALLBACK) === selectedLocation),
   );
 
   // BlockFilterSelect (already on the branch, built for Önümçilik) takes
@@ -83,8 +95,14 @@ export default function GaplamaTab(): JSX.Element {
     late_edit_active: false,
   }));
 
-  // Scoped to the displayed week AND the active block filter — every grid
-  // row, footer total and location subtotal reads from this, so a block
+  // Independent of the block filter — a block removed from view by the
+  // block picker must stay pickable as a location to bring it back.
+  const allLocationNames = Array.from(
+    new Set(topLevelBlocks.map((b) => b.location_name ?? LOCATION_KEY_FALLBACK)),
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Scoped to the displayed week AND the active block/location filter — every
+  // grid row, footer total and location subtotal reads from this, so a
   // filter stays consistent everywhere instead of the per-block rows
   // respecting it while the aggregate rows silently summed the whole board.
   const visibleBlockIds = new Set(blocks.map((b) => b.id));
@@ -111,7 +129,7 @@ export default function GaplamaTab(): JSX.Element {
   const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
 
   const rowsByBlock = useMemo(() => {
-    const map: Record<number, typeof boardDays> = {};
+    const map: Record<number, IGaplamaDay[]> = {};
     for (const row of boardDays) {
       map[row.block_id] = map[row.block_id] ?? [];
       map[row.block_id].push(row);
@@ -125,7 +143,6 @@ export default function GaplamaTab(): JSX.Element {
   // IGaplamaDay.location carries the same name string this groups by, so the
   // two must match on the name, not the id). A block with no location falls
   // into its own trailing "other" group instead of being silently dropped.
-  const LOCATION_KEY_FALLBACK = 'other';
   const blocksByLocation = useMemo(() => {
     const map: Record<string, IGreenhouseBlock[]> = {};
     for (const block of blocks) {
@@ -147,6 +164,10 @@ export default function GaplamaTab(): JSX.Element {
     return location === LOCATION_KEY_FALLBACK
       ? t('tir_takip.gaplama.location_other')
       : location;
+  }
+
+  function weekdayLabel(date: string): string {
+    return t(`tir_takip.gaplama.weekday_${dayjs(date).isoWeekday()}`);
   }
 
   // Resolved against the RAW, unfiltered board — never `boardDays` (also
@@ -193,35 +214,213 @@ export default function GaplamaTab(): JSX.Element {
     setEditingTruck(null);
   }
 
-  const weekHasTrucks = trucks.length > 0;
+  // Moves selectedDay one day at a time and only rolls weekOffset on
+  // crossing a week boundary — the day-stepper replaces clicking a column
+  // header, which was never discoverable (owner's redesign brief).
+  function stepDay(delta: 1 | -1) {
+    const next = dayjs(selectedDay).add(delta, 'day');
+    const currentMonday = dayjs(selectedDay).isoWeekday(1).format('YYYY-MM-DD');
+    const nextMonday = next.isoWeekday(1).format('YYYY-MM-DD');
+    if (nextMonday !== currentMonday) setWeekOffset((w) => w + delta);
+    setSelectedDay(next.format('YYYY-MM-DD'));
+  }
+
+  // ─── Day mode ───────────────────────────────────────────────────────────
+  const selectedDayRowByBlock: Record<number, IGaplamaDay | undefined> = {};
+  for (const b of blocks) {
+    selectedDayRowByBlock[b.id] = rowsByBlock[b.id]?.find((r) => r.date === selectedDay);
+  }
+  // A block folds away when there's nothing to show for it today — no row at
+  // all, or a row with neither an available remainder nor an overload. An
+  // overloaded block (over_kg > 0) must NOT fold — that's the red alert this
+  // redesign exists to surface, not hide.
+  function isEmptyToday(block: IGreenhouseBlock): boolean {
+    const row = selectedDayRowByBlock[block.id];
+    return !row || (row.available_kg === 0 && row.over_kg === 0);
+  }
+  const foldedBlocks = blocks.filter(isEmptyToday);
 
   return (
     <div className="sera-gaplama-tab">
       <div className="sera-gaplama-header">
-        <Button onClick={() => setWeekOffset((w) => w - 1)}>◀ {t('tir_takip.gaplama.prev_week')}</Button>
-        <Button type={weekOffset === 0 ? 'primary' : 'default'} onClick={() => setWeekOffset(0)}>
-          {t('tir_takip.gaplama.this_week')}
-        </Button>
-        <Button onClick={() => setWeekOffset((w) => w + 1)}>{t('tir_takip.gaplama.next_week')} ▶</Button>
+        <Select
+          allowClear
+          placeholder={t('tir_takip.gaplama.location_all')}
+          style={{ minWidth: 160 }}
+          value={selectedLocation ?? undefined}
+          onChange={(v) => setSelectedLocation(v ?? null)}
+          options={allLocationNames.map((loc) => ({ value: loc, label: locationLabel(loc) }))}
+        />
         <BlockFilterSelect rows={filterRows} value={selectedBlockIds} onChange={setSelectedBlockIds} />
+        <span className="sera-gaplama-daystepper">
+          <Button onClick={() => stepDay(-1)}>◀</Button>
+          <span data-testid="gaplama-current-day" data-day={selectedDay}>
+            {weekdayLabel(selectedDay)} {dayjs(selectedDay).format('DD.MM')}
+          </span>
+          <Button onClick={() => stepDay(1)}>▶</Button>
+        </span>
+        <span className="sera-gaplama-mode-toggle">
+          <Button type={mode === 'day' ? 'primary' : 'default'} onClick={() => setMode('day')}>
+            {t('tir_takip.gaplama.mode_day')}
+          </Button>
+          <Button type={mode === 'week' ? 'primary' : 'default'} onClick={() => setMode('week')}>
+            {t('tir_takip.gaplama.mode_week')}
+          </Button>
+        </span>
+        <span className="sera-gaplama-header-spacer" />
+        {canCreate && !formOpen && (
+          <Button type="primary" disabled={!weekContainsToday} onClick={openCreateForm}>
+            + {t('tir_takip.gaplama.open_truck')}
+          </Button>
+        )}
+      </div>
+
+      <div className="sera-gaplama-formula">
+        {t('tir_takip.gaplama.formula_hint')}
       </div>
 
       {isError ? (
         <Alert type="error" message={t('tir_takip.gaplama.error_load')} showIcon />
       ) : isLoading ? (
         <div>{t('tir_takip.gaplama.loading')}</div>
+      ) : mode === 'day' ? (
+        <table className="sera-gaplama-grid">
+          <thead>
+            <tr>
+              <th>{t('tir_takip.gaplama.block')}</th>
+              <th>{t('tir_takip.gaplama.available')}</th>
+              <th>{t('tir_takip.gaplama.plan')}</th>
+              <th>{t('tir_takip.gaplama.col_loaded')}</th>
+              <th>{t('tir_takip.gaplama.col_carry')}</th>
+              <th>{t('tir_takip.gaplama.col_trucks')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {locationOrder.map((location) => {
+              const visibleBlocksInLoc = blocksByLocation[location].filter((b) => !isEmptyToday(b));
+              if (visibleBlocksInLoc.length === 0) return null;
+              const subtotalAvailable = visibleBlocksInLoc.reduce(
+                (sum, b) => sum + (selectedDayRowByBlock[b.id]?.available_kg ?? 0), 0,
+              );
+              const subtotalPlan = visibleBlocksInLoc.reduce(
+                (sum, b) => sum + (selectedDayRowByBlock[b.id]?.plan_kg ?? 0), 0,
+              );
+              const subtotalLoaded = visibleBlocksInLoc.reduce(
+                (sum, b) => sum + (selectedDayRowByBlock[b.id]?.loaded_kg ?? 0), 0,
+              );
+              const subtotalCarried = visibleBlocksInLoc.reduce(
+                (sum, b) => sum + (selectedDayRowByBlock[b.id]?.carried_in_kg ?? 0), 0,
+              );
+              return (
+                <Fragment key={location}>
+                  <tr className="sera-gaplama-location-header">
+                    <td colSpan={6}>{locationLabel(location)}</td>
+                  </tr>
+                  {visibleBlocksInLoc.map((block) => {
+                    const row = selectedDayRowByBlock[block.id];
+                    const available = row?.available_kg ?? 0;
+                    const over = row?.over_kg ?? 0;
+                    const plan = row?.plan_kg ?? 0;
+                    const loaded = row?.loaded_kg ?? 0;
+                    const carried = row?.carried_in_kg ?? 0;
+                    const carriedOut = row?.carried_out_kg ?? 0;
+                    const isOver = over > 0;
+                    const isFull = !isOver && available >= truckCapacityKg;
+                    const cellClass = isOver ? 'sera-gaplama-cell-over' : isFull ? 'sera-gaplama-cell-full' : undefined;
+                    // Oldest bucket first, one line per origin day — matches
+                    // the FIFO consumption order (design spec §3①).
+                    const carryTooltip = (row?.carry_in_breakdown ?? [])
+                      .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: ${fmt(b.kg)} kg (${b.age_days}d)`)
+                      .join('\n');
+                    return (
+                      <tr key={block.id}>
+                        <td
+                          className="sera-gaplama-block-name"
+                          title={t('tir_takip.gaplama.carry_window', { days: block.carry_days })}
+                        >
+                          {block.name || block.code}
+                        </td>
+                        <td className={cellClass}>
+                          {isOver ? t('tir_takip.gaplama.over_tooltip', { kg: over }) : fmt(available)}
+                          {carriedOut > 0 && (
+                            <div className="sera-gaplama-carry-out">{fmt(carriedOut)} →</div>
+                          )}
+                        </td>
+                        <td>{fmt(plan)}</td>
+                        <td>{fmt(loaded)}</td>
+                        <td
+                          className={carried > 0 ? 'sera-gaplama-carry-in' : undefined}
+                          title={carryTooltip || undefined}
+                        >
+                          {carried > 0 ? `+${fmt(carried)}` : '—'}
+                        </td>
+                        <td>{Math.floor(available / truckCapacityKg)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="sera-gaplama-location-subtotal">
+                    <td>{t('tir_takip.gaplama.location_subtotal')}</td>
+                    <td>{fmt(subtotalAvailable)}</td>
+                    <td>{fmt(subtotalPlan)}</td>
+                    <td>{fmt(subtotalLoaded)}</td>
+                    <td>{subtotalCarried > 0 ? `+${fmt(subtotalCarried)}` : '—'}</td>
+                    <td>{truckCountByLocation({ [location]: subtotalAvailable }, truckCapacityKg)}</td>
+                  </tr>
+                </Fragment>
+              );
+            })}
+            {foldedBlocks.length > 0 && (
+              <>
+                <tr className="sera-gaplama-folded-row" onClick={() => setFoldOpen((o) => !o)}>
+                  <td colSpan={6}>
+                    {foldOpen ? '▾' : '▸'} {foldedBlocks.length} — {t('tir_takip.gaplama.folded_blocks', { count: foldedBlocks.length })}
+                  </td>
+                </tr>
+                {foldOpen && foldedBlocks.map((block) => (
+                  <tr key={`folded-${block.id}`} className="sera-gaplama-folded-block">
+                    <td className="sera-gaplama-block-name">
+                      {block.name || block.code} ({locationLabel(block.location_name ?? LOCATION_KEY_FALLBACK)})
+                    </td>
+                    <td colSpan={5}>—</td>
+                  </tr>
+                ))}
+              </>
+            )}
+          </tbody>
+          <tfoot>
+            <tr className="sera-gaplama-footer-tir-sany">
+              <td>{t('tir_takip.gaplama.tir_sany')}</td>
+              <td colSpan={5}>
+                {truckCountByLocation(
+                  Object.fromEntries(locationOrder.map((loc) => [
+                    loc,
+                    blocksByLocation[loc].reduce((sum, b) => sum + (selectedDayRowByBlock[b.id]?.available_kg ?? 0), 0),
+                  ])),
+                  truckCapacityKg,
+                )}
+              </td>
+            </tr>
+            <tr className="sera-gaplama-footer-trucks">
+              <td>📦 {t('tir_takip.gaplama.opened_trucks')}</td>
+              <td colSpan={5}>
+                {trucksForDay(trucks, selectedDay).map((tr) => (
+                  <div key={tr.id} className="sera-gaplama-truck-chip">
+                    {tr.shipment_code} · {fmt(truckTotalKg(tr))} kg
+                  </div>
+                ))}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       ) : (
         <table className="sera-gaplama-grid">
           <thead>
             <tr>
               <th>{t('tir_takip.gaplama.block')}</th>
               {days.map((d) => (
-                <th
-                  key={d}
-                  className={selectedDay === d ? 'sera-gaplama-day-selected' : ''}
-                  onClick={() => setSelectedDay(selectedDay === d ? null : d)}
-                >
-                  {dayjs(d).format('DD.MM')}
+                <th key={d} className={d === today ? 'sera-gaplama-day-today' : ''}>
+                  <div className="sera-gaplama-weekday">{weekdayLabel(d)}</div>
+                  <div>{dayjs(d).format('DD.MM')}</div>
                 </th>
               ))}
               <th>{t('tir_takip.gaplama.week_total')}</th>
@@ -238,121 +437,94 @@ export default function GaplamaTab(): JSX.Element {
                 </tr>
                 {blocksByLocation[location].map((block: IGreenhouseBlock) => (
                   <tr key={block.id}>
-                    <td className="sera-gaplama-block-name">{block.name || block.code}</td>
+                    <td
+                      className="sera-gaplama-block-name"
+                      title={t('tir_takip.gaplama.carry_window', { days: block.carry_days })}
+                    >
+                      {block.name || block.code}
+                    </td>
                     {days.map((d) => {
                       const row = rowsByBlock[block.id]?.find((r) => r.date === d);
+                      const available = row?.available_kg ?? 0;
                       const over = row?.over_kg ?? 0;
-                      const carried = row?.carried_in_kg ?? 0;
-                      const carriedOut = row?.carried_out_kg ?? 0;
-                      // Oldest bucket first, one line per origin day — matches
-                      // the FIFO consumption order (design spec §3①).
-                      const carryTooltip = (row?.carry_in_breakdown ?? [])
-                        .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: ${b.kg} kg`)
-                        .join('\n');
+                      const isOver = over > 0;
+                      const isFull = !isOver && available >= truckCapacityKg;
+                      const cellClass = isOver ? 'sera-gaplama-cell-over' : isFull ? 'sera-gaplama-cell-full' : undefined;
+                      // The four stacked numbers the old grid showed per cell
+                      // (available/over, carry-in breakdown, carry-out, plan
+                      // hint) are folded into this one title attribute —
+                      // the owner's redesign keeps the week grid to one
+                      // number per cell, everything else on hover.
+                      const titleLines = [
+                        row && row.plan_kg > 0 ? t('tir_takip.gaplama.plan_hint', { kg: row.plan_kg }) : null,
+                        row && row.carried_in_kg > 0
+                          ? (row.carry_in_breakdown ?? [])
+                            .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: +${fmt(b.kg)} kg`)
+                            .join('\n')
+                          : null,
+                        row && row.carried_out_kg > 0 ? `${fmt(row.carried_out_kg)} kg →` : null,
+                      ].filter(Boolean).join('\n');
                       return (
-                        <td key={d}>
-                          {over > 0 ? (
-                            <span title={t('tir_takip.gaplama.over_tooltip', { kg: over })}>0 ⚠</span>
-                          ) : (
-                            <span>{row?.available_kg ?? 0}</span>
-                          )}
-                          {carried > 0 && (
-                            <div className="sera-gaplama-carry-in" title={carryTooltip}>+{carried}</div>
-                          )}
-                          {carriedOut > 0 && (
-                            <div className="sera-gaplama-carry-out">{carriedOut} →</div>
-                          )}
-                          {row && row.plan_kg > 0 && (
-                            <div className="sera-gaplama-plan-hint">
-                              {t('tir_takip.gaplama.plan_hint', { kg: row.plan_kg })}
-                            </div>
-                          )}
+                        <td key={d} className={cellClass} title={titleLines || undefined}>
+                          {isOver ? t('tir_takip.gaplama.over_tooltip', { kg: over }) : fmt(available)}
                         </td>
                       );
                     })}
-                    <td>{weekTotalsByBlock[block.id] ?? 0}</td>
+                    <td>{fmt(weekTotalsByBlock[block.id] ?? 0)}</td>
                   </tr>
                 ))}
                 <tr className="sera-gaplama-location-subtotal">
                   <td>{t('tir_takip.gaplama.location_subtotal')}</td>
                   {days.map((d) => (
-                    <td key={d}>{sumByLocation(boardDays, d, 'available_kg')[location] ?? 0}</td>
+                    <td key={d}>{fmt(sumByLocation(boardDays, d, 'available_kg')[location] ?? 0)}</td>
                   ))}
                   <td>
-                    {blocksByLocation[location].reduce(
+                    {fmt(blocksByLocation[location].reduce(
                       (sum: number, b: IGreenhouseBlock) => sum + (weekTotalsByBlock[b.id] ?? 0),
                       0,
-                    )}
+                    ))}
                   </td>
                 </tr>
               </Fragment>
             ))}
           </tbody>
           <tfoot>
-            <tr className="sera-gaplama-footer-jemi-plan">
-              <td>{t('tir_takip.gaplama.jemi_plan')}</td>
+            <tr className="sera-gaplama-footer-tir-sany">
+              <td>{t('tir_takip.gaplama.tir_sany')}</td>
               {days.map((d) => (
-                <td key={d}>{weekTotal(boardDays.filter((r) => r.date === d), 'plan_kg')}</td>
-              ))}
-              <td>{weekTotal(boardDays, 'plan_kg')}</td>
-            </tr>
-            {locationOrder.map((location) => (
-              <tr key={`tir-sany-${location}`} className="sera-gaplama-footer-tir-sany">
-                <td>
-                  {t('tir_takip.gaplama.tir_sany')} — {locationLabel(location)}
+                <td key={d}>
+                  {truckCountByLocation(sumByLocation(boardDays, d, 'available_kg'), truckCapacityKg)}
                 </td>
-                {days.map((d) => {
-                  const planKg = sumByLocation(boardDays, d, 'plan_kg')[location] ?? 0;
-                  const count = planKg > 0 ? (planKg / truckCapacityKg).toFixed(2) : '—';
-                  return <td key={d}>{count}</td>;
-                })}
-                <td>—</td>
-              </tr>
-            ))}
+              ))}
+              <td>
+                {truckCountByLocation(
+                  Object.fromEntries(locationOrder.map((loc) => [
+                    loc,
+                    blocksByLocation[loc].reduce((sum, b) => sum + (weekTotalsByBlock[b.id] ?? 0), 0),
+                  ])),
+                  truckCapacityKg,
+                )}
+              </td>
+            </tr>
             <tr className="sera-gaplama-footer-trucks">
               <td>📦 {t('tir_takip.gaplama.opened_trucks')}</td>
               {days.map((d) => (
                 <td key={d}>
                   {trucksForDay(trucks, d).map((tr) => (
                     <div key={tr.id} className="sera-gaplama-truck-chip">
-                      {tr.shipment_code} · {truckTotalKg(tr)} kg
+                      {tr.shipment_code} · {fmt(truckTotalKg(tr))} kg
                     </div>
                   ))}
                 </td>
               ))}
               <td>{trucks.length} {t('tir_takip.gaplama.trucks_unit')}</td>
             </tr>
-            <tr className="sera-gaplama-footer-carry-in">
-              <td>{t('tir_takip.gaplama.duynki_galyndy')}</td>
-              {days.map((d) => {
-                // weekTotal's field union is plan/loaded/available_kg only
-                // (GaplamaTab.totals.ts) — carried_in_kg is summed inline.
-                const carried = boardDays
-                  .filter((r) => r.date === d)
-                  .reduce((sum, r) => sum + r.carried_in_kg, 0);
-                return <td key={d}>{carried > 0 ? `+${carried}` : '—'}</td>;
-              })}
-              <td>—</td>
-            </tr>
-            <tr className="sera-gaplama-footer-galan">
-              <td>{t('tir_takip.gaplama.galan')}</td>
-              {days.map((d) => (
-                <td key={d}>{weekTotal(boardDays.filter((r) => r.date === d), 'available_kg')}</td>
-              ))}
-              <td>{Object.values(weekTotalsByBlock).reduce((sum, kg) => sum + kg, 0)}</td>
-            </tr>
           </tfoot>
         </table>
       )}
 
       <div className="sera-gaplama-truck-open">
-        {!formOpen ? (
-          canCreate && (
-            <Button type="primary" disabled={!weekContainsToday} onClick={openCreateForm}>
-              + {t('tir_takip.gaplama.open_truck')}
-            </Button>
-          )
-        ) : (
+        {formOpen && (
           <GaplamaTruckForm
             // Forces a remount whenever "what we're editing" changes —
             // without this, clicking Üýtget on a truck while the create
@@ -378,104 +550,63 @@ export default function GaplamaTab(): JSX.Element {
         )}
       </div>
 
-      {weekHasTrucks && (
-        <>
-          <div className="sera-gaplama-summary">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t('tir_takip.gaplama.block')}</th>
-                  <th>{t('tir_takip.gaplama.plan')}</th>
-                  <th>{t('tir_takip.gaplama.loaded')}</th>
-                  <th>{t('tir_takip.gaplama.available')}</th>
+      <div className="sera-gaplama-truck-list">
+        <table>
+          <thead>
+            <tr>
+              <th>{t('tir_takip.gaplama.code')}</th>
+              <th>{t('tir_takip.gaplama.blocks')}</th>
+              <th>{t('tir_takip.gaplama.kg')}</th>
+              <th>{t('tir_takip.gaplama.status')}</th>
+              <th>{t('tir_takip.gaplama.date')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {trucks.map((truck) => {
+              // Üýtget writes through TWO server-side gates: POST
+              // block-sources (shipment.create) then PATCH weight_net
+              // (shipment.edit + a field grant) — visibility must
+              // match both, or a create-but-not-edit role can rewrite
+              // the truck's split, then 403 on the weight sync.
+              const canEdit = canCreate
+                && canDoBackendGated(user, 'shipment', 'edit')
+                && truck.status_code === 'draft'
+                && truck.country == null && truck.customer == null;
+              return (
+                <tr key={truck.id}>
+                  <td>
+                    {truck.shipment_code}
+                    {truck.export_code && ` (${truck.export_code})`}
+                  </td>
+                  <td>
+                    {truck.block_sources
+                      .map((s) => `${s.block_code} (${fmt(s.weight_kg)} kg)`)
+                      .join(' + ')}
+                  </td>
+                  <td>
+                    {fmt(truckTotalKg(truck))}
+                    {isPartialTruck(truck, truckCapacityKg) && (
+                      <span className="sera-gaplama-partial-tag">
+                        {t('tir_takip.gaplama.partial')}
+                      </span>
+                    )}
+                  </td>
+                  <td>{truck.status_display}</td>
+                  <td>{truck.date}</td>
+                  <td>
+                    {canEdit && (
+                      <Button size="small" onClick={() => openEditForm(truck)}>
+                        {t('tir_takip.gaplama.edit')}
+                      </Button>
+                    )}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {blocks.map((block: IGreenhouseBlock) => {
-                  const rows = (rowsByBlock[block.id] ?? []).filter(
-                    (r) => selectedDay === null || r.date === selectedDay,
-                  );
-                  // With no day selected this is a week total — read
-                  // week_totals (D8/I1), not a sum of available_kg across
-                  // days. With ONE day selected, `rows` already holds just
-                  // that day's own row, so summing it is a correct no-op.
-                  const available = selectedDay === null
-                    ? weekTotalsByBlock[block.id] ?? 0
-                    : weekTotal(rows, 'available_kg');
-                  return (
-                    <tr key={block.id}>
-                      <td>{block.name || block.code}</td>
-                      <td>{weekTotal(rows, 'plan_kg')}</td>
-                      <td>{weekTotal(rows, 'loaded_kg')}</td>
-                      <td>{available}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="sera-gaplama-truck-list">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t('tir_takip.gaplama.code')}</th>
-                  <th>{t('tir_takip.gaplama.blocks')}</th>
-                  <th>{t('tir_takip.gaplama.kg')}</th>
-                  <th>{t('tir_takip.gaplama.status')}</th>
-                  <th>{t('tir_takip.gaplama.date')}</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {trucks
-                  .filter((tr) => selectedDay === null || tr.date === selectedDay)
-                  .map((truck) => {
-                    // Üýtget writes through TWO server-side gates: POST
-                    // block-sources (shipment.create) then PATCH weight_net
-                    // (shipment.edit + a field grant) — visibility must
-                    // match both, or a create-but-not-edit role can rewrite
-                    // the truck's split, then 403 on the weight sync.
-                    const canEdit = canCreate
-                      && canDoBackendGated(user, 'shipment', 'edit')
-                      && truck.status_code === 'draft'
-                      && truck.country == null && truck.customer == null;
-                    return (
-                      <tr key={truck.id}>
-                        <td>
-                          {truck.shipment_code}
-                          {truck.export_code && ` (${truck.export_code})`}
-                        </td>
-                        <td>
-                          {truck.block_sources
-                            .map((s) => `${s.block_code} (${s.weight_kg} kg)`)
-                            .join(' + ')}
-                        </td>
-                        <td>
-                          {truckTotalKg(truck)}
-                          {isPartialTruck(truck, truckCapacityKg) && (
-                            <span className="sera-gaplama-partial-tag">
-                              {t('tir_takip.gaplama.partial')}
-                            </span>
-                          )}
-                        </td>
-                        <td>{truck.status_display}</td>
-                        <td>{truck.date}</td>
-                        <td>
-                          {canEdit && (
-                            <Button size="small" onClick={() => openEditForm(truck)}>
-                              {t('tir_takip.gaplama.edit')}
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

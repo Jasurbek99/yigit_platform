@@ -44,3 +44,16 @@ export function weekTotal(
     .filter((d) => blockId === undefined || d.block_id === blockId)
     .reduce((sum, d) => sum + d[field], 0);
 }
+
+/**
+ * Truck count from a kg-per-location map — floors EACH location's own kg
+ * before summing (D16: two locations with 10 000 kg each is not one truck,
+ * a truck can't load across locations), never `Math.floor(totalKg / cap)`.
+ */
+export function truckCountByLocation(
+  kgByLocation: Record<string, number>,
+  truckCapacityKg: number,
+): number {
+  if (truckCapacityKg <= 0) return 0;
+  return Object.values(kgByLocation).reduce((sum, kg) => sum + Math.floor(kg / truckCapacityKg), 0);
+}

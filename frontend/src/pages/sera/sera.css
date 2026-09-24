@@ -802,12 +802,42 @@
    of this file (11-14px type, --sera-* tokens, amber for "today"/partial,
    emerald for totals). */
 
+/* Task 6 redesign: one full-width bar above the table — location filter,
+   block filter, day stepper, Gün/Hepde mode toggle, a spacer, then
+   + Tır Aç pushed to the far right. Not a sidebar, not stacked. */
 .sera-page .sera-gaplama-header {
   display: flex;
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.sera-page .sera-gaplama-header-spacer {
+  flex: 1 1 auto;
+}
+
+.sera-page .sera-gaplama-daystepper,
+.sera-page .sera-gaplama-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sera-page .sera-gaplama-daystepper > span {
+  min-width: 72px;
+  text-align: center;
+  font-weight: 500;
+  color: var(--sera-text-soft);
+  font-size: 12px;
+}
+
+/* The formula the redesign puts on screen instead of leaving it only in the
+   design doc (docs/obsidian/screens/gaplama.md). */
+.sera-page .sera-gaplama-formula {
+  margin-bottom: 8px;
+  color: var(--sera-text-faint);
+  font-size: 11px;
 }
 
 .sera-page .sera-gaplama-grid {
@@ -827,18 +857,38 @@
   background: var(--sera-surface);
   color: var(--sera-text-faint);
   font-weight: 500;
-  cursor: pointer;
 }
 
 .sera-page .sera-gaplama-grid td:first-child {
   text-align: left;
 }
 
-/* Clicked to filter the summary/truck-list below by that day — same amber
-   as --sera-today, so "selected" reads consistently with "today" elsewhere
-   in the sera pages. */
-.sera-page .sera-gaplama-day-selected {
+/* Week grid only: the column whose date is today — same amber as
+   --sera-today used elsewhere in the sera pages. */
+.sera-page .sera-gaplama-day-today {
   background: var(--sera-today);
+}
+
+.sera-page .sera-gaplama-weekday {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sera-text-faint);
+}
+
+/* Two colours, not four (owner's redesign call) — green when a whole truck
+   is available, red when the block is overloaded. Everything else stays
+   plain, no amber/grey tiers. Used on both the day table's Boş cell and the
+   week grid's per-day cell. */
+.sera-page .sera-gaplama-cell-full {
+  background: #ecfdf5;
+  color: var(--sera-accent);
+  font-weight: 600;
+}
+
+.sera-page .sera-gaplama-cell-over {
+  background: #fef2f2;
+  color: #dc2626;
+  font-weight: 600;
 }
 
 .sera-page .sera-gaplama-location-header td {
@@ -853,25 +903,19 @@
   font-weight: 500;
 }
 
-/* Carried-in remainder from earlier days, shown as a small "+N" under the
-   day's available kg. */
+/* Day table's Geçen (carried-in) column — the origin-day breakdown moves to
+   the title tooltip (FIFO order, design spec §3①). */
 .sera-page .sera-gaplama-carry-in {
-  font-size: 10px;
   color: #059669;
   cursor: help;
 }
 
 /* This cell's own unclaimed remainder moving on to tomorrow ("N →") — moved,
-   not unpacked (design spec §3①). Amber, not the carry-in green, so the two
-   directions read as distinct at a glance. */
+   not unpacked (design spec §3①). Nested under the day table's Boş cell,
+   amber so the two directions read as distinct at a glance. */
 .sera-page .sera-gaplama-carry-out {
   font-size: 10px;
   color: #d97706;
-}
-
-.sera-page .sera-gaplama-plan-hint {
-  font-size: 10px;
-  color: var(--sera-text-faint);
 }
 
 .sera-page .sera-gaplama-location-subtotal td {
@@ -880,16 +924,30 @@
   font-weight: 600;
 }
 
-.sera-page .sera-gaplama-footer-jemi-plan td,
+/* Single collapsed row for every block with nothing available today
+   (owner's redesign: "fewer numbers by default") — click to expand. */
+.sera-page .sera-gaplama-folded-row {
+  cursor: pointer;
+  color: var(--sera-text-faint);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-folded-row:hover {
+  background: var(--sera-surface);
+}
+
+.sera-page .sera-gaplama-folded-block td {
+  color: var(--sera-text-faint);
+  font-size: 11px;
+}
+
 .sera-page .sera-gaplama-footer-tir-sany td,
-.sera-page .sera-gaplama-footer-trucks td,
-.sera-page .sera-gaplama-footer-carry-in td,
-.sera-page .sera-gaplama-footer-galan td {
+.sera-page .sera-gaplama-footer-trucks td {
   border-top: 1px solid var(--sera-border);
   font-size: 11px;
 }
 
-.sera-page .sera-gaplama-footer-galan td {
+.sera-page .sera-gaplama-footer-tir-sany td {
   font-weight: 700;
   color: var(--sera-accent);
 }
@@ -909,20 +967,16 @@
   margin: 12px 0;
 }
 
-.sera-page .sera-gaplama-summary,
 .sera-page .sera-gaplama-truck-list {
   margin-top: 16px;
 }
 
-.sera-page .sera-gaplama-summary table,
 .sera-page .sera-gaplama-truck-list table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
 
-.sera-page .sera-gaplama-summary th,
-.sera-page .sera-gaplama-summary td,
 .sera-page .sera-gaplama-truck-list th,
 .sera-page .sera-gaplama-truck-list td {
   border-bottom: 1px solid var(--sera-border);
@@ -930,7 +984,6 @@
   text-align: left;
 }
 
-.sera-page .sera-gaplama-summary th,
 .sera-page .sera-gaplama-truck-list th {
   color: var(--sera-text-faint);
   font-weight: 500;

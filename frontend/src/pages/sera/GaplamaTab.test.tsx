@@ -33,6 +33,33 @@ const NOT_TODAY = TODAY === THIS_MONDAY
   ? dayjs(THIS_MONDAY).add(1, 'day').format('YYYY-MM-DD')
   : THIS_MONDAY;
 
+// Task 6 numbers get a thousands separator (toLocaleString('ru-RU'), which
+// inserts a non-breaking/narrow space every 3 digits — "2 000", not "2000").
+// Strip every non-digit before comparing so the underlying kg value being
+// asserted never has to change, only how a test reads formatted text.
+function digits(text: string | null | undefined): string {
+  return (text ?? '').replace(/\D/g, '');
+}
+
+// The day-stepper (◀ current-day ▶, Task 6) moves `selectedDay` one day at a
+// time and only rolls `weekOffset` on crossing a week boundary — walking one
+// click at a time (rather than jumping) exercises exactly that same path a
+// real user's clicks would.
+async function stepToDay(target: string) {
+  const start = screen.getByTestId('gaplama-current-day').getAttribute('data-day') ?? '';
+  let cursor = dayjs(start);
+  const targetDay = dayjs(target);
+  const forward = targetDay.isAfter(cursor, 'day');
+  const button = screen.getByRole('button', { name: forward ? '▶' : '◀' });
+  while (!cursor.isSame(targetDay, 'day')) {
+    fireEvent.click(button);
+    cursor = forward ? cursor.add(1, 'day') : cursor.subtract(1, 'day');
+    await waitFor(() => {
+      expect(screen.getByTestId('gaplama-current-day').getAttribute('data-day')).toBe(cursor.format('YYYY-MM-DD'));
+    });
+  }
+}
+
 describe('GaplamaTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -111,6 +138,10 @@ describe('GaplamaTab', () => {
       user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
     });
     const { container } = renderTab();
+    // Task 6: the per-day location-subtotal-by-column layout lives in the
+    // week grid now (day mode shows exactly one day, with its own subtotal
+    // row scoped to that single day) — switch modes to reach it.
+    fireEvent.click(await screen.findByRole('button', { name: /tir_takip\.gaplama\.mode_week/ }));
 
     // Column order: [label, Mon..Sun, week total]. The board fixture's only
     // row is block 1 / this Monday / available_kg 8000, under location
@@ -121,7 +152,7 @@ describe('GaplamaTab', () => {
       const subtotalRow = container.querySelector('tr.sera-gaplama-location-subtotal');
       expect(subtotalRow).not.toBeNull();
       const mondayCell = subtotalRow?.querySelectorAll('td')[1];
-      expect(mondayCell?.textContent).toBe('8000');
+      expect(digits(mondayCell?.textContent)).toBe('8000');
     });
   });
 
@@ -304,10 +335,12 @@ describe('GaplamaTab', () => {
     });
 
     const { container } = renderTab();
+    // Task 6: the trailing week-total column only exists on the week grid.
+    fireEvent.click(await screen.findByRole('button', { name: /tir_takip\.gaplama\.mode_week/ }));
     await waitFor(() => {
       const row = container.querySelector('tbody tr:not(.sera-gaplama-location-header):not(.sera-gaplama-location-subtotal)');
       const weekCell = row?.querySelectorAll('td')[row.querySelectorAll('td').length - 1];
-      expect(weekCell?.textContent).toBe('8000');
+      expect(digits(weekCell?.textContent)).toBe('8000');
     });
   });
 
@@ -340,12 +373,20 @@ describe('GaplamaTab', () => {
     });
 
     const { container } = renderTab();
+    // Task 6: day mode's own "Geçen" (carried-in) column keeps the
+    // carry-in tooltip and class — the week grid folds all four stacked
+    // numbers into one title attribute instead (brief Step 5), so this
+    // data only has a dedicated element in day mode. The fixture is dated
+    // THIS_MONDAY, not necessarily today (whichever day the suite runs),
+    // so navigate the day stepper there first.
+    await screen.findByRole('columnheader', { name: /tir_takip\.gaplama\.available/ });
+    await stepToDay(THIS_MONDAY);
     await waitFor(() => {
       const carryIn = container.querySelector('.sera-gaplama-carry-in');
-      expect(carryIn?.textContent).toContain('2000');
+      expect(digits(carryIn?.textContent)).toBe('2000');
       expect(carryIn?.getAttribute('title')).toContain('01.01');
       const carryOut = container.querySelector('.sera-gaplama-carry-out');
-      expect(carryOut?.textContent).toContain('7000');
+      expect(digits(carryOut?.textContent)).toBe('7000');
     });
   });
 
@@ -445,5 +486,84 @@ describe('GaplamaTab', () => {
 
     const editKgInput = (await screen.findAllByLabelText(/kg/i))[0] as HTMLInputElement;
     expect(editKgInput).toHaveValue(3000); // truck 9's own allocation, not the leftover 1234
+  });
+
+  // ─── Task 6: one table, a day mode and a week mode ──────────────────────
+  // The suite mocks react-i18next's `t` as the identity function (line ~13
+  // above) — every existing test in this file matches accessible names
+  // against the raw `tir_takip.gaplama.*` key path, never translated Turkmen
+  // text, because that's literally all `t()` returns under this mock. The
+  // task-6-brief.md's own draft of these three tests asserts against
+  // translated Turkmen substrings (/Boş/i, /Gün/i, /Hepde/i, /boş ýok/i),
+  // which cannot pass under this file's mock without hardcoding Turkmen text
+  // outside t() — forbidden by the i18n rule. Adapted to the file's real
+  // convention instead; the underlying behavior asserted is unchanged.
+  describe('day/week mode (Task 6)', () => {
+    it('opens on the day mode with the block rows, not the week grid', async () => {
+      renderTab();
+      expect(await screen.findByRole('columnheader', { name: /tir_takip\.gaplama\.available/ })).toBeInTheDocument();
+      // The week grid's date columns must not be on screen in day mode.
+      const mondayHeader = dayjs(THIS_MONDAY).format('DD.MM');
+      expect(screen.queryByRole('columnheader', { name: new RegExp(mondayHeader.replace('.', '\\.')) }))
+        .not.toBeInTheDocument();
+    });
+
+    it('switches to the week grid and back', async () => {
+      renderTab();
+      await screen.findByRole('columnheader', { name: /tir_takip\.gaplama\.available/ });
+      const mondayHeader = new RegExp(dayjs(THIS_MONDAY).format('DD.MM').replace('.', '\\.'));
+
+      fireEvent.click(screen.getByRole('button', { name: /tir_takip\.gaplama\.mode_week/ }));
+      expect(await screen.findByRole('columnheader', { name: mondayHeader })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /tir_takip\.gaplama\.mode_day/ }));
+      await waitFor(() => {
+        expect(screen.queryByRole('columnheader', { name: mondayHeader })).not.toBeInTheDocument();
+      });
+    });
+
+    it('folds away blocks with nothing available', async () => {
+      (useAuth as any).mockReturnValue({
+        user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+      });
+      // Dated TODAY (not THIS_MONDAY) — day mode opens on today by default,
+      // so this fixture needs no day-stepper navigation. Block B has no row
+      // at all for today: the fold rule (isEmpty) treats a missing row the
+      // same as an available_kg-and-over_kg-both-zero row.
+      (api.get as any).mockImplementation((url: string) => {
+        if (url.includes('/export/gaplama/board/')) {
+          return Promise.resolve({
+            data: {
+              days: [{ date: TODAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                       plan_kg: '20000.00', loaded_kg: '12000.00', carried_in_kg: '0.00',
+                       available_kg: '8000.00', over_kg: '0.00' }],
+              trucks: [],
+            },
+          });
+        }
+        if (url.includes('/core/blocks')) {
+          return Promise.resolve({
+            data: { results: [
+              { id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak', carry_days: 7 },
+              { id: 2, code: 'B', name: 'B', parent: null, is_active: true, location_name: 'Dusak', carry_days: 7 },
+            ] },
+          });
+        }
+        if (url.includes('/greenhouse-config')) {
+          return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+        }
+        return Promise.resolve({ data: {} });
+      });
+
+      renderTab();
+      const foldedRow = await screen.findByText(/tir_takip\.gaplama\.folded_blocks/);
+      // Exactly block B folded — block A has kg and stays a normal row.
+      expect(foldedRow.textContent).toContain('1');
+      expect(screen.getByText('A')).toBeInTheDocument();
+      expect(screen.queryByText('B')).not.toBeInTheDocument();
+
+      fireEvent.click(foldedRow);
+      expect(await screen.findByText(/^B /)).toBeInTheDocument();
+    });
   });
 });
