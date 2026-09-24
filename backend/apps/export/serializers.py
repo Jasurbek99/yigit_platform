@@ -1930,7 +1930,7 @@ class ShipmentCreateSerializer(serializers.Serializer):
                 if remaining is None:
                     forecast_errors[f'block_sources[{i}]'] = (
                         f'Block {block_code}: no forecast has been entered for '
-                        f'{ship_date}. Submit a forecast before creating a draft.'
+                        f'{ship_date}. Submit a forecast before creating a shipment.'
                     )
                 elif weight_kg > remaining:
                     forecast_errors[f'block_sources[{i}]'] = (

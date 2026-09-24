@@ -140,7 +140,10 @@ class TaskRuleApiTests(TestCase):
             r for r in self.client.get(self.URL).data if r['id'] == self.draft_rule.id
         )
 
-        self.assertEqual(row['step_display'], 'Draft')
+        # Read the label from the row: a seeded test DB holds the migrated
+        # name (core/0061), a DJANGO_TESTING one holds _make_status's.
+        draft = ShipmentStatusType.objects.get(code='draft')
+        self.assertEqual(row['step_display'], draft.name_en)
         self.assertEqual(row['step_order'], 0)
         self.assertEqual(row['step_phase'], 'DRAFT')
         self.assertEqual(row['assignee_role_display'], 'Export Manager')

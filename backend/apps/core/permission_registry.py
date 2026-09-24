@@ -38,7 +38,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('export.pomidor_dukany',   'Pomidor Dükany (production analysis)'),
     ('export.domestic_sales',   'Domestic Sales'),
     # Draft / assignment workflow (Findings #1 + #2)
-    ('export.drafts',           'Draft Shipments Pool'),
+    ('export.drafts',           'Shipments in Preparation (pool)'),
     ('export.assign',           'Assignment Board'),
     # Pallet manifest (Finding #4 / Phase 2)
     ('export.pallet_manifest',  'Pallet Manifest'),

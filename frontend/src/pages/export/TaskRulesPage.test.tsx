@@ -13,7 +13,7 @@ function rule(overrides: Partial<ITaskRule> = {}): ITaskRule {
   return {
     id: 1,
     step: 'draft',
-    step_display: 'Draft',
+    step_display: 'Preparation',
     step_order: 0,
     step_phase: 'DRAFT',
     title_key: 'tasks.set_destination',
@@ -70,7 +70,7 @@ describe('TaskRulesPage', () => {
     // code-driven kinds table below the catalog (truck allocation is theirs).
     renderPage([rule({ assignee_role_display: 'Document Team' })]);
 
-    expect(screen.getByText('Draft')).toBeInTheDocument();
+    expect(screen.getByText('Preparation')).toBeInTheDocument();
     expect(screen.getByText('Document Team')).toBeInTheDocument();
     expect(screen.getByText('Auto — when fields are filled')).toBeInTheDocument();
     // target_fields arrive as a list and render one tag each.

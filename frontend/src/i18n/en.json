@@ -100,7 +100,7 @@
     "shipment_board": "Board",
     "harvest_board": "Cargo Plan & Remainder",
     "weightmaster": "Weightmaster",
-    "drafts": "Draft Shipments",
+    "drafts": "In Preparation",
     "assign": "Assignment Board",
     "boss_dashboard": "Boss Dashboard",
     "fallback_forecast": "Fallback Forecast",
@@ -737,7 +737,7 @@
     "temperature": "Temperature"
   },
   "shipment_status": {
-    "draft": "Draft",
+    "draft": "Preparation",
     "yuklenme": "Loading Started",
     "gumruk_girish": "TM Customs Entry",
     "gumruk_chykysh": "TM Customs Exit",
@@ -783,14 +783,14 @@
     "submit": "Create",
     "shipment_code_format": "Format: NNNNNNN/YY (e.g. 0201045/25)",
     "toast_success": "Shipment created",
-    "toast_success_draft": "Draft created — assign destination, then promote to Loading",
+    "toast_success_draft": "Created in Preparation — assign destination, then promote to Loading",
     "toast_success_loading": "Shipment created at Loading (skipped prep)",
     "toast_error": "Failed to create shipment",
     "skip_prep": "Skip prep — create directly at Loading",
-    "skip_prep_help": "For urgent reshipments or legacy imports. Default: create as draft and run through prep tasks first.",
+    "skip_prep_help": "For urgent reshipments or legacy imports. Default: create in Preparation and run through prep tasks first.",
     "skip_prep_on": "Skip",
-    "skip_prep_off": "Draft",
-    "draft_mode_alert": "Will be created in Draft. The team picks destination, firms, driver, and starts documents prep — then you promote it to Loading from the Detail page.",
+    "skip_prep_off": "Preparation",
+    "draft_mode_alert": "Will be created in Preparation. The team picks destination, firms, driver, and starts documents prep — then you promote it to Loading from the Detail page.",
     "skip_prep_alert": "Will be created directly at Loading. The shipment code is auto-generated; the loading start time is set immediately. Use only for urgent reshipments and legacy imports."
   },
   "kanban": {
@@ -1331,7 +1331,7 @@
     "close_button": "Close season",
     "open_button": "Open season",
     "close_confirm_title": "Close {{name}}?",
-    "close_confirm_body": "Closing {{name}} will hide {{drafts}} draft shipments, {{in_transit}} shipments in transit, {{open_tasks}} open tasks, and {{unfinished_plans}} weekly plans still missing reported actuals. Nothing is deleted — every record stays exactly as it is and reappears, read-only, whenever {{name}} is selected in the season switcher.",
+    "close_confirm_body": "Closing {{name}} will hide {{drafts}} shipments in preparation, {{in_transit}} shipments in transit, {{open_tasks}} open tasks, and {{unfinished_plans}} weekly plans still missing reported actuals. Nothing is deleted — every record stays exactly as it is and reappears, read-only, whenever {{name}} is selected in the season switcher.",
     "close_confirm_quota_warning": "{{quota_drafts}} quota-usage records in {{name}} are still drafts. Closing the season freezes them, and a frozen record can never be approved — approve or delete them before you close.",
     "close_preview_error": "Failed to load the close preview counts",
     "retry": "Retry",
@@ -1782,7 +1782,7 @@
     "alerts_empty": "No active alerts"
   },
   "phases": {
-    "DRAFT": "Draft",
+    "DRAFT": "Preparation",
     "CUSTOMS": "Customs",
     "LOADING": "Loading",
     "TRANSIT": "In Transit",
@@ -2020,7 +2020,7 @@
     "drag_to_reorder": "Drag to reorder",
     "new_supply": {
       "btn": "Supply column",
-      "tooltip": "Create a new supply draft (blocks + product, no destination)"
+      "tooltip": "Create a new supply plan (blocks + product, no destination)"
     },
     "add_shipment": {
       "btn": "Add shipment",
@@ -2030,11 +2030,11 @@
     },
     "new_destination": {
       "btn": "Destination column",
-      "tooltip": "Create a new destination draft (country + customer, no blocks)"
+      "tooltip": "Create a new destination plan (country + customer, no blocks)"
     },
     "join": {
       "btn": "Join",
-      "tooltip": "Merge a supply draft into a destination draft"
+      "tooltip": "Merge a supply plan into a destination plan"
     },
     "join_bar": {
       "instruction": "Click a supply column, then a destination column to join",
@@ -2042,15 +2042,15 @@
       "cancel": "Cancel",
       "kept": "Kept",
       "removed": "Removed",
-      "need_pair": "Select one supply draft + one destination draft",
-      "only_drafts": "Only draft columns can be joined"
+      "need_pair": "Select one supply plan + one destination plan",
+      "only_drafts": "Only columns in Preparation can be joined"
     },
     "supply_column_legend": {
-      "label": "Supply draft",
-      "tooltip": "Green columns are supply-side drafts (created by Soltanmyrat / warehouse). Use Join to assign them a destination."
+      "label": "Supply plan",
+      "tooltip": "Green columns are supply plans (created by Soltanmyrat / warehouse). Use Join to assign them a destination."
     },
     "supply_modal": {
-      "title": "New Supply Draft",
+      "title": "New Supply Plan",
       "shipment_code_label": "Shipment Code",
       "shipment_code_ph": "e.g. 2505201/26",
       "variety_label": "Tomato Variety",
@@ -2063,24 +2063,24 @@
       "avail_hint": "{{kg}} kg available",
       "block_ph": "Select block...",
       "add_row": "Add block",
-      "save": "Save as Draft",
+      "save": "Save",
       "error_no_blocks": "Add at least one block with a weight",
-      "toast_saved": "Supply draft {{code}} created",
-      "toast_error": "Failed to create supply draft"
+      "toast_saved": "Supply plan {{code}} created",
+      "toast_error": "Failed to create supply plan"
     },
     "dest_modal": {
       "title": "New Shipment",
-      "save": "Save as Draft",
+      "save": "Save",
       "firm_splits_label": "Export Firm Splits",
       "firm_ph": "Select firm...",
       "add_firm_split": "Add export firm",
       "error_no_country": "Country is required",
       "error_no_customer": "Customer is required",
-      "toast_saved": "Destination draft {{code}} created",
-      "toast_error": "Failed to create destination draft"
+      "toast_saved": "Destination plan {{code}} created",
+      "toast_error": "Failed to create destination plan"
     },
     "join_modal": {
-      "toast_success": "Drafts merged successfully",
+      "toast_success": "Plans merged successfully",
       "toast_error": "Join failed"
     },
     "swap": {
@@ -2135,16 +2135,16 @@
     }
   },
   "draft": {
-    "page_title": "Draft Shipments",
+    "page_title": "Shipments in Preparation",
     "page_subtitle": "Yesterday / today / old — freshness colour-coded",
-    "create_btn": "New Draft (multi-block)",
+    "create_btn": "New shipment (multi-block)",
     "banner_title": "Freshness indicator:",
     "banner_body": "Green — today (highest export priority), Yellow — yesterday (urgent), Red — 2+ days (local only).",
-    "error_load": "Failed to load draft shipments",
-    "card_list_title": "drafts",
+    "error_load": "Failed to load shipments in preparation",
+    "card_list_title": "in preparation",
     "total_suffix": "total",
     "sorted_oldest_first": "Sorted: oldest first",
-    "empty": "No drafts yet — click 'Create Draft' to create the first one",
+    "empty": "No shipments in preparation yet — click 'Create shipment' to create the first one",
     "blocks_suffix": "blocks",
     "card_sources": "From blocks",
     "card_weight": "Weight",
@@ -2153,9 +2153,9 @@
     "freshness_today": "today",
     "freshness_yesterday": "yesterday",
     "freshness_old": "2+ days",
-    "composer_title": "Draft Shipment · Multi-block Composer",
+    "composer_title": "Shipment in Preparation · Multi-block Composer",
     "composer_cancel": "Cancel",
-    "composer_save": "✓ Save as Draft",
+    "composer_save": "✓ Save",
     "composer_shipment_code": "Shipment Code",
     "composer_target": "Target Weight",
     "composer_section_harvest": "Harvest",
@@ -2175,24 +2175,24 @@
     "composer_notes_label": "Notes (free text)",
     "composer_notes_ph": "E.g.: large leftover of one variety, or ~1.6 calibration",
     "composer_sort_notice_title": "Variety:",
-    "composer_sort_notice_body": "No variety in draft. The weight master will record the variety per pallet at packaging.",
+    "composer_sort_notice_body": "No variety at Preparation. The weight master will record the variety per pallet at packaging.",
     "composer_error_no_rows": "Fill at least one block row",
     "composer_error_no_code": "Enter a shipment code",
-    "composer_toast_saved": "Draft created: {{code}}",
-    "composer_toast_error": "Failed to create draft",
+    "composer_toast_saved": "Shipment created in Preparation: {{code}}",
+    "composer_toast_error": "Failed to create the shipment",
     "composer_truck_estimate": "≈ {{count}} trucks",
     "composer_truck_capacity": "Truck capacity",
     "enter_forecast_btn": "Enter Forecast",
-    "create_draft_btn": "Create Draft",
+    "create_draft_btn": "Create shipment",
     "composer_available_kg": "available: {{kg}} kg",
     "composer_no_forecast": "no forecast / 0 available",
-    "composer_no_pool": "No harvest available to draft today. Use 'Enter Forecast' first, then build drafts from it.",
+    "composer_no_pool": "No harvest available for new shipments today. Use 'Enter Forecast' first, then build shipments from it.",
     "composer_need_more": "need {{kg}} kg more for a full truck",
-    "composer_min_truck": "A draft must be a full truck — at least {{kg}} kg."
+    "composer_min_truck": "A shipment in preparation must be a full truck — at least {{kg}} kg."
   },
   "supply_draft": {
-    "title": "New Supply Draft",
-    "open_button": "Supply Draft",
+    "title": "New Supply Plan",
+    "open_button": "Supply Plan",
     "field_weight": "Total Weight (kg)",
     "field_blocks": "Blocks",
     "field_variety": "Variety",
@@ -2204,29 +2204,29 @@
     "variety_ph": "Select variety...",
     "harvest_status_ph": "Select harvest status...",
     "notes_ph": "Optional notes",
-    "submit": "Create Supply Draft",
+    "submit": "Create Supply Plan",
     "error_weight_positive": "Enter a weight greater than 0",
     "error_blocks": "Select at least one block",
-    "toast_success": "Supply draft created: {{code}}",
-    "toast_error": "Failed to create supply draft"
+    "toast_success": "Supply plan created: {{code}}",
+    "toast_error": "Failed to create supply plan"
   },
   "join_supply": {
     "open_button": "Join supply",
-    "title": "Join Supply Draft",
+    "title": "Join Supply Plan",
     "join_button": "Join",
     "cancel": "Cancel",
-    "empty": "No supply drafts available to join",
+    "empty": "No supply plans available to join",
     "col_blocks": "Blocks",
     "col_weight": "Weight",
-    "toast_success": "Supply draft merged successfully",
-    "toast_error": "Failed to join supply draft"
+    "toast_success": "Supply plan merged successfully",
+    "toast_error": "Failed to join supply plan"
   },
   "join_blockers": {
-    "need_two": "Select exactly 2 draft columns",
+    "need_two": "Select exactly 2 columns in Preparation",
     "same_shipment": "Select two different columns",
-    "not_draft": "{{code}} is not a draft — only drafts can be joined",
-    "both_supply": "Both columns have supply blocks. One of them must be a destination draft: country + customer filled, no blocks",
-    "no_supply": "Neither column has supply blocks. One of them must be a supply draft with at least one block",
+    "not_draft": "{{code}} is not in Preparation — only shipments in Preparation can be joined",
+    "both_supply": "Both columns have supply blocks. One of them must be a destination plan: country + customer filled, no blocks",
+    "no_supply": "Neither column has supply blocks. One of them must be a supply plan with at least one block",
     "target_no_country": "{{code}}: fill in the Country",
     "target_no_customer": "{{code}}: fill in the Customer"
   },
@@ -2235,15 +2235,15 @@
     "save_error": "Couldn't update export firms"
   },
   "join_drafts": {
-    "title": "Join two drafts",
+    "title": "Join two plans",
     "confirm": "Join",
     "destination_label": "Destination (kept)",
     "supply_label": "Supply (deleted)",
-    "ambiguous": "Can't tell which draft is the destination. Pick one destination draft (country + customer, no blocks) and one supply draft (with blocks).",
-    "fetch_error": "Couldn't load the selected drafts.",
-    "toast_success": "Drafts joined.",
-    "toast_error": "Couldn't join the drafts.",
-    "button": "Join drafts"
+    "ambiguous": "Can't tell which one is the destination. Pick one destination plan (country + customer, no blocks) and one supply plan (with blocks).",
+    "fetch_error": "Couldn't load the selected plans.",
+    "toast_success": "Plans joined.",
+    "toast_error": "Couldn't join the plans.",
+    "button": "Join plans"
   },
   "forecast": {
     "modal_title": "Enter Harvest Forecast",
@@ -2270,11 +2270,11 @@
     "page_subtitle": "Left: supply (sorted by freshness) · Right: demand",
     "role_label": "Gadam · Export Manager",
     "banner_title": "Variety not determined:",
-    "banner_body": "Drafts have no variety yet. Gadam decides based on typical block plantings.",
+    "banner_body": "Shipments in preparation have no variety yet. Gadam decides based on typical block plantings.",
     "col_supply": "Supply (freshness order)",
     "col_match": "Match",
     "col_demand": "Demand",
-    "supply_empty": "No draft shipments",
+    "supply_empty": "No shipments in preparation",
     "demand_empty": "No demand",
     "match_empty_primary": "Select a shipment from the left",
     "match_empty_secondary": "Then select a demand from the right",
@@ -2296,7 +2296,7 @@
     "toast_confirmed": "{{code}} assigned → {{country}} route started",
     "toast_error": "Assignment failed",
     "confirm_navigate_title": "Go to Shipment",
-    "confirm_navigate_body": "Draft has been moved to the lifecycle. Open the shipment page?",
+    "confirm_navigate_body": "The shipment has moved from Preparation into the lifecycle. Open the shipment page?",
     "confirm_navigate_ok": "Yes, go",
     "confirm_navigate_cancel": "No",
     "group_contracts": "Open contracts",
@@ -2316,10 +2316,10 @@
     "demand_label_local": "Local Gapy Sale",
     "variety_pending_warning_title": "Variety not yet confirmed",
     "variety_pending_warning_body": "Variety is confirmed at packaging — wait or pick another truck. Strict-variety customers need confirmation.",
-    "center_select_draft": "Select a draft from the left"
+    "center_select_draft": "Select a shipment in preparation from the left"
   },
   "split": {
-    "header_title": "Split Draft into Trucks",
+    "header_title": "Split Shipment into Trucks",
     "header_batch_code": "Shipment Code",
     "header_shipment_code": "Shipment Code",
     "header_harvest_total": "Total Harvest",
@@ -2914,16 +2914,16 @@
       "other_tasks_title": "Other tasks",
       "back_to_detail": "Back to shipment",
       "promote_button": "Promote to TM Customs Entry",
-      "promote_confirm_title": "Promote draft to TM Customs Entry?",
-      "promote_confirm_body": "This moves the shipment from Draft into TM Customs Entry. Customs-stage tasks will be generated; the document team is notified.",
+      "promote_confirm_title": "Move from Preparation to TM Customs Entry?",
+      "promote_confirm_body": "This moves the shipment from Preparation into TM Customs Entry. Customs-stage tasks will be generated; the document team is notified.",
       "promote_toast_success": "Promoted to TM Customs Entry",
       "promote_toast_error": "Promote failed — check that destination and customer are set",
-      "hard_delete_button": "Delete draft",
-      "hard_delete_confirm_title": "Permanently delete draft {{code}}?",
-      "hard_delete_confirm_content": "This draft and all its comments, status history, firm splits, block sources and tasks will be permanently deleted. This cannot be undone.",
+      "hard_delete_button": "Delete shipment",
+      "hard_delete_confirm_title": "Permanently delete shipment {{code}}?",
+      "hard_delete_confirm_content": "This shipment and all its comments, status history, firm splits, block sources and tasks will be permanently deleted. This cannot be undone.",
       "hard_delete_confirm_ok": "Delete permanently",
-      "hard_delete_success": "Draft deleted",
-      "hard_delete_error": "Failed to delete draft",
+      "hard_delete_success": "Shipment deleted",
+      "hard_delete_error": "Failed to delete the shipment",
       "others_working": "{{count}} task with other roles. You'll be notified when it's your turn.",
       "others_working_plural": "{{count}} tasks with other roles. You'll be notified when it's your turn.",
       "task_started_toast": "Task started",
@@ -2938,7 +2938,7 @@
       "retry": "Retry",
       "guide": {
         "your_task": "Your task here: {{task}}",
-        "draft": "This is a draft — destination and customer aren't set yet. Fill in the fields below to ready it for promotion.",
+        "draft": "This shipment is in Preparation — destination and customer aren't set yet. Fill in the fields below to ready it for promotion.",
         "cancelled": "This shipment was cancelled.",
         "completed": "Completed — the sales report is finalized.",
         "active": "Current status: {{status}}. Use “Change Status” when it's ready to advance."
@@ -3601,8 +3601,8 @@
       "text": "As trucks fill up, the system shows the remainder — how many kg are left in each block."
     },
     "step3": {
-      "title": "Create Supply Draft",
-      "text": "In the morning a supply draft is created: which blocks, how many kg. The customer is added later — hence DRAFT."
+      "title": "Create Supply Plan",
+      "text": "In the morning a supply plan is created: which blocks, how many kg. The customer is added later — so the shipment starts in Preparation."
     },
     "step4": {
       "title": "Truck & Driver",
@@ -3858,7 +3858,7 @@
       "unknown": "Unknown",
       "empty": "Reports appear automatically once trucks are entered in the Trucks tab.",
       "no_season": "No active season — nothing to report.",
-      "scope_note": "Drafts and cancelled, deleted or archived trucks are not counted."
+      "scope_note": "Trucks in Preparation, and cancelled, deleted or archived ones, are not counted."
     }
   }
 }

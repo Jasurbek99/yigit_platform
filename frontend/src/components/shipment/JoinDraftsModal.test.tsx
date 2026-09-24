@@ -54,7 +54,7 @@ describe('JoinDraftsModal', () => {
     const supply2 = { ...supply, id: 3, shipment_code: 'SUP2/26', block_sources: [{ block_id: 8, block_code: 'B2', weight_kg: null }] };
     stubDetail({ 2: supply, 3: supply2 });
     wrap(<JoinDraftsModal open draftIds={[2, 3]} onClose={() => {}} />);
-    expect(screen.getByText(/can't tell which draft is the destination/i)).toBeInTheDocument();
+    expect(screen.getByText(/can't tell which one is the destination/i)).toBeInTheDocument();
     const confirm = screen.getByRole('button', { name: /^join$|birleş|объедин/i });
     expect(confirm).toBeDisabled();
     expect(mutate).not.toHaveBeenCalled();

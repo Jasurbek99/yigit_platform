@@ -204,7 +204,7 @@ def assert_draw_within_pool(block_weights: dict, target_date) -> None:
         if forecast is None:
             raise ValueError(
                 f'Block {block_id}: no forecast entered for {target_date}. '
-                f'Submit a forecast before creating a draft.'
+                f'Submit a forecast before creating a shipment.'
             )
         remaining = max(Decimal('0'), forecast - allocated.get(block_id, Decimal('0')))
         if w > remaining:

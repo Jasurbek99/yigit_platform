@@ -11,7 +11,7 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
   {
     id: 1,
     step: 'draft',
-    step_display: 'Draft',
+    step_display: 'Preparation',
     step_order: 1,
     step_phase: 'PLAN',
     title_key: 'tasks.set_destination',
@@ -29,7 +29,7 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
   {
     id: 2,
     step: 'draft',
-    step_display: 'Draft',
+    step_display: 'Preparation',
     step_order: 1,
     step_phase: 'PLAN',
     title_key: 'tasks.pick_export_firms',

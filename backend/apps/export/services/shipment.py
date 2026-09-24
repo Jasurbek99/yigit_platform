@@ -263,9 +263,9 @@ def transition_to(
             missing.append('block_sources')
         if missing:
             raise ValueError(
-                f'Draft {shipment.shipment_code} cannot advance to '
+                f'Shipment {shipment.shipment_code} in Preparation cannot advance to '
                 f'{new_status_code!r}: missing {", ".join(missing)}. '
-                'Supply-only and destination-only drafts must be joined first.'
+                'Supply and destination plans must be joined first.'
             )
 
     # Role check — privileged roles bypass per-transition restrictions. Auto-
