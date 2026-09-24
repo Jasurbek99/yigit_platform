@@ -3235,8 +3235,21 @@ class ShipmentViewSet(ModelViewSet):
 
         ``harvest_date`` is optional per-block. When the R8 multi-select editor
         re-picks blocks without sending harvest_date, the server preserves the
-        existing date by reading the prior block_id → date map before deleting
-        the rows. Pass harvest_date=null explicitly to clear.
+        block's existing batches by reading the prior (block_id -> [(harvest_date,
+        weight_kg), ...]) map before deleting the rows, instead of collapsing
+        them to one row: a block can carry two harvest days in one truck
+        (2026-09-24), and picking it again in R8 must not silently drop one.
+        The entry's weight (explicit override or auto-split share) is
+        distributed across the preserved batches in their existing weight
+        ratio, remainder on the last. Dates, batch count, and the ratio
+        between batches always survive; the absolute kg each batch gets
+        follows the block's *current* total the same way a single-batch
+        block's weight already does — unchanged only when that total happens
+        to match what it was before (e.g. the block is the only one in the
+        payload). Adding or dropping a sibling block changes this block's
+        auto-split share and rescales its batches accordingly, same as it
+        always has for a single batch.
+        Pass harvest_date=null explicitly to clear down to one dateless row.
         """
         shipment = self.get_object()
         blocks_data = request.data.get('blocks', [])
@@ -3258,15 +3271,17 @@ class ShipmentViewSet(ModelViewSet):
             auto_weights = [base] * (n - 1)
             auto_weights.append((Decimal(total) - base * (n - 1)).quantize(Decimal('0.01')))
 
-        # Preserve existing harvest_date for blocks the caller didn't send —
-        # R8's multiselect editor only ships block_id, so without this the
-        # date would silently reset every time blocks were reordered. block_sources
-        # are stored at PARENT grain, so existing_dates is parent-keyed; normalize
-        # the incoming (possibly sub-block) id to its parent before the lookup.
-        existing_dates = dict(
-            shipment.block_sources.values_list('block_id', 'harvest_date')
-        )
+        # Preserve existing batches for blocks the caller didn't send a
+        # harvest_date for. block_sources are stored at PARENT grain, so this
+        # is parent-keyed; normalize the incoming (possibly sub-block) id to
+        # its parent before the lookup. Ordered by (harvest_date, id) so the
+        # rounding remainder always lands on the same (latest) batch.
         parent_of = build_block_parent_map()
+        existing_by_parent: dict[int, list[tuple]] = {}
+        for block_id, harvest_date, weight_kg in shipment.block_sources.order_by(
+            'harvest_date', 'id',
+        ).values_list('block_id', 'harvest_date', 'weight_kg'):
+            existing_by_parent.setdefault(block_id, []).append((harvest_date, weight_kg))
 
         entries = []
         for i, entry in enumerate(valid_entries):
@@ -3276,14 +3291,38 @@ class ShipmentViewSet(ModelViewSet):
                 if override not in (None, 0, '0', '0.00')
                 else auto_weights[i]
             )
-            # harvest_date semantics: explicit key (even null) overrides the
-            # preserved value; absent key falls back to the prior date.
             block_id = entry['block_id']
+
             if 'harvest_date' in entry:
+                # Explicit key (even null) always overrides — single row.
                 harvest_date = entry['harvest_date'] or None
-            else:
-                harvest_date = existing_dates.get(parent_of.get(block_id, block_id))
-            entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': harvest_date})
+                entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': harvest_date})
+                continue
+
+            existing = existing_by_parent.get(parent_of.get(block_id, block_id))
+            if not existing:
+                entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': None})
+                continue
+
+            # No harvest_date key — spread this entry's weight across every
+            # preserved batch of the block, proportional to each batch's own
+            # existing weight (even split if the existing weights are all
+            # null/0). Last batch takes the rounding remainder.
+            existing_total = sum((w or Decimal('0')) for _, w in existing)
+            running = Decimal('0')
+            last = len(existing) - 1
+            for idx, (harvest_date, old_weight) in enumerate(existing):
+                if idx == last:
+                    row_weight = (weight - running).quantize(Decimal('0.01'))
+                else:
+                    share = (
+                        (old_weight or Decimal('0')) / existing_total
+                        if existing_total > 0
+                        else Decimal('1') / len(existing)
+                    )
+                    row_weight = (weight * share).quantize(Decimal('0.01'))
+                    running += row_weight
+                entries.append({'block': block_id, 'weight_kg': row_weight, 'harvest_date': harvest_date})
 
         # Normalize sub-blocks to parent grain and merge (F1/F2 -> F) before write.
         count = write_block_sources(shipment, entries, replace=True)

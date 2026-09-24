@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.core.models import Country, GreenhouseBlock, Season, ShipmentStatusType
+from apps.core.models import Country, GreenhouseBlock, Season, ShipmentStatusType, User
 from apps.export.models import Shipment
 from apps.export.services.block_sources import (
     build_block_parent_map,
@@ -122,3 +122,148 @@ class WriteBlockSourcesBatchConstraintTests(TestCase):
             date(2026, 6, 1): Decimal('3000'),
             date(2026, 6, 3): Decimal('5000'),
         })
+
+
+class SetBlockSourcesPreservesBatchesTests(TestCase):
+    """POST /block-sources/ must not collapse a multi-batch block down to one
+    arbitrary-dated row when the caller omits harvest_date — R8's multiselect
+    block editor only ever ships {block_id}. Fix: 2026-09-24.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.block_a = GreenhouseBlock.objects.create(code='BR', is_active=True)
+        cls.block_b = GreenhouseBlock.objects.create(code='BS', is_active=True)
+        cls.country, _ = Country.objects.get_or_create(code='TM', defaults={'name_en': 'TM'})
+        cls.season, _ = Season.objects.get_or_create(
+            name='26-batch3', defaults={
+                'is_active': True, 'start_date': '2026-01-01', 'end_date': '2026-12-31',
+            },
+        )
+        cls.status_draft, _ = ShipmentStatusType.objects.get_or_create(
+            code='draft',
+            defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
+        )
+        cls.boss = User.objects.create_superuser(username='boss_batch_sources', password='p')
+
+    def setUp(self):
+        self._counter = getattr(SetBlockSourcesPreservesBatchesTests, '_shipment_seq', 0) + 1
+        SetBlockSourcesPreservesBatchesTests._shipment_seq = self._counter
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'24SP{self._counter:03d}/26', date='2026-09-24',
+            season=self.season, country=self.country, status=self.status_draft,
+            weight_net=Decimal('8000'),
+        )
+        from apps.export.models import ShipmentBlockSource
+        # Two pre-existing batches on block_a: 2026-06-01/3000 and 2026-06-03/5000.
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_a,
+            weight_kg=Decimal('3000'), harvest_date=date(2026, 6, 1),
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_a,
+            weight_kg=Decimal('5000'), harvest_date=date(2026, 6, 3),
+        )
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.client.force_authenticate(self.boss)
+        self.url = f'/api/v1/export/shipments/{self.shipment.id}/block-sources/'
+
+    def _rows(self):
+        return {
+            bs.harvest_date: bs.weight_kg
+            for bs in self.shipment.block_sources.filter(block=self.block_a)
+        }
+
+    def test_omitted_harvest_date_preserves_both_batches(self):
+        """Requirement 1 — payload with only block_id must not lose a batch."""
+        resp = self.client.post(self.url, {'blocks': [{'block_id': self.block_a.id}]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self._rows(), {
+            date(2026, 6, 1): Decimal('3000'),
+            date(2026, 6, 3): Decimal('5000'),
+        })
+
+    def test_explicit_harvest_date_still_overrides(self):
+        """Requirement 2 — an explicit harvest_date collapses to one row, as before."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_a.id, 'harvest_date': '2026-06-05'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        rows = self._rows()
+        self.assertEqual(set(rows), {date(2026, 6, 5)})
+        self.assertEqual(rows[date(2026, 6, 5)], Decimal('8000.00'))
+
+    def test_dropped_block_loses_all_its_rows(self):
+        """Requirement 3 — a block absent from the payload is fully removed,
+        even though it has two batches."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_b.id, 'weight_kg': '1000', 'harvest_date': '2026-07-01'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self._rows(), {})
+        self.assertEqual(
+            self.shipment.block_sources.filter(block=self.block_b).count(), 1,
+        )
+
+    def test_single_batch_reorder_still_preserves_date(self):
+        """Requirement 4 — the original one-batch case the comment protects."""
+        self.shipment.block_sources.filter(harvest_date=date(2026, 6, 3)).delete()
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_a.id, 'weight_kg': '9500'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self._rows(), {date(2026, 6, 1): Decimal('9500.00')})
+
+    def test_multi_batch_weight_override_splits_proportionally(self):
+        """Weight judgement: an explicit total for a multi-batch block with no
+        harvest_date is spread across the preserved batches in their existing
+        weight ratio (3000:5000 here), not dumped on one arbitrary row and not
+        left untouched (which would silently break the auto-split total)."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_a.id, 'weight_kg': '4000'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self._rows(), {
+            date(2026, 6, 1): Decimal('1500.00'),
+            date(2026, 6, 3): Decimal('2500.00'),
+        })
+
+    def test_two_entries_for_same_block_recombine_to_original_weights(self):
+        """R8's block list includes sub-blocks alongside parents, so a bare
+        payload can reference the same parent twice (e.g. two sub-blocks of
+        block_a). Proportional splitting per entry, then merge_to_parent's
+        sum-by-(block,date), must reconstruct the original per-batch split
+        rather than double it."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_a.id},
+            {'block_id': self.block_a.id},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self._rows(), {
+            date(2026, 6, 1): Decimal('3000.00'),
+            date(2026, 6, 3): Decimal('5000.00'),
+        })
+
+    def test_multi_batch_block_alongside_another_block_rescales_by_current_share(self):
+        """Weight judgement, uneven case: R8's realistic trigger is adding a
+        sibling block to the payload (its unchanged-check suppresses a POST
+        when the selection doesn't change). That shrinks block_a's auto-split
+        share from the full 8000 kg truck total down to its 1-of-2 share
+        (4000 kg), and its two preserved batches rescale with it — same
+        allocation behaviour a single-batch block already has today. The 3:5
+        ratio and both dates survive; only the absolute kg move."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_a.id},
+            {'block_id': self.block_b.id},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(self._rows(), {
+            date(2026, 6, 1): Decimal('1500.00'),
+            date(2026, 6, 3): Decimal('2500.00'),
+        })
+        b_rows = {
+            bs.harvest_date: bs.weight_kg
+            for bs in self.shipment.block_sources.filter(block=self.block_b)
+        }
+        self.assertEqual(b_rows, {None: Decimal('4000.00')})
