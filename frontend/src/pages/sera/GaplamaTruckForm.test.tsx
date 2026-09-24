@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ConfigProvider } from 'antd';
 import api from '@/services/api';
 import GaplamaTruckForm from './GaplamaTruckForm';
 
@@ -125,6 +127,69 @@ describe('GaplamaTruckForm — create', () => {
     fireEvent.click(screen.getByRole('button', { name: 'tir_takip.gaplama.form.add_block' }));
     // Block 1's two batches plus block 2's one batch.
     expect(screen.getAllByRole('spinbutton')).toHaveLength(3);
+  });
+
+  // Round-1 review finding: `addBlock` never offers an already-chosen block,
+  // but the per-card block Select (`changeBlock`) can still be pointed at a
+  // block another card already shows. The two cards must collapse into one
+  // (chosenBlockIds is a de-duped Set) and that block's kilograms must never
+  // be double-counted — asserted on the submitted payload, not rendered
+  // text, so it pins what actually reaches the server.
+  it('never double-counts a block reached by pointing two cards at it', async () => {
+    (api.post as any).mockResolvedValue({ data: { id: 1, shipment_code: '2109001/26' } });
+    // antd's Select virtualizes its dropdown by default (rc-virtual-list),
+    // which needs a real layout engine to measure item heights — happy-dom
+    // has none, so a virtualized option never resolves to a clickable node
+    // here. `ConfigProvider virtual={false}` is antd's own documented
+    // escape hatch for exactly this; scoped to this one test only, not the
+    // shared `renderForm` helper or the component itself.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const props = {
+      mode: 'create' as const,
+      today: '2026-09-24',
+      availableByBlock: { 1: 12000, 2: 6500 },
+      batchesByBlock: defaultBatchesByBlock(),
+      carryDaysByBlock: { 1: 7, 2: 7 },
+      blocks: [{ id: 1, code: 'A', label: 'A' }, { id: 2, code: 'B', label: 'B' }],
+      truckCapacityKg: 18500,
+      onDone: vi.fn(),
+      onCancel: vi.fn(),
+    };
+    render(
+      <ConfigProvider virtual={false}>
+        <QueryClientProvider client={qc}><GaplamaTruckForm {...props} /></QueryClientProvider>
+      </ConfigProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'tir_takip.gaplama.form.add_block' })); // adds block 2's card
+
+    // Point the second card's own Select at block 1 too — the changeBlock
+    // path, not addBlock. Scoped to the second `.sera-gaplama-form-block`
+    // card specifically: the page also has non-block Selects (month, harvest
+    // status, variety), so an unscoped combobox index is not reliable.
+    const cards = document.querySelectorAll('.sera-gaplama-form-block');
+    expect(cards).toHaveLength(2);
+    const combobox = within(cards[1] as HTMLElement).getByRole('combobox');
+    await userEvent.click(combobox);
+    // Scoped to the open dropdown's listbox — card 1's own closed Select
+    // already displays "A" as its current value, so an unscoped text query
+    // matches both.
+    const listbox = await screen.findByRole('listbox');
+    await userEvent.click(await within(listbox).findByText('A'));
+
+    // Collapsed to one card — only block 1's own two batches remain.
+    const inputs = screen.getAllByRole('spinbutton');
+    expect(inputs).toHaveLength(2);
+
+    fireEvent.change(inputs[0], { target: { value: '3000' } });
+    fireEvent.change(inputs[1], { target: { value: '9000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'tir_takip.gaplama.form.open_truck' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as any).mock.calls[0];
+    expect(body.block_sources).toEqual([
+      { block_id: 1, weight_kg: 3000, harvest_date: '2026-09-21' },
+      { block_id: 1, weight_kg: 9000, harvest_date: '2026-09-24' },
+    ]);
   });
 
   it('shows the oldest batch\'s age next to the total once it carries kg', () => {
