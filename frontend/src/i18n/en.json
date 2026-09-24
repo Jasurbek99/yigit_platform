@@ -3915,7 +3915,15 @@
         "harvest_status_ph": "Harvest status",
         "toast_created": "Truck opened",
         "toast_updated": "Truck updated",
-        "toast_error": "Something went wrong"
+        "toast_error": "Something went wrong",
+        "batch_col_date": "Date",
+        "batch_col_age": "Age",
+        "batch_col_available": "Available",
+        "batch_col_take": "Take",
+        "batch_age_fresh": "Fresh",
+        "batch_age_days": "{{days}} d",
+        "carry_window": "❄ {{days}} d",
+        "oldest_batch": "oldest: {{days}} d"
       }
     }
   }

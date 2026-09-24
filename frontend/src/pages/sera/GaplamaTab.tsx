@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { useGaplamaBoard } from '@/hooks/useGaplama';
+import { useDrafts } from '@/hooks/useDrafts';
 import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useAuth } from '@/hooks/useAuth';
@@ -64,6 +65,16 @@ export default function GaplamaTab(): JSX.Element {
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
   const { data: board, isLoading, isError } = useGaplamaBoard(fetchFrom, fetchTo);
 
+  // A Gaplama truck is always a draft — the Üýtget button only ever shows
+  // for status_code==='draft' (see `canEdit` below) — so the drafts endpoint
+  // is the one place with this truck's REAL per-batch block_sources
+  // (DraftBlockSourceInlineSerializer carries harvest_date; the board's own
+  // trucks[] does not — see task-7-report.md, Gap 1/edit-seeding). Only
+  // consumed for edit-mode seeding; the form itself gates its own mount on
+  // this resolving (below) so its one-time useState(initialRows) never runs
+  // against stale/undefined data.
+  const { data: drafts } = useDrafts();
+
   const { data: blocksData } = useGreenhouseBlocks();
   // Top-level, active blocks only — sub-blocks and inactive blocks never
   // appear in the board's days[] rows either (backend/apps/export/services/
@@ -72,6 +83,11 @@ export default function GaplamaTab(): JSX.Element {
   const topLevelBlocks = (blocksData ?? []).filter(
     (b: IGreenhouseBlock) => b.parent === null && b.is_active,
   );
+  // For the truck form's block-card header (❄ N gün) — unfiltered, same
+  // reasoning as buildAvailableByBlock/buildBatchesByBlock below.
+  const carryDaysByBlock: Record<number, number> = {};
+  for (const b of topLevelBlocks) carryDaysByBlock[b.id] = b.carry_days;
+
   const blocks = topLevelBlocks.filter(
     (b) =>
       (selectedBlockIds === null || selectedBlockIds.includes(b.id))
@@ -188,13 +204,25 @@ export default function GaplamaTab(): JSX.Element {
     return map;
   }
 
-  // The plain (un-clamped, un-edit-adjusted) carry-in portion of that cap —
-  // informational only ("12 000 (2 000 ýaňky günden)", design spec §3②), not
-  // authoritative. Same unfiltered block set and raw-board source as above.
-  function buildCarriedInByBlock(date: string): Record<number, number> {
-    const map: Record<number, number> = {};
+  // Per-block batch list for the truck form's batch table (2026-09-24, batch
+  // selection) — the board's `carry_in_breakdown` (oldest first) plus today's
+  // own plan folded in as a same-day batch, exactly mirroring how
+  // `build_gaplama_board` itself treats today's plan as a same-day bucket.
+  // Same unfiltered block set and raw-board source as buildAvailableByBlock —
+  // the form must be able to offer a block the grid's own filter hides.
+  function buildBatchesByBlock(
+    date: string,
+  ): Record<number, { harvest_date: string; age_days: number; available_kg: number }[]> {
+    const map: Record<number, { harvest_date: string; age_days: number; available_kg: number }[]> = {};
     for (const b of topLevelBlocks) {
-      map[b.id] = (board?.days ?? []).find((r) => r.block_id === b.id && r.date === date)?.carried_in_kg ?? 0;
+      const row = (board?.days ?? []).find((r) => r.block_id === b.id && r.date === date);
+      const batches = (row?.carry_in_breakdown ?? []).map((c) => ({
+        harvest_date: c.origin_date,
+        age_days: c.age_days,
+        available_kg: c.kg,
+      }));
+      batches.push({ harvest_date: date, age_days: 0, available_kg: row?.plan_kg ?? 0 });
+      map[b.id] = batches;
     }
     return map;
   }
@@ -540,7 +568,7 @@ export default function GaplamaTab(): JSX.Element {
       )}
 
       <div className="sera-gaplama-truck-open">
-        {formOpen && (
+        {formOpen && (!editingTruck || drafts) && (
           <GaplamaTruckForm
             // Forces a remount whenever "what we're editing" changes —
             // without this, clicking Üýtget on a truck while the create
@@ -551,13 +579,24 @@ export default function GaplamaTab(): JSX.Element {
             // mode="edit" while still showing the stale create-mode rows,
             // and submitting would write the wrong block/kg data to the
             // wrong truck. Same reasoning covers Üýtget on truck A then,
-            // without submitting, Üýtget on truck B.
-            key={editingTruck ? `edit-${editingTruck.id}` : 'create'}
+            // without submitting, Üýtget on truck B. The create key also
+            // carries `selectedDay` (2026-09-24 fix) — stepping the day
+            // while the create form is open must not leave it showing the
+            // old day's batch rows against the new day's caps.
+            key={editingTruck ? `edit-${editingTruck.id}` : `create-${selectedDay}`}
             mode={editingTruck ? 'edit' : 'create'}
-            today={today}
+            // The day this truck is dated — the day being VIEWED
+            // (selectedDay), not real "today" (2026-09-24 fix: `+ Tır Aç`
+            // after stepping the board forward/back must open a truck dated
+            // the day being viewed).
+            today={editingTruck ? editingTruck.date : selectedDay}
             editingTruck={editingTruck ?? undefined}
-            availableByBlock={buildAvailableByBlock(editingTruck ? editingTruck.date : today)}
-            carriedInByBlock={buildCarriedInByBlock(editingTruck ? editingTruck.date : today)}
+            editingTruckBatches={
+              editingTruck ? drafts?.find((d) => d.id === editingTruck.id)?.block_sources : undefined
+            }
+            availableByBlock={buildAvailableByBlock(editingTruck ? editingTruck.date : selectedDay)}
+            batchesByBlock={buildBatchesByBlock(editingTruck ? editingTruck.date : selectedDay)}
+            carryDaysByBlock={carryDaysByBlock}
             blocks={topLevelBlocks.map((b) => ({ id: b.id, code: b.code, label: b.name || b.code }))}
             truckCapacityKg={truckCapacityKg}
             onDone={closeForm}

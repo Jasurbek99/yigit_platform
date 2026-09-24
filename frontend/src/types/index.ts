@@ -1837,7 +1837,10 @@ export interface IDraftCreatePayload {
   shipment_code?: string;
   date: string;
   is_draft: true;
-  block_sources?: { block_id: number; weight_kg: number }[];
+  // harvest_date is optional and additive (2026-09-24, gaplama batch
+  // selection) — DraftComposerModal never sets it; GaplamaTruckForm always
+  // does, attributing the load to the batch the operator picked.
+  block_sources?: { block_id: number; weight_kg: number; harvest_date?: string }[];
   // Supply draft: block IDs + total weight in place of per-block `block_sources`
   block_ids?: number[];
   weight_net?: number;

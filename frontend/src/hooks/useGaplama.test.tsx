@@ -147,4 +147,50 @@ describe('useUpdateTruckBlocks', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['drafts'] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shipments'] });
   });
+
+  // Gap 1 (task-7b-report.md's own Concerns section): without this, editing
+  // a truck's batch split silently reverted to the old proportional-split
+  // fallback server-side — the operator's new batch choice never reached the
+  // request body at all.
+  it('forwards harvest_date for each row so a batch edit does not silently revert', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    (api.patch as any).mockResolvedValue({ data: {} });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
+    result.current.mutate({
+      shipmentId: 9,
+      rows: [
+        { block_id: 1, weight_kg: 3000, harvest_date: '2026-09-21' },
+        { block_id: 1, weight_kg: 5000, harvest_date: '2026-09-24' },
+      ],
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(api.post).toHaveBeenCalledWith('/export/shipments/9/block-sources/', {
+      blocks: [
+        { block_id: 1, weight_kg: 3000, harvest_date: '2026-09-21' },
+        { block_id: 1, weight_kg: 5000, harvest_date: '2026-09-24' },
+      ],
+    });
+  });
+
+  // A row with no harvest_date (a caller that never learned a batch date)
+  // must still be a valid call — the field stays optional, matching the
+  // backend's own "harvest_date is optional per-block" contract.
+  it('still works when a row omits harvest_date', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    (api.patch as any).mockResolvedValue({ data: {} });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
+    result.current.mutate({ shipmentId: 9, rows: [{ block_id: 1, weight_kg: 5000 }] });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(api.post).toHaveBeenCalledWith('/export/shipments/9/block-sources/', {
+      blocks: [{ block_id: 1, weight_kg: 5000 }],
+    });
+  });
 });

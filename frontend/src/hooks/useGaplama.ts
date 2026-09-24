@@ -146,15 +146,30 @@ export function useUpdateTruckBlocks() {
   return useMutation({
     mutationFn: async (vars: {
       shipmentId: number;
-      rows: { block_id: number; weight_kg: number }[];
+      rows: { block_id: number; weight_kg: number; harvest_date?: string }[];
     }) => {
       // The real request body key is "blocks", not "block_sources" — verified
       // against ShipmentViewSet.set_block_sources (backend/apps/export/views.py:3223-3291):
       // `blocks_data = request.data.get('blocks', [])`. Sending weight_kg on every
       // row (never 0/omitted) avoids the endpoint's auto-split-by-weight_net path,
       // which only activates when weight_kg is missing/0/"0"/"0.00".
+      //
+      // harvest_date forwarded per row (2026-09-24, gaplama batch selection) — that
+      // same view reads it per entry (`entry['harvest_date']`) as the batch the
+      // operator picked. Omitting it here used to make every edit exercise the
+      // endpoint's own "no harvest_date" preserve/proportional-split branch instead
+      // of the operator's actual new selection (task-7b-report.md's Concerns
+      // section) — an edit that changed which batch a block drew from would
+      // silently revert to the batch ratio the block already had. Left optional on
+      // the type (not every caller of this hook knows a batch date), only included
+      // per-row when present so a bare {block_id, weight_kg} call still posts the
+      // same shape it always has.
       await api.post(`/export/shipments/${vars.shipmentId}/block-sources/`, {
-        blocks: vars.rows.map((r) => ({ block_id: r.block_id, weight_kg: r.weight_kg })),
+        blocks: vars.rows.map((r) => ({
+          block_id: r.block_id,
+          weight_kg: r.weight_kg,
+          ...(r.harvest_date ? { harvest_date: r.harvest_date } : {}),
+        })),
       });
       const weightNet = vars.rows.reduce((sum, r) => sum + r.weight_kg, 0);
       await api.patch(`/export/shipments/${vars.shipmentId}/`, { weight_net: weightNet });

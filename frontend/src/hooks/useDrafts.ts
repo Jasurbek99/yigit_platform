@@ -44,7 +44,19 @@ export function useDrafts() {
       const { data } = await api.get<{ results: IShipmentDraft[] }>(
         `/export/shipments/?status_code=draft&page_size=200&ordering=harvest_age_desc${seasonParam}`,
       );
-      return data.results ?? [];
+      // block_sources[].weight_kg is a DecimalField — arrives as a string
+      // ("8000.00"), same api-contract convention as every other decimal
+      // field. Coerced here, at the fetch boundary, not at any usage site
+      // (GaplamaTruckForm's edit-mode seeding sums it — see
+      // task-7-report.md) — DraftPool's own defensive `Number(b.weight_kg)`
+      // wrapping is evidence this was never coerced before.
+      return (data.results ?? []).map((d) => ({
+        ...d,
+        block_sources: (d.block_sources ?? []).map((s) => ({
+          ...s,
+          weight_kg: s.weight_kg != null ? Number(s.weight_kg) : null,
+        })),
+      }));
     },
     enabled: USE_MOCK || isReady,
     staleTime: 30_000,

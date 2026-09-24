@@ -13,6 +13,14 @@ vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
 vi.mock('@/hooks/useSeasonReadOnly', () => ({ useSeasonReadOnly: () => false }));
+// useDrafts() (added 2026-09-24 for edit-mode batch seeding — see
+// task-7-report.md) pulls in useSelectedSeason(), which calls
+// react-router-dom's useSearchParams() — this test file has no <Router>
+// ancestor. Same fixed-season mock pattern already used elsewhere for this
+// exact reason (e.g. useSheetLiveSync.test.tsx).
+vi.mock('@/hooks/useSeasonParam', () => ({
+  useSelectedSeason: () => ({ seasonId: 1, isReady: true }),
+}));
 
 function renderTab() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -490,6 +498,62 @@ describe('GaplamaTab', () => {
 
     const editKgInput = (await screen.findAllByLabelText(/kg/i))[0] as HTMLInputElement;
     expect(editKgInput).toHaveValue(3000); // truck 9's own allocation, not the leftover 1234
+  });
+
+  // Gap 3 (task-7-report.md): `+ Tır Aç` must open a truck dated the day
+  // being VIEWED (the day stepper's selectedDay), not real "today" — a
+  // manager stepping forward to Thursday and opening a truck there must not
+  // silently get one dated today.
+  it('opens a create truck dated the currently-selected day, not real today', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) {
+        return Promise.resolve({
+          data: {
+            days: [
+              { date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                available_kg: '8000.00', over_kg: '0.00' },
+              { date: NOT_TODAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                available_kg: '8000.00', over_kg: '0.00' },
+            ],
+            trucks: [],
+          },
+        });
+      }
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({
+          data: { results: [{ id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak' }] },
+        });
+      }
+      if (url.includes('/greenhouse-config')) {
+        return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+      }
+      if (url.includes('/core/shipment-options')) {
+        return Promise.resolve({ data: { results: [] } });
+      }
+      if (url.includes('/core/tomato-varieties')) {
+        return Promise.resolve({ data: { results: [] } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+    (api.post as any).mockResolvedValue({ data: { id: 1, shipment_code: '2109001/26' } });
+
+    renderTab();
+    await stepToDay(NOT_TODAY);
+
+    const openButton = await screen.findByRole('button', { name: /tir_takip\.gaplama\.open_truck/ });
+    fireEvent.click(openButton);
+    const kgInput = (await screen.findAllByLabelText(/kg/i))[0] as HTMLInputElement;
+    fireEvent.change(kgInput, { target: { value: '1000' } });
+    fireEvent.click(screen.getByRole('button', { name: /tir_takip\.gaplama\.form\.open_truck/ }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as any).mock.calls[0];
+    expect(body.date).toBe(NOT_TODAY);
   });
 
   // ─── Task 6: one table, a day mode and a week mode ──────────────────────

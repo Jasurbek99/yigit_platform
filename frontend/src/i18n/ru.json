@@ -3919,7 +3919,15 @@
         "harvest_status_ph": "Статус урожая",
         "toast_created": "Машина открыта",
         "toast_updated": "Машина обновлена",
-        "toast_error": "Произошла ошибка"
+        "toast_error": "Произошла ошибка",
+        "batch_col_date": "Дата",
+        "batch_col_age": "Возраст",
+        "batch_col_available": "Доступно",
+        "batch_col_take": "Берём",
+        "batch_age_fresh": "Свежий",
+        "batch_age_days": "{{days}} дн.",
+        "carry_window": "❄ {{days}} дн.",
+        "oldest_batch": "старейшая: {{days}} дн."
       }
     }
   }

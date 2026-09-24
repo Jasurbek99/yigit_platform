@@ -3920,7 +3920,15 @@
         "harvest_status_ph": "Ýygym ýagdaýy",
         "toast_created": "Tır açyldy",
         "toast_updated": "Tır üýtgedildi",
-        "toast_error": "Ýalňyşlyk ýüze çykdy"
+        "toast_error": "Ýalňyşlyk ýüze çykdy",
+        "batch_col_date": "Senesi",
+        "batch_col_age": "Ýaşy",
+        "batch_col_available": "Elýeterli",
+        "batch_col_take": "Alynýan",
+        "batch_age_fresh": "Täze",
+        "batch_age_days": "{{days}} gün",
+        "carry_window": "❄ {{days}} gün",
+        "oldest_batch": "iň köne: {{days}} gün"
       }
     }
   }

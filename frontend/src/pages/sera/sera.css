@@ -1021,3 +1021,54 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Batch selection (2026-09-24) — one card per chosen block, its batches as
+   rows inside. */
+.sera-page .sera-gaplama-form-block {
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--sera-border);
+  border-radius: var(--sera-radius);
+}
+
+.sera-page .sera-gaplama-form-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sera-page .sera-gaplama-form-carry {
+  color: var(--sera-text-soft);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-batch-table {
+  width: 100%;
+  font-size: 12px;
+}
+
+.sera-page .sera-gaplama-batch-table th {
+  text-align: left;
+  color: var(--sera-text-faint);
+  font-weight: 500;
+  padding: 2px 6px 2px 0;
+}
+
+.sera-page .sera-gaplama-batch-table td {
+  padding: 2px 6px 2px 0;
+}
+
+.sera-page .sera-gaplama-form-subtotal {
+  margin-top: 4px;
+  color: var(--sera-text-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sera-page .sera-gaplama-form-oldest {
+  margin-left: 8px;
+  color: var(--sera-text-faint);
+  font-size: 11px;
+  font-weight: 400;
+}
