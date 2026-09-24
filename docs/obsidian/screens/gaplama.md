@@ -73,7 +73,12 @@ finishes with plan left over seeds a **FIFO bucket**, one per block, consumable 
 **`GreenhouseBlock.carry_days`** days after it was created — **per block**, not global
 (2026-09-24; replaces the single `GreenhouseConfig.gaplama_carry_days`, which used to apply
 2 days to every block regardless of whether it has cold storage). Default `carry_days` is 7;
-each block tunes its own from there. `GreenhouseConfig.gaplama_carry_days` still exists as a
+each block tunes its own from there, **capped at 30** (`MaxValueValidator`, migration
+`core/0061`, 2026-09-25) — the board's walk window is `2 × max(carry_days)` **across every
+block**, and each block's own bucket list inside that window is bounded by its own value, so
+cost is quadratic in this number and one block's mistake (API-settable only, no frontend field
+yet — see below) slows the board for everyone, not just that block. 30 days is already generous
+for a fresh tomato even under cold storage. `GreenhouseConfig.gaplama_carry_days` still exists as a
 model field but is no longer read anywhere — its removal is a separate cleanup, not done here.
 A bucket created on day D is live through day `D + carry_days` and expired from `D + carry_days
 + 1` onward (`(d - origin).days > carry_days` in `build_gaplama_board`) — e.g. a `carry_days=2`
@@ -194,6 +199,27 @@ is **two calls**, not one: `POST /export/shipments/{id}/block-sources/` with
 to the backend transport for this screen, though `set_block_sources` itself gained batch
 handling — see the asymmetry note below.
 
+**A seeded edit row's own kg is a floor on its date's cap, not a ceiling (2026-09-25).** Every
+shipment on the live DB has `harvest_date = NULL` on every `ShipmentBlockSource` row (same for
+the "no per-batch data resolved" fallback), so the seeded edit row falls back onto the truck's
+own day — landing on the SAME date as that day's own-plan batch (`buildBatchesByBlock` always
+pushes one, `available_kg: plan_kg`, the gross plan alone, no carry-in). Pre-fix the row's kg
+(which may represent carry-in this legacy row can't attribute to one date) was measured against
+that day's plan alone: a draft that had already loaded more than the day's own plan opened with
+its row flagged invalid and Save disabled, before the operator touched anything.
+
+`computeOrphans` now registers **every** seeded row as an orphan candidate — not only a
+null-source-date one — and `effectiveBatches` merges rather than replaces: a date's cap becomes
+`max(live plan/carry-in cap, the row's own kg)`, so kg already on the row is never flagged
+invalid while the live cap still applies above that floor (raising it further can still go red).
+**Round 2, same day:** a fix that special-cased only `harvest_date == null` reopened the
+identical bug one save later — `handleSubmit` sends `row.harvestDate`, which the null-date
+fallback had already resolved to the truck's own day, so the row is WRITTEN with a real,
+non-null `harvest_date`. On the next Üýtget it no longer looks null, the narrower gate stopped
+treating it as an orphan, and the row went red again on the second edit even though nothing
+about its situation had changed. Registering every seeded row (not gating on null-ness) closes
+that reopen path for good.
+
 `DraftBlockSourceInlineSerializer` — the same serializer backing this pre-fill — stays
 per-row on purpose rather than grouping by block the way the Sheet's own
 `ShipmentSheetSerializer.get_block_sources` now does (see "Sheet chip grouping" below): this
@@ -219,6 +245,19 @@ already partially enforced. It is left alone on purpose here: making edit reject
 an endpoint the Sheet's R8 block editor depends on for its own (unrelated) merge behaviour, and
 making create merge would discard the duplicate-submission protection create currently has. The
 next person touching either path should know about the other before "fixing" just one.
+
+**`harvest_date` is parsed to a real `date` before it keys the merge (2026-09-25).** An explicit
+entry's `harvest_date` arrives as a raw request string; a *preserved* entry (the caller omitted
+the key, so the endpoint reads the block's existing batches back from the DB) carries a real
+`date` object. `merge_to_parent` keys on `(parent_id, harvest_date)`, and a str and a date naming
+the same calendar day are different dict keys — reachable with a payload mixing a dated
+sub-block entry and a bare sibling folding to the same parent (e.g. F1 dated, F2 bare, both →
+F). Pre-fix the two never merged, both got written, and the `(shipment, block, harvest_date)`
+unique index rejected the pair as an unhandled exception on the `bulk_create` (500). The explicit
+value is now parsed with `django.utils.dateparse.parse_date`; an unparseable string, an
+impossible calendar date (`parse_date` raises `ValueError`), or a non-string value (raises
+`TypeError`) is a 400 naming `harvest_date` instead. `null`/`''` still means "clear to a
+dateless row", unaffected.
 
 ### Remount-on-edit-target-change
 
@@ -292,7 +331,7 @@ not part of this screen at all (that is the Sheet's clipboard feature, unrelated
 | Endpoint | `backend/apps/export/views_gaplama.py` — `GaplamaBoardView` |
 | Service | `backend/apps/export/services/gaplama.py` — `build_gaplama_board` |
 | Permission | `backend/apps/export/permissions.py` — `CanViewTirGaplama` |
-| Carry window | `backend/apps/core/models/greenhouse_block.py` — `GreenhouseBlock.carry_days` (default 7, per-block, migration `core/0060`). `GreenhouseConfig.gaplama_carry_days` (`backend/apps/core/models/config.py`, default 2) still exists but is no longer read anywhere. |
+| Carry window | `backend/apps/core/models/greenhouse_block.py` — `GreenhouseBlock.carry_days` (default 7, capped at 30 via `MaxValueValidator`, per-block, migrations `core/0060` + `core/0061`). `GreenhouseConfig.gaplama_carry_days` (`backend/apps/core/models/config.py`, default 2) still exists but is no longer read anywhere. |
 | Batch key | `backend/apps/export/models/shipment.py` — `ShipmentBlockSource`, `unique_together = ('shipment', 'block', 'harvest_date')` (migration `export/0077`, no backfill — see above) |
 | Admin CRUD for blocks (incl. `carry_days`) | `backend/apps/greenhouse/views_admin.py` — `GreenhouseBlockAdminViewSet`, `PATCH /api/v1/greenhouse/admin/blocks/{id}/` (director only). No frontend field for `carry_days` yet — `frontend/src/pages/admin/BlocksPage.tsx` doesn't send or edit it. |
 | Config | `backend/apps/core/models/config.py` — `.truck_capacity_kg` (default 18 500) |

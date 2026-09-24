@@ -1,4 +1,18 @@
 
+- [ ] 2026-09-25 — Gaplama batch selection fix wave: null-harvest_date rows no longer flag invalid in the truck form, `/block-sources/` no longer 500s on mixed string/date-object harvest_date entries (400 on bad input instead), `GreenhouseBlock.carry_days` capped at 30 — NEEDS TEST
+  **Migrate first**: `core/0061` (this wave) plus `core/0060`/`export/0077` (already pending
+  from the base feature) are NOT applied to the shared dev DB — run `migrate core` and
+  `migrate export` in whichever environment you test in first.
+  To test: (1) open (Üýtget) any pre-existing draft in Gaplama — every one has a null
+  `harvest_date` on its block sources — and confirm the row is NOT red and Save is NOT disabled
+  on open, even when its kg exceeds that day's own plan; save it unchanged, then open it (Üýtget)
+  a SECOND time — must still be valid, not red again (the fix generalizes past the null-date
+  case specifically so this round-trip doesn't reopen the bug); (2) in the Sheet's R8 block editor (or
+  via API), submit a payload with a dated sub-block and a bare sibling folding to the same
+  parent block — must return 200, not a 500; also try a garbage `harvest_date` string — must
+  return 400 naming the field; (3) as director, try setting a block's `carry_days` above 30
+  (`PATCH /api/v1/greenhouse/admin/blocks/{id}/`) — must be rejected with a 400.
+
 - [ ] 2026-09-24 — Gaplama: per-block carry days, batch selection in the truck form, one board table with Gün/Hepde — NEEDS TEST
   **Migrate first**: `core/0060` and `export/0077` are on `feat/gaplama-batches` but have NOT
   been applied to the shared dev DB (every worktree shares one DB; an earlier NOT NULL attempt
