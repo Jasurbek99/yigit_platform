@@ -72,7 +72,7 @@ class Command(BaseCommand):
             merged = merge_to_parent(entries, parent_map)
             after = ', '.join(
                 f'{code_map.get(top_id, top_id)}={data["weight_kg"]}'
-                for top_id, data in merged.items()
+                for (top_id, _harvest_date), data in merged.items()
             )
             self.stdout.write(f'  #{sid} {shipment.shipment_code}: [{before}] -> [{after}]')
 

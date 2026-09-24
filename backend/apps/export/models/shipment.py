@@ -442,7 +442,9 @@ class ShipmentBlockSource(models.Model):
 
     class Meta:
         db_table = schema_table('export', 'shipment_block_sources')
-        unique_together = [('shipment', 'block')]
+        # (shipment, block) until 2026-09-24. A truck may carry two harvest days
+        # from one block; harvest_date is the batch identity, so it joins the key.
+        unique_together = [('shipment', 'block', 'harvest_date')]
 
     def __str__(self) -> str:
         return f'{self.shipment.shipment_code} / block {self.block.code}'
