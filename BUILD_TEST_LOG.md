@@ -1,4 +1,29 @@
 
+- [ ] 2026-09-24 — Gaplama: per-block carry days, batch selection in the truck form, one board table with Gün/Hepde — NEEDS TEST
+  **Migrate first**: `core/0060` and `export/0077` are on `feat/gaplama-batches` but have NOT
+  been applied to the shared dev DB (every worktree shares one DB; an earlier NOT NULL attempt
+  broke other sessions). Run `migrate core` and `migrate export` in whichever environment you
+  test in before any of the steps below will work.
+  To test: (1) pick a block and set its `carry_days` to 2 — there's no admin UI field yet, use
+  `python manage.py shell -c "from apps.core.models import GreenhouseBlock;
+  GreenhouseBlock.objects.filter(code='X').update(carry_days=2)"` (replace X) — then seed a
+  leftover on day D for that block (a plan with nothing loaded against it) and check the board
+  on D+1 and D+2: the leftover is still counted in `carried_in_kg`/`available_kg` and its `DD.MM`
+  line still appears in the carry-in tooltip; check again on D+3: that line is gone from the
+  tooltip and `carried_in_kg` has dropped by that bucket's amount (available_kg on D+3 may still
+  be nonzero from D+1/D+2's own plan — the check is that bucket's own line disappearing, not the
+  whole number hitting zero). Restore `carry_days` to 7 afterward;
+  (2) open a truck in Gaplama taking only the freshest batch shown in the truck form (today's own
+  plan, not an older carry-in bucket) — after saving, the older batch must still show as
+  available tomorrow, provided it hasn't separately reached its own `carry_days` expiry by then;
+  (3) to check the batch-selection change didn't alter old rows' own consumption order (a
+  separate question from whether carry-window numbers changed — they will, see the CHANGELOG
+  entry's note): note a past week's board before this branch, then on the test DB set every
+  block's `carry_days` to 2 (matching the old global default) and compare the same week's board
+  after migrating — it should match, since every pre-2026-09-24 row has `harvest_date = NULL`
+  and is pure FIFO on both sides. Restore `carry_days` to 7 afterward;
+  (4) open a truck taking two batches from the same block (different harvest dates) — the Sheet
+  shows one chip for that block with the two batches' weights summed, not two chips.
 - [ ] 2026-09-23 — Gaplama screen (board endpoint, grid, Tır Aç/Üýtget form, tab + standalone page) — NEEDS TEST
   Whole-feature entry covering Tasks 1-10 of the Gaplama plan (endpoint, FIFO calc, grid, form,
   tab wiring, standalone `/export/gaplama` page + sidebar entry). The detailed per-scenario test
