@@ -1,3 +1,22 @@
+- [ ] 2026-09-24 — Ticking Gapy Satyş / Peregruz after the fact re-decides the shipment's tasks; clickable notification bell — NEEDS TEST
+  To test: (1) open an existing **draft** with **Gapy satys = No** that still has transport's
+  "Assign driver" task open; note which tasks the draft shows;
+  (2) set **Gapy satys = Yes** on the Sheet — the Regular driver/documents tasks disappear from the
+  open list and the **Gapy** variants appear instead (transport's gapy driver popup, document_team's
+  gapy handover);
+  (3) check the **bell** as transport / document_team / export_manager — a new notification names the
+  shipment code with counts like "+1 -1 ~0"; **click it** — it should open that shipment (this never
+  worked for any notification before);
+  (4) set **Gapy satys** back to **No** — the original Regular tasks come back as the SAME rows, not
+  duplicates (the open count must not grow);
+  (5) a task somebody had already **marked done** before the flip must stay done — it must not reopen
+  and must not disappear;
+  (6) **most important:** after any of these flips the shipment's **status must not move** — a draft
+  stays a draft. If a truck jumps to Gümrük giriş from ticking a checkbox, stop and report it;
+  (7) edit any ordinary cell (weight, a date, a note) — nothing about the tasks may change and no
+  notification may be sent;
+  (8) same check with **Peregruz** on a shipment at Barylýan gümrük — the mechanism is not gapy-only.
+  NOT deployed to the dev DB: migration 0078 could not be applied there (see the note below).
 - [x] 2026-09-23 — Per-country border point ("Serhet nokady") on Truck Destinations, auto-filled onto shipments — TESTED
   To test: (1) open **Admin → Truck Destinations**, edit a country-linked row (e.g. Gazagystan) —
   a new **Border Point** select appears; pick one and save; the table column shows it;

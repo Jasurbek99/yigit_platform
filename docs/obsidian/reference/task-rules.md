@@ -141,6 +141,92 @@ predate the reminder rule need `python manage.py backfill_sales_report_tasks` (r
 advances `satyldy`-with-report shipments to `tamamlandy`. Supports `--dry-run` / `--limit` /
 `--skip-advance`.
 
+## Condition re-evaluation
+
+Tasks are created once, when the shipment enters a step, from the rules whose
+condition matched at that moment. But `is_gapy_satys` and `has_peregruz` are
+edited on the Sheet long after step entry, and the rules that key off them are
+paired — one variant for `True`, one for `False`. Until 2026-09-24 that meant a
+manager ticking Gapy Satyş on a draft left the Regular tasks OPEN forever **and**
+the Gapy tasks were never created at all.
+
+`reconcile_shipment_tasks()` (`services/task_rules.py`) closes that gap. It runs
+on every shipment PATCH whose submitted fields include a field some active rule
+conditions on — an ordinary weight or date edit costs one small query and no
+writes. It also runs on **both** shipments after a `/swap/`, because
+`has_peregruz` is a swappable field.
+
+**It only ever looks at conditioned rules whose field actually changed.** An
+unconditional rule is not a condition question, and neither is a rule keyed on a
+field nobody touched. This matters: without that filter the function would emit a
+task for every rule with no row — i.e. it would be `backfill_tasks` with no
+opt-out, and it would gate the 69 legacy non-gapy drafts on
+`tasks.set_border_point`, which the 2026-09-23 decision deliberately exempted.
+
+Per active rule in scope, one outcome:
+
+| Rule matches? | Existing task | Outcome |
+|---|---|---|
+| yes | none | created |
+| yes | `CANCELLED` / `rule_mismatch` | reopened |
+| no | `OPEN` / `IN_PROGRESS` / `BLOCKED` | cancelled, reason `rule_mismatch` |
+| either | `DONE` | untouched — the work was really done |
+| either | `CANCELLED`, any other reason | untouched — never resurrected |
+
+Scope is every step that has a non-terminal task on the shipment, plus the
+shipment's current step, so a long-lived earlier-step task
+(`tasks.submit_sales_report`, created at `yola_chykdy`) is covered.
+
+**It never calls `auto_advance_if_ready()`.** Cancelling the last open auto-task
+at a step makes that step trigger-satisfied, and advancing from here would let a
+checkbox move a truck through every pre-satisfied step at once. The shipment
+advances on its next ordinary save **that resolves a task** — so a cancel-only
+reconcile can leave a truck eligible-but-parked. That is deliberate and safe; the
+reconciler logs a WARNING naming each step that lost its last open auto-task, so
+the situation is visible in the log rather than silent.
+
+A **reopened** task gets a freshly computed deadline and its `started_at`
+cleared, so it never comes back already overdue. The reconcile runs inside the PATCH's
+`transaction.atomic()` block, so the field write and the task churn commit
+together.
+
+Affected roles get a `tasks_changed` notification: the roles owning the created /
+cancelled / reopened tasks, union `STATUS_NOTIFY_ROLES` for the current step. For
+a Gapy flip on a draft that is `transport`, `document_team` and `export_manager`.
+The notification is sent **outside** the transaction — nobody should be told about
+a change that then rolled back.
+
+### `Task.cancelled_reason`
+
+| Value | Written by |
+|---|---|
+| `manual` | `TaskViewSet.cancel` — a person cancelled it |
+| `shipment_cancelled` | `_cancel_open_tasks` — the whole shipment was cancelled |
+| `rule_mismatch` | `reconcile_shipment_tasks` — the only value it will reopen |
+| `rule_deactivated` | reserved for the rule editor; nothing writes it yet |
+
+Blank means either "never cancelled" or "cancelled before 2026-09" — treat `''`
+as unknown in any analytics, not as `manual`.
+
+### One hazard worth knowing
+
+`condition_value` is compared as a string: `str(shipment.is_gapy_satys) == rule.condition_value`.
+A rule written with `'true'` instead of `'True'` matches **nothing**, so every task
+at that step is cancelled and none created — which also leaves the step
+auto-advance eligible. The reconciler logs a WARNING when it cancels tasks at a
+step and creates none; that warning is the only defence.
+
+### Repairing history
+
+`python manage.py reconcile_tasks --dry-run` now reports a **second** pass: tasks
+that a condition change stranded. Read the dry run first — cancelling a stale task
+can leave a step auto-advance eligible on that shipment's next save.
+
+By default the repair pass **only cancels**; it never emits a task for a matching
+rule that has no row. That is what keeps `reconcile_tasks` a mutator rather than a
+backfill, and it is why running it can never retroactively gate a shipment. Add
+`--create-missing` to opt in, and read the dry run of *that* before you do.
+
 ## Maintenance note
 
 Each `Task` row **snapshots** its watched fields from the rule at creation time. If you edit a `TaskRule`'s `target_fields` / `completion_rule`, existing open tasks keep the old values and won't auto-close. After changing rules run:
@@ -151,6 +237,9 @@ python manage.py reconcile_tasks             # apply + re-resolve
 ```
 
 `seed_task_rules` calls the reconcile automatically after upserting rules.
+
+That is the **drift** pass (a task's snapshot vs its rule). Since 2026-09-24 the
+same command also runs a **condition** pass — see [[#Condition re-evaluation]].
 
 ## Quality inspection (`yuklenme`) — why it is Mark Done
 
