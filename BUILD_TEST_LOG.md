@@ -1,3 +1,12 @@
+- [ ] 2026-09-24 — «Черновик / Draft / Garalama» renamed to «Подготовка / Preparation / Taýýarlyk» (labels only) — NEEDS TEST
+  To test (after `migrate core` applies 0061 and the build is deployed): (1) open a shipment
+  that is in the old Draft status — the Detail header tag reads **Preparation**, the list/Sheet
+  status reads «Подготовка» (ru) / «Taýýarlyk» (tk); (2) board: the card sits in the
+  «Подготовка» column (tk «Taýýarlyk»); (3) sidebar «В подготовке», page title «Отгрузки в
+  подготовке»; (4) Sheet: supply legend «План поставки», the supply/destination modals say
+  «Новый план поставки» / «План назначения», save button «Сохранить»; (5) list: select two →
+  «Объединить планы»; (6) promote a half-built one → error says "in Preparation … plans must be
+  joined first"; (7) quota dashboard and local sell plan still say «черновик» — intended.
 - [x] 2026-09-23 — Per-country border point ("Serhet nokady") on Truck Destinations, auto-filled onto shipments — TESTED
   To test: (1) open **Admin → Truck Destinations**, edit a country-linked row (e.g. Gazagystan) —
   a new **Border Point** select appears; pick one and save; the table column shows it;
