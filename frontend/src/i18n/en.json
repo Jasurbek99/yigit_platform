@@ -3888,6 +3888,7 @@
       "mode_week": "Week",
       "col_loaded": "Loaded",
       "col_carry": "Carried",
+      "col_carry_out": "Forward",
       "col_trucks": "Trucks",
       "folded_blocks": "{{count}} blocks — none available",
       "formula_hint": "Available = carried + plan − loaded",

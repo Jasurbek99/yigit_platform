@@ -302,6 +302,7 @@ export default function GaplamaTab(): JSX.Element {
               <th>{t('tir_takip.gaplama.plan')}</th>
               <th>{t('tir_takip.gaplama.col_loaded')}</th>
               <th>{t('tir_takip.gaplama.col_carry')}</th>
+              <th>{t('tir_takip.gaplama.col_carry_out')}</th>
               <th>{t('tir_takip.gaplama.col_trucks')}</th>
             </tr>
           </thead>
@@ -321,10 +322,13 @@ export default function GaplamaTab(): JSX.Element {
               const subtotalCarried = visibleBlocksInLoc.reduce(
                 (sum, b) => sum + (selectedDayRowByBlock[b.id]?.carried_in_kg ?? 0), 0,
               );
+              const subtotalCarriedOut = visibleBlocksInLoc.reduce(
+                (sum, b) => sum + (selectedDayRowByBlock[b.id]?.carried_out_kg ?? 0), 0,
+              );
               return (
                 <Fragment key={location}>
                   <tr className="sera-gaplama-location-header">
-                    <td colSpan={6}>{locationLabel(location)}</td>
+                    <td colSpan={7}>{locationLabel(location)}</td>
                   </tr>
                   {visibleBlocksInLoc.map((block) => {
                     const row = selectedDayRowByBlock[block.id];
@@ -355,9 +359,6 @@ export default function GaplamaTab(): JSX.Element {
                         </td>
                         <td className={cellClass}>
                           {isOver ? t('tir_takip.gaplama.over_tooltip', { kg: fmt(over) }) : fmt(available)}
-                          {carriedOut > 0 && (
-                            <div className="sera-gaplama-carry-out">{fmt(carriedOut)} →</div>
-                          )}
                         </td>
                         <td>{fmt(plan)}</td>
                         <td>{fmt(loaded)}</td>
@@ -367,6 +368,7 @@ export default function GaplamaTab(): JSX.Element {
                         >
                           {carried > 0 ? `+${fmt(carried)}` : '—'}
                         </td>
+                        <td>{carriedOut > 0 ? fmt(carriedOut) : '—'}</td>
                         <td>{Math.floor(available / truckCapacityKg)}</td>
                       </tr>
                     );
@@ -377,6 +379,7 @@ export default function GaplamaTab(): JSX.Element {
                     <td>{fmt(subtotalPlan)}</td>
                     <td>{fmt(subtotalLoaded)}</td>
                     <td>{subtotalCarried > 0 ? `+${fmt(subtotalCarried)}` : '—'}</td>
+                    <td>{subtotalCarriedOut > 0 ? fmt(subtotalCarriedOut) : '—'}</td>
                     <td>{truckCountByLocation({ [location]: subtotalAvailable }, truckCapacityKg)}</td>
                   </tr>
                 </Fragment>
@@ -385,7 +388,7 @@ export default function GaplamaTab(): JSX.Element {
             {foldedBlocks.length > 0 && (
               <>
                 <tr className="sera-gaplama-folded-row" onClick={() => setFoldOpen((o) => !o)}>
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     {foldOpen ? '▾' : '▸'} {t('tir_takip.gaplama.folded_blocks', { count: foldedBlocks.length })}
                   </td>
                 </tr>
@@ -394,7 +397,7 @@ export default function GaplamaTab(): JSX.Element {
                     <td className="sera-gaplama-block-name">
                       {block.name || block.code} ({locationLabel(block.location_name ?? LOCATION_KEY_FALLBACK)})
                     </td>
-                    <td colSpan={5}>—</td>
+                    <td colSpan={6}>—</td>
                   </tr>
                 ))}
               </>
@@ -403,7 +406,7 @@ export default function GaplamaTab(): JSX.Element {
           <tfoot>
             <tr className="sera-gaplama-footer-tir-sany">
               <td>{t('tir_takip.gaplama.tir_sany')}</td>
-              <td colSpan={5}>
+              <td colSpan={6}>
                 {truckCountByLocation(
                   Object.fromEntries(locationOrder.map((loc) => [
                     loc,
@@ -415,7 +418,7 @@ export default function GaplamaTab(): JSX.Element {
             </tr>
             <tr className="sera-gaplama-footer-trucks">
               <td>📦 {t('tir_takip.gaplama.opened_trucks')}</td>
-              <td colSpan={5}>
+              <td colSpan={6}>
                 {trucksForDay(trucks, selectedDay).map((tr) => (
                   <div key={tr.id} className="sera-gaplama-truck-chip">
                     {tr.shipment_code} · {fmt(truckTotalKg(tr))} kg

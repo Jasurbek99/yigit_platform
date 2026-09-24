@@ -3892,6 +3892,7 @@
       "mode_week": "Неделя",
       "col_loaded": "Загружено",
       "col_carry": "Перенесено",
+      "col_carry_out": "Вперёд",
       "col_trucks": "Маш.",
       "folded_blocks": "{{count}} блок — нет свободного",
       "formula_hint": "Своб. = перенесено + план − погружено",

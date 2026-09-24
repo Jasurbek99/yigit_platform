@@ -385,7 +385,11 @@ describe('GaplamaTab', () => {
       const carryIn = container.querySelector('.sera-gaplama-carry-in');
       expect(digits(carryIn?.textContent)).toBe('2000');
       expect(carryIn?.getAttribute('title')).toContain('01.01');
-      const carryOut = container.querySelector('.sera-gaplama-carry-out');
+      // Round-1 fix: carried_out_kg is its own labelled column (Galýar,
+      // immediately after Geçen), not a second number stacked inside the
+      // Boş cell — the whole point of the day table is one number per
+      // cell, label in the header.
+      const carryOut = carryIn?.nextElementSibling;
       expect(digits(carryOut?.textContent)).toBe('7000');
     });
   });
@@ -519,6 +523,63 @@ describe('GaplamaTab', () => {
       fireEvent.click(screen.getByRole('button', { name: /tir_takip\.gaplama\.mode_day/ }));
       await waitFor(() => {
         expect(screen.queryByRole('columnheader', { name: mondayHeader })).not.toBeInTheDocument();
+      });
+    });
+
+    // Round-1 fix: the two-colour rule (green = a whole truck available, red
+    // = overloaded) is the day table's entire decision aid and had no test
+    // pinning it. Asserts on the class, not on text.
+    it('colours the Boş cell green at a full truck, red when overloaded, and plain in between', async () => {
+      (useAuth as any).mockReturnValue({
+        user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+      });
+      (api.get as any).mockImplementation((url: string) => {
+        if (url.includes('/export/gaplama/board/')) {
+          return Promise.resolve({
+            data: {
+              days: [
+                { date: TODAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                  plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                  available_kg: '18500.00', over_kg: '0.00' },
+                { date: TODAY, block_id: 2, block_code: 'B', location: 'Dusak',
+                  plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                  available_kg: '0.00', over_kg: '500.00' },
+                { date: TODAY, block_id: 3, block_code: 'C', location: 'Dusak',
+                  plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '0.00',
+                  available_kg: '5000.00', over_kg: '0.00' },
+              ],
+              trucks: [],
+            },
+          });
+        }
+        if (url.includes('/core/blocks')) {
+          return Promise.resolve({
+            data: { results: [
+              { id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak', carry_days: 7 },
+              { id: 2, code: 'B', name: 'B', parent: null, is_active: true, location_name: 'Dusak', carry_days: 7 },
+              { id: 3, code: 'C', name: 'C', parent: null, is_active: true, location_name: 'Dusak', carry_days: 7 },
+            ] },
+          });
+        }
+        if (url.includes('/greenhouse-config')) {
+          return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 2 } });
+        }
+        return Promise.resolve({ data: {} });
+      });
+
+      const { container } = renderTab();
+      await screen.findByRole('columnheader', { name: /tir_takip\.gaplama\.available/ });
+
+      function bosCellFor(blockName: string): Element | null | undefined {
+        const nameCell = Array.from(container.querySelectorAll('td.sera-gaplama-block-name'))
+          .find((td) => td.textContent?.startsWith(blockName));
+        return nameCell?.parentElement?.querySelectorAll('td')[1];
+      }
+
+      await waitFor(() => {
+        expect(bosCellFor('A')).toHaveClass('sera-gaplama-cell-full');
+        expect(bosCellFor('B')).toHaveClass('sera-gaplama-cell-over');
+        expect(bosCellFor('C')?.className).toBe('');
       });
     });
 

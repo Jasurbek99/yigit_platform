@@ -918,14 +918,6 @@
   cursor: help;
 }
 
-/* This cell's own unclaimed remainder moving on to tomorrow ("N →") — moved,
-   not unpacked (design spec §3①). Nested under the day table's Boş cell,
-   amber so the two directions read as distinct at a glance. */
-.sera-page .sera-gaplama-carry-out {
-  font-size: 10px;
-  color: #d97706;
-}
-
 .sera-page .sera-gaplama-location-subtotal td {
   background: #ecfdf5;
   color: var(--sera-accent);

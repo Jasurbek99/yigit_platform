@@ -3893,6 +3893,7 @@
       "mode_week": "Hepde",
       "col_loaded": "Ýüklenen",
       "col_carry": "Geçen",
+      "col_carry_out": "Galýar",
       "col_trucks": "Tir",
       "folded_blocks": "{{count}} blok — boş ýok",
       "formula_hint": "Boş = geçen + plan − ýüklenen",
