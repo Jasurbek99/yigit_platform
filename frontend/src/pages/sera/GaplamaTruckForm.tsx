@@ -63,8 +63,15 @@ const ROW_KEY = (blockId: number, harvestDate: string): string => `${blockId}:${
 
 /** The batch list to actually render/cap against for a block — the live
  * board batches, plus any ORPHAN batch a seeded edit row names that isn't
- * (any longer) on the live list, e.g. one that has since expired. An
- * orphan's cap floors to its own kg: its true remaining headroom is
+ * (any longer) on the live list, e.g. one that has since expired, or that
+ * names no real date at all (seeded from a null source harvest_date — see
+ * `computeOrphans`). An orphan's cap is a FLOOR, never a ceiling: where it
+ * shares a date with a live batch, the cap is max(live, orphan) so kg
+ * already on the row is never flagged invalid while the live cap still
+ * applies above that floor (2026-09-25 — a null-date row folded onto that
+ * day's own plan was measured against the plan ALONE, ignoring the
+ * carry-in it may actually represent). A non-colliding orphan's cap floors
+ * to exactly its own kg, as before: its true remaining headroom is
  * unknowable from here, so it must never show as invalid, and dropping it
  * would delete that weight on save. */
 function effectiveBatches(
@@ -72,7 +79,14 @@ function effectiveBatches(
   props: Pick<IGaplamaTruckFormProps, 'batchesByBlock'>,
   orphans: Record<number, IGaplamaBatch[]>,
 ): IGaplamaBatch[] {
-  return [...(props.batchesByBlock[blockId] ?? []), ...(orphans[blockId] ?? [])];
+  const live = props.batchesByBlock[blockId] ?? [];
+  const orphanList = orphans[blockId] ?? [];
+  const merged = live.map((b) => {
+    const collision = orphanList.find((o) => o.harvest_date === b.harvest_date);
+    return collision ? { ...b, available_kg: Math.max(b.available_kg, collision.available_kg) } : b;
+  });
+  const extra = orphanList.filter((o) => !live.some((b) => b.harvest_date === o.harvest_date));
+  return [...merged, ...extra];
 }
 
 function capFor(harvestDate: string, batches: IGaplamaBatch[]): number {
@@ -105,14 +119,32 @@ function blockCapFor(blockId: number, props: IGaplamaTruckFormProps): number {
  * comment). Computed once, from the props the form mounted with; not
  * recomputed as `rows` changes. */
 function computeOrphans(props: IGaplamaTruckFormProps): Record<number, IGaplamaBatch[]> {
-  if (props.mode !== 'edit' || !props.editingTruck || !props.editingTruckBatches?.length) return {};
+  if (props.mode !== 'edit' || !props.editingTruck) return {};
   const truckDate = props.editingTruck.date;
+  // Real per-batch data when resolved (drafts endpoint) carries its own
+  // harvest_date per row. The degrade-to-block-level-totals fallback
+  // (editingTruckBatches unresolved — see initialRowsFor) does not: it is
+  // dated the truck's own day with no real per-batch attribution, which is
+  // the SAME situation as an explicit null harvest_date below, so it is
+  // forced through the same null-date path rather than trusting whatever
+  // (unrelated) harvest_date a raw block_sources row happens to carry.
+  const entries: IBlockSource[] = props.editingTruckBatches?.length
+    ? props.editingTruckBatches
+    : props.editingTruck.block_sources;
+  const forceNullDate = !props.editingTruckBatches?.length;
   const out: Record<number, IGaplamaBatch[]> = {};
-  for (const bs of props.editingTruckBatches) {
+  for (const bs of entries) {
     if (bs.block_id == null) continue;
-    const harvestDate = bs.harvest_date ?? truckDate;
+    const wasNullDate = forceNullDate || bs.harvest_date == null;
+    const harvestDate = wasNullDate ? truckDate : (bs.harvest_date as string);
     const live = props.batchesByBlock[bs.block_id] ?? [];
-    if (live.some((b) => b.harvest_date === harvestDate)) continue;
+    // A seeded row whose SOURCE harvest_date was null carries carry-in this
+    // form can't attribute to one date (legacy rows, pre-batch-selection) —
+    // always treated as an orphan, even when its fallback date collides
+    // with a live batch, so `effectiveBatches` can raise that date's cap to
+    // at least this row's own kg instead of folding it onto that day's live
+    // batch and measuring it against the live cap alone (2026-09-25 fix).
+    if (!wasNullDate && live.some((b) => b.harvest_date === harvestDate)) continue;
     const list = out[bs.block_id] ?? (out[bs.block_id] = []);
     if (list.some((b) => b.harvest_date === harvestDate)) continue;
     list.push({

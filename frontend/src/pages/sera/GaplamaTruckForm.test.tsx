@@ -287,6 +287,88 @@ describe('GaplamaTruckForm — edit', () => {
     expect(kgInput).toHaveValue(8000);
   });
 
+  // 2026-09-25 fix: EVERY shipment on the live DB has a null block-source
+  // harvest_date (pre-batch-selection data). The seeded row falls back onto
+  // the truck's own day, landing on the SAME date as that day's own-plan
+  // batch — so its kg (which may include carry-in this legacy row can't
+  // attribute to any one date) was measured against that day's plan ALONE,
+  // not the block's real available headroom. A draft that loaded more than
+  // the day's own plan opened already red, before the operator touched
+  // anything.
+  it("never shows a null-harvest_date seeded row invalid, even over that day's own plan", () => {
+    const localTruck = {
+      id: 20, shipment_code: '2109020/26', export_code: null, date: '2026-09-21',
+      status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+      block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 18000 }],
+    };
+    renderForm({
+      mode: 'edit',
+      editingTruck: localTruck,
+      editingTruckBatches: [{ block_id: 1, block_code: 'A', weight_kg: 18000, harvest_date: null }],
+      availableByBlock: { 1: 0 }, // 8000 carry-in + 10000 today's plan - 18000 already loaded
+      batchesByBlock: {
+        1: [
+          { harvest_date: '2026-09-20', age_days: 1, available_kg: 8000 },
+          { harvest_date: '2026-09-21', age_days: 0, available_kg: 10000 },
+        ],
+      },
+    });
+    const inputs = screen.getAllByRole('spinbutton');
+    // Oldest-first: [0] is the empty 20.09 carry-in row offered alongside it,
+    // [1] is the seeded 21.09 row actually carrying the truck's 18000.
+    expect(inputs[1]).toHaveValue(18000);
+    for (const input of inputs) {
+      expect(input).not.toHaveAttribute('aria-invalid', 'true');
+    }
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).not.toBeDisabled();
+  });
+
+  // Guard against an exact-replacement fix: the orphan's own kg is a FLOOR
+  // on that date's cap, not a ceiling — the live cap must still apply above
+  // it. Already green pre-fix (this one never hit the bug); exists to catch
+  // a fix that replaces the live cap outright instead of taking the max.
+  it('still caps a null-harvest_date row at the live batch when raised within it', () => {
+    const localTruck = {
+      id: 21, shipment_code: '2109021/26', export_code: null, date: '2026-09-21',
+      status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+      block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 5000 }],
+    };
+    renderForm({
+      mode: 'edit',
+      editingTruck: localTruck,
+      editingTruckBatches: [{ block_id: 1, block_code: 'A', weight_kg: 5000, harvest_date: null }],
+      availableByBlock: { 1: 5000 },
+      batchesByBlock: { 1: [{ harvest_date: '2026-09-21', age_days: 0, available_kg: 10000 }] },
+    });
+    const kgInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement;
+    expect(kgInput).toHaveValue(5000);
+    fireEvent.change(kgInput, { target: { value: '8000' } });
+    expect(kgInput).not.toHaveAttribute('aria-invalid', 'true');
+  });
+
+  // The degrade-to-block-level-totals fallback (editingTruckBatches
+  // unresolved) has the identical bug: it dates every row the truck's own
+  // day with no real per-batch attribution — the same situation as an
+  // explicit null harvest_date.
+  it("never shows the fallback (no per-batch data) row invalid either, over that day's own plan", () => {
+    const localTruck = {
+      id: 22, shipment_code: '2109022/26', export_code: null, date: '2026-09-21',
+      status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+      block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 18000 }],
+    };
+    renderForm({
+      mode: 'edit',
+      editingTruck: localTruck,
+      editingTruckBatches: undefined,
+      availableByBlock: { 1: 0 },
+      batchesByBlock: { 1: [{ harvest_date: '2026-09-21', age_days: 0, available_kg: 10000 }] },
+    });
+    const kgInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement;
+    expect(kgInput).toHaveValue(18000);
+    expect(kgInput).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).not.toBeDisabled();
+  });
+
   it('sends block_id and harvest_date for each row on save', async () => {
     (api.post as any).mockResolvedValue({ data: {} });
     (api.patch as any).mockResolvedValue({ data: {} });
