@@ -1,4 +1,5 @@
 """`carry_days` per block replaces the one global gaplama_carry_days (2026-09-24)."""
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from apps.core.models import GreenhouseBlock
@@ -21,3 +22,20 @@ class BlockCarryDaysTests(TestCase):
             [2, 7],
         )
         self.assertNotEqual(a.carry_days, b.carry_days)
+
+
+class BlockCarryDaysUpperBoundTests(TestCase):
+    """2026-09-25: `build_gaplama_board`'s walk window is 2 x max(carry_days)
+    ACROSS EVERY BLOCK, and each block's own bucket list inside that window
+    is bounded by its own carry_days — one block typo'd to a huge value (no
+    upper bound today) makes every board request walk years of days for
+    every block, not just the mistyped one. A validator caps it."""
+
+    def test_full_clean_rejects_a_wildly_large_value(self):
+        block = GreenhouseBlock(code='CD4', carry_days=3650)
+        with self.assertRaises(ValidationError):
+            block.full_clean()
+
+    def test_full_clean_accepts_the_upper_bound(self):
+        block = GreenhouseBlock(code='CD5', carry_days=30)
+        block.full_clean()  # must not raise

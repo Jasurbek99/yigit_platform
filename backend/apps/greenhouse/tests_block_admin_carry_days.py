@@ -84,3 +84,17 @@ class GreenhouseBlockAdminCarryDaysTests(TestCase):
         # Verify persistence by reading from DB
         self.block.refresh_from_db()
         self.assertEqual(self.block.carry_days, 3)
+
+    def test_patch_rejects_a_wildly_large_carry_days(self):
+        """2026-09-25: no upper bound meant one typo'd block (e.g. 3650) sized
+        the board's walk window for EVERY block. 3650 is well under
+        PositiveSmallIntegerField's own 32767 ceiling, so this must be the
+        new validator rejecting it, not the field's own range check."""
+        client = _make_client(self.director)
+        url = f'/api/v1/greenhouse/admin/blocks/{self.block.id}/'
+
+        resp = client.patch(url, {'carry_days': 3650}, format='json')
+
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.block.refresh_from_db()
+        self.assertEqual(self.block.carry_days, 7)
