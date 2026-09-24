@@ -343,3 +343,97 @@ class SetBlockSourcesPreservesBatchesTests(TestCase):
         for weight in rows.values():
             self.assertGreaterEqual(weight, Decimal('0'), rows)
         self.assertEqual(sum(rows.values()), Decimal('18173.43'))
+
+
+class SheetChipGroupingTests(TestCase):
+    """A two-batch truck is still ONE block chip on the Sheet.
+
+    `ShipmentSheetSerializer.block_sources` is one entry per
+    ShipmentBlockSource ROW. Since harvest_date joined the unique key
+    (2026-09-24), a block can now have two legitimate batch rows on the same
+    shipment. Without grouping, the Sheet chip for that block renders twice.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.export.models import ShipmentBlockSource
+        cls.block = GreenhouseBlock.objects.create(code='SC', is_active=True)
+        cls.country, _ = Country.objects.get_or_create(code='TM', defaults={'name_en': 'TM'})
+        cls.season, _ = Season.objects.get_or_create(
+            name='SC-season', defaults={
+                'is_active': True, 'start_date': '2026-01-01', 'end_date': '2026-12-31',
+            },
+        )
+        cls.status, _ = ShipmentStatusType.objects.get_or_create(
+            code='draft',
+            defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
+        )
+        cls.shipment = Shipment.objects.create(
+            shipment_code='24SP901/26', date=date(2026, 6, 3),
+            season=cls.season, country=cls.country, status=cls.status,
+        )
+        for harvest_date, kg in ((date(2026, 6, 1), '3000'), (date(2026, 6, 3), '5000')):
+            ShipmentBlockSource.objects.create(
+                shipment=cls.shipment, block=cls.block,
+                weight_kg=Decimal(kg), harvest_date=harvest_date,
+            )
+
+    def test_two_batches_render_one_chip_per_block(self):
+        from apps.export.serializers import ShipmentSheetSerializer
+        shipment = self.shipment
+        # Sheet endpoint annotates these via Exists(...) on the queryset;
+        # a bare model instance has neither, so fill them in like the
+        # queryset would for a shipment with no sales report / advance yet.
+        shipment.has_sales_report = False
+        shipment.has_doc_advance = False
+        chips = ShipmentSheetSerializer(shipment).data['block_sources']
+        self.assertEqual(
+            [c['block_id'] for c in chips], [self.block.id],
+            f'block rendered {len(chips)} times, expected once: {chips}',
+        )
+        self.assertEqual(Decimal(str(chips[0]['weight_kg'])), Decimal('8000'))
+
+
+class NormalizeBlockSourcesBatchPreviewTests(TestCase):
+    """The dry-run preview must show WHICH batch each figure belongs to.
+
+    Before the fix, the preview line discarded harvest_date from the merged
+    (parent_id, harvest_date) key, so two batches of one sub-block printed as
+    the same code twice with nothing to tell them apart (`ND=3000, ND=5000`).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.export.models import ShipmentBlockSource
+        cls.parent = GreenhouseBlock.objects.create(code='ND', is_active=True)
+        cls.child = GreenhouseBlock.objects.create(code='ND1', parent=cls.parent, is_active=True)
+        cls.season, _ = Season.objects.get_or_create(
+            name='ND-season', defaults={
+                'is_active': True, 'start_date': '2026-01-01', 'end_date': '2026-12-31',
+            },
+        )
+        cls.status, _ = ShipmentStatusType.objects.get_or_create(
+            code='draft',
+            defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
+        )
+        cls.shipment = Shipment.objects.create(
+            shipment_code='24SP902/26', date=date(2026, 6, 3),
+            season=cls.season, status=cls.status,
+        )
+        for harvest_date, kg in ((date(2026, 6, 1), '3000'), (date(2026, 6, 3), '5000')):
+            ShipmentBlockSource.objects.create(
+                shipment=cls.shipment, block=cls.child,
+                weight_kg=Decimal(kg), harvest_date=harvest_date,
+            )
+
+    def test_dry_run_preview_distinguishes_batches_by_date(self):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('normalize_block_sources', stdout=out)
+        output = out.getvalue()
+        self.assertIn('2026-06-01', output, output)
+        self.assertIn('2026-06-03', output, output)
+        # Both figures must appear — not just the block code repeated blindly.
+        self.assertIn('3000', output, output)
+        self.assertIn('5000', output, output)

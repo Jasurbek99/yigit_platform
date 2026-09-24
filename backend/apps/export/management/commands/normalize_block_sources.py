@@ -53,7 +53,8 @@ class Command(BaseCommand):
             sid = shipment.id
             existing = list(shipment.block_sources.all())
             before = ', '.join(
-                f'{code_map.get(bs.block_id, bs.block_id)}={bs.weight_kg}' for bs in existing
+                f'{code_map.get(bs.block_id, bs.block_id)}={bs.weight_kg}@{bs.harvest_date}'
+                for bs in existing
             )
 
             # An unweighed block source (supply draft, not yet weighed) has no
@@ -71,8 +72,8 @@ class Command(BaseCommand):
             ]
             merged = merge_to_parent(entries, parent_map)
             after = ', '.join(
-                f'{code_map.get(top_id, top_id)}={data["weight_kg"]}'
-                for (top_id, _harvest_date), data in merged.items()
+                f'{code_map.get(top_id, top_id)}={data["weight_kg"]}@{harvest_date}'
+                for (top_id, harvest_date), data in merged.items()
             )
             self.stdout.write(f'  #{sid} {shipment.shipment_code}: [{before}] -> [{after}]')
 

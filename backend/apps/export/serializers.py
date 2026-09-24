@@ -629,17 +629,9 @@ class SheetFirmSplitInlineSerializer(serializers.ModelSerializer):
         fields = ['firm_code', 'firm_name', 'firm_color', 'weight_kg', 'amount_usd']
 
 
-class SheetBlockSourceInlineSerializer(serializers.ModelSerializer):
-    """Inline block source for sheet view — minimal fields."""
-
-    block_id = serializers.IntegerField(source='block.id', read_only=True)
-    block_code = serializers.CharField(source='block.code', read_only=True)
-    # Per-block cell color — paints the block-chip in the block_sources cell.
-    block_color = serializers.CharField(source='block.color', read_only=True, default=None)
-
-    class Meta:
-        model = ShipmentBlockSource
-        fields = ['block_id', 'block_code', 'block_color', 'weight_kg', 'harvest_date']
+# Reused to format a summed Decimal exactly like ShipmentBlockSource.weight_kg
+# would serialize on its own (max_digits/decimal_places must match the model).
+_SHEET_BLOCK_WEIGHT_FIELD = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class ShipmentSheetSerializer(serializers.ModelSerializer):
@@ -724,9 +716,50 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
 
     # Inline related data
     firm_splits = SheetFirmSplitInlineSerializer(many=True, read_only=True)
-    block_sources = SheetBlockSourceInlineSerializer(many=True, read_only=True)
+    # One chip per BLOCK, not per row — see get_block_sources.
+    block_sources = serializers.SerializerMethodField()
     # Multi-variety dominant list — N+1-safe when queryset prefetches 'varieties_dominant'
     varieties_dominant = TomatoVarietyInlineSerializer(many=True, read_only=True)
+
+    def get_block_sources(self, obj) -> list[dict]:
+        """Group block_sources rows by block and sum weight_kg per block.
+
+        A block can now have more than one row on the same shipment — one
+        per harvest-day batch (2026-09-24, unique_together widened to
+        (shipment, block, harvest_date)). The Sheet shows one chip per
+        block; per-batch detail belongs on the Gaplama board, not here.
+
+        Reads `obj.block_sources.all()` — prefetched by the sheet queryset
+        (`block_sources__block`), so this is N+1-safe for the unpaginated
+        whole-season list.
+        """
+        grouped: dict[int, dict] = {}
+        order: list[int] = []
+        for bs in obj.block_sources.all():
+            block = bs.block
+            entry = grouped.get(block.id)
+            if entry is None:
+                entry = {
+                    'block_id': block.id,
+                    'block_code': block.code,
+                    'block_color': block.color,
+                    'weight_kg': None,
+                }
+                grouped[block.id] = entry
+                order.append(block.id)
+            if bs.weight_kg is not None:
+                running = entry['weight_kg']
+                entry['weight_kg'] = bs.weight_kg if running is None else running + bs.weight_kg
+
+        result = []
+        for bid in order:
+            entry = dict(grouped[bid])
+            weight = entry['weight_kg']
+            entry['weight_kg'] = (
+                _SHEET_BLOCK_WEIGHT_FIELD.to_representation(weight) if weight is not None else None
+            )
+            result.append(entry)
+        return result
 
     class Meta:
         model = Shipment
