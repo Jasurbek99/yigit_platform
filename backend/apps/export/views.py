@@ -3307,21 +3307,34 @@ class ShipmentViewSet(ModelViewSet):
             # No harvest_date key — spread this entry's weight across every
             # preserved batch of the block, proportional to each batch's own
             # existing weight (even split if the existing weights are all
-            # null/0). Last batch takes the rounding remainder.
+            # null/0). Allocated as a running CUMULATIVE target rather than
+            # per-batch share + remainder-on-last: row_weight is the
+            # difference between two non-decreasing quantized cumulative
+            # targets, so it can never go negative (unlike rounding each
+            # share independently and dumping the drift on the last row,
+            # which can undershoot into a negative value — e.g. batches
+            # 1000/1000/0 splitting 2666.67 rounds the first two shares up
+            # to 1333.34 each, leaving the last row -0.01). The final
+            # batch's target is forced to the full weight, so the sum is
+            # still exact by construction (telescoping sum).
             existing_total = sum((w or Decimal('0')) for _, w in existing)
-            running = Decimal('0')
-            last = len(existing) - 1
+            n_batches = len(existing)
+            running_old = Decimal('0')
+            allocated = Decimal('0')
+            last = n_batches - 1
             for idx, (harvest_date, old_weight) in enumerate(existing):
+                running_old += (old_weight or Decimal('0'))
                 if idx == last:
-                    row_weight = (weight - running).quantize(Decimal('0.01'))
+                    target = weight
                 else:
-                    share = (
-                        (old_weight or Decimal('0')) / existing_total
+                    cum_share = (
+                        running_old / existing_total
                         if existing_total > 0
-                        else Decimal('1') / len(existing)
+                        else Decimal(idx + 1) / n_batches
                     )
-                    row_weight = (weight * share).quantize(Decimal('0.01'))
-                    running += row_weight
+                    target = (weight * cum_share).quantize(Decimal('0.01'))
+                row_weight = target - allocated
+                allocated = target
                 entries.append({'block': block_id, 'weight_kg': row_weight, 'harvest_date': harvest_date})
 
         # Normalize sub-blocks to parent grain and merge (F1/F2 -> F) before write.

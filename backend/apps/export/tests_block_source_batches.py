@@ -134,6 +134,7 @@ class SetBlockSourcesPreservesBatchesTests(TestCase):
     def setUpTestData(cls):
         cls.block_a = GreenhouseBlock.objects.create(code='BR', is_active=True)
         cls.block_b = GreenhouseBlock.objects.create(code='BS', is_active=True)
+        cls.block_c = GreenhouseBlock.objects.create(code='BT', is_active=True)
         cls.country, _ = Country.objects.get_or_create(code='TM', defaults={'name_en': 'TM'})
         cls.season, _ = Season.objects.get_or_create(
             name='26-batch3', defaults={
@@ -267,3 +268,78 @@ class SetBlockSourcesPreservesBatchesTests(TestCase):
             for bs in self.shipment.block_sources.filter(block=self.block_b)
         }
         self.assertEqual(b_rows, {None: Decimal('4000.00')})
+
+    def test_explicit_harvest_date_null_collapses_multi_batch_to_one_row(self):
+        """Requirement 2 (round 2) — an explicit harvest_date: null still
+        overrides, even for a block with multiple existing batches: both
+        batches must collapse into one dateless row, not two."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_a.id, 'harvest_date': None},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        rows = self._rows()
+        self.assertEqual(set(rows), {None})
+        self.assertEqual(rows[None], Decimal('8000.00'))
+
+    def _c_rows(self):
+        return {
+            bs.harvest_date: bs.weight_kg
+            for bs in self.shipment.block_sources.filter(block=self.block_c)
+        }
+
+    def test_three_batch_split_never_goes_negative_reviewer_case(self):
+        """Round-1 review finding: three batches 1000/1000/0 splitting an
+        entry weight of 2666.67 — rounding each share independently and
+        dumping the drift on the last row gives the last row -0.01. No row
+        may be negative and the rows must sum exactly to the entry weight."""
+        from apps.export.models import ShipmentBlockSource
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_c,
+            weight_kg=Decimal('1000'), harvest_date=date(2026, 7, 1),
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_c,
+            weight_kg=Decimal('1000'), harvest_date=date(2026, 7, 2),
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_c,
+            weight_kg=Decimal('0'), harvest_date=date(2026, 7, 3),
+        )
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_c.id, 'weight_kg': '2666.67'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        rows = self._c_rows()
+        self.assertEqual(len(rows), 3)
+        for weight in rows.values():
+            self.assertGreaterEqual(weight, Decimal('0'), rows)
+        self.assertEqual(sum(rows.values()), Decimal('2666.67'))
+
+    def test_three_batch_uneven_split_never_goes_negative(self):
+        """A second, differently-shaped three-batch case — an uneven 205:2173
+        ratio (not the reviewer's equal 1000:1000 pair) with a 0 kg last
+        batch, splitting 18173.43. Found by brute-force search to also go
+        negative (-0.01) under the old per-share-rounding algorithm: same
+        two properties required, no negative row and an exact sum."""
+        from apps.export.models import ShipmentBlockSource
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_c,
+            weight_kg=Decimal('205'), harvest_date=date(2026, 7, 1),
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_c,
+            weight_kg=Decimal('2173'), harvest_date=date(2026, 7, 2),
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block_c,
+            weight_kg=Decimal('0'), harvest_date=date(2026, 7, 3),
+        )
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block_c.id, 'weight_kg': '18173.43'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        rows = self._c_rows()
+        self.assertEqual(len(rows), 3)
+        for weight in rows.values():
+            self.assertGreaterEqual(weight, Decimal('0'), rows)
+        self.assertEqual(sum(rows.values()), Decimal('18173.43'))
