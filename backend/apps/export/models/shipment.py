@@ -244,9 +244,10 @@ class Shipment(models.Model):
     # Operator-entered harvest day (Sheet R39, owned by Soltanmyrat/
     # warehouse_chief). Free text — operators enter whatever form the operation
     # uses (single day, ranges like "5-10 oktýabr", notes), so this is a plain
-    # CharField, not a DateField. The legacy per-block ShipmentBlockSource.
-    # harvest_date column is now vestigial (the multi-block date editor was
-    # removed); the Sheet reads and writes this single shipment-level field.
+    # CharField, not a DateField. Separate from ShipmentBlockSource.harvest_date
+    # (per-block batch identity, see that model's Meta) — this field is not
+    # derived from those dates and does not feed them; it's the Sheet's own
+    # shipment-level entry.
     harvest_date = models.CharField(
         max_length=100, null=True, blank=True, db_collation='Cyrillic_General_CI_AS'
     )
