@@ -59,8 +59,9 @@ CANCEL_ROLES = {'admin', 'director'} | EXPORT_MANAGER_LIKE
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)
 # where predicate is Callable[[Shipment], bool] used by auto-advance to pick
-# the right target when multiple edges exist. Manual transitions IGNORE
-# predicates — the user explicitly picks the target.
+# the right target when multiple edges exist. Manual transitions obey the
+# predicates too, except at the steps in PREDICATE_ADVISORY_STEPS (below),
+# where the user may still pick the branch the predicate rejects.
 #
 # None key = shipment has no status yet (legacy fallback, unused by current flow).
 # Cancel edges use list(CANCEL_ROLES) (declared above) so the set membership is
