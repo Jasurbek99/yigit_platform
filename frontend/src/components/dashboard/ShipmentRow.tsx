@@ -62,9 +62,14 @@ export const ShipmentRow = memo(function ShipmentRow({
     ? (shipment.weight_net / 1000).toFixed(1)
     : '—';
 
+  // A Gapy-Satyş truck is a gate sale: it finishes at `tamamlandy` (step 12)
+  // straight out of loading and never gets an `arrived_at` — R35 is hidden for
+  // it (ADR-025). Judging it by the export chain's arrival test would pin a
+  // permanent red ✕ on it that no operator has a cell to clear.
+  const isGapy = Boolean(shipment.is_gapy_satys);
   const hasReport = Boolean(shipment.arrived_at);
-  const isComplete = shipment.status_step >= 13;
-  const needsReport = shipment.status_step >= 9 && !hasReport;
+  const isComplete = isGapy ? shipment.status_step >= 12 : shipment.status_step >= 13;
+  const needsReport = !isGapy && shipment.status_step >= 9 && !hasReport;
 
   return (
     <div className="shipment-row" onClick={() => onSelect(shipment.id)}>
