@@ -5,11 +5,14 @@ renders this verbatim (D1/D2/D8, see the design spec); Plan 2's over-load task a
 notification call the same function so the two can never disagree about a number.
 
 Carry-over rule (design spec §4): a positive day remainder is spendable for
-GreenhouseBlock.carry_days days after the day it was left over on, oldest bucket
-first (FIFO) — each block expires on its own schedule (2026-09-24; replaces the
-single GreenhouseConfig.gaplama_carry_days that used to apply to every block).
-A negative remainder (over-loaded day) never carries — it is clamped to 0 for
-display and reported separately as over_kg.
+GreenhouseBlock.carry_days days after the day it was left over on — each block
+expires on its own schedule (2026-09-24; replaces the single
+GreenhouseConfig.gaplama_carry_days that used to apply to every block). A load
+drains the bucket the operator named via ShipmentBlockSource.harvest_date when
+that bucket is still live; only an unattributed load (no harvest_date, or one
+naming a bucket that has since expired) falls back to oldest-bucket-first (FIFO)
+(2026-09-24, batch selection). A negative remainder (over-loaded day) never
+carries — it is clamped to 0 for display and reported separately as over_kg.
 """
 from collections import deque
 from datetime import date, timedelta
@@ -153,14 +156,22 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
             weight_kg__isnull=False,
         )
         .exclude(shipment__status__code='cancelled')
-        .values('block_id', 'shipment__date')
+        .values('block_id', 'shipment__date', 'harvest_date')
         .annotate(loaded_kg=Sum('weight_kg'))
         .order_by()
     )
     loaded_map: dict[tuple[int, date], Decimal] = {}
+    # Which batch each load named, so the walk can drain that bucket instead of the
+    # oldest one (2026-09-24). None groups every unattributed row — rows written
+    # before batches existed, and rows naming a bucket that has since expired.
+    loaded_by_batch: dict[tuple[int, date], dict] = {}
     for row in loaded_rows:
         key = (parent_of.get(row['block_id'], row['block_id']), row['shipment__date'])
-        loaded_map[key] = loaded_map.get(key, Decimal(0)) + (row['loaded_kg'] or Decimal(0))
+        kg = row['loaded_kg'] or Decimal(0)
+        loaded_map[key] = loaded_map.get(key, Decimal(0)) + kg
+        batches = loaded_by_batch.setdefault(key, {})
+        origin = row['harvest_date']
+        batches[origin] = batches.get(origin, Decimal(0)) + kg
 
     block_ids = list(block_meta)
     all_days = [walk_start + timedelta(days=i) for i in range((to_date - walk_start).days + 1)]
@@ -186,8 +197,32 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
             plan_kg = plan_map.get((block_id, d), Decimal(0))
             loaded_kg = loaded_map.get((block_id, d), Decimal(0))
 
-            # Consume oldest bucket first, then today's plan.
-            to_consume = loaded_kg
+            # Today's own plan joins the queue as a same-day bucket (2026-09-24) —
+            # appended AFTER the carry_in_breakdown snapshot above (so that snapshot
+            # still reports only pre-existing carry-in, not today's fresh plan) and
+            # at the tail (so the FIFO fallback below still drains older buckets
+            # first). Without this, a load naming TODAY's own harvest_date could
+            # never match anything in `buckets` — today's bucket wouldn't exist yet
+            # until the old post-loop append — and would wrongly fall back to
+            # draining an older carry-in bucket instead.
+            today_bucket = [plan_kg, d]
+            buckets.append(today_bucket)
+
+            # Drain the bucket each load NAMED (2026-09-24). An operator who picked
+            # the fresh batch must not have the four-day-old one drained instead.
+            by_batch = dict(loaded_by_batch.get((block_id, d), {}))
+            unattributed = by_batch.pop(None, Decimal(0))
+            for bucket in buckets:
+                want = by_batch.get(bucket[1])
+                if not want:
+                    continue
+                take = min(bucket[0], want)
+                bucket[0] -= take
+                by_batch[bucket[1]] = want - take
+            # A named batch with no live bucket left — a row written before batches
+            # existed, or one naming a bucket that has since expired — rejoins the
+            # FIFO pool rather than vanishing, so loaded_kg still balances.
+            to_consume = unattributed + sum(by_batch.values(), Decimal(0))
             for bucket in buckets:
                 if to_consume <= 0:
                     break
@@ -196,14 +231,18 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
                 to_consume -= take
 
             available_kg = max(Decimal(0), carried_in_kg + plan_kg - loaded_kg)
-            over_kg = max(Decimal(0), to_consume - plan_kg)
+            # today_bucket's capacity (plan_kg) is now part of the pool the two loops
+            # above just drained, so any leftover `to_consume` is genuinely beyond
+            # carried_in_kg + plan_kg combined — no separate "- plan_kg" needed here
+            # (that was only correct back when today's plan wasn't in the pool yet).
+            over_kg = max(Decimal(0), to_consume)
 
-            # What's left of TODAY's own plan after today's loads eat through it,
-            # once carry-in is exhausted first — this seeds tomorrow's bucket.
-            remainder_today = max(Decimal(0), plan_kg - max(Decimal(0), loaded_kg - carried_in_kg))
+            # What's left of TODAY's own plan after this day's loads (named first,
+            # then FIFO) ate through it — this seeds tomorrow's bucket. Reads
+            # straight off today_bucket since it's the same object still sitting in
+            # `buckets` (appended above, not re-appended below).
+            remainder_today = today_bucket[0]
             buckets = deque(b for b in buckets if b[0] > 0)
-            if remainder_today > 0:
-                buckets.append([remainder_today, d])
 
             if from_date <= d <= to_date:
                 days_out.append({
