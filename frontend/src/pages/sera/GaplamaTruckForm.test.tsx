@@ -369,6 +369,39 @@ describe('GaplamaTruckForm — edit', () => {
     expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).not.toBeDisabled();
   });
 
+  // The first Save bakes the fallback date in: handleSubmit sends
+  // row.harvestDate, which the null-date fallback set to the truck's own
+  // day — so the row is written with a real (non-null) harvest_date. On the
+  // SECOND Üýtget it is no longer null, so a fix that only special-cases a
+  // null SOURCE harvest_date stops treating it as an orphan and the row
+  // goes red again, breaking "a seeded row must never show as invalid" on
+  // reopen (2026-09-25, found in re-review of the null-harvest_date fix).
+  it('stays valid on a second edit, after saving baked the fallback date in', () => {
+    const localTruck = {
+      id: 23, shipment_code: '2109023/26', export_code: null, date: '2026-09-21',
+      status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+      block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 18000 }],
+    };
+    renderForm({
+      mode: 'edit',
+      editingTruck: localTruck,
+      editingTruckBatches: [{ block_id: 1, block_code: 'A', weight_kg: 18000, harvest_date: '2026-09-21' }],
+      availableByBlock: { 1: 0 },
+      batchesByBlock: {
+        1: [
+          { harvest_date: '2026-09-20', age_days: 1, available_kg: 8000 },
+          { harvest_date: '2026-09-21', age_days: 0, available_kg: 10000 },
+        ],
+      },
+    });
+    const inputs = screen.getAllByRole('spinbutton');
+    expect(inputs[1]).toHaveValue(18000);
+    for (const input of inputs) {
+      expect(input).not.toHaveAttribute('aria-invalid', 'true');
+    }
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).not.toBeDisabled();
+  });
+
   it('sends block_id and harvest_date for each row on save', async () => {
     (api.post as any).mockResolvedValue({ data: {} });
     (api.patch as any).mockResolvedValue({ data: {} });
