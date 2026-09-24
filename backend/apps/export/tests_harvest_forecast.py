@@ -566,6 +566,55 @@ class DraftCreateDrawdownTests(TestCase):
         self.assertEqual(resp.status_code, 400, resp.data)
         self.assertIn('no forecast', str(resp.data).lower())
 
+    def test_rejects_aggregated_draw_over_18500_across_two_batches(self):
+        """Two batches of ONE block, each individually under 18,500 kg, whose
+        SUM exceeds the truck cap must still be rejected (2026-09-24 fix —
+        duplicate blocks used to be forbidden outright, so per-row checking
+        was equivalent to per-block; now a block can appear on two rows)."""
+        self.entry.forecast_value = Decimal('30000')
+        self.entry.save(update_fields=['forecast_value'])
+        resp = self.client.post(
+            '/api/v1/export/shipments/',
+            {
+                'shipment_code': '0806006/26',
+                'date': str(self.target_date),
+                'is_draft': True,
+                'block_sources': [
+                    {'block_id': self.block.id, 'weight_kg': '10000', 'harvest_date': str(self.target_date)},
+                    {'block_id': self.block.id, 'weight_kg': '10000', 'harvest_date': '2026-06-05'},
+                ],
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('18,500', str(resp.data))
+        self.assertEqual(Shipment.objects.filter(shipment_code='0806006/26').count(), 0)
+
+    def test_rejects_aggregated_draw_over_remaining_across_two_batches(self):
+        """Two batches of ONE block, each individually within the remaining
+        pool, whose SUM exceeds it must still be rejected — same last-write-
+        wins gap, on the forecast-pool cap instead of the truck cap."""
+        # 20,000 forecast; consume 15,000 with a first draft, leaving 5,000.
+        resp1 = self._post_draft('0806007/26', '15000')
+        self.assertEqual(resp1.status_code, 201, resp1.data)
+
+        resp2 = self.client.post(
+            '/api/v1/export/shipments/',
+            {
+                'shipment_code': '0806008/26',
+                'date': str(self.target_date),
+                'is_draft': True,
+                'block_sources': [
+                    {'block_id': self.block.id, 'weight_kg': '3000', 'harvest_date': str(self.target_date)},
+                    {'block_id': self.block.id, 'weight_kg': '3000', 'harvest_date': '2026-06-05'},
+                ],
+            },
+            format='json',
+        )
+        self.assertEqual(resp2.status_code, 400, resp2.data)
+        self.assertIn('FC-F', str(resp2.data))
+        self.assertEqual(Shipment.objects.filter(shipment_code='0806008/26').count(), 0)
+
     def test_non_draft_creation_skips_pool_validation(self):
         """Non-draft shipment creation does NOT enforce the forecast pool."""
         # The standard (non-draft) creation path doesn't check block_sources

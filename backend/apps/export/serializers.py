@@ -1683,13 +1683,18 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
 
 
 class BlockSourceInputSerializer(serializers.Serializer):
-    """One row of the multi-block composer: block + allocated weight.
+    """One row of the multi-block composer: block + allocated weight + batch date.
 
     Used as a child serializer inside ShipmentCreateSerializer.block_sources.
+    harvest_date identifies the batch (the day that block was picked) — a truck
+    may carry two batches from the same block on different harvest_date values
+    (2026-09-24). Optional: omitted means the batch's date is unknown/unset,
+    same as the block-sources edit endpoint (set_block_sources).
     """
 
     block_id = serializers.PrimaryKeyRelatedField(queryset=GreenhouseBlock.objects.all())
     weight_kg = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    harvest_date = serializers.DateField(required=False, allow_null=True)
 
 
 class FirmSplitInputSerializer(serializers.Serializer):
@@ -1844,12 +1849,24 @@ class ShipmentCreateSerializer(serializers.Serializer):
         # edit paths. The original strictness was an artifact of DraftPool's
         # use case, not an intrinsic property of the draft state.
 
-        # Validate block uniqueness within the submitted list (when provided).
+        # Validate batch uniqueness within the submitted list (when provided).
+        # Keyed on (block, harvest_date) rather than block alone (2026-09-24):
+        # a truck may legitimately carry two batches of one block picked on
+        # different days (Gaplama), so only a repeated block+date pair — the
+        # same batch submitted twice — is a genuine accidental duplicate.
+        # Two bare entries (no harvest_date, i.e. both keyed on block+None)
+        # are ALSO rejected here: with no date to tell them apart they are
+        # indistinguishable from an accidental double-submit, and letting
+        # them through would have write_block_sources silently sum them into
+        # one row instead of raising — the DB's unique index does not catch
+        # this pair either, since NULL != NULL there.
         if block_sources:
-            block_ids = [row['block_id'].id for row in block_sources]
-            if len(block_ids) != len(set(block_ids)):
+            batch_keys = [
+                (row['block_id'].id, row.get('harvest_date')) for row in block_sources
+            ]
+            if len(batch_keys) != len(set(batch_keys)):
                 raise serializers.ValidationError(
-                    {'block_sources': 'Duplicate blocks are not allowed in a single shipment.'}
+                    {'block_sources': 'Duplicate batches (same block and harvest date) are not allowed in a single shipment.'}
                 )
 
         # Validate firm_splits uniqueness within the submitted list.
@@ -1886,15 +1903,28 @@ class ShipmentCreateSerializer(serializers.Serializer):
         enforce_caps = is_draft and block_sources and not skip_forecast_check
 
         if enforce_caps:
+            # Both caps are evaluated against the block's TOTAL across every
+            # row in this submission, not each row alone — a block can now
+            # appear on more than one row (its separate harvest-date batches),
+            # and two rows that each individually clear a cap can still
+            # together exceed it (e.g. 12,000 + 10,000 kg both < 18,500 kg
+            # alone, but the truck can't hold 22,000 kg). Pre-2026-09-24,
+            # duplicate blocks were rejected above, so per-row == per-block
+            # and this distinction was a no-op.
+            block_totals: dict[int, D] = {}
+            for row in block_sources:
+                pk = row['block_id'].pk
+                block_totals[pk] = block_totals.get(pk, D('0')) + D(str(row['weight_kg']))
+
             # Cap 1: truck capacity.
             truck_errors = {}
             for i, row in enumerate(block_sources):
                 block = row['block_id']
-                weight_kg = D(str(row['weight_kg']))
                 block_code = getattr(block, 'code', str(block.pk))
-                if weight_kg > D('18500'):
+                total = block_totals[block.pk]
+                if total > D('18500'):
                     truck_errors[f'block_sources[{i}]'] = (
-                        f'Block {block_code}: weight {weight_kg} kg exceeds the '
+                        f'Block {block_code}: total weight {total} kg exceeds the '
                         f'18,500 kg truck capacity.'
                     )
             if truck_errors:
@@ -1914,18 +1944,18 @@ class ShipmentCreateSerializer(serializers.Serializer):
             forecast_errors = {}
             for i, row in enumerate(block_sources):
                 block = row['block_id']
-                weight_kg = D(str(row['weight_kg']))
                 block_code = getattr(block, 'code', str(block.pk))
+                total = block_totals[block.pk]
                 remaining = remaining_map.get(block.pk)
                 if remaining is None:
                     forecast_errors[f'block_sources[{i}]'] = (
                         f'Block {block_code}: no forecast has been entered for '
                         f'{ship_date}. Submit a forecast before creating a draft.'
                     )
-                elif weight_kg > remaining:
+                elif total > remaining:
                     forecast_errors[f'block_sources[{i}]'] = (
                         f'Block {block_code}: only {remaining} kg of forecast '
-                        f'remaining on {ship_date} (requested {weight_kg} kg).'
+                        f'remaining on {ship_date} (requested {total} kg total).'
                     )
 
             if forecast_errors:

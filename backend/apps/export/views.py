@@ -2177,10 +2177,16 @@ class ShipmentViewSet(ModelViewSet):
             # path with no prior HarvestDayEntry forecast).
             if bs_rows and not skip_forecast_check:
                 from apps.export.services.harvest_forecast import assert_draw_within_pool
-                assert_draw_within_pool(
-                    {row['block_id'].id: row['weight_kg'] for row in bs_rows},
-                    data['date'],
-                )
+                # Sum per block, not last-write-wins: a block can now appear
+                # on more than one row (its separate harvest-date batches),
+                # and the pool/truck-cap check must see the block's total
+                # draw, matching the aggregated check in the serializer's
+                # validate() above.
+                block_draw: dict[int, Decimal] = {}
+                for row in bs_rows:
+                    bid = row['block_id'].id
+                    block_draw[bid] = block_draw.get(bid, Decimal('0')) + row['weight_kg']
+                assert_draw_within_pool(block_draw, data['date'])
 
             shipment = Shipment.objects.create(
                 shipment_code=data['shipment_code'],
@@ -2233,7 +2239,14 @@ class ShipmentViewSet(ModelViewSet):
             if bs_rows:
                 blocks_written = write_block_sources(
                     shipment,
-                    [{'block': row['block_id'], 'weight_kg': row['weight_kg']} for row in bs_rows],
+                    [
+                        {
+                            'block': row['block_id'],
+                            'weight_kg': row['weight_kg'],
+                            'harvest_date': row.get('harvest_date'),
+                        }
+                        for row in bs_rows
+                    ],
                     replace=False,
                 )
 
