@@ -88,11 +88,18 @@ class BatchConsumptionTests(TestCase):
         self.assertNotIn(self.mon, self._breakdown(thursday))
 
     def test_expired_batch_date_falls_back_to_fifo(self):
-        """Review Focus 2 — an edit days later can name a bucket that is gone."""
-        long_ago = self.mon - timedelta(days=60)
-        self._truck(long_ago, '4000')
+        """Review Focus 2 — an edit days later can name a bucket that is gone.
+
+        long_ago (60 days back) is outside the walk window entirely (walk_start
+        is Thursday - 14), so this load can never match a live bucket — its
+        4000 kg must rejoin the FIFO pool and drain Monday's carry-in, same as
+        an unnamed (null harvest_date) load would. Asserting the exact
+        breakdown (not just "Monday absent" + "available_kg >= 0", both of
+        which hold trivially even if this weight silently vanished instead of
+        draining anything) is what makes this test bite: {Wed: 9000} only
+        holds if Monday's bucket was actually drained, not merely never
+        rendered old/dropped.
+        """
+        self._truck(self.mon - timedelta(days=60), '4000')
         thursday = self.mon + timedelta(days=3)
-        board = build_gaplama_board(thursday, thursday, self.season)
-        row = next(r for r in board['days'] if r['block_id'] == self.block.id)
-        self.assertNotIn(long_ago, {b['origin_date'] for b in row['carry_in_breakdown']})
-        self.assertGreaterEqual(row['available_kg'], Decimal('0'))
+        self.assertEqual(self._breakdown(thursday), {self.wed: Decimal('9000')})

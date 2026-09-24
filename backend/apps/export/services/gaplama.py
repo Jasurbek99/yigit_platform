@@ -214,7 +214,15 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
             unattributed = by_batch.pop(None, Decimal(0))
             for bucket in buckets:
                 want = by_batch.get(bucket[1])
-                if not want:
+                # want <= 0 guards against a negative weight_kg (no DB check
+                # constraint, no serializer min_value today) reaching this loop —
+                # `min(bucket[0], want)` would otherwise return the negative and
+                # `bucket[0] -= take` would INFLATE the bucket instead of draining
+                # it. The old pure-FIFO loop couldn't hit this: it only ever
+                # subtracted `min(bucket[0], to_consume)` against loaded_kg totals
+                # that summed away individual negative rows; naming a specific
+                # batch exposes the single negative row directly.
+                if not want or want <= 0:
                     continue
                 take = min(bucket[0], want)
                 bucket[0] -= take
