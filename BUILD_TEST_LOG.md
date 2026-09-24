@@ -20,7 +20,7 @@
   opens the fleet picker, no passport fields anywhere. `python manage.py test apps.export.tests_task_api apps.contracts.tests.test_document_generation` — all pass (9 new backend
   cases); frontend `npx vitest run src/components/sheet/SheetGapyDriverEditor.test.tsx` — 7/7 pass.
 
-- [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
+- [x] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — TESTED
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
   (3) leave it empty, finish every other draft task incl. documents_status = ready — the draft must NOT advance
