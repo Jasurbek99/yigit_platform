@@ -218,7 +218,8 @@ three steps describing events that never happened.
   `/shipments/my-sales-reports/?needs_report=true`.
 - **Frontend**: `RouteTimelineRail` and the dashboard's `DetailSlideBody` render a five-step route
   for gapy, and `ShipmentRow` does not flag it "report missing" — it is judged by `arrived_at`,
-  whose Sheet row is hidden for gapy.
+  whose Sheet row is hidden for gapy. `DetailSlideBody` places the gapy truck on its short list by
+  `status_code`, not `status_step` — the DB's `step_order` numbers do not follow the gapy route.
 
 ### Soft delete (trash flag)
 

@@ -18,6 +18,7 @@
   (10) on /shipments, tick a NORMAL truck at Ýüklenme, use bulk transition and pick "Tamamlandy" —
   it must be REFUSED (before this it silently completed the truck with no way back).
   (11) Sales Reports → "All" tab: a completed gapy truck shows "—" in the report-status column, not a red "Missing".
+  (12) Dashboard → open a gapy truck at customs: the lifecycle grid highlights "Gümrük↑"/"Gümrük↓", not "Yüklenme"; order is Gümrük↑ → Gümrük↓ → Yüklenme → Tamam.
 - [x] 2026-09-23 — Per-country border point ("Serhet nokady") on Truck Destinations, auto-filled onto shipments — TESTED
   To test: (1) open **Admin → Truck Destinations**, edit a country-linked row (e.g. Gazagystan) —
   a new **Border Point** select appears; pick one and save; the table column shows it;

@@ -23,11 +23,13 @@ const LIFECYCLE_STEPS = [
 // the greenhouse (ADR-025). It reaches `tamamlandy` (step 12) without touching
 // the road, the destination or a sale, so rendering it against the export list
 // would light up eleven green bars for events that never happened.
+// Positioned by status code, not status_step: the DB's step_order numbers do
+// not follow the gapy route order.
 const LIFECYCLE_STEPS_GAPY = [
-  { name: 'Yüklenme', icon: '📦' },
-  { name: 'Gümrük↑', icon: '📋' },
-  { name: 'Gümrük↓', icon: '✓' },
-  { name: 'Tamam', icon: '✅' },
+  { code: 'gumruk_girish', name: 'Gümrük↑', icon: '📋' },
+  { code: 'gumruk_chykysh', name: 'Gümrük↓', icon: '✓' },
+  { code: 'yuklenme', name: 'Yüklenme', icon: '📦' },
+  { code: 'tamamlandy', name: 'Tamam', icon: '✅' },
 ];
 
 function getStepBarColor(step: number, index: number, activeColor: string): string {
@@ -87,12 +89,11 @@ export function DetailSlideBody({ detail, activeColor }: IDetailSlideBodyProps) 
   const firmNames = detail.firm_splits.map((f) => f.export_firm_name ?? '—').join(' + ') || '—';
   const blockNames = detail.block_sources.map((b) => b.block_code).join(', ') || '—';
 
-  // Gapy trucks run on the short list, and their terminal step_order (12) is
-  // remapped onto its last slot so the bar reads "done", not "off the end".
+  // Gapy trucks run on the short list; a status not on it (draft) shows 0.
   const isGapy = Boolean(detail.is_gapy_satys);
   const steps = isGapy ? LIFECYCLE_STEPS_GAPY : LIFECYCLE_STEPS;
   const shownStep = isGapy
-    ? Math.min(detail.status_step, LIFECYCLE_STEPS_GAPY.length)
+    ? LIFECYCLE_STEPS_GAPY.findIndex((s) => s.code === detail.status_code) + 1
     : detail.status_step;
 
   return (
