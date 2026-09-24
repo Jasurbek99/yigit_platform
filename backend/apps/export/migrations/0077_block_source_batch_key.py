@@ -1,29 +1,25 @@
 """Widen the block-source key to (shipment, block, harvest_date).
 
-MSSQL permits exactly ONE null row per unique key combination, unlike Postgres, so
-every null harvest_date must be filled before the constraint is applied or the
-migration fails on the first shipment/block pair with two null rows.
+No backfill. `mssql-django` renders this `unique_together` as a FILTERED unique
+index — `CREATE UNIQUE INDEX ... WHERE [shipment_id] IS NOT NULL AND [block_id]
+IS NOT NULL AND [harvest_date] IS NOT NULL` (confirmed via `sqlmigrate export
+0077`) — which excludes any row with a null `harvest_date` from the index
+entirely. Any number of `(shipment, block, NULL)` rows can coexist; the "MSSQL
+permits exactly ONE null row per unique key combination" rule (true in general —
+see `.claude/rules/mssql-compat.md` — and true of a plain unique constraint/index)
+does not apply to a *filtered* index like this one, so there is nothing for a
+backfill to protect against here.
 
-Backfill rule (owner-confirmed): the shipment's own harvest_date when set, else the
-shipment date. This writes a date onto rows an operator left blank, which is visible
-on Sheet R39.
+A backfill was tried and rejected (owner-confirmed): `Shipment.harvest_date` is
+a free-text `CharField` (Sheet R39 operator entry — ranges, notes, non-ISO
+formats like "13-15.06.2026"), not a parseable date, so filling
+`ShipmentBlockSource.harvest_date` from it would abort on non-ISO rows and would
+also overwrite an operator's deliberate blank on the rows that did parse. A null
+`harvest_date` stays legal after this migration and is consumed FIFO by the
+Gaplama board's fallback (Task 4), so leaving it null is the correct behavior,
+not a gap.
 """
 from django.db import migrations, models
-
-
-def backfill_harvest_dates(apps, schema_editor):
-    ShipmentBlockSource = apps.get_model('export', 'ShipmentBlockSource')
-    rows = ShipmentBlockSource.objects.filter(harvest_date__isnull=True).select_related('shipment')
-    to_update = []
-    for row in rows:
-        row.harvest_date = row.shipment.harvest_date or row.shipment.date
-        to_update.append(row)
-    if to_update:
-        ShipmentBlockSource.objects.bulk_update(to_update, ['harvest_date'], batch_size=500)
-
-
-def noop_reverse(apps, schema_editor):
-    """Not reversible in data: which dates were originally blank is not recorded."""
 
 
 class Migration(migrations.Migration):
@@ -33,7 +29,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(backfill_harvest_dates, noop_reverse),
         migrations.AlterUniqueTogether(
             name="shipmentblocksource",
             unique_together={("shipment", "block", "harvest_date")},
