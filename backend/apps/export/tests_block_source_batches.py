@@ -426,14 +426,63 @@ class NormalizeBlockSourcesBatchPreviewTests(TestCase):
                 weight_kg=Decimal(kg), harvest_date=harvest_date,
             )
 
-    def test_dry_run_preview_distinguishes_batches_by_date(self):
+    def test_dry_run_preview_pairs_each_weight_with_its_own_date_in_after(self):
+        """Round-1 review: assertIn against the whole blob was vacuous — the
+        `before` segment already contained both dates/weights pre-fix, so the
+        old assertions passed whether or not `after` ever learned about
+        batches. Assert the PAIRED form (weight bound to its own date) and
+        restrict the check to the `after` segment specifically, so `before`
+        can't satisfy it.
+        """
         from io import StringIO
         from django.core.management import call_command
         out = StringIO()
         call_command('normalize_block_sources', stdout=out)
         output = out.getvalue()
-        self.assertIn('2026-06-01', output, output)
-        self.assertIn('2026-06-03', output, output)
-        # Both figures must appear — not just the block code repeated blindly.
-        self.assertIn('3000', output, output)
-        self.assertIn('5000', output, output)
+        line = next(l for l in output.splitlines() if '24SP902/26' in l)
+        before_part, after_part = line.split(' -> ', 1)
+        self.assertIn('ND=3000.00@2026-06-01', after_part, after_part)
+        self.assertIn('ND=5000.00@2026-06-03', after_part, after_part)
+
+
+class NormalizeBlockSourcesNullHarvestDateTests(TestCase):
+    """A batch's harvest_date is legal to leave null — the Gaplama board
+    still consumes such a load FIFO by design. The preview must not print
+    the noise of '@None' for it; the suffix is omitted instead.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.export.models import ShipmentBlockSource
+        cls.parent = GreenhouseBlock.objects.create(code='NE', is_active=True)
+        cls.child = GreenhouseBlock.objects.create(code='NE1', parent=cls.parent, is_active=True)
+        cls.season, _ = Season.objects.get_or_create(
+            name='NE-season', defaults={
+                'is_active': True, 'start_date': '2026-01-01', 'end_date': '2026-12-31',
+            },
+        )
+        cls.status, _ = ShipmentStatusType.objects.get_or_create(
+            code='draft',
+            defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
+        )
+        cls.shipment = Shipment.objects.create(
+            shipment_code='24SP903/26', date=date(2026, 6, 3),
+            season=cls.season, status=cls.status,
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=cls.shipment, block=cls.child,
+            weight_kg=Decimal('4000'), harvest_date=None,
+        )
+
+    def test_dry_run_preview_omits_at_suffix_for_null_harvest_date(self):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('normalize_block_sources', stdout=out)
+        output = out.getvalue()
+        line = next(l for l in output.splitlines() if '24SP903/26' in l)
+        before_part, after_part = line.split(' -> ', 1)
+        self.assertIn('NE1=4000.00', before_part, before_part)
+        self.assertIn('NE=4000.00', after_part, after_part)
+        self.assertNotIn('@', before_part, before_part)
+        self.assertNotIn('@', after_part, after_part)
