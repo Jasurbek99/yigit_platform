@@ -16,6 +16,7 @@ from django.db.models import (
 from django.db.models.functions import Now, RowNumber
 from django.db.models.expressions import Window
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -3308,7 +3309,29 @@ class ShipmentViewSet(ModelViewSet):
 
             if 'harvest_date' in entry:
                 # Explicit key (even null) always overrides — single row.
-                harvest_date = entry['harvest_date'] or None
+                # Parsed to a real `date` here (not left as the raw request
+                # string) because a PRESERVED entry a few lines below carries
+                # a real `date` object read straight from the DB —
+                # merge_to_parent keys on this value, and a str and a date
+                # naming the same calendar day are different dict keys, so
+                # they never merge: both get written and the (shipment,
+                # block, harvest_date) unique index then rejects the pair as
+                # an IntegrityError, surfacing as a 500 (2026-09-25 fix).
+                raw_date = entry['harvest_date']
+                if raw_date in (None, ''):
+                    harvest_date = None
+                else:
+                    harvest_date = None
+                    if isinstance(raw_date, str):
+                        try:
+                            harvest_date = parse_date(raw_date)
+                        except ValueError:
+                            harvest_date = None
+                    if harvest_date is None:
+                        return Response(
+                            {'error': f'harvest_date is not a valid date: {raw_date!r}', 'field': 'harvest_date'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': harvest_date})
                 continue
 

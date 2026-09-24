@@ -345,6 +345,109 @@ class SetBlockSourcesPreservesBatchesTests(TestCase):
         self.assertEqual(sum(rows.values()), Decimal('18173.43'))
 
 
+class SetBlockSourcesDateStringVsDateObjectTests(TestCase):
+    """POST /block-sources/ must not 500 when one entry's harvest_date is an
+    explicit request STRING and a sibling entry's is a preserved `date`
+    OBJECT read back from the DB, even when the two name the same calendar
+    day. `merge_to_parent` keys on `harvest_date` — a str and a date for the
+    same day are different dict keys, so pre-fix they never merge, both get
+    written, and the (shipment, block, harvest_date) unique index rejects
+    the pair as an IntegrityError (2026-09-25 fix).
+
+    Reachable with sub-blocks BV1 (explicit date) and BV2 (bare, preserves
+    its parent's existing batch), both folding to parent BV.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.parent = GreenhouseBlock.objects.create(code='BV', is_active=True)
+        cls.child_1 = GreenhouseBlock.objects.create(code='BV1', parent=cls.parent, is_active=True)
+        cls.child_2 = GreenhouseBlock.objects.create(code='BV2', parent=cls.parent, is_active=True)
+        cls.country, _ = Country.objects.get_or_create(code='TM', defaults={'name_en': 'TM'})
+        cls.season, _ = Season.objects.get_or_create(
+            name='26-batch4', defaults={
+                'is_active': True, 'start_date': '2026-01-01', 'end_date': '2026-12-31',
+            },
+        )
+        cls.status_draft, _ = ShipmentStatusType.objects.get_or_create(
+            code='draft',
+            defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
+        )
+        cls.boss = User.objects.create_superuser(username='boss_batch_datetypes', password='p')
+
+    def setUp(self):
+        self._counter = getattr(SetBlockSourcesDateStringVsDateObjectTests, '_shipment_seq', 0) + 1
+        SetBlockSourcesDateStringVsDateObjectTests._shipment_seq = self._counter
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'24SP7{self._counter:02d}/26', date='2026-09-25',
+            season=self.season, country=self.country, status=self.status_draft,
+            weight_net=Decimal('10000'),
+        )
+        from apps.export.models import ShipmentBlockSource
+        # A preserved batch already on the PARENT (block_sources are always
+        # stored at parent grain), dated 2026-06-01 — read back by the view
+        # as a real `date` object.
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.parent,
+            weight_kg=Decimal('4000'), harvest_date=date(2026, 6, 1),
+        )
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.client.force_authenticate(self.boss)
+        self.url = f'/api/v1/export/shipments/{self.shipment.id}/block-sources/'
+
+    def test_explicit_string_date_merges_with_preserved_date_object_same_day(self):
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.child_1.id, 'weight_kg': '3000', 'harvest_date': '2026-06-01'},
+            {'block_id': self.child_2.id},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        rows = {
+            bs.harvest_date: bs.weight_kg
+            for bs in self.shipment.block_sources.filter(block=self.parent)
+        }
+        self.assertEqual(set(rows), {date(2026, 6, 1)}, rows)
+
+    def test_unparseable_harvest_date_string_is_a_400_naming_the_field(self):
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.child_1.id, 'weight_kg': '3000', 'harvest_date': 'not-a-date'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn('harvest_date', str(resp.data))
+
+    def test_impossible_calendar_date_string_is_a_400(self):
+        """Well-formed but nonexistent (Feb 30) — parse_date raises ValueError,
+        not just returning None, so this exercises a different code path
+        than the plain-garbage-string case above."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.child_1.id, 'weight_kg': '3000', 'harvest_date': '2026-02-30'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn('harvest_date', str(resp.data))
+
+    def test_non_string_harvest_date_is_a_400(self):
+        """A JSON number for harvest_date — parse_date raises TypeError, not
+        ValueError, for a non-str input."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.child_1.id, 'weight_kg': '3000', 'harvest_date': 12345},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn('harvest_date', str(resp.data))
+
+    def test_null_harvest_date_still_clears_explicitly(self):
+        """Explicit null must keep meaning 'clear to a dateless row' — not
+        be caught by the new parsing/validation path."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.child_1.id, 'weight_kg': '3000', 'harvest_date': None},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        rows = {
+            bs.harvest_date: bs.weight_kg
+            for bs in self.shipment.block_sources.filter(block=self.parent)
+        }
+        self.assertIn(None, rows, rows)
+
+
 class SheetChipGroupingTests(TestCase):
     """A two-batch truck is still ONE block chip on the Sheet.
 
