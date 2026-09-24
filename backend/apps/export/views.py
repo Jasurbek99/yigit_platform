@@ -702,6 +702,7 @@ class ShipmentViewSet(ModelViewSet):
         # Capture only the fields the user actually submitted.
         submitted_keys = list(serializer.validated_data.keys())
         before = snapshot_fields(shipment, submitted_keys)
+        reconcile_result = {'created': [], 'cancelled': [], 'reopened': []}
 
         with transaction.atomic():
             # Set updated_by so Shipment.save() → auto_advance_if_ready() has
@@ -716,11 +717,30 @@ class ShipmentViewSet(ModelViewSet):
             if audit_rows:
                 AuditLog.objects.bulk_create(audit_rows, batch_size=500)
 
+            # A condition field (is_gapy_satys, has_peregruz) may have just
+            # changed, which changes WHICH tasks apply to this shipment. Inside
+            # the transaction so the field write and the task churn commit
+            # together: a shipment that says Gapy while its tasks say Regular is
+            # exactly the broken state this reconcile exists to remove.
+            # submitted_keys is the gate — reconcile_shipment_tasks returns
+            # immediately when no active rule conditions on any of them. It never
+            # calls auto_advance_if_ready, so a checkbox cannot move the
+            # shipment; see its docstring.
+            from apps.export.services.task_rules import reconcile_shipment_tasks
+            reconcile_result = reconcile_shipment_tasks(
+                instance, changed_fields=submitted_keys,
+            )
+
         # Mark OPEN tasks targeting any of the submitted fields as IN_PROGRESS.
         # Must happen AFTER save so Shipment.save() auto-resolution runs first
         # (tasks that are already DONE won't be touched here).
         from apps.export.services.task_rules import mark_started_for_changed_fields
         mark_started_for_changed_fields(instance, submitted_keys)
+
+        # Outside the transaction on purpose: nobody should be told about a task
+        # change that then rolled back.
+        from apps.export.services.shipment import notify_tasks_changed
+        notify_tasks_changed(instance, reconcile_result)
 
         detail_serializer = ShipmentDetailSerializer(instance, context={'request': request})
         return Response(detail_serializer.data)
@@ -2735,6 +2755,21 @@ class ShipmentViewSet(ModelViewSet):
         updated_b.refresh_from_db()
         self._sheet_poke_ids = [updated_a.pk, updated_b.pk]
 
+        # `has_peregruz` is in SWAPPABLE_FIELDS, so a swap is the SECOND runtime
+        # writer of a condition field after partial_update. Without this, each
+        # shipment keeps the task its OLD value called for — and worse than the
+        # plain stale-task bug, because _resolve_next_status forks on
+        # has_peregruz, so the stale task targets a field on a branch the
+        # shipment will never take. `swapped` is the gate, exactly as
+        # submitted_keys is on the PATCH path; the reconciler never advances a
+        # status, so this cannot move either truck.
+        from apps.export.services.shipment import notify_tasks_changed
+        from apps.export.services.task_rules import reconcile_shipment_tasks
+        for shipment in (updated_a, updated_b):
+            shipment.updated_by = request.user
+            result = reconcile_shipment_tasks(shipment, changed_fields=swapped)
+            notify_tasks_changed(shipment, result)
+
         serializer_a = ShipmentDetailSerializer(updated_a, context={'request': request})
         serializer_b = ShipmentDetailSerializer(updated_b, context={'request': request})
         return Response(
@@ -4459,7 +4494,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
 
         Cancels a task. Restricted to admin/director only.
         """
-        from apps.export.models import TaskState
+        from apps.export.models import TaskCancelReason, TaskState
         from apps.export.serializers import TaskDetailSerializer
 
         task = self.get_object()
@@ -4469,11 +4504,24 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
             return denied
 
         if task.state == TaskState.CANCELLED:
-            # Idempotent
+            # Idempotent on state, but NOT a no-op on the reason. A task the
+            # reconciler cancelled as rule_mismatch is still reopenable, so
+            # returning untouched here would let the next condition flip revert
+            # this person's decision. Claim the row for MANUAL instead. A
+            # shipment_cancelled row is left alone: it is already un-reopenable
+            # and is the truer record of why the task died.
+            if task.cancelled_reason in ('', TaskCancelReason.RULE_MISMATCH,
+                                         TaskCancelReason.RULE_DEACTIVATED):
+                task.cancelled_reason = TaskCancelReason.MANUAL
+                task.save(update_fields=['cancelled_reason'])
             return Response(TaskDetailSerializer(task).data)
 
+        # MANUAL keeps this task outside reconcile_shipment_tasks' reopen
+        # filter: a person decided it should not be done, and no condition
+        # change may override that.
         task.state = TaskState.CANCELLED
-        task.save(update_fields=['state'])
+        task.cancelled_reason = TaskCancelReason.MANUAL
+        task.save(update_fields=['state', 'cancelled_reason'])
 
         task.refresh_from_db()
         return Response(TaskDetailSerializer(task).data)

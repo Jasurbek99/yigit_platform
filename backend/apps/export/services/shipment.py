@@ -363,11 +363,14 @@ def _cancel_open_tasks(shipment: Shipment) -> int:
     Returns:
         Number of Task rows updated.
     """
-    from apps.export.models import Task, TaskState
+    from apps.export.models import Task, TaskCancelReason, TaskState
     return Task.objects.filter(
         shipment=shipment,
         state__in=[TaskState.OPEN, TaskState.IN_PROGRESS, TaskState.BLOCKED],
-    ).update(state=TaskState.CANCELLED)
+    ).update(
+        state=TaskState.CANCELLED,
+        cancelled_reason=TaskCancelReason.SHIPMENT_CANCELLED,
+    )
 
 
 def is_step_trigger_satisfied(shipment: Shipment, status_code: Optional[str]) -> bool:
@@ -522,6 +525,73 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
         'Created %d action_required notifications for %s (roles: %s)',
         len(notifications), shipment.shipment_code, roles,
     )
+
+
+def notify_tasks_changed(shipment: Shipment, reconcile_result: dict) -> int:
+    """Tell the affected roles that this shipment's task set changed.
+
+    Recipients are the roles that own the created / cancelled / reopened tasks,
+    union the roles STATUS_NOTIFY_ROLES already pings for the shipment's current
+    step. The union matters: on a Gapy flip the owners of the affected tasks are
+    transport and document_team, but export_manager also needs to know, and it is
+    in the draft step's notify list — so the right three roles fall out without
+    hard-coding them.
+
+    Known wart, shared with _notify_action_required: the actor is notified too,
+    because neither helper takes a user. Since the reconcile is silent by design
+    (no confirmation modal), that self-ping is in fact the editing manager's only
+    feedback.
+
+    Returns:
+        Number of Notification rows created.
+    """
+    from apps.core.models import User
+    from apps.export.models import Notification
+
+    affected = (
+        reconcile_result.get('created', [])
+        + reconcile_result.get('cancelled', [])
+        + reconcile_result.get('reopened', [])
+    )
+    if not affected:
+        return 0
+
+    roles = {task.assignee_role for task in affected if task.assignee_role}
+    if shipment.status_id:
+        roles.update(STATUS_NOTIFY_ROLES.get(shipment.status.code, []))
+    if not roles:
+        return 0
+
+    user_ids = list(
+        User.objects.filter(role__in=roles, is_active=True)
+        .values_list('id', flat=True)
+    )
+    if not user_ids:
+        return 0
+
+    counts = (
+        f"+{len(reconcile_result.get('created', []))} "
+        f"-{len(reconcile_result.get('cancelled', []))} "
+        f"~{len(reconcile_result.get('reopened', []))}"
+    )
+    message = f'{shipment.shipment_code}: {counts}'
+    Notification.objects.bulk_create(
+        [
+            Notification(
+                user_id=uid,
+                kind='tasks_changed',
+                message=message,
+                link=f'/shipments/{shipment.id}',
+            )
+            for uid in user_ids
+        ],
+        batch_size=500,
+    )
+    logger.info(
+        'notify_tasks_changed: %d notifications for %s (roles: %s)',
+        len(user_ids), shipment.shipment_code, sorted(roles),
+    )
+    return len(user_ids)
 
 
 def generate_shipment_codes(n: int, today=None) -> list[str]:
