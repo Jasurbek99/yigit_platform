@@ -3892,6 +3892,7 @@
       "folded_blocks": "{{count}} blocks — none available",
       "formula_hint": "Available = carried + plan − loaded",
       "carry_window": "{{days}}-day carry window",
+      "carry_age": "{{days}} d",
       "weekday_1": "Mon",
       "weekday_2": "Tue",
       "weekday_3": "Wed",

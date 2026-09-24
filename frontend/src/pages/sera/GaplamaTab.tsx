@@ -218,6 +218,16 @@ export default function GaplamaTab(): JSX.Element {
   // crossing a week boundary — the day-stepper replaces clicking a column
   // header, which was never discoverable (owner's redesign brief).
   function stepDay(delta: 1 | -1) {
+    // Week mode has no week-level prev/next of its own (the filter bar
+    // spec, Step 3, lists only this one stepper) — a full week per click
+    // here, always crossing exactly one week boundary, keeps ◀/▶ able to
+    // reach any week without a separate control. Day mode still moves one
+    // day at a time and only rolls weekOffset on crossing Sun/Mon.
+    if (mode === 'week') {
+      setWeekOffset((w) => w + delta);
+      setSelectedDay((d) => dayjs(d).add(delta * DAY_COUNT, 'day').format('YYYY-MM-DD'));
+      return;
+    }
     const next = dayjs(selectedDay).add(delta, 'day');
     const currentMonday = dayjs(selectedDay).isoWeekday(1).format('YYYY-MM-DD');
     const nextMonday = next.isoWeekday(1).format('YYYY-MM-DD');
@@ -330,18 +340,21 @@ export default function GaplamaTab(): JSX.Element {
                     // Oldest bucket first, one line per origin day — matches
                     // the FIFO consumption order (design spec §3①).
                     const carryTooltip = (row?.carry_in_breakdown ?? [])
-                      .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: ${fmt(b.kg)} kg (${b.age_days}d)`)
+                      .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: ${fmt(b.kg)} kg (${t('tir_takip.gaplama.carry_age', { days: b.age_days })})`)
                       .join('\n');
                     return (
                       <tr key={block.id}>
-                        <td
-                          className="sera-gaplama-block-name"
-                          title={t('tir_takip.gaplama.carry_window', { days: block.carry_days })}
-                        >
+                        <td className="sera-gaplama-block-name">
                           {block.name || block.code}
+                          {/* Written on screen, not only in a hover title —
+                              tablets (WeeklyPlanGrid/greenhouse managers)
+                              never see a title attribute. */}
+                          <div className="sera-gaplama-carry-window">
+                            {t('tir_takip.gaplama.carry_window', { days: block.carry_days })}
+                          </div>
                         </td>
                         <td className={cellClass}>
-                          {isOver ? t('tir_takip.gaplama.over_tooltip', { kg: over }) : fmt(available)}
+                          {isOver ? t('tir_takip.gaplama.over_tooltip', { kg: fmt(over) }) : fmt(available)}
                           {carriedOut > 0 && (
                             <div className="sera-gaplama-carry-out">{fmt(carriedOut)} →</div>
                           )}
@@ -373,7 +386,7 @@ export default function GaplamaTab(): JSX.Element {
               <>
                 <tr className="sera-gaplama-folded-row" onClick={() => setFoldOpen((o) => !o)}>
                   <td colSpan={6}>
-                    {foldOpen ? '▾' : '▸'} {foldedBlocks.length} — {t('tir_takip.gaplama.folded_blocks', { count: foldedBlocks.length })}
+                    {foldOpen ? '▾' : '▸'} {t('tir_takip.gaplama.folded_blocks', { count: foldedBlocks.length })}
                   </td>
                 </tr>
                 {foldOpen && foldedBlocks.map((block) => (
@@ -456,7 +469,7 @@ export default function GaplamaTab(): JSX.Element {
                       // the owner's redesign keeps the week grid to one
                       // number per cell, everything else on hover.
                       const titleLines = [
-                        row && row.plan_kg > 0 ? t('tir_takip.gaplama.plan_hint', { kg: row.plan_kg }) : null,
+                        row && row.plan_kg > 0 ? t('tir_takip.gaplama.plan_hint', { kg: fmt(row.plan_kg) }) : null,
                         row && row.carried_in_kg > 0
                           ? (row.carry_in_breakdown ?? [])
                             .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: +${fmt(b.kg)} kg`)
@@ -466,7 +479,7 @@ export default function GaplamaTab(): JSX.Element {
                       ].filter(Boolean).join('\n');
                       return (
                         <td key={d} className={cellClass} title={titleLines || undefined}>
-                          {isOver ? t('tir_takip.gaplama.over_tooltip', { kg: over }) : fmt(available)}
+                          {isOver ? t('tir_takip.gaplama.over_tooltip', { kg: fmt(over) }) : fmt(available)}
                         </td>
                       );
                     })}
@@ -550,6 +563,7 @@ export default function GaplamaTab(): JSX.Element {
         )}
       </div>
 
+      {trucks.length > 0 && (
       <div className="sera-gaplama-truck-list">
         <table>
           <thead>
@@ -607,6 +621,7 @@ export default function GaplamaTab(): JSX.Element {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

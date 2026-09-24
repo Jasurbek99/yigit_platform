@@ -3896,6 +3896,7 @@
       "folded_blocks": "{{count}} блок — нет свободного",
       "formula_hint": "Своб. = перенесено + план − погружено",
       "carry_window": "{{days}}-дневное окно переноса",
+      "carry_age": "{{days}} дн.",
       "weekday_1": "Пн",
       "weekday_2": "Вт",
       "weekday_3": "Ср",

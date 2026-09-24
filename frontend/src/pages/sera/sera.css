@@ -903,6 +903,14 @@
   font-weight: 500;
 }
 
+/* Day table only — the block's own carry window, written on screen (not
+   just a hover title, which tablets never see). */
+.sera-page .sera-gaplama-carry-window {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sera-text-faint);
+}
+
 /* Day table's Geçen (carried-in) column — the origin-day breakdown moves to
    the title tooltip (FIFO order, design spec §3①). */
 .sera-page .sera-gaplama-carry-in {

@@ -555,15 +555,39 @@ describe('GaplamaTab', () => {
         return Promise.resolve({ data: {} });
       });
 
-      renderTab();
+      const { container } = renderTab();
       const foldedRow = await screen.findByText(/tir_takip\.gaplama\.folded_blocks/);
       // Exactly block B folded — block A has kg and stays a normal row.
-      expect(foldedRow.textContent).toContain('1');
+      // The count itself (`{{count}}`) isn't readable under the identity `t`
+      // mock (it only echoes the key, not the interpolated value), so the
+      // count is verified structurally instead, via the expanded rows below.
       expect(screen.getByText('A')).toBeInTheDocument();
-      expect(screen.queryByText('B')).not.toBeInTheDocument();
+      expect(container.querySelectorAll('tr.sera-gaplama-folded-block')).toHaveLength(0);
 
       fireEvent.click(foldedRow);
+      await waitFor(() => {
+        expect(container.querySelectorAll('tr.sera-gaplama-folded-block')).toHaveLength(1);
+      });
       expect(await screen.findByText(/^B /)).toBeInTheDocument();
+    });
+
+    // Task 6 review fix: the day-stepper is the ONLY navigation control left
+    // (prev/this/next-week buttons were removed) — in week mode it must move
+    // a whole week per click, or a user could never reach next week without
+    // seven clicks.
+    it('steps a whole week per click while in week mode', async () => {
+      (useAuth as any).mockReturnValue({
+        user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+      });
+      renderTab();
+      fireEvent.click(await screen.findByRole('button', { name: /tir_takip\.gaplama\.mode_week/ }));
+      (api.get as any).mockClear();
+      fireEvent.click(screen.getByRole('button', { name: '▶' }));
+      const nextMonday = dayjs(THIS_MONDAY).add(7, 'day').format('YYYY-MM-DD');
+      await waitFor(() => {
+        const call = (api.get as any).mock.calls.find(([url]: [string]) => url.includes('/export/gaplama/board/'));
+        expect(call?.[0]).toContain(`from_date=${nextMonday}`);
+      });
     });
   });
 });

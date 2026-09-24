@@ -3897,6 +3897,7 @@
       "folded_blocks": "{{count}} blok — boş ýok",
       "formula_hint": "Boş = geçen + plan − ýüklenen",
       "carry_window": "{{days}} gün geçiş penjiresi",
+      "carry_age": "{{days}} gün",
       "weekday_1": "Duş",
       "weekday_2": "Siş",
       "weekday_3": "Çar",
