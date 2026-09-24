@@ -5,9 +5,11 @@ renders this verbatim (D1/D2/D8, see the design spec); Plan 2's over-load task a
 notification call the same function so the two can never disagree about a number.
 
 Carry-over rule (design spec §4): a positive day remainder is spendable for
-GreenhouseConfig.gaplama_carry_days days after the day it was left over on, oldest
-bucket first (FIFO). A negative remainder (over-loaded day) never carries — it is
-clamped to 0 for display and reported separately as over_kg.
+GreenhouseBlock.carry_days days after the day it was left over on, oldest bucket
+first (FIFO) — each block expires on its own schedule (2026-09-24; replaces the
+single GreenhouseConfig.gaplama_carry_days that used to apply to every block).
+A negative remainder (over-loaded day) never carries — it is clamped to 0 for
+display and reported separately as over_kg.
 """
 from collections import deque
 from datetime import date, timedelta
@@ -15,7 +17,7 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from apps.core.models import GreenhouseBlock, GreenhouseConfig
+from apps.core.models import GreenhouseBlock
 from apps.export.models import Shipment, ShipmentBlockSource
 from apps.greenhouse.models import HarvestDayEntry
 
@@ -32,8 +34,10 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
                        available_kg}
 
     carry_in_breakdown is the live buckets making up carried_in_kg, oldest first —
-    [{origin_date, kg}, ...], captured BEFORE this day's own consumption (so it shows
-    what the day started with, not what survives it). carried_out_kg is the fresh
+    [{origin_date, kg, age_days}, ...] (age_days added 2026-09-24, Task 2 of the batch
+    selection work — how many days old this bucket is as of the day being walked),
+    captured BEFORE this day's own consumption (so it shows what the day started with,
+    not what survives it). carried_out_kg is the fresh
     remainder this day contributes to tomorrow's carry-in pool (0 if none) — together
     these answer "where did a carry-in number come from" and "where is an unclaimed
     number going", which the day/available_kg/over_kg fields alone don't show.
@@ -56,10 +60,12 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     never get their own day-row, but their kg is folded into their parent's loaded_kg and
     trucks[].block_sources (see below) — they're excluded from days[], not from the data.
 
-    5 queries regardless of data volume: config lookup, a block roster (ALL blocks, active
-    and inactive, top-level and sub — see the parent-map note below — one query), one
-    grouped HarvestDayEntry read, one grouped ShipmentBlockSource read, one flat
-    Shipment+block_sources read (no prefetch_related, so it doesn't fan out per truck).
+    5 queries regardless of data volume: a per-block carry_days map (id, carry_days for
+    every block — replaces the old single config lookup, 2026-09-24), a block roster (ALL
+    blocks, active and inactive, top-level and sub — see the parent-map note below — one
+    query), one grouped HarvestDayEntry read, one grouped ShipmentBlockSource read, one
+    flat Shipment+block_sources read (no prefetch_related, so it doesn't fan out per
+    truck). week_totals is pure post-processing of days_out already in memory — no query.
 
     Sub-block grain: HarvestDayEntry is always written at top-level (parent) grain, and
     write_block_sources() normalizes new ShipmentBlockSource writes to parent grain too
@@ -74,9 +80,15 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     inactive block or a sub-block whose parent has since been deactivated — `days[]` itself
     stays active-top-level-only via the explicit `b.is_active` check in `block_meta` below.
     """
-    config = GreenhouseConfig.get_solo()
-    carry_days = config.gaplama_carry_days
-    # 2x carry_days, not 1x (2026-09-23 fix). The walk's first computed day
+    # Per block since 2026-09-24: a block with cold storage holds a leftover for
+    # days, one without does not. The walk window is sized by the WIDEST block so
+    # a single pass serves them all; each block then expires on its own schedule
+    # inside that window, so a short block is not kept alive by a long neighbour.
+    carry_days_by_block: dict[int, int] = dict(
+        GreenhouseBlock.objects.values_list('id', 'carry_days')
+    )
+    max_carry_days = max(carry_days_by_block.values(), default=2)
+    # 2x max_carry_days, not 1x (2026-09-23 fix). The walk's first computed day
     # (walk_start) always starts with zero carry-in — that day's OWN
     # remainder_today can therefore be wrong if a REAL bucket should have
     # fed it, which then propagates forward through every later day that
@@ -98,7 +110,7 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     # the frontend used to provide by accident before 2026-09-23 removed
     # its own redundant client-side widening — see GaplamaTab.tsx and the
     # design spec §4 Window note, which carries the same caveat.
-    walk_start = from_date - timedelta(days=carry_days * 2)
+    walk_start = from_date - timedelta(days=max_carry_days * 2)
 
     # ALL blocks — active and inactive, top-level and sub — in one query. code_by_id/
     # parent_of must cover inactive blocks too, so a ShipmentBlockSource row still resolves
@@ -156,18 +168,21 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     days_out: list[dict] = []
     for block_id in block_ids:
         block_code, location = block_meta[block_id]
+        block_carry_days = carry_days_by_block.get(block_id, max_carry_days)
         # FIFO bucket queue: each entry is [remaining_kg, day_created].
         buckets: deque[list] = deque()
         for d in all_days:
-            # Expire buckets older than carry_days.
-            while buckets and (d - buckets[0][1]).days > carry_days:
+            # Expire buckets older than this block's own carry_days.
+            while buckets and (d - buckets[0][1]).days > block_carry_days:
                 buckets.popleft()
 
             carried_in_kg = sum((b[0] for b in buckets), Decimal(0))
             # Snapshot BEFORE today's consumption loop below touches the buckets —
             # this is what the day started with, which is what a "where did this
             # carry-in come from" tooltip should show.
-            carry_in_breakdown = [{'origin_date': b[1], 'kg': b[0]} for b in buckets]
+            carry_in_breakdown = [
+                {'origin_date': b[1], 'kg': b[0], 'age_days': (d - b[1]).days} for b in buckets
+            ]
             plan_kg = plan_map.get((block_id, d), Decimal(0))
             loaded_kg = loaded_map.get((block_id, d), Decimal(0))
 

@@ -59,15 +59,20 @@ class GaplamaBoardTest(TestCase):
             is_active=True,
         )
         self.location = LoadingLocation.objects.create(name='Dusak')
+        # carry_days=2: this whole suite was written against the old global
+        # GreenhouseConfig.gaplama_carry_days=2 rule (now per-block, default 7 —
+        # see tests_gaplama_carry_days.py). Pinned here so the expiry-timing
+        # assertions below keep meaning what they said (2026-09-24).
         self.block = GreenhouseBlock.objects.create(
             code='F', name='F-Ýyladyşhana', location=self.location, is_active=True,
+            carry_days=2,
         )
         self.draft_status = _make_status('draft', 0, 'Draft')
         _make_status('cancelled', 99, 'Cancelled')
-        GreenhouseConfig.objects.all().delete()
-        self.config = GreenhouseConfig.get_solo()
-        self.config.gaplama_carry_days = 2
-        self.config.save()
+        # NOTE: GreenhouseConfig.gaplama_carry_days is dead as of 2026-09-24 — the
+        # board now reads GreenhouseBlock.carry_days per block (see above) and no
+        # longer calls GreenhouseConfig at all. Left unset here deliberately;
+        # setting it would no longer do anything (see task-2-report.md).
 
     def _plan(self, entry_date, kg, block=None):
         block = block or self.block
@@ -312,8 +317,9 @@ class GaplamaBoardTest(TestCase):
         self.assertIsNone(truck['country'])
 
     def test_query_count_flat_as_trucks_grow(self):
-        # 1 config lookup (GreenhouseConfig.get_solo) + 1 active-block roster (now
-        # unfiltered by parent, so sub-blocks ride along in the same single query) +
+        # 1 per-block carry_days map (GreenhouseBlock.objects.values_list, replaces the
+        # old GreenhouseConfig.get_solo() lookup — 2026-09-24) + 1 active-block roster
+        # (now unfiltered by parent, so sub-blocks ride along in the same single query) +
         # 1 plan aggregate + 1 loaded aggregate + 1 trucks list (flat values() JOIN,
         # not prefetch_related, so the per-shipment block_sources ride along in the
         # same query). The brief's comment said 3 (config + block roster uncounted);
@@ -355,7 +361,7 @@ class GaplamaBoardTest(TestCase):
         tuesday = next(r for r in board['days'] if r['date'] == date(2026, 9, 22))
         self.assertEqual(
             tuesday['carry_in_breakdown'],
-            [{'origin_date': date(2026, 9, 21), 'kg': Decimal(8000)}],
+            [{'origin_date': date(2026, 9, 21), 'kg': Decimal(8000), 'age_days': 1}],
         )
 
     def test_carry_in_breakdown_lists_two_origin_days_oldest_first(self):
@@ -369,8 +375,8 @@ class GaplamaBoardTest(TestCase):
         self.assertEqual(
             wednesday['carry_in_breakdown'],
             [
-                {'origin_date': date(2026, 9, 21), 'kg': Decimal(8000)},
-                {'origin_date': date(2026, 9, 22), 'kg': Decimal(5000)},
+                {'origin_date': date(2026, 9, 21), 'kg': Decimal(8000), 'age_days': 2},
+                {'origin_date': date(2026, 9, 22), 'kg': Decimal(5000), 'age_days': 1},
             ],
         )
 
@@ -386,7 +392,7 @@ class GaplamaBoardTest(TestCase):
         # Tuesday started with); the reduction shows up in what Tuesday carries OUT.
         self.assertEqual(
             tuesday['carry_in_breakdown'],
-            [{'origin_date': date(2026, 9, 21), 'kg': Decimal(8000)}],
+            [{'origin_date': date(2026, 9, 21), 'kg': Decimal(8000), 'age_days': 1}],
         )
         self.assertEqual(tuesday['carried_out_kg'], Decimal(0))
         self.assertEqual(tuesday['available_kg'], Decimal(5000))
@@ -576,7 +582,13 @@ class GaplamaBoardViewTest(TestCase):
         })
         self.assertEqual(resp.status_code, 200)
         tuesday = next(d for d in resp.json()['days'] if d['date'] == '2026-09-22')
-        self.assertEqual(tuesday['carry_in_breakdown'], [{'origin_date': '2026-09-21', 'kg': '10000.00'}])
+        # age_days rides through views_gaplama.py's _stringify_decimals() untouched --
+        # it's an int, not a Decimal, so it serializes as a JSON number, not a string
+        # (Task 5 is where the API contract for this field gets decided/documented).
+        self.assertEqual(
+            tuesday['carry_in_breakdown'],
+            [{'origin_date': '2026-09-21', 'kg': '10000.00', 'age_days': 1}],
+        )
 
     def test_window_clamped_to_season_not_defaulted(self):
         # from_date sits before the season's start_date — the view must clamp the
