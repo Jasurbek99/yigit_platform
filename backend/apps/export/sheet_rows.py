@@ -321,6 +321,10 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'base',
         'gapy_hidden': True,
     },
+    # R33-R35 and R41-R43 describe what happens after the truck leaves the
+    # greenhouse. A Gapy-Satys shipment is complete at that moment (see
+    # TRANSITIONS['yuklenme']), so these cells are unreachable for it and are
+    # hidden rather than left as six cells nobody will ever fill.
     {
         'row_number': 33,
         'field_key': 'has_peregruz',
@@ -329,6 +333,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'input_type': 'dropdown',
         'style': 'base',
         'options_source': 'peregruz',
+        'gapy_hidden': True,
     },
     {
         'row_number': 34,
@@ -337,6 +342,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'label_key': 'sheet.row.peregruz_time',
         'input_type': 'datetime',
         'style': 'base',
+        'gapy_hidden': True,
     },
     {
         'row_number': 35,
@@ -345,6 +351,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'label_key': 'sheet.row.arrival',
         'input_type': 'datetime',
         'style': 'base',
+        'gapy_hidden': True,
     },
     {
         'row_number': 36,
@@ -403,6 +410,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'label_key': 'sheet.row.sale_start',
         'input_type': 'datetime',
         'style': 'report',
+        'gapy_hidden': True,
     },
     {
         'row_number': 42,
@@ -411,6 +419,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'label_key': 'sheet.row.sale_end',
         'input_type': 'datetime',
         'style': 'report',
+        'gapy_hidden': True,
     },
     {
         # R43 used to point at has_sales_report (a derived boolean) with
@@ -422,6 +431,7 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'label_key': 'sheet.row.report_date',
         'input_type': 'date',
         'style': 'report',
+        'gapy_hidden': True,
     },
     {
         'row_number': 44,
