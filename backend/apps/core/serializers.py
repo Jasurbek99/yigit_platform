@@ -163,7 +163,7 @@ class GreenhouseBlockSerializer(serializers.ModelSerializer):
         model = GreenhouseBlock
         fields = [
             'id', 'code', 'name', 'color', 'sort_order', 'is_active',
-            'parent', 'location', 'location_name',
+            'parent', 'location', 'location_name', 'carry_days',
         ]
 
 

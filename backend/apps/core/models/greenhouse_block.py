@@ -56,6 +56,11 @@ class GreenhouseBlock(models.Model):
     color = models.CharField(max_length=7, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # How many days a leftover from this block stays loadable. Blocks with cold
+    # storage hold tomatoes for days; blocks without do not. Replaces the single
+    # GreenhouseConfig.gaplama_carry_days, which applied 2 days to everything
+    # (owner report 2026-09-24). Everyone starts at 7 and is tuned later.
+    carry_days = models.PositiveSmallIntegerField(default=7)
 
     class Meta:
         db_table = schema_table('core', 'greenhouse_blocks')
