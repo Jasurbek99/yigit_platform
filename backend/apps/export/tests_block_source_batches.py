@@ -589,3 +589,73 @@ class NormalizeBlockSourcesNullHarvestDateTests(TestCase):
         self.assertIn('NE=4000.00', after_part, after_part)
         self.assertNotIn('@', before_part, before_part)
         self.assertNotIn('@', after_part, after_part)
+
+
+class SetBlockSourcesRejectsNegativeWeightTests(TestCase):
+    """POST /block-sources/ must refuse a negative weight_kg, not write it.
+
+    set_block_sources() computed `weight = Decimal(str(override))` straight
+    from the request with no positivity check — unlike ShipmentCreateSerializer
+    (min_value=0.01) on the create path. A negative override feeds `loaded_kg`
+    in the gaplama carry-day math (`available = plan + carry - loaded`), so it
+    silently INFLATES the block's remaining stock instead of shrinking it
+    (2026-09-25, reviewer finding).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.block = GreenhouseBlock.objects.create(code='NW', is_active=True)
+        cls.country, _ = Country.objects.get_or_create(code='TM', defaults={'name_en': 'TM'})
+        cls.season, _ = Season.objects.get_or_create(
+            name='26-negwt', defaults={
+                'is_active': True, 'start_date': '2026-01-01', 'end_date': '2026-12-31',
+            },
+        )
+        cls.status_draft, _ = ShipmentStatusType.objects.get_or_create(
+            code='draft',
+            defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
+        )
+        cls.boss = User.objects.create_superuser(username='boss_negwt', password='p')
+
+    def setUp(self):
+        self.shipment = Shipment.objects.create(
+            shipment_code='24SP7NW/26', date='2026-09-25',
+            season=self.season, country=self.country, status=self.status_draft,
+            weight_net=Decimal('10000'),
+        )
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.client.force_authenticate(self.boss)
+        self.url = f'/api/v1/export/shipments/{self.shipment.id}/block-sources/'
+
+    def test_negative_weight_kg_is_a_400_and_writes_nothing(self):
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block.id, 'weight_kg': '-500'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn('weight_kg', str(resp.data))
+        self.assertFalse(self.shipment.block_sources.exists())
+
+    def test_negative_numeric_weight_kg_is_also_rejected(self):
+        """The override can arrive as a JSON number, not just a string."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block.id, 'weight_kg': -1},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertFalse(self.shipment.block_sources.exists())
+
+    def test_zero_weight_kg_still_means_auto_split_not_rejected(self):
+        """0 is the auto-split sentinel, not a weight — must stay legal."""
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block.id, 'weight_kg': 0},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(self.shipment.block_sources.filter(block=self.block).exists())
+
+    def test_positive_weight_kg_is_unaffected(self):
+        resp = self.client.post(self.url, {'blocks': [
+            {'block_id': self.block.id, 'weight_kg': '2500'},
+        ]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        row = self.shipment.block_sources.get(block=self.block)
+        self.assertEqual(row.weight_kg, Decimal('2500.00'))

@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 from django.http import FileResponse
@@ -3325,6 +3325,25 @@ class ShipmentViewSet(ModelViewSet):
 
         valid_entries = [e for e in blocks_data if e.get('block_id')]
         n = len(valid_entries)
+
+        # Reject a negative override before any DB read/write. None/0/'0'/'0.00'
+        # are the auto-split sentinel (handled below), not a weight — so this
+        # only rejects a genuinely negative number, the same sentinel check the
+        # weight-building loop uses. Unlike ShipmentCreateSerializer's
+        # min_value=0.01, 0 must stay legal here: it is how a caller asks for
+        # auto-split, not a weight of zero.
+        for entry in valid_entries:
+            override = entry.get('weight_kg')
+            if override in (None, 0, '0', '0.00'):
+                continue
+            try:
+                if Decimal(str(override)) < 0:
+                    raise ValueError
+            except (InvalidOperation, ValueError):
+                return Response(
+                    {'error': f'weight_kg must not be negative: {override!r}', 'field': 'weight_kg'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         # Build per-row weights — explicit overrides win; otherwise auto-split.
         auto_weights: list[Decimal] = []
