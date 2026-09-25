@@ -3313,6 +3313,19 @@ class ShipmentViewSet(ModelViewSet):
         auto-split share and rescales its batches accordingly, same as it
         always has for a single batch.
         Pass harvest_date=null explicitly to clear down to one dateless row.
+
+        Optional ``"sync_weight_net": true`` in the body makes this call ALSO
+        set ``shipment.weight_net`` to the sum of the blocks just written, in
+        the SAME transaction as the block-sources write. Before this, the
+        Gaplama edit form (Üýtget) wrote the split with this endpoint and then
+        PATCHed weight_net in a second, separate request — two server-side
+        gates (block-sources needs shipment.create, weight_net needs
+        shipment.edit + the field grant) — so a 403/500/dropped connection on
+        the second call left the split rewritten with the total still stale
+        (2026-09-25 fix). The weight_net field permission is checked BEFORE
+        any write (400/403, nothing written), and the new total is computed
+        server-side from the rows just written, never trusted from the
+        request — the caller cannot desync it from the split it just sent.
         """
         shipment = self.get_object()
         blocks_data = request.data.get('blocks', [])
@@ -3325,6 +3338,18 @@ class ShipmentViewSet(ModelViewSet):
 
         valid_entries = [e for e in blocks_data if e.get('block_id')]
         n = len(valid_entries)
+
+        # The weight_net field permission is a SEPARATE gate from this
+        # endpoint's own (shipment.create) — checked before any write so a
+        # caller who lacks it gets a clean 403 with nothing rewritten, instead
+        # of a rewritten split and a stale total (see docstring).
+        sync_weight_net = bool(request.data.get('sync_weight_net'))
+        if sync_weight_net and not can_edit_sheet_field(request.user, 'weight_net'):
+            user_role = getattr(request.user, 'role', None)
+            return Response(
+                {'error': f"Role '{user_role}' cannot edit: weight_net"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # Reject a negative override before any DB read/write. None/0/'0'/'0.00'
         # are the auto-split sentinel (handled below), not a weight — so this
@@ -3442,11 +3467,42 @@ class ShipmentViewSet(ModelViewSet):
                 entries.append({'block': block_id, 'weight_kg': row_weight, 'harvest_date': harvest_date})
 
         # Normalize sub-blocks to parent grain and merge (F1/F2 -> F) before write.
-        count = write_block_sources(shipment, entries, replace=True)
+        # write_block_sources() opens its own transaction.atomic() (delete +
+        # bulk_create); nested inside this one it becomes a savepoint, so the
+        # split write and the weight_net sync below still commit or roll back
+        # together.
+        from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
+
+        weight_net_before = snapshot_fields(shipment, ['weight_net']) if sync_weight_net else None
+        with transaction.atomic():
+            count = write_block_sources(shipment, entries, replace=True)
+            if sync_weight_net:
+                from django.db.models import Sum
+
+                # Computed from the rows just written (post-merge, post-split),
+                # not the pre-merge `entries` list and never the request body —
+                # this is what makes the two writes agree by construction.
+                new_total = shipment.block_sources.aggregate(
+                    total=Sum('weight_kg'),
+                )['total'] or Decimal('0')
+                shipment.weight_net = new_total
+                shipment.updated_by = request.user
+                shipment.save(update_fields=['weight_net', 'updated_by'])
+
+        if sync_weight_net:
+            weight_net_after = snapshot_fields(shipment, ['weight_net'])
+            audit_rows = diff_audit_rows(shipment, weight_net_before, weight_net_after, request.user)
+            if audit_rows:
+                AuditLog.objects.bulk_create(audit_rows, batch_size=500)
+            # Mirrors partial_update: AFTER save, so Shipment.save()'s own
+            # auto-resolution (a task already DONE) runs first.
+            from apps.export.services.task_rules import mark_started_for_changed_fields
+            mark_started_for_changed_fields(shipment, ['weight_net'])
 
         logger.info(
-            'Block sources for %s updated by %s (%d blocks -> %d parent rows)',
+            'Block sources for %s updated by %s (%d blocks -> %d parent rows)%s',
             shipment.shipment_code, request.user.username, n, count,
+            ', weight_net synced' if sync_weight_net else '',
         )
         return Response({'status': 'ok', 'count': count})
 

@@ -179,6 +179,7 @@ Permission: `CanViewTirHasabat` — `tir_takip.hasabat` **and** `analytics.clien
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
 | GET | `/api/v1/export/gaplama/board/?from_date=&to_date=[&season=]` | GaplamaBoardView.get | `useGaplamaBoard` | TirTakip → GaplamaTab · GaplamaPage (`/export/gaplama`) |
+| POST | `/api/v1/export/shipments/{id}/block-sources/` (`sync_weight_net: true`) | ShipmentViewSet.set_block_sources | `useUpdateTruckBlocks` | GaplamaTab/GaplamaPage — Üýtget edit form. Writes the block split AND `weight_net` in one transaction (2026-09-25) |
 
 Permission: `CanViewTirGaplama` — `tir_takip.gaplama` **and** `export.plan` (superuser bypass). Season-scoped (`?season=`, same rules as below; no active season → `{"days": [], "trucks": []}`). Window capped at 31 days (`400` otherwise). Returns `{days: [...], trucks: [...]}` — per-block-day plan/loaded/carried-in/available/over kg (decimal strings) plus opened trucks with their `block_sources`. See [[screens/gaplama]].
 

@@ -659,3 +659,110 @@ class SetBlockSourcesRejectsNegativeWeightTests(TestCase):
         self.assertEqual(resp.status_code, 200, resp.content)
         row = self.shipment.block_sources.get(block=self.block)
         self.assertEqual(row.weight_kg, Decimal('2500.00'))
+
+
+class SetBlockSourcesSyncWeightNetTests(TestCase):
+    """POST /block-sources/ with sync_weight_net: true writes the split and the
+    new weight_net total in ONE server-side transaction.
+
+    Before this, the Gaplama edit form (Üýtget) sent two separate requests —
+    POST block-sources, then PATCH weight_net — each behind its own gate. A
+    403/500/dropped connection on the second call left the split rewritten
+    with the total still stale (2026-09-25 fix, reviewer finding P1).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.block_a = GreenhouseBlock.objects.create(code='SW', is_active=True)
+        cls.block_b = GreenhouseBlock.objects.create(code='SX', is_active=True)
+        cls.country, _ = Country.objects.get_or_create(code='TM', defaults={'name_en': 'TM'})
+        cls.season, _ = Season.objects.get_or_create(
+            name='26-syncwn', defaults={
+                'is_active': True, 'start_date': '2026-01-01', 'end_date': '2026-12-31',
+            },
+        )
+        cls.status_draft, _ = ShipmentStatusType.objects.get_or_create(
+            code='draft',
+            defaults={'name_en': 'D', 'name_tk': 'D', 'name_ru': 'D', 'step_order': 0, 'phase': 'LOADING'},
+        )
+        cls.boss = User.objects.create_superuser(username='boss_syncwn', password='p')
+
+    def setUp(self):
+        self._counter = getattr(SetBlockSourcesSyncWeightNetTests, '_shipment_seq', 0) + 1
+        SetBlockSourcesSyncWeightNetTests._shipment_seq = self._counter
+        self.shipment = Shipment.objects.create(
+            shipment_code=f'24SP8{self._counter:02d}/26', date='2026-09-25',
+            season=self.season, country=self.country, status=self.status_draft,
+            weight_net=Decimal('999'),
+        )
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+        self.client.force_authenticate(self.boss)
+        self.url = f'/api/v1/export/shipments/{self.shipment.id}/block-sources/'
+
+    def test_sync_weight_net_sets_total_from_the_written_rows(self):
+        resp = self.client.post(self.url, {
+            'blocks': [
+                {'block_id': self.block_a.id, 'weight_kg': '4000'},
+                {'block_id': self.block_b.id, 'weight_kg': '6000'},
+            ],
+            'sync_weight_net': True,
+        }, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.weight_net, Decimal('10000'))
+
+    def test_weight_net_ignores_the_request_body_value(self):
+        """The total is computed server-side from the written rows — a
+        mismatched client-sent number must not win."""
+        resp = self.client.post(self.url, {
+            'blocks': [{'block_id': self.block_a.id, 'weight_kg': '4000'}],
+            'weight_net': '999999',
+            'sync_weight_net': True,
+        }, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.weight_net, Decimal('4000'))
+
+    def test_omitted_sync_weight_net_leaves_weight_net_untouched(self):
+        """Backward compatible: every OTHER caller of this endpoint (Sheet R8,
+        undo) never sends the flag and must keep working exactly as before."""
+        resp = self.client.post(self.url, {
+            'blocks': [{'block_id': self.block_a.id, 'weight_kg': '4000'}],
+        }, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.weight_net, Decimal('999'))
+
+    def test_sync_weight_net_writes_an_audit_row(self):
+        from apps.export.models import AuditLog
+
+        self.client.post(self.url, {
+            'blocks': [{'block_id': self.block_a.id, 'weight_kg': '4000'}],
+            'sync_weight_net': True,
+        }, format='json')
+
+        self.assertTrue(
+            AuditLog.objects.filter(
+                object_id=self.shipment.id, field_name='weight_net',
+            ).exists()
+        )
+
+    def test_permission_denied_writes_neither_the_split_nor_the_total(self):
+        """A caller without the weight_net field grant gets a clean 403 and
+        NOTHING is written — not the split either. Before the combined
+        endpoint, the split write had no way to know the second call would
+        403 and had already committed by the time it did."""
+        from unittest import mock
+
+        with mock.patch('apps.export.views.can_edit_sheet_field', return_value=False):
+            resp = self.client.post(self.url, {
+                'blocks': [{'block_id': self.block_a.id, 'weight_kg': '4000'}],
+                'sync_weight_net': True,
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 403, resp.content)
+        self.assertIn('weight_net', str(resp.data))
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.weight_net, Decimal('999'))
+        self.assertFalse(self.shipment.block_sources.exists())

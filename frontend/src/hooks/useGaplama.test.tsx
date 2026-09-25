@@ -111,7 +111,6 @@ describe('useUpdateTruckBlocks', () => {
   // must be invalidated or those surfaces stay stale after an edit.
   it('invalidates gaplama-board, drafts and shipments on success', async () => {
     (api.post as any).mockResolvedValue({ data: {} });
-    (api.patch as any).mockResolvedValue({ data: {} });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
@@ -126,14 +125,13 @@ describe('useUpdateTruckBlocks', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shipments'] });
   });
 
-  // I3: the two-call write (POST block-sources, then PATCH weight_net) has
-  // no rollback — if the second call 403s after the first landed, the split
-  // is already rewritten server-side. The board (and drafts/shipments) must
-  // still refetch on this partial failure so the UI shows the real current
-  // state instead of a stale cache.
-  it('still invalidates gaplama-board, drafts and shipments when the second (PATCH) call fails', async () => {
-    (api.post as any).mockResolvedValue({ data: {} });
-    (api.patch as any).mockRejectedValue(new Error('403 forbidden'));
+  // 2026-09-25: the split and weight_net write is now ONE call
+  // (sync_weight_net: true), atomic server-side — a rejected call writes
+  // nothing, so there is no partial state to invalidate around. The board
+  // (and drafts/shipments) must still refetch on failure so the UI drops
+  // any optimistic state and shows the real current one.
+  it('still invalidates gaplama-board, drafts and shipments when the call fails', async () => {
+    (api.post as any).mockRejectedValue(new Error('403 forbidden'));
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     const invalidateSpy = vi.spyOn(client, 'invalidateQueries');
@@ -148,13 +146,31 @@ describe('useUpdateTruckBlocks', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['shipments'] });
   });
 
+  // The split and its total must land in one call — a second, separate
+  // PATCH would reopen the exact partial-write gap sync_weight_net exists
+  // to close (2026-09-25).
+  it('sends sync_weight_net: true and makes no separate weight_net call', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
+    result.current.mutate({ shipmentId: 9, rows: [{ block_id: 1, weight_kg: 5000 }] });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(api.post).toHaveBeenCalledWith('/export/shipments/9/block-sources/', {
+      blocks: [{ block_id: 1, weight_kg: 5000 }],
+      sync_weight_net: true,
+    });
+    expect(api.patch).not.toHaveBeenCalled();
+  });
+
   // Gap 1 (task-7b-report.md's own Concerns section): without this, editing
   // a truck's batch split silently reverted to the old proportional-split
   // fallback server-side — the operator's new batch choice never reached the
   // request body at all.
   it('forwards harvest_date for each row so a batch edit does not silently revert', async () => {
     (api.post as any).mockResolvedValue({ data: {} });
-    (api.patch as any).mockResolvedValue({ data: {} });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
@@ -173,6 +189,7 @@ describe('useUpdateTruckBlocks', () => {
         { block_id: 1, weight_kg: 3000, harvest_date: '2026-09-21' },
         { block_id: 1, weight_kg: 5000, harvest_date: '2026-09-24' },
       ],
+      sync_weight_net: true,
     });
   });
 
@@ -186,7 +203,6 @@ describe('useUpdateTruckBlocks', () => {
   // would silently undo the fold on every save.
   it('forwards an explicit null harvest_date rather than omitting the key', async () => {
     (api.post as any).mockResolvedValue({ data: {} });
-    (api.patch as any).mockResolvedValue({ data: {} });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
@@ -199,6 +215,7 @@ describe('useUpdateTruckBlocks', () => {
 
     expect(api.post).toHaveBeenCalledWith('/export/shipments/9/block-sources/', {
       blocks: [{ block_id: 1, weight_kg: 5000, harvest_date: null }],
+      sync_weight_net: true,
     });
   });
 
@@ -207,7 +224,6 @@ describe('useUpdateTruckBlocks', () => {
   // backend's own "harvest_date is optional per-block" contract.
   it('still works when a row omits harvest_date', async () => {
     (api.post as any).mockResolvedValue({ data: {} });
-    (api.patch as any).mockResolvedValue({ data: {} });
 
     const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
     const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
@@ -217,6 +233,7 @@ describe('useUpdateTruckBlocks', () => {
 
     expect(api.post).toHaveBeenCalledWith('/export/shipments/9/block-sources/', {
       blocks: [{ block_id: 1, weight_kg: 5000 }],
+      sync_weight_net: true,
     });
   });
 });

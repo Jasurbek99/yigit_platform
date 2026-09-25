@@ -128,18 +128,18 @@ export function useGaplamaBoard(fromDate: string, toDate: string) {
 }
 
 /**
- * Edits an existing Gaplama truck's block/kg split (the Üýtget form). Writes through
- * the existing block-sources endpoint, then syncs weight_net to the new total —
- * both calls the Sheet's own editors already make.
+ * Edits an existing Gaplama truck's block/kg split (the Üýtget form). One
+ * call to the block-sources endpoint with `sync_weight_net: true`, which
+ * writes the split AND the new weight_net total in one server-side
+ * transaction (backend/apps/export/views.py, ShipmentViewSet.set_block_sources).
  *
- * Two-call write, two separate server-side gates (POST block-sources needs
- * shipment.can_create, PATCH weight_net needs shipment.can_edit + a field
- * grant) — the first call can land and the second can still 403, leaving the
- * split rewritten but the total weight stale. Invalidation therefore runs in
- * onSettled, not onSuccess: whichever calls actually landed, the user must
- * see the shipment's real current state, not a stale cache, on success OR
- * failure. Invalidates drafts/shipments too — the Sheet and Drafts page read
- * this same shipment through those query keys, not just gaplama-board.
+ * Used to be two separate requests — POST block-sources, then PATCH
+ * weight_net — each behind its own gate. A 403/500/dropped connection on
+ * the second call left the split rewritten with the total still stale
+ * (2026-09-25 fix). onError still invalidates: even a clean 403 on this
+ * single call happens before any write now, but a network failure after
+ * the response left the server means the cache should still refresh to
+ * the real state.
  */
 export function useUpdateTruckBlocks() {
   const queryClient = useQueryClient();
@@ -180,9 +180,11 @@ export function useUpdateTruckBlocks() {
           weight_kg: r.weight_kg,
           ...(r.harvest_date !== undefined ? { harvest_date: r.harvest_date } : {}),
         })),
+        // Server computes the new weight_net from the rows it just wrote —
+        // the number is never taken from the client (see set_block_sources's
+        // docstring), so nothing is sent here beyond the flag itself.
+        sync_weight_net: true,
       });
-      const weightNet = vars.rows.reduce((sum, r) => sum + r.weight_kg, 0);
-      await api.patch(`/export/shipments/${vars.shipmentId}/`, { weight_net: weightNet });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['gaplama-board'] });

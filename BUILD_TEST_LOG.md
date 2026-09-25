@@ -1,3 +1,11 @@
+- [ ] 2026-09-25 — Gaplama Üýtget edit: split + weight_net now one atomic write; server rejects negative weight_kg and carry_days=0 (PR #20 review fixes) — NEEDS TEST
+  To test: (1) edit an existing Gaplama truck (Üýtget) and Save — the block split and the total kg
+  must both update, in one request (check the network tab: one POST to /block-sources/, no
+  separate PATCH); (2) as a role WITHOUT the weight_net field grant, try the same edit — must get
+  a clean error and the split must NOT have been rewritten either; (3) Admin -> Block Management,
+  try to set carry_days to 0 — must be refused, same as before; (4) normal Sheet R8 block editing
+  and Gaplama Ctrl+Z undo must still work unchanged (they never send sync_weight_net).
+
 - [ ] 2026-09-25 — Admin Blocks list: the edit (pencil) button now opens the drawer instead of being swallowed by the row's navigation to the block detail page — carry_days was unreachable from the UI — NEEDS TEST
   To test: (1) Settings -> Block Management, click the pencil on any row — the edit drawer must
   open and STAY open, showing "Saklaw mohleti (gun)"; the page must not jump to the block's

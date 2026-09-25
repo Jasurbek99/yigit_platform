@@ -252,14 +252,24 @@ per-batch rows correctly. The block-level SUM cap (`blockCapFor`, see above) add
 own current total **in that block** (summed across whichever batches it already holds there,
 from the board's `trucks[].block_sources` — block grain, not per-batch) back onto
 `availableByBlock` — so the truck's own existing kg is never counted against itself as
-"unavailable" when editing. Saving calls `useUpdateTruckBlocks`, which
-is **two calls**, not one: `POST /export/shipments/{id}/block-sources/` with
-`{ blocks: [{ block_id, weight_kg, harvest_date? }] }` (body key is `blocks`, not
-`block_sources`; `harvest_date` is forwarded per row when the batch has one — verified against
-`ShipmentViewSet.set_block_sources`), then `PATCH /export/shipments/{id}/` with the new
-`weight_net` total. Both are calls the Sheet's own editors already make; nothing new was added
-to the backend transport for this screen, though `set_block_sources` itself gained batch
-handling — see the asymmetry note below.
+"unavailable" when editing. Saving calls `useUpdateTruckBlocks`, which is **one call**:
+`POST /export/shipments/{id}/block-sources/` with
+`{ blocks: [{ block_id, weight_kg, harvest_date? }], sync_weight_net: true }` (body key is
+`blocks`, not `block_sources`; `harvest_date` is forwarded per row when the batch has one —
+verified against `ShipmentViewSet.set_block_sources`).
+
+**Was two calls until 2026-09-25** — this POST, then a separate `PATCH /export/shipments/{id}/`
+for `weight_net`. Each had its own server-side gate (block-sources needs `shipment.create`,
+weight_net needs `shipment.edit` + the field grant), so a 403/500/dropped connection on the
+second call left the split rewritten with the total still stale — a reviewer finding on this
+PR. `sync_weight_net: true` makes `set_block_sources` write both in one transaction: it checks
+the weight_net field permission (`can_edit_sheet_field`) BEFORE any write — a denial 403s with
+nothing rewritten, not just the total staying stale — and computes the new total server-side
+from the rows it just wrote, never trusting the request body. `set_block_sources` also now
+rejects a negative `weight_kg` override outright (0/omitted still mean auto-split), closing a
+gap where a negative number fed `loaded_kg` and inflated `available_kg` instead of shrinking
+it. Nothing new was added to the backend transport beyond this — see the asymmetry note below
+for what is still open.
 
 **A seeded edit row's own kg is a floor on its bucket's cap, not a ceiling (2026-09-25).**
 Originally (same day, pre-leftover-collapse): every shipment on the live DB has
