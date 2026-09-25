@@ -692,6 +692,7 @@
     "notes": "Bellikler",
     "firm_splits": "Eksport firmalary",
     "block_sources": "Ýyladyşhana bloklary",
+    "block_sources_weight_kg": "{{weight}} kg",
     "vehicle_condition": "Ulag ýagdaýy",
     "condition_note": "Bellik",
     "loading_started": "Ýüklenip başlandy",

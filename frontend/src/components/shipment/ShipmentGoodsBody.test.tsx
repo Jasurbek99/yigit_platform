@@ -15,6 +15,11 @@ vi.mock('@/services/api', () => ({
   default: { patch: vi.fn(), get: vi.fn(), post: vi.fn() },
 }));
 
+/** "3,000 kg" — matches the "shipment_detail.block_sources_weight_kg" key. */
+function weightLabel(kg: number): string {
+  return i18n.t('shipment_detail.block_sources_weight_kg', { weight: fmtNum(kg) });
+}
+
 function renderBody(blockSources: IBlockSource[]) {
   const shipment: IShipmentDetail = { ...MOCK_SHIPMENT_DETAIL, block_sources: blockSources };
   const queryClient = new QueryClient({
@@ -48,7 +53,7 @@ describe('ShipmentGoodsBody block sources', () => {
       { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 3000, harvest_date: '2026-09-21' },
       { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 5000, harvest_date: '2026-09-24' },
     ]);
-    const expected = `A: ${fmtDate('2026-09-21')} — ${fmtNum(3000)}, ${fmtDate('2026-09-24')} — ${fmtNum(5000)}`;
+    const expected = `A: ${fmtDate('2026-09-21')} — ${weightLabel(3000)}, ${fmtDate('2026-09-24')} — ${weightLabel(5000)}`;
     expect(row.getByText(expected)).toBeInTheDocument();
     // The old bug this replaces: a bare "A, A" from one entry per row.
     expect(row.queryByText('A, A')).not.toBeInTheDocument();
@@ -60,7 +65,19 @@ describe('ShipmentGoodsBody block sources', () => {
     ]);
     expect(row.getByText('A')).toBeInTheDocument();
     expect(row.queryByText(fmtDate('2026-09-21'), { exact: false })).not.toBeInTheDocument();
-    expect(row.queryByText(fmtNum(3000), { exact: false })).not.toBeInTheDocument();
+    expect(row.queryByText(weightLabel(3000), { exact: false })).not.toBeInTheDocument();
+  });
+
+  // The task named this the common case on merge day: every shipment that
+  // predates batches has harvest_date = NULL on its single block-source row.
+  // A single batch always renders as the bare code regardless of its date —
+  // this pins that a null date on the single-batch path is no different.
+  it('reads a single-batch truck with a null harvest_date exactly the same — the pre-batches norm', () => {
+    const row = renderBody([
+      { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 3000, harvest_date: null },
+    ]);
+    expect(row.getByText('A')).toBeInTheDocument();
+    expect(row.queryByText(weightLabel(3000), { exact: false })).not.toBeInTheDocument();
   });
 
   it('two single-batch blocks still read as the plain comma-joined list', () => {
@@ -76,8 +93,46 @@ describe('ShipmentGoodsBody block sources', () => {
       { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 3000, harvest_date: '2026-09-21' },
       { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 5000, harvest_date: null },
     ]);
-    const expected = `A: ${fmtDate('2026-09-21')} — ${fmtNum(3000)}, ${fmtNum(5000)}`;
+    const expected = `A: ${fmtDate('2026-09-21')} — ${weightLabel(3000)}, ${weightLabel(5000)}`;
     expect(row.getByText(expected)).toBeInTheDocument();
     expect(row.queryByText(/null/i)).not.toBeInTheDocument();
+  });
+
+  // A single-batch block's bare code shares "," with a multi-batch block's
+  // own batch separator and fmtNum's thousands separator — so once any
+  // block needs the breakdown, blocks must join on something else, or a
+  // trailing bare code reads as another batch value.
+  it('uses "; " between blocks once one of them has multiple batches, not ","', () => {
+    const row = renderBody([
+      { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 3000, harvest_date: '2026-09-21' },
+      { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 5000, harvest_date: '2026-09-24' },
+      { block_code: 'B', block_name: 'B-Ýyladyşhana', weight_kg: 6500, harvest_date: '2026-09-21' },
+    ]);
+    const expected = `A: ${fmtDate('2026-09-21')} — ${weightLabel(3000)}, ${fmtDate('2026-09-24')} — ${weightLabel(5000)}; B`;
+    expect(row.getByText(expected)).toBeInTheDocument();
+  });
+
+  // Sort comparator regression: two equal (both-null) elements must compare
+  // as 0, not 1 — returning 1 for a tie reverses a stable-sort pair instead
+  // of leaving it alone.
+  it('keeps batch order stable when two batches in the same block both have a null harvest_date', () => {
+    const row = renderBody([
+      { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 3000, harvest_date: null },
+      { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 5000, harvest_date: null },
+    ]);
+    const expected = `A: ${weightLabel(3000)}, ${weightLabel(5000)}`;
+    expect(row.getByText(expected)).toBeInTheDocument();
+  });
+
+  it('uses "; " between two multi-batch blocks, each with its own breakdown', () => {
+    const row = renderBody([
+      { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 3000, harvest_date: '2026-09-21' },
+      { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 5000, harvest_date: '2026-09-24' },
+      { block_code: 'B', block_name: 'B-Ýyladyşhana', weight_kg: 1000, harvest_date: '2026-09-20' },
+      { block_code: 'B', block_name: 'B-Ýyladyşhana', weight_kg: 2000, harvest_date: '2026-09-22' },
+    ]);
+    const expectedA = `A: ${fmtDate('2026-09-21')} — ${weightLabel(3000)}, ${fmtDate('2026-09-24')} — ${weightLabel(5000)}`;
+    const expectedB = `B: ${fmtDate('2026-09-20')} — ${weightLabel(1000)}, ${fmtDate('2026-09-22')} — ${weightLabel(2000)}`;
+    expect(row.getByText(`${expectedA}; ${expectedB}`)).toBeInTheDocument();
   });
 });

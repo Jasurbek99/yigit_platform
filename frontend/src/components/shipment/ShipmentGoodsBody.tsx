@@ -1,13 +1,25 @@
+import type { TFunction } from 'i18next';
 import { Flex, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { VarietyOverrideRow } from '@/components/shipment/VarietyOverrideRow';
+import { groupByBlock } from '@/components/shipment/blockSourceGroups';
 import { HARVEST_STATUS_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
 import { fmtDate, fmtNum } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import { COLORS } from '@/constants/styles';
 import type { IBlockSource, IShipmentDetail } from '@/types';
+
+/** Batches within one block, oldest first. A null harvest_date sorts last. */
+function sortBatchesByDate(batches: IBlockSource[]): IBlockSource[] {
+  return [...batches].sort((a, b) => {
+    if (a.harvest_date == null && b.harvest_date == null) return 0;
+    if (a.harvest_date == null) return 1;
+    if (b.harvest_date == null) return -1;
+    return a.harvest_date < b.harvest_date ? -1 : a.harvest_date > b.harvest_date ? 1 : 0;
+  });
+}
 
 /**
  * A block can now appear as more than one row — one per harvest batch (the
@@ -16,35 +28,35 @@ import type { IBlockSource, IShipmentDetail } from '@/types';
  * it has only one batch (the common case, and what every truck showed
  * before batches existed) — the date/weight breakdown only appears once a
  * block has 2+ batches to disambiguate.
+ *
+ * Blocks are joined with ", " UNLESS at least one block in the row has 2+
+ * batches — that breakdown already uses ", " between its own batches (and
+ * fmtNum's thousands separator is a comma too), so ", " between blocks
+ * would be ambiguous ("A: 21.09.2026 — 3,000, 5,000, B" reads as three
+ * numbers, not two batches plus a second block). "; " disambiguates once
+ * any block needs the breakdown; the common all-single-batch row keeps the
+ * original ", " unchanged.
  */
-function formatBlockSources(blockSources: IBlockSource[]): string {
+function formatBlockSources(blockSources: IBlockSource[], t: TFunction): string {
   if (blockSources.length === 0) return '—';
 
-  const groups = new Map<string, IBlockSource[]>();
-  for (const b of blockSources) {
-    const list = groups.get(b.block_code);
-    if (list) list.push(b);
-    else groups.set(b.block_code, [b]);
-  }
+  const groups = groupByBlock(blockSources);
+  const blockSeparator = groups.some((g) => g.batches.length > 1) ? '; ' : ', ';
 
-  return Array.from(groups.entries())
-    .map(([code, batches]) => {
+  return groups
+    .map(({ code, batches }) => {
       if (batches.length === 1) return code;
 
-      const sorted = [...batches].sort((a, b) => {
-        if (a.harvest_date == null) return 1;
-        if (b.harvest_date == null) return -1;
-        return a.harvest_date < b.harvest_date ? -1 : a.harvest_date > b.harvest_date ? 1 : 0;
-      });
-      const batchStrings = sorted.map((b) =>
+      const batchStrings = sortBatchesByDate(batches).map((b) => {
+        const weight = t('shipment_detail.block_sources_weight_kg', { weight: fmtNum(b.weight_kg) });
         // A null date is dropped rather than shown as a placeholder — this
         // is operator-entered and can be genuinely unfilled; the weight
         // still needs to be visible.
-        b.harvest_date == null ? fmtNum(b.weight_kg) : `${fmtDate(b.harvest_date)} — ${fmtNum(b.weight_kg)}`,
-      );
+        return b.harvest_date == null ? weight : `${fmtDate(b.harvest_date)} — ${weight}`;
+      });
       return `${code}: ${batchStrings.join(', ')}`;
     })
-    .join(', ');
+    .join(blockSeparator);
 }
 
 interface IShipmentGoodsBodyProps {
@@ -73,7 +85,7 @@ export function ShipmentGoodsBody({
 }: IShipmentGoodsBodyProps) {
   const { t } = useTranslation();
 
-  const blockDisplay = formatBlockSources(shipment.block_sources);
+  const blockDisplay = formatBlockSources(shipment.block_sources, t);
 
   return (
     <>

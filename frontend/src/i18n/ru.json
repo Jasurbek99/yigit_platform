@@ -694,6 +694,7 @@
     "notes": "Примечания",
     "firm_splits": "Экспортные фирмы",
     "block_sources": "Блоки теплицы",
+    "block_sources_weight_kg": "{{weight}} кг",
     "vehicle_condition": "Состояние ТС",
     "condition_note": "Примечание",
     "loading_started": "Загрузка начата",

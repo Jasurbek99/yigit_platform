@@ -1,6 +1,7 @@
 import { Form, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { FieldEditor } from '@/components/FieldEditor';
+import { groupByBlock } from '@/components/shipment/blockSourceGroups';
 import { useShipmentPatchMulti } from '@/hooks/useShipmentPatch';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import type { IShipmentDetail } from '@/types';
@@ -54,7 +55,7 @@ export function TaskCardEditor({ shipment, targetFields, disabled = false }: ITa
           const displayValue = fieldKey === 'firm_splits'
             ? shipment.firm_splits.map((s) => s.export_firm_name ?? '—').join(', ') || '—'
             : fieldKey === 'block_sources'
-              ? [...new Set(shipment.block_sources.map((b) => b.block_code))].join(', ') || '—'
+              ? groupByBlock(shipment.block_sources).map((g) => g.code).join(', ') || '—'
               : String(value ?? '—');
 
           return (

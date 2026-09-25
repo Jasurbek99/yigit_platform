@@ -692,6 +692,7 @@
     "notes": "Notes",
     "firm_splits": "Export Firm Splits",
     "block_sources": "Greenhouse Block Sources",
+    "block_sources_weight_kg": "{{weight}} kg",
     "vehicle_condition": "Vehicle Condition",
     "condition_note": "Condition Note",
     "loading_started": "Loading Started",
