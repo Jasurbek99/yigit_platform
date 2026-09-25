@@ -1,4 +1,15 @@
 
+- [ ] 2026-09-25 — Shipment detail page (Goods & Loading card) now shows each block's harvest batches with date + weight instead of a duplicated block code for a two-batch truck; task card's block-sources row deduplicates instead of repeating; `BlockSourceSerializer` gained `harvest_date` — NEEDS TEST
+  To test: (1) open a shipment whose `block_sources` has two rows for the same block
+  (different `harvest_date`) — the "Greenhouse Block Sources" row should read
+  "A: 21.09.2026 — 3,000, 24.09.2026 — 5,000"-style (real dates/weights), not "A, A";
+  (2) open a normal single-batch-per-block shipment — that row must look exactly as
+  it did before (bare block code(s), comma-joined, no dates); (3) open a task card
+  (My Tasks / board) for a shipment whose task targets `block_sources` on a two-batch
+  block — should show the code once, not twice; (4) note: the dashboard slide-over
+  (`DetailSlideBody.tsx`, clicking a card on `/export/dashboard`) still shows the old
+  duplicated-code bug — known, intentionally out of scope for this fix.
+
 - [ ] 2026-09-25 — Admin Blocks screen: `carry_days` (storage window, days) is now a real field on the create/edit drawer instead of shell-only — NEEDS TEST
   To test: (1) Settings → Greenhouse Blocks → edit an existing block — the "Saklaw möhleti (gün)"
   field shows its current value (not 7, not blank); change only the name and Save — reopen the
