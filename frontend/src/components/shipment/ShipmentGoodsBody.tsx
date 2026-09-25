@@ -4,22 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { VarietyOverrideRow } from '@/components/shipment/VarietyOverrideRow';
-import { groupByBlock } from '@/components/shipment/blockSourceGroups';
+import { compareBatchesByHarvestDate, groupByBlock } from '@/components/shipment/blockSourceGroups';
 import { HARVEST_STATUS_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
 import { fmtDate, fmtNum } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import { COLORS } from '@/constants/styles';
 import type { IBlockSource, IShipmentDetail } from '@/types';
-
-/** Batches within one block, oldest first. A null harvest_date sorts last. */
-function sortBatchesByDate(batches: IBlockSource[]): IBlockSource[] {
-  return [...batches].sort((a, b) => {
-    if (a.harvest_date == null && b.harvest_date == null) return 0;
-    if (a.harvest_date == null) return 1;
-    if (b.harvest_date == null) return -1;
-    return a.harvest_date < b.harvest_date ? -1 : a.harvest_date > b.harvest_date ? 1 : 0;
-  });
-}
 
 /**
  * A block can now appear as more than one row — one per harvest batch (the
@@ -47,7 +37,7 @@ function formatBlockSources(blockSources: IBlockSource[], t: TFunction): string 
     .map(({ code, batches }) => {
       if (batches.length === 1) return code;
 
-      const batchStrings = sortBatchesByDate(batches).map((b) => {
+      const batchStrings = [...batches].sort(compareBatchesByHarvestDate).map((b) => {
         const weight = t('shipment_detail.block_sources_weight_kg', { weight: fmtNum(b.weight_kg) });
         // A null date is dropped rather than shown as a placeholder — this
         // is operator-entered and can be genuinely unfilled; the weight

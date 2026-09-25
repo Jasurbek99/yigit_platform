@@ -29,3 +29,23 @@ export function groupByBlock(blockSources: IBlockSource[]): IBlockSourceGroup[] 
   }
   return Array.from(groups.entries()).map(([code, batches]) => ({ code, batches }));
 }
+
+/**
+ * `Array.prototype.sort` comparator: orders a block's batches oldest-first
+ * by `harvest_date`, with a null date sorting last. Exported (rather than
+ * kept as a private inline sort callback) for two reasons: any caller that
+ * needs date-ordered batches — not just distinct codes — can reuse it next
+ * to `groupByBlock` instead of re-deriving it, and it can be unit-tested by
+ * calling it directly with two batches and asserting the returned number.
+ * That second point isn't decorative: a 2-element `Array.sort` does not
+ * reliably invoke its comparator in both argument orders (V8 doesn't for a
+ * pair), so a comparator that breaks antisymmetry on a tie (e.g. returning
+ * `1` instead of `0` when both dates are null) can pass a "sort it and
+ * check the rendered order" test even when broken — that happened here.
+ */
+export function compareBatchesByHarvestDate(a: IBlockSource, b: IBlockSource): number {
+  if (a.harvest_date == null && b.harvest_date == null) return 0;
+  if (a.harvest_date == null) return 1;
+  if (b.harvest_date == null) return -1;
+  return a.harvest_date < b.harvest_date ? -1 : a.harvest_date > b.harvest_date ? 1 : 0;
+}

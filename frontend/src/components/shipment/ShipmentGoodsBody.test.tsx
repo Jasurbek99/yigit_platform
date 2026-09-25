@@ -112,16 +112,19 @@ describe('ShipmentGoodsBody block sources', () => {
     expect(row.getByText(expected)).toBeInTheDocument();
   });
 
-  // Sort comparator regression: two equal (both-null) elements must compare
-  // as 0, not 1 — returning 1 for a tie reverses a stable-sort pair instead
-  // of leaving it alone.
-  it('keeps batch order stable when two batches in the same block both have a null harvest_date', () => {
+  // A two-null-date sort-tie regression used to live here as a rendered-order
+  // assertion, but a 2-element Array.sort doesn't reliably invoke its
+  // comparator in both argument orders — that test passed identically
+  // whether the comparator's null/null branch returned 0 or the old buggy 1.
+  // The discriminating test is `compareBatchesByHarvestDate` in
+  // `blockSourceGroups.test.ts`, which calls the comparator directly.
+  it('renders two null-date batches in the same block without crashing or losing either weight', () => {
     const row = renderBody([
       { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 3000, harvest_date: null },
       { block_code: 'A', block_name: 'A-Ýyladyşhana', weight_kg: 5000, harvest_date: null },
     ]);
-    const expected = `A: ${weightLabel(3000)}, ${weightLabel(5000)}`;
-    expect(row.getByText(expected)).toBeInTheDocument();
+    expect(row.getByText(weightLabel(3000), { exact: false })).toBeInTheDocument();
+    expect(row.getByText(weightLabel(5000), { exact: false })).toBeInTheDocument();
   });
 
   it('uses "; " between two multi-batch blocks, each with its own breakdown', () => {
