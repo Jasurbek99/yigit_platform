@@ -30,6 +30,16 @@ vi.mock('@/hooks/useAdmin', () => ({
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
+// The row navigates to the block's detail page; the edit button must not.
+// MemoryRouter with no routes renders nothing on navigate, so the drawer
+// survives a stray navigation in tests even when the real page loses it —
+// spying on useNavigate is the only way to see the difference here.
+const navigateSpy = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => navigateSpy };
+});
+
 function block(overrides: Partial<IGreenhouseBlock> = {}): IGreenhouseBlock {
   return {
     id: 1,
@@ -208,5 +218,34 @@ describe('BlocksPage — carry_days field', () => {
 
     expect(await screen.findByText('Required')).toBeInTheDocument();
     expect(updateMutate).not.toHaveBeenCalled();
+  });
+});
+
+describe('BlocksPage — edit button vs row navigation', () => {
+  it('opens the drawer without navigating to the detail page', async () => {
+    vi.mocked(useAdminBlocks).mockReturnValue({
+      data: [block({ id: 9, code: 'E', carry_days: 14 })],
+      isLoading: false,
+    } as never);
+
+    renderWith(<BlocksPage />);
+    await openEditDrawer('E');
+
+    expect(await screen.findByLabelText('Storage window (days)')).toHaveValue('14');
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('still navigates to the detail page when the row itself is clicked', async () => {
+    vi.mocked(useAdminBlocks).mockReturnValue({
+      data: [block({ id: 9, code: 'E' })],
+      isLoading: false,
+    } as never);
+
+    renderWith(<BlocksPage />);
+    const row = (await screen.findByText('E')).closest('tr');
+    if (!row) throw new Error('row for code E not found');
+    await userEvent.click(within(row).getByText('E'));
+
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/admin/blocks/9'));
   });
 });

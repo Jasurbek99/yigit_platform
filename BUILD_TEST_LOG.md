@@ -1,3 +1,9 @@
+- [ ] 2026-09-25 — Admin Blocks list: the edit (pencil) button now opens the drawer instead of being swallowed by the row's navigation to the block detail page — carry_days was unreachable from the UI — NEEDS TEST
+  To test: (1) Settings -> Block Management, click the pencil on any row — the edit drawer must
+  open and STAY open, showing "Saklaw mohleti (gun)"; the page must not jump to the block's
+  detail card; (2) click anywhere else on the same row — must still navigate to the detail card
+  as before; (3) change carry_days in the drawer and Save — reopen and confirm it stuck.
+
 - [ ] 2026-09-25 — Swap + task reconcile in one transaction; one task per (shipment, rule) enforced by a DB unique index (export/0080) — NEEDS TEST
   To test: (1) swap Peregruz between two trucks at Barylýan gümrük — each ends with the task for its NEW value
   (transshipment vs direct arrival), no leftovers; (2) after `migrate export`, `showmigrations export` lists 0080

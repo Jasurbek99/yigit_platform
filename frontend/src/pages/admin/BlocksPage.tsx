@@ -214,7 +214,10 @@ export default function BlocksPage() {
           type="text"
           size="small"
           icon={<IconEdit size={14} />}
-          onClick={() => handleOpenEdit(record)}
+          // The row itself navigates to the block's detail page (onRow below).
+          // Without stopPropagation the drawer opened and was immediately torn
+          // down by that navigation, which made carry_days unreachable from here.
+          onClick={(e) => { e.stopPropagation(); handleOpenEdit(record); }}
         />
       ),
     },
