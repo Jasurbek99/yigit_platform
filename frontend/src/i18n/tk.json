@@ -1484,7 +1484,8 @@
     "kind_mention": "Sizi agzadylar",
     "kind_task_assigned": "Size wezipe bellenildi",
     "kind_task_done": "Wezipäňiz ýerine ýetirildi",
-    "weekly_plan_summary": "Indiki hepdäniň hasyl plany dolduryldy:"
+    "weekly_plan_summary": "Indiki hepdäniň hasyl plany dolduryldy:",
+    "tasks_changed": "Bu ýük üçin tabşyryk sanawy üýtgedi"
   },
   "common": {
     "optional": "hökman däl",

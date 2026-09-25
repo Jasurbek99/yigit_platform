@@ -1,3 +1,30 @@
+- [ ] 2026-09-25 — Swap + task reconcile in one transaction; one task per (shipment, rule) enforced by a DB unique index (export/0080) — NEEDS TEST
+  To test: (1) swap Peregruz between two trucks at Barylýan gümrük — each ends with the task for its NEW value
+  (transshipment vs direct arrival), no leftovers; (2) after `migrate export`, `showmigrations export` lists 0080
+  as applied; (3) walk a shipment through a step on the Sheet — its tasks appear once, not twice.
+- [ ] 2026-09-24 — Ticking Gapy Satyş / Peregruz after the fact re-decides the shipment's tasks; clickable notification bell — NEEDS TEST
+  To test: (1) open an existing **draft** with **Gapy satys = No** that still has transport's
+  "Assign driver" task open; note which tasks the draft shows;
+  (2) set **Gapy satys = Yes** on the Sheet — the Regular driver/documents tasks disappear from the
+  open list and the **Gapy** variants appear instead (transport's gapy driver popup, document_team's
+  gapy handover);
+  (3) check the **bell** as transport / document_team / export_manager — a new notification names the
+  shipment code with counts like "+1 -1 ~0"; **click it** — it should open that shipment (this never
+  worked for any notification before);
+  (4) set **Gapy satys** back to **No** — the original Regular tasks come back as the SAME rows, not
+  duplicates (the open count must not grow);
+  (5) a task somebody had already **marked done** before the flip must stay done — it must not reopen
+  and must not disappear;
+  (6) **most important:** after any of these flips the shipment's **status must not move** — a draft
+  stays a draft. If a truck jumps to Gümrük giriş from ticking a checkbox, stop and report it;
+  (7) edit any ordinary cell (weight, a date, a note) — nothing about the tasks may change and no
+  notification may be sent;
+  (8) same check with **Peregruz** on a shipment at Barylýan gümrük — the mechanism is not gapy-only.
+  (9) open the edit drawer, tick Gapy satys and untick it again, save — no task changes and no bell
+  notification;
+  (10) on a completed Gapy truck, flip Peregruz — finansist gets no notification.
+  Dev DB: the 0078 blocker was the renamed 0077_gapy_driver_passports (fixed 2026-09-24 with --fake);
+  `migrate --plan` now shows 0078 and 0079 cleanly.
 - [ ] 2026-09-24 — Gapy-Satyş ends at greenhouse departure (yuklenme → tamamlandy fork, predicate-aware allowed_transitions, 6 hidden Sheet rows) — NEEDS TEST
   To test: (1) on the Sheet, set row 47 "Görnüşi" to **Gapy Satyş** on a draft and walk it to
   Ýüklenme (fill row 19 loading started, rows 8/37/38 blocks/weight/variety);
