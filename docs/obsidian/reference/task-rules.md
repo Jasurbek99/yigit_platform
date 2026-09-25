@@ -155,7 +155,15 @@ on every shipment PATCH whose changed fields (value before ≠ after — resubmi
 unchanged checkbox does not count) include a field some active rule
 conditions on — an ordinary weight or date edit costs one small query and no
 writes. It also runs on **both** shipments after a `/swap/`, because
-`has_peregruz` is a swappable field.
+`has_peregruz` is a swappable field — inside the same transaction as the swap,
+so the swapped values and both task sets commit together or not at all.
+
+**One task per (shipment, rule), enforced by the database.** The generators
+check for an existing task and then create one, so two concurrent requests could
+both insert. The filtered unique index `export_task_one_per_shipment_rule`
+(migration 0080; only rows with both `shipment` and `rule` set — ad-hoc and weekly
+tasks are exempt) refuses the second insert, and `create_rule_task()` treats that
+as "already there".
 
 **It only ever looks at conditioned rules whose field actually changed.** An
 unconditional rule is not a condition question, and neither is a rule keyed on a

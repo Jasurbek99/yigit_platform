@@ -1,3 +1,7 @@
+- [ ] 2026-09-25 — Swap + task reconcile in one transaction; one task per (shipment, rule) enforced by a DB unique index (export/0080) — NEEDS TEST
+  To test: (1) swap Peregruz between two trucks at Barylýan gümrük — each ends with the task for its NEW value
+  (transshipment vs direct arrival), no leftovers; (2) after `migrate export`, `showmigrations export` lists 0080
+  as applied; (3) walk a shipment through a step on the Sheet — its tasks appear once, not twice.
 - [ ] 2026-09-24 — Ticking Gapy Satyş / Peregruz after the fact re-decides the shipment's tasks; clickable notification bell — NEEDS TEST
   To test: (1) open an existing **draft** with **Gapy satys = No** that still has transport's
   "Assign driver" task open; note which tasks the draft shows;

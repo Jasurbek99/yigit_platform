@@ -34,6 +34,7 @@ from datetime import datetime, time, timedelta
 from typing import Iterable
 from zoneinfo import ZoneInfo
 
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.export.models import Task, TaskRule, TaskState, TaskCompletionRule
@@ -156,6 +157,26 @@ def _condition_matches(rule: TaskRule, shipment) -> bool:
     return str(actual) == rule.condition_value
 
 
+UNIQUE_RULE_TASK = 'export_task_one_per_shipment_rule'
+
+
+def create_rule_task(**fields) -> Task | None:
+    """Create a rule's Task, or return None if it already exists.
+
+    The generators check for an existing task and then create one; a
+    concurrent request can pass the same check. The unique constraint on
+    (shipment, rule) refuses the second insert, and the savepoint keeps the
+    caller's transaction usable after it.
+    """
+    try:
+        with transaction.atomic():
+            return Task.objects.create(**fields)
+    except IntegrityError as exc:
+        if UNIQUE_RULE_TASK not in str(exc):
+            raise
+        return None
+
+
 def generate_tasks_for_status(
     shipment,
     new_status_code: str,
@@ -199,7 +220,7 @@ def generate_tasks_for_status(
         if not _condition_matches(rule, shipment):
             continue
         deadline = parse_deadline_rule(rule.deadline_rule, reference=now)
-        task = Task.objects.create(
+        task = create_rule_task(
             shipment=shipment,
             step=new_status_code,
             rule=rule,
@@ -212,7 +233,8 @@ def generate_tasks_for_status(
             deadline_rule=rule.deadline_rule,
             state=TaskState.OPEN,
         )
-        created.append(task)
+        if task is not None:
+            created.append(task)
 
     if created:
         logger.info(
@@ -363,9 +385,9 @@ def reconcile_shipment_tasks(
     if not rules:
         return _empty_reconcile_result()
 
-    # At most one Task per (shipment, rule) — generate_tasks_for_status is keyed
-    # on that pair. No DB constraint enforces it, so order by id and let the
-    # newest win if a duplicate ever exists.
+    # At most one Task per (shipment, rule) — the export_task_one_per_shipment_rule
+    # constraint enforces it (migration 0080). Order by id anyway so rows from
+    # before the constraint resolve deterministically.
     tasks_by_rule: dict[int, Task] = {
         task.rule_id: task
         for task in shipment.tasks.filter(
@@ -386,7 +408,7 @@ def reconcile_shipment_tasks(
             if task is None:
                 if not create_missing:
                     continue
-                created.append(Task.objects.create(
+                task = create_rule_task(
                     shipment=shipment,
                     step=rule.step,
                     rule=rule,
@@ -398,7 +420,9 @@ def reconcile_shipment_tasks(
                     deadline=parse_deadline_rule(rule.deadline_rule, reference=now),
                     deadline_rule=rule.deadline_rule,
                     state=TaskState.OPEN,
-                ))
+                )
+                if task is not None:
+                    created.append(task)
             elif (
                 task.state == TaskState.CANCELLED
                 and task.cancelled_reason == TaskCancelReason.RULE_MISMATCH

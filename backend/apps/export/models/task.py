@@ -220,6 +220,16 @@ class Task(models.Model):
             models.Index(fields=['assignee_role', 'state'], name='export_task_assigne_250b44_idx'),
             models.Index(fields=['state', 'deadline'], name='export_task_state_577027_idx'),
         ]
+        # One Task per (shipment, rule): the generators check-then-create, and
+        # two concurrent requests could otherwise both insert. Ad-hoc and
+        # weekly tasks (rule or shipment null) are not rule tasks.
+        constraints = [
+            models.UniqueConstraint(
+                fields=['shipment', 'rule'],
+                condition=models.Q(shipment__isnull=False, rule__isnull=False),
+                name='export_task_one_per_shipment_rule',
+            ),
+        ]
 
     def __str__(self) -> str:
         return f'Task<{self.pk}> {self.shipment_id}/{self.title_key} [{self.state}]'
