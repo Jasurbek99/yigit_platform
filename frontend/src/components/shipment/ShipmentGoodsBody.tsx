@@ -5,9 +5,47 @@ import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { VarietyOverrideRow } from '@/components/shipment/VarietyOverrideRow';
 import { HARVEST_STATUS_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
-import { fmtDate } from '@/pages/export/ShipmentDetailHelpers.helpers';
+import { fmtDate, fmtNum } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import { COLORS } from '@/constants/styles';
-import type { IShipmentDetail } from '@/types';
+import type { IBlockSource, IShipmentDetail } from '@/types';
+
+/**
+ * A block can now appear as more than one row — one per harvest batch (the
+ * day that block was picked), e.g. block A picked on both the 21st and the
+ * 24th. Grouped by block code so a block still reads as its bare code when
+ * it has only one batch (the common case, and what every truck showed
+ * before batches existed) — the date/weight breakdown only appears once a
+ * block has 2+ batches to disambiguate.
+ */
+function formatBlockSources(blockSources: IBlockSource[]): string {
+  if (blockSources.length === 0) return '—';
+
+  const groups = new Map<string, IBlockSource[]>();
+  for (const b of blockSources) {
+    const list = groups.get(b.block_code);
+    if (list) list.push(b);
+    else groups.set(b.block_code, [b]);
+  }
+
+  return Array.from(groups.entries())
+    .map(([code, batches]) => {
+      if (batches.length === 1) return code;
+
+      const sorted = [...batches].sort((a, b) => {
+        if (a.harvest_date == null) return 1;
+        if (b.harvest_date == null) return -1;
+        return a.harvest_date < b.harvest_date ? -1 : a.harvest_date > b.harvest_date ? 1 : 0;
+      });
+      const batchStrings = sorted.map((b) =>
+        // A null date is dropped rather than shown as a placeholder — this
+        // is operator-entered and can be genuinely unfilled; the weight
+        // still needs to be visible.
+        b.harvest_date == null ? fmtNum(b.weight_kg) : `${fmtDate(b.harvest_date)} — ${fmtNum(b.weight_kg)}`,
+      );
+      return `${code}: ${batchStrings.join(', ')}`;
+    })
+    .join(', ');
+}
 
 interface IShipmentGoodsBodyProps {
   shipment: IShipmentDetail;
@@ -35,10 +73,7 @@ export function ShipmentGoodsBody({
 }: IShipmentGoodsBodyProps) {
   const { t } = useTranslation();
 
-  const blockDisplay =
-    shipment.block_sources.length === 0
-      ? '—'
-      : shipment.block_sources.map((b) => b.block_code).join(', ');
+  const blockDisplay = formatBlockSources(shipment.block_sources);
 
   return (
     <>

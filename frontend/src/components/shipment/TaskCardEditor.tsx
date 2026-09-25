@@ -54,7 +54,7 @@ export function TaskCardEditor({ shipment, targetFields, disabled = false }: ITa
           const displayValue = fieldKey === 'firm_splits'
             ? shipment.firm_splits.map((s) => s.export_firm_name ?? '—').join(', ') || '—'
             : fieldKey === 'block_sources'
-              ? shipment.block_sources.map((b) => b.block_code).join(', ') || '—'
+              ? [...new Set(shipment.block_sources.map((b) => b.block_code))].join(', ') || '—'
               : String(value ?? '—');
 
           return (
