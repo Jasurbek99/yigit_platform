@@ -1643,6 +1643,8 @@
     "field_sowing_date": "Ekilişik senesi",
     "field_season_month": "Möwsüm başy (aý)",
     "field_month_ph": "Aý saýla...",
+    "field_carry_days": "Saklaw möhleti (gün)",
+    "field_carry_days_range": "Iň az 1, iň köp 30 gün bolmaly",
     "field_active": "Işjeň",
     "toast_created": "Blok döredildi",
     "toast_updated": "Blok täzelendi",

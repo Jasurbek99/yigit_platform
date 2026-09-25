@@ -1643,6 +1643,8 @@
     "field_sowing_date": "Sowing Date",
     "field_season_month": "Season Start Month",
     "field_month_ph": "Select month...",
+    "field_carry_days": "Storage window (days)",
+    "field_carry_days_range": "Must be between 1 and 30 days",
     "field_active": "Active",
     "toast_created": "Block created",
     "toast_updated": "Block updated",

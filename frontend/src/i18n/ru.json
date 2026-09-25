@@ -1645,6 +1645,8 @@
     "field_sowing_date": "Дата посева",
     "field_season_month": "Начало сезона (месяц)",
     "field_month_ph": "Выберите месяц...",
+    "field_carry_days": "Срок хранения (дней)",
+    "field_carry_days_range": "Должно быть от 1 до 30 дней",
     "field_active": "Активен",
     "toast_created": "Блок создан",
     "toast_updated": "Блок обновлён",

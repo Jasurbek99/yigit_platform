@@ -47,6 +47,7 @@ interface BlockFormValues {
   section_count: number | null;
   sowing_date: string | null;
   season_start_month: number | null;
+  carry_days: number;
   is_active: boolean;
 }
 
@@ -95,7 +96,7 @@ export default function BlocksPage() {
   function handleOpenCreate() {
     setEditTarget(null);
     form.resetFields();
-    form.setFieldsValue({ is_active: true });
+    form.setFieldsValue({ is_active: true, carry_days: 7 });
     setDrawerOpen(true);
   }
 
@@ -112,14 +113,21 @@ export default function BlocksPage() {
       section_count: record.section_count,
       sowing_date: record.sowing_date,
       season_start_month: record.season_start_month,
+      carry_days: record.carry_days,
       is_active: record.is_active,
     });
     setDrawerOpen(true);
   }
 
   async function handleSubmit() {
-    const values = await form.validateFields();
-    const payload: Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'variety_main_name' | 'variety_secondary_name' | 'location_name' | 'carry_days'> = {
+    let values: BlockFormValues;
+    try {
+      values = await form.validateFields();
+    } catch {
+      // AntD already renders the per-field error inline; nothing else to do.
+      return;
+    }
+    const payload: Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'variety_main_name' | 'variety_secondary_name' | 'location_name'> = {
       code: values.code,
       name: values.name || null,
       parent: null,
@@ -132,13 +140,14 @@ export default function BlocksPage() {
       section_count: values.section_count ?? null,
       sowing_date: values.sowing_date || null,
       season_start_month: values.season_start_month ?? null,
+      carry_days: values.carry_days,
       is_active: values.is_active ?? true,
       sub_blocks: [],
     };
     if (editTarget) {
       updateBlock.mutate({ id: editTarget.id, ...payload });
     } else {
-      createBlock.mutate(payload as Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'carry_days'>);
+      createBlock.mutate(payload as Omit<IGreenhouseBlock, 'id' | 'manager_name'>);
     }
   }
 
@@ -379,6 +388,17 @@ export default function BlocksPage() {
 
           <Form.Item name="season_start_month" label={t('blocks_admin.field_season_month')}>
             <Select allowClear placeholder={t('blocks_admin.field_month_ph')} options={monthOptions} />
+          </Form.Item>
+
+          <Form.Item
+            name="carry_days"
+            label={t('blocks_admin.field_carry_days')}
+            rules={[
+              { required: true, message: t('common.required') },
+              { type: 'integer', min: 1, max: 30, message: t('blocks_admin.field_carry_days_range') },
+            ]}
+          >
+            <InputNumber style={{ width: '100%' }} placeholder="7" />
           </Form.Item>
 
           <Form.Item name="is_active" label={t('blocks_admin.field_active')} valuePropName="checked">

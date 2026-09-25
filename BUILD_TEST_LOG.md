@@ -1,4 +1,17 @@
 
+- [ ] 2026-09-25 — Admin Blocks screen: `carry_days` (storage window, days) is now a real field on the create/edit drawer instead of shell-only — NEEDS TEST
+  To test: (1) Settings → Greenhouse Blocks → edit an existing block — the "Saklaw möhleti (gün)"
+  field shows its current value (not 7, not blank); change only the name and Save — reopen the
+  block and confirm `carry_days` is unchanged; (2) create a new block, leave the field untouched
+  — confirm it saves as 7 (check via the block's edit drawer, or `GET /api/v1/greenhouse/admin/blocks/`);
+  (3) in the drawer, type 31 or 0 into the field and try to Save — must show a validation message
+  and not save; clear the field entirely on an edit and try to Save — must show "Required" and not
+  save (must not silently send 7); (4) as a sanity check on the two other places that create blocks
+  — add a sub-block on a Block Detail page, and add a block via Settings → Shipment Settings →
+  block quick-list — neither has a `carry_days` field, confirm creating one still works and editing
+  an existing sub-block/quick-list block afterward doesn't reset its `carry_days` (check via the
+  main Blocks screen's edit drawer, since neither of those two forms shows the field).
+
 - [ ] 2026-09-25 — Gaplama batch selection fix wave: null-harvest_date rows no longer flag invalid in the truck form, `/block-sources/` no longer 500s on mixed string/date-object harvest_date entries (400 on bad input instead), `GreenhouseBlock.carry_days` capped at 30 — NEEDS TEST
   **Migrate first**: `core/0061` (this wave) plus `core/0060`/`export/0077` (already pending
   from the base feature) are NOT applied to the shared dev DB — run `migrate core` and
