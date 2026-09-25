@@ -556,6 +556,60 @@ describe('GaplamaTab', () => {
     expect(body.date).toBe(NOT_TODAY);
   });
 
+  // 2026-09-25: per-date leftover picking removed (owner + loading/packaging
+  // head — leftover crates are physically mixed in the hall, so a per-date
+  // pick has no counterpart on the floor). buildBatchesByBlock must collapse
+  // every live carry-in bucket into ONE leftover row, capped at their sum,
+  // instead of one row per origin date.
+  it('collapses three live carry-in buckets into one leftover row capped at their sum', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { role: 'loading_dept_head', resource_permissions: { shipment: { create: true } } },
+    });
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) {
+        return Promise.resolve({
+          data: {
+            // Dated real TODAY, not THIS_MONDAY: `openCreateForm` builds the
+            // form against `selectedDay`, which initializes to real today,
+            // not the displayed week's Monday.
+            days: [{ date: TODAY, block_id: 1, block_code: 'A', location: 'Dusak',
+                     plan_kg: '9000.00', loaded_kg: '0.00', carried_in_kg: '4500.00',
+                     carry_in_breakdown: [
+                       { origin_date: '2026-09-18', kg: '1000.00', age_days: 6 },
+                       { origin_date: '2026-09-20', kg: '2000.00', age_days: 4 },
+                       { origin_date: '2026-09-22', kg: '1500.00', age_days: 2 },
+                     ],
+                     available_kg: '13500.00', over_kg: '0.00', carried_out_kg: '0.00' }],
+            trucks: [],
+          },
+        });
+      }
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({
+          data: { results: [{ id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak' }] },
+        });
+      }
+      if (url.includes('/greenhouse-config')) {
+        return Promise.resolve({ data: { truck_capacity_kg: '18500.00', gaplama_carry_days: 7 } });
+      }
+      if (url.includes('/core/shipment-options')) {
+        return Promise.resolve({ data: { results: [] } });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    renderTab();
+    const openButton = await screen.findByRole('button', { name: /tir_takip\.gaplama\.open_truck/ });
+    fireEvent.click(openButton);
+
+    // Two rows total: the collapsed leftover (4500 = 1000+2000+1500) and
+    // today's own plan (9000) — never three, one per origin date.
+    const inputs = await screen.findAllByLabelText(/kg/i);
+    expect(inputs).toHaveLength(2);
+    const caps = document.querySelectorAll('.sera-gaplama-form-cap');
+    expect(Array.from(caps).map((c) => c.textContent)).toEqual(['4500', '9000']);
+  });
+
   // ─── Task 6: one table, a day mode and a week mode ──────────────────────
   // The suite mocks react-i18next's `t` as the identity function (line ~13
   // above) — every existing test in this file matches accessible names

@@ -176,6 +176,32 @@ describe('useUpdateTruckBlocks', () => {
     });
   });
 
+  // 2026-09-25 (leftover-batch collapse): the leftover row's harvest_date is
+  // an EXPLICIT null, not an omitted key — the two are different requests to
+  // set_block_sources (views.py ~3310-3341): an explicit key (even null)
+  // always overrides with a single dateless row, while an OMITTED key falls
+  // into the "preserve existing batches, proportional-split" branch, which
+  // reads the shipment's PRIOR block_sources and re-splits across THEM —
+  // exactly the per-date rows this feature folds away. Omitting it here
+  // would silently undo the fold on every save.
+  it('forwards an explicit null harvest_date rather than omitting the key', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    (api.patch as any).mockResolvedValue({ data: {} });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    const { result } = renderHook(() => useUpdateTruckBlocks(), { wrapper: clientWrapper(client) });
+    result.current.mutate({
+      shipmentId: 9,
+      rows: [{ block_id: 1, weight_kg: 5000, harvest_date: null }],
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(api.post).toHaveBeenCalledWith('/export/shipments/9/block-sources/', {
+      blocks: [{ block_id: 1, weight_kg: 5000, harvest_date: null }],
+    });
+  });
+
   // A row with no harvest_date (a caller that never learned a batch date)
   // must still be a valid call — the field stays optional, matching the
   // backend's own "harvest_date is optional per-block" contract.

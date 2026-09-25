@@ -8,18 +8,21 @@ import { useUpdateTruckBlocks } from '@/hooks/useGaplama';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { VarietySelect } from '@/components/VarietySelect';
 import { useShipmentOptions } from '@/hooks/useAdmin';
+import type { IGaplamaFormBatch } from './GaplamaTab.totals';
 import type { IGaplamaTruck, IBlockSource } from '@/types';
 
-/** One loadable harvest batch for a block, as the board's `carry_in_breakdown`
- * shapes it (plus today's own plan, folded in as a same-day batch — see
- * `IRow`'s own doc comment). `available_kg` is the batch's gross remaining
- * kg, captured before the day's own consumption — see
- * `build_gaplama_board`'s docstring. */
-interface IGaplamaBatch {
-  harvest_date: string;
-  age_days: number;
-  available_kg: number;
-}
+/** One loadable batch for a block — at most two exist per block/day (2026-09-25,
+ * per-date leftover picking removed): today's own plan (a real date, age 0)
+ * or the block's collapsed leftover (`harvest_date: null` — every live
+ * carry-in bucket summed into one figure, since the loading/packaging hall
+ * physically mixes carried-over crates and nobody can pick "the 21.09
+ * batch" from a mix — owner + loading/packaging head). Imported from
+ * `GaplamaTab.totals.ts` — that is also the shape `buildBlockBatches` (the
+ * real caller's own board→batch transform) produces, so the two can never
+ * silently drift apart. `available_kg` is the batch's gross remaining kg,
+ * captured before the day's own consumption — see `build_gaplama_board`'s
+ * docstring. */
+type IGaplamaBatch = IGaplamaFormBatch;
 
 interface IGaplamaTruckFormProps {
   mode: 'create' | 'edit';
@@ -52,14 +55,25 @@ interface IGaplamaTruckFormProps {
 
 interface IRow {
   blockId: number;
-  /** The batch's harvest day, `YYYY-MM-DD`. Today's own plan is a batch too,
-   *  dated today — every kg on a truck has an origin date; there is no
-   *  unattributed weight. */
-  harvestDate: string;
+  /** Which of the block's (at most two) batches this row is: today's own
+   *  picking, a real `YYYY-MM-DD` date, age 0 — or the block's collapsed
+   *  leftover, `null`, standing for every live carry-in bucket at once
+   *  (2026-09-25, per-date leftover picking removed). */
+  harvestDate: string | null;
   kg: number | null;
 }
 
-const ROW_KEY = (blockId: number, harvestDate: string): string => `${blockId}:${harvestDate}`;
+const ROW_KEY = (blockId: number, harvestDate: string | null): string => `${blockId}:${harvestDate}`;
+
+/** Sort order for a block's rows — the leftover row (`null`, potentially the
+ * oldest stock in the building) first, today's own dated row after —
+ * consistent with the app-wide "oldest first" carry-over convention. */
+function compareBatchDates(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a === null) return -1;
+  if (b === null) return 1;
+  return a.localeCompare(b);
+}
 
 /** The batch list to actually render/cap against for a block — the live
  * board batches, plus an ORPHAN entry for EVERY seeded edit row
@@ -75,8 +89,17 @@ const ROW_KEY = (blockId: number, harvestDate: string): string => `${blockId}:${
  * orphan (no live batch shares its date at all, e.g. one that has since
  * expired) floors to exactly its own kg, as before: its true remaining
  * headroom is unknowable from here, so it must never show as invalid, and
- * dropping it would delete that weight on save. */
-function effectiveBatches(
+ * dropping it would delete that weight on save. **Age on a collision is
+ * also the OLDER of the two (2026-09-25 fix), not just the live bucket's**
+ * — the merge's whole point is that "up to N days" is an upper bound on
+ * what the row actually carries; keeping only the live bucket's (fresher)
+ * age would understate a leftover row seeded from real kg picked well
+ * before that bucket's own origin day. */
+// Exported (only) for a direct unit test on the age-precedence fix — the
+// component's t-mocked render tests can't distinguish rendered ages from
+// each other (the shared i18n mock swallows interpolation args), so pinning
+// "keep the older of the two" needs to call this directly.
+export function effectiveBatches(
   blockId: number,
   props: Pick<IGaplamaTruckFormProps, 'batchesByBlock'>,
   orphans: Record<number, IGaplamaBatch[]>,
@@ -85,17 +108,23 @@ function effectiveBatches(
   const orphanList = orphans[blockId] ?? [];
   const merged = live.map((b) => {
     const collision = orphanList.find((o) => o.harvest_date === b.harvest_date);
-    return collision ? { ...b, available_kg: Math.max(b.available_kg, collision.available_kg) } : b;
+    return collision
+      ? {
+        ...b,
+        available_kg: Math.max(b.available_kg, collision.available_kg),
+        age_days: Math.max(b.age_days, collision.age_days),
+      }
+      : b;
   });
   const extra = orphanList.filter((o) => !live.some((b) => b.harvest_date === o.harvest_date));
   return [...merged, ...extra];
 }
 
-function capFor(harvestDate: string, batches: IGaplamaBatch[]): number {
+function capFor(harvestDate: string | null, batches: IGaplamaBatch[]): number {
   return batches.find((b) => b.harvest_date === harvestDate)?.available_kg ?? 0;
 }
 
-function ageFor(harvestDate: string, batches: IGaplamaBatch[]): number {
+function ageFor(harvestDate: string | null, batches: IGaplamaBatch[]): number {
   return batches.find((b) => b.harvest_date === harvestDate)?.age_days ?? 0;
 }
 
@@ -115,83 +144,121 @@ function blockCapFor(blockId: number, props: IGaplamaTruckFormProps): number {
   return base;
 }
 
-/** One orphan entry per seeded edit row — EVERY row, not only one the live
- * `batchesByBlock` fails to list a date for (2026-09-25, round 2: a
- * null-date-only version of this reopened invalid one save later — see the
- * inline comment below). `effectiveBatches` is what actually decides what
- * each entry is FOR: a date with no live match at all keeps its own kg as
- * an exact cap (a genuinely expired/unknown batch — the board's own
- * trucks[] carries no harvest_date, so edit mode seeds from
- * `editingTruckBatches` instead, see that prop's doc comment, and a batch
- * can have since expired between seeding and now); a date that DOES have a
- * live match gets its cap raised to at least this row's own kg, never
- * lowered. Computed once, from the props the form mounted with; not
+interface IFoldedBlock {
+  todayKg: number;
+  leftoverKg: number;
+  /** Max age among folded entries that carry a REAL date — 0 for an
+   * explicit null harvest_date with no live leftover bucket to merge into,
+   * which the form renders as an unknown age rather than a false "0 days
+   * old" (see `leftoverAgeLabel`). */
+  leftoverAgeDays: number;
+}
+
+/** Folds a truck's real per-row source data into at most two buckets per
+ * block: today's own harvest and ONE leftover bucket summing everything
+ * else. `noPerBatchData` (editingTruckBatches unresolved — the truck wasn't
+ * found among the drafts, an edge case) has NO per-row harvest_date to read
+ * at all, so every one of its block-level totals is pinned to the truck's
+ * own day — same as it always was, before per-date leftover rows existed.
+ * That is a DIFFERENT signal from an explicit null harvest_date on a real
+ * per-batch row (per-batch data IS resolved, and that specific row has no
+ * date because it's already part of the leftover pool on save) or a real
+ * date that simply isn't the truck's own day (a truck saved before
+ * batch-selection collapsed to two rows, 2026-09-25) — both of those fold
+ * to the leftover bucket. Shared by `initialRowsFor` (seeds the form's
+ * rows) and `computeOrphans` (floors each bucket's cap at what it already
+ * holds) so the two can never disagree on which rows fold together. */
+function foldEntriesByBlock(
+  entries: IBlockSource[],
+  truckDate: string,
+  noPerBatchData: boolean,
+): Record<number, IFoldedBlock> {
+  const out: Record<number, IFoldedBlock> = {};
+  for (const bs of entries) {
+    if (bs.block_id == null) continue;
+    // The bucket is registered — the block is on this truck, `initialRowsFor`
+    // must still render its card — even when this specific row has no
+    // weight yet (a supply-first draft's source written before a weight was
+    // assigned, `views.py:2231`; the declared type says `number` but the API
+    // can send null here). Only the accumulation below is skipped for it.
+    const bucket = out[bs.block_id] ?? (out[bs.block_id] = { todayKg: 0, leftoverKg: 0, leftoverAgeDays: 0 });
+    if (bs.weight_kg == null) continue;
+    const realDate = noPerBatchData ? truckDate : (bs.harvest_date ?? null);
+    if (realDate === truckDate) {
+      bucket.todayKg += bs.weight_kg;
+    } else {
+      bucket.leftoverKg += bs.weight_kg;
+      if (realDate) {
+        bucket.leftoverAgeDays = Math.max(bucket.leftoverAgeDays, Math.max(0, dayjs(truckDate).diff(dayjs(realDate), 'day')));
+      }
+    }
+  }
+  return out;
+}
+
+/** The editing truck's own real source rows, folded to at most two buckets
+ * per block (see `foldEntriesByBlock`) — shared by `computeOrphans` and
+ * `initialRowsFor` so their fold decisions can never diverge. */
+function foldedEditEntries(props: IGaplamaTruckFormProps): Record<number, IFoldedBlock> {
+  if (!props.editingTruck) return {};
+  const truckDate = props.editingTruck.date;
+  // Real per-batch data when resolved (drafts endpoint) carries its own
+  // harvest_date per row. The degrade-to-block-level-totals fallback
+  // (editingTruckBatches unresolved) does not — no real per-batch
+  // attribution exists at all, so `foldEntriesByBlock` pins it to the
+  // truck's own day (today), NOT the leftover bucket — see that function's
+  // own doc comment for why the two cases are different signals.
+  const entries: IBlockSource[] = props.editingTruckBatches?.length
+    ? props.editingTruckBatches
+    : props.editingTruck.block_sources;
+  const noPerBatchData = !props.editingTruckBatches?.length;
+  return foldEntriesByBlock(entries, truckDate, noPerBatchData);
+}
+
+/** One orphan list per block — a floor on what its (at most two) batches
+ * must be able to hold, from what the truck being edited already carries.
+ * `effectiveBatches` is what actually decides what each entry is FOR: no
+ * live match at all keeps the orphan's own kg as an exact cap (a leftover
+ * bucket with nothing live to carry it, or a today bucket with no plan
+ * today); a live match gets its cap raised to at least the orphan's own kg,
+ * never lowered. Computed once, from the props the form mounted with; not
  * recomputed as `rows` changes. */
 function computeOrphans(props: IGaplamaTruckFormProps): Record<number, IGaplamaBatch[]> {
   if (props.mode !== 'edit' || !props.editingTruck) return {};
   const truckDate = props.editingTruck.date;
-  // Real per-batch data when resolved (drafts endpoint) carries its own
-  // harvest_date per row. The degrade-to-block-level-totals fallback
-  // (editingTruckBatches unresolved — see initialRowsFor) does not: it is
-  // dated the truck's own day with no real per-batch attribution, which is
-  // the SAME situation as an explicit null harvest_date below, so it is
-  // forced through the same null-date path rather than trusting whatever
-  // (unrelated) harvest_date a raw block_sources row happens to carry.
-  const entries: IBlockSource[] = props.editingTruckBatches?.length
-    ? props.editingTruckBatches
-    : props.editingTruck.block_sources;
-  const forceNullDate = !props.editingTruckBatches?.length;
-  // EVERY seeded row is registered here — not only a null-source-date one —
-  // and `effectiveBatches` decides whether it collides with a live batch
-  // (2026-09-25, round 2). A row that started null-dated stops looking null
-  // the moment it round-trips through Save: `handleSubmit` sends
-  // `row.harvestDate`, which the null-date fallback already resolved to the
-  // truck's own day, so the WRITTEN row carries a real, non-null
-  // harvest_date. A gate that only special-cased `harvest_date == null`
-  // would reopen already-fixed on the first edit and dead on the second —
-  // the exact "must never show as invalid" guarantee breaking one save
-  // later. Registering every row costs nothing for the common case (a row
-  // safely within its live batch's cap merges to the same cap it already
-  // had — see `effectiveBatches`) and only matters when a row's own kg
-  // exceeds its date's live cap, whatever the reason.
+  const folded = foldedEditEntries(props);
   const out: Record<number, IGaplamaBatch[]> = {};
-  for (const bs of entries) {
-    if (bs.block_id == null) continue;
-    const wasNullDate = forceNullDate || bs.harvest_date == null;
-    const harvestDate = wasNullDate ? truckDate : (bs.harvest_date as string);
-    const list = out[bs.block_id] ?? (out[bs.block_id] = []);
-    if (list.some((b) => b.harvest_date === harvestDate)) continue;
-    list.push({
-      harvest_date: harvestDate,
-      age_days: Math.max(0, dayjs(truckDate).diff(dayjs(harvestDate), 'day')),
-      available_kg: bs.weight_kg ?? 0,
-    });
+  for (const [blockIdStr, f] of Object.entries(folded)) {
+    const blockId = Number(blockIdStr);
+    const list: IGaplamaBatch[] = [];
+    if (f.todayKg > 0) list.push({ harvest_date: truckDate, age_days: 0, available_kg: f.todayKg });
+    if (f.leftoverKg > 0) list.push({ harvest_date: null, age_days: f.leftoverAgeDays, available_kg: f.leftoverKg });
+    out[blockId] = list;
   }
   return out;
 }
 
 function initialRowsFor(props: IGaplamaTruckFormProps): IRow[] {
   if (props.mode === 'edit' && props.editingTruck) {
-    const seeded = props.editingTruckBatches?.length
-      ? props.editingTruckBatches
-        .filter((bs) => bs.block_id != null && bs.weight_kg != null)
-        .map((bs) => ({
-          blockId: bs.block_id as number,
-          harvestDate: bs.harvest_date ?? props.editingTruck!.date,
-          kg: bs.weight_kg,
-        }))
-      // No per-batch data resolved for this truck (e.g. it wasn't found
-      // among the drafts) — degrade to its block-level totals, dated its
-      // own day.
-      : props.editingTruck.block_sources.map((s) => ({
-        blockId: s.block_id,
-        harvestDate: props.editingTruck!.date,
-        kg: s.weight_kg,
-      }));
+    const truckDate = props.editingTruck.date;
+    const folded = foldedEditEntries(props);
+    const seeded: IRow[] = [];
+    for (const [blockIdStr, f] of Object.entries(folded)) {
+      const blockId = Number(blockIdStr);
+      if (f.todayKg > 0) seeded.push({ blockId, harvestDate: truckDate, kg: f.todayKg });
+      if (f.leftoverKg > 0) seeded.push({ blockId, harvestDate: null, kg: f.leftoverKg });
+      // Registered (the block is on this truck — `foldEntriesByBlock`) but
+      // contributed nothing to either bucket: every one of its source rows
+      // had a null weight_kg. Without a row of its own the block's card
+      // would never render at all (`chosenBlockIds` reads off `rows`) and
+      // the operator would have no way to see this block is even on the
+      // truck. Dated today (the same "no attribution" convention as the
+      // no-per-batch-data fallback above) with an empty input to fill.
+      if (f.todayKg === 0 && f.leftoverKg === 0) seeded.push({ blockId, harvestDate: truckDate, kg: null });
+    }
     // Offer every OTHER live batch of a seeded block too (empty, kg: null) —
-    // the truck may only have drawn from one date so far, but editing must
-    // let the operator move kg onto a fresher batch, not just adjust the
-    // one the truck already has.
+    // the truck may only have drawn from one of the two buckets so far, but
+    // editing must let the operator move kg onto the other.
     const out = [...seeded];
     for (const blockId of new Set(seeded.map((r) => r.blockId))) {
       for (const b of props.batchesByBlock[blockId] ?? []) {
@@ -202,8 +269,8 @@ function initialRowsFor(props: IGaplamaTruckFormProps): IRow[] {
     }
     return out;
   }
-  // Create: start on the first block, every one of its batches on screen
-  // from the start (including today's own plan) — no unattributed weight.
+  // Create: start on the first block, every one of its (at most two)
+  // batches on screen from the start.
   const firstBlockId = props.blocks[0]?.id ?? 0;
   const batches = props.batchesByBlock[firstBlockId] ?? [];
   if (batches.length === 0) return [{ blockId: firstBlockId, harvestDate: props.today, kg: null }];
@@ -245,10 +312,9 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
   }
 
   function rowsForBlock(blockId: number): IRow[] {
-    // Oldest first, always — insertion order alone doesn't guarantee this
-    // once edit-mode seeding appends OTHER live batches after the truck's
-    // own (possibly newer) seeded rows.
-    return rows.filter((r) => r.blockId === blockId).sort((a, b) => a.harvestDate.localeCompare(b.harvestDate));
+    // Leftover first, today's own row after (compareBatchDates) — always,
+    // regardless of insertion order.
+    return rows.filter((r) => r.blockId === blockId).sort((a, b) => compareBatchDates(a.harvestDate, b.harvestDate));
   }
 
   function blockTotal(blockId: number): number {
@@ -275,11 +341,20 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
   const hasAnyKg = totalKg > 0;
   const isPartial = totalKg > 0 && totalKg < props.truckCapacityKg;
   const submitDisabled = !hasAnyKg || anyExceeds;
-  const oldestAgeDays = rows
-    .filter((r) => r.kg)
+  const kgCarryingRows = rows.filter((r) => r.kg);
+  const oldestAgeDays = kgCarryingRows
     .reduce((max, r) => Math.max(max, ageFor(r.harvestDate, batchesForBlock(r.blockId))), 0);
+  // The total line must not claim a false "oldest: 0 d" (0 reads as
+  // fresh) when that 0 actually came from a leftover row whose age is
+  // UNKNOWN, not genuinely zero — the same `age <= 0` signal
+  // `leftoverAgeLabel` uses. A today row's own genuine 0 (nothing else on
+  // the truck older) is left alone — `oldestAgeDays > 0` already rules
+  // this branch out whenever some OTHER row's real age won the max.
+  const oldestAgeUnknown = oldestAgeDays <= 0 && kgCarryingRows.some(
+    (r) => r.harvestDate === null && ageFor(r.harvestDate, batchesForBlock(r.blockId)) <= 0,
+  );
 
-  function upsertRow(blockId: number, harvestDate: string, kg: number | null) {
+  function upsertRow(blockId: number, harvestDate: string | null, kg: number | null) {
     setRows((prev) => {
       const idx = prev.findIndex((r) => r.blockId === blockId && r.harvestDate === harvestDate);
       if (idx === -1) return [...prev, { blockId, harvestDate, kg }];
@@ -359,10 +434,29 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
     }
   }
 
-  function ageLabel(days: number): string {
-    return days <= 0
-      ? t('tir_takip.gaplama.form.batch_age_fresh')
-      : t('tir_takip.gaplama.form.batch_age_days', { days });
+  // Today's own row is always age 0 by construction (batches never expire
+  // same-day) — the generic "N days" phrasing that used to live here
+  // belonged to carry-in batches, which now render through
+  // `leftoverAgeLabel` instead.
+  function todayAgeLabel(): string {
+    return t('tir_takip.gaplama.form.batch_age_fresh');
+  }
+
+  // The leftover row's age is an upper bound ("leftover, up to N days") —
+  // the OLDER of the live bucket's age and the seeded row's own age when it
+  // has one (`effectiveBatches`'s merge, 2026-09-25 fix: keeping only the
+  // live bucket's age understated a row seeded from real kg picked well
+  // before that bucket's own origin day). An orphan with nothing live to
+  // merge into AND no real date of its own (an explicit null harvest_date
+  // with no matching live bucket — the no-per-batch-data fallback folds to
+  // TODAY, not here, see `foldEntriesByBlock`) carries no real age at all —
+  // `age <= 0` is that signal (a genuine live carry-in bucket is always
+  // >= 1 day old), rendered as "age unknown" rather than a false "up to 0
+  // days".
+  function leftoverAgeLabel(days: number): string {
+    return days > 0
+      ? t('tir_takip.gaplama.form.batch_leftover_age', { days })
+      : t('tir_takip.gaplama.form.batch_leftover_unknown_age');
   }
 
   return (
@@ -403,10 +497,15 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
                     const cap = capFor(row.harvestDate, batches);
                     const age = ageFor(row.harvestDate, batches);
                     const invalid = rowInvalid(row);
+                    const isLeftover = row.harvestDate === null;
                     return (
                       <tr key={ROW_KEY(blockId, row.harvestDate)}>
-                        <td>{row.harvestDate}</td>
-                        <td><Tag className="sera-gaplama-batch-age">{ageLabel(age)}</Tag></td>
+                        <td>{isLeftover ? t('tir_takip.gaplama.form.batch_leftover_label') : row.harvestDate}</td>
+                        <td>
+                          <Tag className="sera-gaplama-batch-age">
+                            {isLeftover ? leftoverAgeLabel(age) : todayAgeLabel()}
+                          </Tag>
+                        </td>
                         <td className="sera-gaplama-form-cap">{cap}</td>
                         <td>
                           <InputNumber
@@ -458,7 +557,9 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
         {isPartial && <Tag color="orange">{t('tir_takip.gaplama.form.partial_tag')}</Tag>}
         {hasAnyKg && (
           <span className="sera-gaplama-form-oldest">
-            {t('tir_takip.gaplama.form.oldest_batch', { days: oldestAgeDays })}
+            {oldestAgeUnknown
+              ? t('tir_takip.gaplama.form.batch_leftover_unknown_age')
+              : t('tir_takip.gaplama.form.oldest_batch', { days: oldestAgeDays })}
           </span>
         )}
       </div>

@@ -12,7 +12,8 @@ import { canDoBackendGated } from '@/utils/permissions';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { BlockFilterSelect } from './BlockFilterSelect';
 import GaplamaTruckForm from './GaplamaTruckForm';
-import { sumByLocation, trucksForDay, isPartialTruck, truckCountByLocation, truckTotalKg } from './GaplamaTab.totals';
+import { sumByLocation, trucksForDay, isPartialTruck, truckCountByLocation, truckTotalKg, buildBlockBatches } from './GaplamaTab.totals';
+import type { IGaplamaFormBatch } from './GaplamaTab.totals';
 import type { IGaplamaDay, IGaplamaTruck, IGreenhouseBlock } from '@/types';
 import type { IPlanGridRow } from '@/pages/export/WeeklyPlanGrid.rows';
 import './sera.css';
@@ -204,25 +205,19 @@ export default function GaplamaTab(): JSX.Element {
     return map;
   }
 
-  // Per-block batch list for the truck form's batch table (2026-09-24, batch
-  // selection) — the board's `carry_in_breakdown` (oldest first) plus today's
-  // own plan folded in as a same-day batch, exactly mirroring how
-  // `build_gaplama_board` itself treats today's plan as a same-day bucket.
-  // Same unfiltered block set and raw-board source as buildAvailableByBlock —
-  // the form must be able to offer a block the grid's own filter hides.
-  function buildBatchesByBlock(
-    date: string,
-  ): Record<number, { harvest_date: string; age_days: number; available_kg: number }[]> {
-    const map: Record<number, { harvest_date: string; age_days: number; available_kg: number }[]> = {};
+  // Per-block batch list for the truck form's batch table — at most two rows
+  // per block, per `buildBlockBatches`: the block's collapsed leftover (every
+  // live carry-in bucket summed into one row, since the loading/packaging
+  // hall physically mixes carried-over crates — owner + loading/packaging
+  // head, 2026-09-25, replacing the old one-row-per-carry-date list) and
+  // today's own plan. Same unfiltered block set and raw-board source as
+  // buildAvailableByBlock — the form must be able to offer a block the
+  // grid's own filter hides.
+  function buildBatchesByBlock(date: string): Record<number, IGaplamaFormBatch[]> {
+    const map: Record<number, IGaplamaFormBatch[]> = {};
     for (const b of topLevelBlocks) {
       const row = (board?.days ?? []).find((r) => r.block_id === b.id && r.date === date);
-      const batches = (row?.carry_in_breakdown ?? []).map((c) => ({
-        harvest_date: c.origin_date,
-        age_days: c.age_days,
-        available_kg: c.kg,
-      }));
-      batches.push({ harvest_date: date, age_days: 0, available_kg: row?.plan_kg ?? 0 });
-      map[b.id] = batches;
+      map[b.id] = buildBlockBatches(row, date);
     }
     return map;
   }

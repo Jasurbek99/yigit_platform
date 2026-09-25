@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sumByLocation, truckCountByDay, trucksForDay, isPartialTruck, weekTotal, truckTotalKg, truckCountByLocation } from './GaplamaTab.totals';
+import { sumByLocation, truckCountByDay, trucksForDay, isPartialTruck, weekTotal, truckTotalKg, truckCountByLocation, collapseCarryIn, buildBlockBatches } from './GaplamaTab.totals';
 import type { IGaplamaDay, IGaplamaTruck } from '@/types';
 
 const days: IGaplamaDay[] = [
@@ -96,5 +96,63 @@ describe('truckCountByLocation', () => {
   });
   it('returns 0 for an empty map', () => {
     expect(truckCountByLocation({}, 18500)).toBe(0);
+  });
+});
+
+// 2026-09-25: per-date leftover picking removed (owner + loading/packaging
+// head — leftover crates are physically mixed in the hall, so "the 21.09
+// batch" has no counterpart on the floor). collapseCarryIn/buildBlockBatches
+// replace the old one-row-per-carry-date list with at most two rows.
+describe('collapseCarryIn', () => {
+  it('sums three live leftover buckets into one leftover figure', () => {
+    const result = collapseCarryIn([
+      { origin_date: '2026-09-18', kg: 1000, age_days: 6 },
+      { origin_date: '2026-09-20', kg: 2000, age_days: 4 },
+      { origin_date: '2026-09-22', kg: 1500, age_days: 2 },
+    ]);
+    expect(result).toEqual({ age_days: 6, available_kg: 4500 });
+  });
+
+  it("states the oldest bucket's age, not the newest or an average", () => {
+    // Out of order on purpose — the oldest (age 6) is listed second.
+    const result = collapseCarryIn([
+      { origin_date: '2026-09-20', kg: 2000, age_days: 4 },
+      { origin_date: '2026-09-18', kg: 1000, age_days: 6 },
+    ]);
+    expect(result?.age_days).toBe(6); // not 4 (newest) and not 5 (average)
+  });
+
+  it('returns null when there is nothing to carry', () => {
+    expect(collapseCarryIn([])).toBeNull();
+  });
+});
+
+describe('buildBlockBatches', () => {
+  it('shows only the leftover row when there is no plan today', () => {
+    const result = buildBlockBatches(
+      { plan_kg: 0, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 3000, age_days: 3 }] },
+      '2026-09-24',
+    );
+    expect(result).toEqual([{ harvest_date: null, age_days: 3, available_kg: 3000 }]);
+  });
+
+  it('shows only today\'s row when the block has no leftover to carry', () => {
+    const result = buildBlockBatches({ plan_kg: 9000, carry_in_breakdown: [] }, '2026-09-24');
+    expect(result).toEqual([{ harvest_date: '2026-09-24', age_days: 0, available_kg: 9000 }]);
+  });
+
+  it('shows both rows — leftover first — when there is a plan today and a carried-over leftover', () => {
+    const result = buildBlockBatches(
+      { plan_kg: 9000, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 3000, age_days: 3 }] },
+      '2026-09-24',
+    );
+    expect(result).toEqual([
+      { harvest_date: null, age_days: 3, available_kg: 3000 },
+      { harvest_date: '2026-09-24', age_days: 0, available_kg: 9000 },
+    ]);
+  });
+
+  it('returns an empty list when there is no board row at all for the day', () => {
+    expect(buildBlockBatches(undefined, '2026-09-24')).toEqual([]);
   });
 });

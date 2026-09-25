@@ -3928,7 +3928,9 @@
         "batch_col_available": "Доступно",
         "batch_col_take": "Берём",
         "batch_age_fresh": "Свежий",
-        "batch_age_days": "{{days}} дн.",
+        "batch_leftover_label": "Остаток",
+        "batch_leftover_age": "до {{days}} дн.",
+        "batch_leftover_unknown_age": "Возраст неизвестен",
         "carry_window": "❄ {{days}} дн.",
         "oldest_batch": "старейшая: {{days}} дн.",
         "insufficient_harvest": "В этом блоке недостаточно урожая, свяжитесь с управляющим теплицы — если есть излишек урожая, пусть внесёт изменения в программе"

@@ -3924,7 +3924,9 @@
         "batch_col_available": "Available",
         "batch_col_take": "Take",
         "batch_age_fresh": "Fresh",
-        "batch_age_days": "{{days}} d",
+        "batch_leftover_label": "Leftover",
+        "batch_leftover_age": "up to {{days}} d",
+        "batch_leftover_unknown_age": "Age unknown",
         "carry_window": "❄ {{days}} d",
         "oldest_batch": "oldest: {{days}} d",
         "insufficient_harvest": "Not enough harvest in this block — contact the greenhouse manager; if there is surplus harvest, have them change it in the program"

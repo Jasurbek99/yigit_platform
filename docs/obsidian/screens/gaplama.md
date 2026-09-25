@@ -30,7 +30,9 @@ falls into a trailing group labelled `tir_takip.gaplama.location_other`. Backed 
 `backend/apps/export/services/gaplama.py` (`build_gaplama_board`) — see
 `docs/superpowers/specs/2026-09-18-tir-takip-gaplama-design.md` for the original design
 (D1-D16) and `docs/superpowers/specs/2026-09-24-gaplama-batch-selection-design.md` for the
-per-block carry window, batch selection, and this board redesign.
+per-block carry window and this board redesign — **its per-date batch-picking UI on the
+truck form was itself removed the next day** (2026-09-25, "Per-date leftover picking
+removed" below); the carry window and board arithmetic that spec introduced are unaffected.
 
 **Day view** is one row per block: `available`, `plan`, `loaded`, carried-in, carried-out, and
 a truck-count column (`⌊available_kg / truck_capacity_kg⌋`) — what used to be the separate
@@ -135,6 +137,65 @@ location subtotal row's own week-total cell — read this array rather than summ
 `available_kg` client-side. Day mode has no such aggregate to get wrong: `available_kg` is
 read straight off the single selected day's row.
 
+### Per-date leftover picking removed from the truck form (2026-09-25)
+
+The 2026-09-24 batch-selection form let an operator pick which **day's** leftover to load —
+one row per live `carry_in_breakdown` bucket, each with its own date, age and kg input. The
+owner checked with the loading and packaging head: leftover crates are **physically mixed**
+once consolidated in the hall — nobody labels them by harvest day — so those per-date rows
+described a choice that has no counterpart in the building. Removed, frontend only; the
+board's arithmetic, the per-block `carry_days` FIFO bucket, and the backend's named-batch
+consumption (below) are all unchanged.
+
+The truck form now shows **at most two rows per block** (`GaplamaTab.totals.ts`,
+`buildBlockBatches`/`collapseCarryIn`): today's own plan (a real date, age 0 — omitted when
+there's no plan today) and ONE **leftover** row summing every live carry-in bucket for that
+block (omitted when there's nothing carried in). The leftover row's stated age is the
+**oldest** live bucket's `age_days` — an upper bound ("leftover, up to N days"): honest,
+because nothing older survives once a bucket exceeds `carry_days`, even though which crate
+is unknown. Loading the leftover row writes its `ShipmentBlockSource.harvest_date` as an
+explicit **null**, not omitted — `set_block_sources` treats an explicit key (even null) and
+an omitted key as genuinely different requests (see "A known create/edit asymmetry" below);
+`build_gaplama_board`'s existing null-`harvest_date` fallback (drain the FIFO pool
+oldest-bucket-first, unchanged since 2026-09-24) is exactly the right consumption rule for a
+row that represents a mixed pool, so no backend change was needed. `useUpdateTruckBlocks`
+(`frontend/src/hooks/useGaplama.ts`) forwards `harvest_date` whenever the row object HAS the
+key (`!== undefined`), null included — a truthy check would have silently omitted it and
+sent the edit through `set_block_sources`'s preserve/proportional-split branch instead,
+re-splitting across the shipment's *prior* per-date rows and undoing the fold on every save.
+
+**Editing a truck saved by the old per-date form** folds every source row into the same two
+buckets: a row whose real `harvest_date` equals the truck's own day is today's row; every
+other row — one carrying a genuinely different (earlier) date, or an explicit null on a
+*resolved* row — sums into the ONE leftover row (`foldEntriesByBlock`,
+`GaplamaTruckForm.tsx`). Two or more pre-existing dated leftover rows on one truck fold
+together, kilograms summed, not shown separately or dropped. The no-per-batch-data fallback
+(`editingTruckBatches` unresolved — this truck wasn't found among the drafts, an edge case)
+is a DIFFERENT, weaker signal: it has no per-row date at all, so it is pinned to the truck's
+own day (today's bucket) instead — same as it always was before per-date rows existed — NOT
+the leftover bucket. An explicit null only means "part of the leftover pool" when it comes
+from a row whose per-batch data actually resolved; the fallback never gets that far.
+
+**Fix round 1 (same-day review, `GaplamaTruckForm.tsx`).** Three cases where the collapse
+above had stated something untrue or hidden something outright: (1) `effectiveBatches`'s
+merge kept only the LIVE bucket's age on a collision, discarding a seeded row's genuinely
+older age — a row holding kg picked 9 days before the truck's own day, merging into a live
+bucket of age 2, rendered "up to 2 days" instead of "up to 9". The merge now keeps the OLDER
+of the two, consistent with "leftover, up to N days" actually being an upper bound. (2) The
+row tag could say "age unknown" while the total line beside it said "oldest: 0 d" — 0 reads
+as fresh, the opposite of unknown, because `oldestAgeDays` never got the same unknown-age
+treatment `leftoverAgeLabel` did. The total line now renders the same "age unknown" text
+whenever its own computed max is 0 *and* that 0 came from a leftover row with no real age to
+go on, rather than a genuine same-day freshness claim. (3) `foldEntriesByBlock` skipped any
+source row with `weight_kg == null` entirely, so a block whose only row had no weight
+assigned yet (a supply-first draft's source before a weight was set, `views.py:2231` — the
+frontend type claims `number` but the API can send null) rendered no card at all; the
+operator had no way to even see the block was on the truck. The block is now still
+registered (a bucket is created for it) even though that null-weight row contributes nothing
+to either total, and gets one empty row to fill. Also: the local `IGaplamaBatch` interface is
+now a type alias of the exported `GaplamaTab.totals.ts`'s `IGaplamaFormBatch`, not a second
+hand-kept copy of the same shape.
+
 ## Opening a truck
 
 The **+ Tır Aç** button is shown to any role holding `shipment.create`
@@ -150,19 +211,20 @@ itself still exists on every week for layout consistency and only does anything 
 week contains today.
 
 Clicking it opens `GaplamaTruckForm` in place of the button: one card per block, each
-listing that block's **batches** — the live carry-in buckets plus the day's own fresh plan,
-each with its harvest date and age (`iň köne` / oldest-batch age shown beside the truck
-total via `oldestAgeDays`) — one kg input per batch. Two caps apply together
-(`rowInvalid`): each batch row is capped at that batch's own gross `available_kg` (its
-`carry_in_breakdown` figure, snapshotted **before** that day's own consumption — the same
-snapshot the board's tooltip shows), and the block's row SUM is separately capped at
-`availableByBlock[blockId]`, the block-level net figure the board itself reports. The
-per-batch cap alone is not airtight: it is a gross, point-in-time figure, so a second truck
-opened the same day can still show the same batch's full remaining kg even after a first
-truck already drew from it — the block-level SUM cap is the actual backstop that stops the
-block from being oversold, per `blockCapFor`'s own comment. The card header shows the
-block's own carry window (`carry_days`). `+ Blok goş` adds another block; an export-code
-field, harvest-status select and variety select sit below the block cards. Submitting
+listing that block's **at most two rows** (see "Per-date leftover picking removed" above) —
+today's own plan and/or the collapsed leftover, each with its date-or-`Galyndy` label, age
+(`iň köne` / oldest-batch age shown beside the truck total via `oldestAgeDays`) and one kg
+input. Two caps apply together (`rowInvalid`): each row is capped at that batch's own gross
+`available_kg` (the leftover row's is the sum of every live carry-in bucket, snapshotted
+**before** that day's own consumption — the same snapshot the board's tooltip shows), and
+the block's row SUM is separately capped at `availableByBlock[blockId]`, the block-level net
+figure the board itself reports. The per-row cap alone is not airtight: it is a gross,
+point-in-time figure, so a second truck opened the same day can still show the same
+leftover's full remaining kg even after a first truck already drew from it — the
+block-level SUM cap is the actual backstop that stops the block from being oversold, per
+`blockCapFor`'s own comment. The card header shows the block's own carry window
+(`carry_days`). `+ Blok goş` adds another block; an export-code field, harvest-status select
+and variety select sit below the block cards. Submitting
 creates a draft the same
 way the Sheet's own supply composer does —
 `{ is_draft: true, date: <the day being viewed>, skip_forecast_check: true,
@@ -199,26 +261,28 @@ is **two calls**, not one: `POST /export/shipments/{id}/block-sources/` with
 to the backend transport for this screen, though `set_block_sources` itself gained batch
 handling — see the asymmetry note below.
 
-**A seeded edit row's own kg is a floor on its date's cap, not a ceiling (2026-09-25).** Every
-shipment on the live DB has `harvest_date = NULL` on every `ShipmentBlockSource` row (same for
-the "no per-batch data resolved" fallback), so the seeded edit row falls back onto the truck's
-own day — landing on the SAME date as that day's own-plan batch (`buildBatchesByBlock` always
-pushes one, `available_kg: plan_kg`, the gross plan alone, no carry-in). Pre-fix the row's kg
-(which may represent carry-in this legacy row can't attribute to one date) was measured against
-that day's plan alone: a draft that had already loaded more than the day's own plan opened with
-its row flagged invalid and Save disabled, before the operator touched anything.
+**A seeded edit row's own kg is a floor on its bucket's cap, not a ceiling (2026-09-25).**
+Originally (same day, pre-leftover-collapse): every shipment on the live DB has
+`harvest_date = NULL` on every `ShipmentBlockSource` row, so the seeded edit row fell back
+onto the truck's own day — landing on the SAME date as that day's own-plan batch. Pre-fix the
+row's kg (which may represent carry-in a legacy row can't attribute to one date) was measured
+against that day's plan alone: a draft that had already loaded more than the day's own plan
+opened with its row flagged invalid and Save disabled, before the operator touched anything. A
+first fix special-cased only `harvest_date == null` — but `handleSubmit` writes back a real,
+resolved date, so the SAME row looked ordinary (not null) on its next Üýtget and the bug came
+back one save later. `computeOrphans` was widened to register **every** seeded row as an orphan
+candidate, not gate on null-ness, closing that reopen path.
 
-`computeOrphans` now registers **every** seeded row as an orphan candidate — not only a
-null-source-date one — and `effectiveBatches` merges rather than replaces: a date's cap becomes
-`max(live plan/carry-in cap, the row's own kg)`, so kg already on the row is never flagged
-invalid while the live cap still applies above that floor (raising it further can still go red).
-**Round 2, same day:** a fix that special-cased only `harvest_date == null` reopened the
-identical bug one save later — `handleSubmit` sends `row.harvestDate`, which the null-date
-fallback had already resolved to the truck's own day, so the row is WRITTEN with a real,
-non-null `harvest_date`. On the next Üýtget it no longer looks null, the narrower gate stopped
-treating it as an orphan, and the row went red again on the second edit even though nothing
-about its situation had changed. Registering every seeded row (not gating on null-ness) closes
-that reopen path for good.
+The leftover-picking removal later the same day (see above) simplified this further:
+`null` is now the leftover bucket's own permanent, stable key — never resolved to a real date
+on save — so the round-2 "reopens on the second edit" failure mode is structurally gone, not
+just patched. `foldEntriesByBlock` (shared by `initialRowsFor` and `computeOrphans`, so the two
+can never disagree) sums a truck's real source rows into at most two buckets per block —
+today's (a real date, only rows dated exactly the truck's own day) and leftover (`null`,
+everything else) — and `computeOrphans` still floors each bucket's cap at what it already
+holds: `effectiveBatches` merges rather than replaces, `max(live cap, the bucket's own kg)`, so
+kg already on the row is never flagged invalid while the live cap still applies above that
+floor (raising it further can still go red).
 
 **Asymmetric overdraw guard (owner's 2026-09-25 decision).** The orphan floor above stops a
 seeded row from opening invalid; it does not by itself say what happens when the operator then
@@ -361,7 +425,7 @@ not part of this screen at all (that is the Sheet's clipboard feature, unrelated
 | Tab body | `frontend/src/pages/sera/GaplamaTab.tsx` + `.test.tsx` |
 | Standalone page | `frontend/src/pages/sera/GaplamaPage.tsx` + `.test.tsx` |
 | Truck form | `frontend/src/pages/sera/GaplamaTruckForm.tsx` + `.test.tsx` |
-| Pure arithmetic | `frontend/src/pages/sera/GaplamaTab.totals.ts` + `.test.ts` |
+| Pure arithmetic | `frontend/src/pages/sera/GaplamaTab.totals.ts` + `.test.ts` — incl. `collapseCarryIn`/`buildBlockBatches` (leftover collapse, 2026-09-25) |
 | Hooks | `frontend/src/hooks/useGaplama.ts` — `useGaplamaBoard`, `useUpdateTruckBlocks` |
 | Types | `frontend/src/types/index.ts` — `IGaplamaDay`, `IGaplamaTruck` |
 | Endpoint | `backend/apps/export/views_gaplama.py` — `GaplamaBoardView` |

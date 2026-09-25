@@ -146,7 +146,7 @@ export function useUpdateTruckBlocks() {
   return useMutation({
     mutationFn: async (vars: {
       shipmentId: number;
-      rows: { block_id: number; weight_kg: number; harvest_date?: string }[];
+      rows: { block_id: number; weight_kg: number; harvest_date?: string | null }[];
     }) => {
       // The real request body key is "blocks", not "block_sources" — verified
       // against ShipmentViewSet.set_block_sources (backend/apps/export/views.py:3223-3291):
@@ -164,11 +164,21 @@ export function useUpdateTruckBlocks() {
       // the type (not every caller of this hook knows a batch date), only included
       // per-row when present so a bare {block_id, weight_kg} call still posts the
       // same shape it always has.
+      //
+      // `undefined` (key never set) vs explicit `null` are DIFFERENT requests to
+      // that same view (2026-09-25, leftover-batch collapse): an explicit key
+      // (even null) always overrides with one dateless row; an OMITTED key falls
+      // into the preserve/proportional-split branch above, which re-splits the
+      // incoming weight across the shipment's PRIOR block_sources — exactly the
+      // per-date leftover rows this feature folds into one. The leftover row's
+      // harvestDate is always explicitly null (never absent) on the caller's row
+      // object, so `r.harvest_date` alone (falsy-checked) would wrongly omit it —
+      // checking `!== undefined` forwards null but still omits a truly absent key.
       await api.post(`/export/shipments/${vars.shipmentId}/block-sources/`, {
         blocks: vars.rows.map((r) => ({
           block_id: r.block_id,
           weight_kg: r.weight_kg,
-          ...(r.harvest_date ? { harvest_date: r.harvest_date } : {}),
+          ...(r.harvest_date !== undefined ? { harvest_date: r.harvest_date } : {}),
         })),
       });
       const weightNet = vars.rows.reduce((sum, r) => sum + r.weight_kg, 0);

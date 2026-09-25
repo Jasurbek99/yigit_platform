@@ -1,4 +1,19 @@
 
+- [ ] 2026-09-25 — Gaplama truck form: per-date leftover picking removed — at most two rows per block now (today's own plan + one collapsed leftover row, its age the oldest live bucket's); leftover row loads with a null harvest_date; editing a truck with pre-existing dated leftover rows folds them into the one leftover row, summed — NEEDS TEST
+  To test: (1) open + Tır Aç on a block that has both a live carry-in leftover AND a plan for
+  today — must show exactly TWO rows: one labelled "Galyndy" (leftover) with an "up to N days"
+  age tag and available kg = the sum of every carry-in bucket for that block/day, and one dated
+  today with age "Täze"/fresh; (2) a block with NO carry-in shows only the today row; a block
+  with a carry-in but NO plan today shows only the leftover row; (3) load some kg on the
+  leftover row and submit — the truck should save fine (backend consumes the null-dated load
+  FIFO across the mixed pool); (4) open Üýtget on an OLDER truck that was created with the
+  previous per-date form and holds two or more dated leftover rows on one block — it must now
+  show as ONE leftover row with their kilograms summed, not two rows and not silently dropped;
+  (5) open Üýtget on a very old/legacy draft (predates batch selection entirely, null
+  harvest_date on every row) — must still open with a normal (non-red) row and Save enabled,
+  same as before; (6) the overdraw guard from the entry above must still work unchanged on both
+  the leftover and today rows.
+
 - [ ] 2026-09-25 — Gaplama truck form: asymmetric overdraw guard — reducing a batch row or leaving it untouched is always allowed even above the block's live cap; only an increase past max(seeded, live cap) is refused; the explanation now shows once above Save/Cancel, not per row (round-1 fix) — NEEDS TEST
   To test: (1) open (Üýtget) a legacy/overdrawn draft truck whose recorded kg on a block is
   above what that block currently shows as available — the row must open with a normal

@@ -3929,7 +3929,9 @@
         "batch_col_available": "Elýeterli",
         "batch_col_take": "Alynýan",
         "batch_age_fresh": "Täze",
-        "batch_age_days": "{{days}} gün",
+        "batch_leftover_label": "Galyndy",
+        "batch_leftover_age": "iň köp {{days}} gün",
+        "batch_leftover_unknown_age": "Ýaşy näbelli",
         "carry_window": "❄ {{days}} gün",
         "oldest_batch": "iň köne: {{days}} gün",
         "insufficient_harvest": "Bu blokda ýeterlik hasyl ýok, ýyladyşhananyň müdiri bilen habarlaşyň egerde artykmaç hasyl bolsa programmada üýtgetsin"
