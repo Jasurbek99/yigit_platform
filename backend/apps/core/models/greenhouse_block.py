@@ -1,4 +1,4 @@
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from apps.core.db_utils import cyrillic_collation, schema_table
 
@@ -70,7 +70,9 @@ class GreenhouseBlock(models.Model):
     # operators run 2-3 weeks); it bounds the worst case to a ~60-day walk
     # with ~30-entry bucket lists, trivial either way, instead of a typo
     # like 3650 walking two decades for every block on every request.
-    carry_days = models.PositiveSmallIntegerField(default=7, validators=[MaxValueValidator(30)])
+    carry_days = models.PositiveSmallIntegerField(
+        default=7, validators=[MinValueValidator(1), MaxValueValidator(30)],
+    )
 
     class Meta:
         db_table = schema_table('core', 'greenhouse_blocks')

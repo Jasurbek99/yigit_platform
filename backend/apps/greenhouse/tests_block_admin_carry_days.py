@@ -98,3 +98,16 @@ class GreenhouseBlockAdminCarryDaysTests(TestCase):
         self.assertEqual(resp.status_code, 400, resp.data)
         self.block.refresh_from_db()
         self.assertEqual(self.block.carry_days, 7)
+
+    def test_patch_rejects_zero_carry_days(self):
+        """2026-09-25: the frontend's antd rule (min:1) was the only thing
+        that blocked 0 — a direct PATCH bypassed it, and 0 would make the
+        board's carry-day walk expire the block's stock on arrival."""
+        client = _make_client(self.director)
+        url = f'/api/v1/greenhouse/admin/blocks/{self.block.id}/'
+
+        resp = client.patch(url, {'carry_days': 0}, format='json')
+
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.block.refresh_from_db()
+        self.assertEqual(self.block.carry_days, 7)
