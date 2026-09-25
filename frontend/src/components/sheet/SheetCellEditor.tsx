@@ -41,6 +41,7 @@ import { scaleSheetLayout } from '@/constants/sheetRowConfig';
 import { parseNumberInput } from './SheetCellEditor.helpers';
 import SheetTruckSelectEditor from './SheetTruckSelectEditor';
 import SheetDriverSelectEditor from './SheetDriverSelectEditor';
+import SheetGapyDriverEditor from './SheetGapyDriverEditor';
 import type { TSheetVariant } from '@/stores/sheetStore';
 
 interface ISheetCellEditorProps {
@@ -506,13 +507,35 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
 
     // Same shape one row down: driver_name picks from the Z_TIRWEB driver
     // registry, writing driver_id alongside the name. Gapy shipments are local
-    // buyers' own trucks and own drivers — same HARD RULE as truck_plate — and
-    // fall through to the plain text input below.
+    // buyers' own trucks and own drivers — same HARD RULE as truck_plate.
     if (rowConfig.field_key === 'driver_name' && !shipment.is_gapy_satys) {
       return (
         <SheetDriverSelectEditor
           initialDriverId={shipment.driver_id}
           initialDriver2Id={shipment.driver_2_id}
+          onCommit={saveDriver}
+          onClose={close}
+        />
+      );
+    }
+
+    // Gapy-Satys counterpart: same cell, no registry — every field is typed.
+    // Also asks for passport series + issue date (document generation needs
+    // them and there is no fleet record to fall back on) and a second driver,
+    // matching the non-gapy overlay's shape.
+    if (rowConfig.field_key === 'driver_name' && shipment.is_gapy_satys) {
+      return (
+        <SheetGapyDriverEditor
+          initial={{
+            driver_name: shipment.driver_name,
+            driver_phone: shipment.driver_phone,
+            driver_passport_serial: shipment.driver_passport_serial,
+            driver_passport_issue_date: shipment.driver_passport_issue_date,
+            driver_2_name: shipment.driver_2_name,
+            driver_2_phone: shipment.driver_2_phone,
+            driver_2_passport_serial: shipment.driver_2_passport_serial,
+            driver_2_passport_issue_date: shipment.driver_2_passport_issue_date,
+          }}
           onCommit={saveDriver}
           onClose={close}
         />

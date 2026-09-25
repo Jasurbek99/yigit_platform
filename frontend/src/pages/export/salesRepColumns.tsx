@@ -78,8 +78,11 @@ export function buildSalesRepColumns({
       width: 100,
       search: false,
       sorter: (a, b) => Number(a.has_sales_report) - Number(b.has_sales_report),
+      // A Gapy-Satyş gate sale owes no report (ADR-025) — never flag it missing.
       render: (_, record) =>
-        record.has_sales_report ? (
+        record.is_gapy_satys ? (
+          '—'
+        ) : record.has_sales_report ? (
           <span style={{ color: COLORS.success, fontWeight: 600 }}>
             {t('sales_reports.report_filled')}
           </span>

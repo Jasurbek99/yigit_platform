@@ -2279,6 +2279,32 @@ class TirOverlayValuesTest(SimpleTestCase):
         )
         self.assertEqual(v['driver1_passport'], '4. A3192661')
 
+    def test_persisted_gapy_passport_is_used_with_no_typed_override(self):
+        """Gapy-Satys shipments never have a fleet driver_id — the persisted
+        Shipment field (typed once into the driver_name cell's gapy overlay)
+        must be the live path instead of the generate-time dialog."""
+        ship = _mock_shipment()
+        ship.driver_passport_serial = 'AA1234567'
+        v = ctx.build_tir_overlay_values(ship, 'ru')
+        self.assertEqual(v['driver1_passport'], '4. AA1234567')
+
+    def test_persisted_gapy_passport_wins_over_a_typed_override(self):
+        """Captured-once data outranks a one-off generate-time typo fix."""
+        ship = _mock_shipment()
+        ship.driver_passport_serial = 'AA1234567'
+        v = ctx.build_tir_overlay_values(ship, 'ru', {'driver_passport': 'ZZ0000000'})
+        self.assertEqual(v['driver1_passport'], '4. AA1234567')
+
+    def test_second_driver_persisted_passport_does_not_leak_into_the_first(self):
+        """Regression guard: both slots share driver_id=None on a Gapy
+        shipment, so the fallback must be keyed by slot, never by id."""
+        ship = _mock_shipment()
+        ship.driver_2_name = 'Bayram B.'
+        ship.driver_2_passport_serial = 'BB7654321'
+        v = ctx.build_tir_overlay_values(ship, 'ru')
+        self.assertEqual(v['driver1_passport'], '')
+        self.assertEqual(v['driver2_passport'], '6. BB7654321')
+
     def test_cargo_figures_match_the_cmr(self):
         """Both documents describe the same truck - the numbers cannot diverge."""
         ship = _mock_shipment()

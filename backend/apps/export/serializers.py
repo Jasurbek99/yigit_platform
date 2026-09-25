@@ -11,7 +11,7 @@ from apps.core.models import (
 )
 from apps.core.permissions import can_edit_field, can_edit_sheet_fields, PRIVILEGED_ROLES
 from apps.core.roles import EXPORT_MANAGER_LIKE
-from apps.export.services import TRANSITIONS, _edge_to
+from apps.export.services import TRANSITIONS, _edge_to, _edge_predicate
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_export_code  # noqa: F401  (kept for downstream importers)
 from apps.export.models import (
@@ -540,6 +540,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'trailer_id',
             'truck_plate', 'driver_name', 'driver_phone',
             'truck_plate_2', 'driver_2_name', 'driver_2_phone',
+            'driver_passport_serial', 'driver_passport_issue_date',
+            'driver_2_passport_serial', 'driver_2_passport_issue_date',
             'transport_temp_c', 'transit_days',
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Operational planning
@@ -794,6 +796,10 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             # write them and the same three cells render both values.
             'truck_head_2_id', 'truck_plate_2',
             'driver_2_id', 'driver_2_name', 'driver_2_phone',
+            # Gapy-Satys driver passports — same overlay-only shape as driver_2_*
+            # above, never linked to transport.Driver (fleet-only table).
+            'driver_passport_serial', 'driver_passport_issue_date',
+            'driver_2_passport_serial', 'driver_2_passport_issue_date',
             'transport_temp_c', 'transit_days',
             'has_peregruz', 'peregruz_city', 'peregruz_date',
             # Finance
@@ -1533,14 +1539,26 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         return int(sum(durations) / len(durations))
 
     def get_allowed_transitions(self, obj: Shipment) -> list[str]:
+        """Forward statuses this shipment may move to, cancellation excluded.
+
+        Conditional edges carry a predicate (yuklenme forks on is_gapy_satys,
+        barysh_gumrugi on has_peregruz). Only the matching branch is offered —
+        otherwise the UI hands the operator a target the shipment can never
+        satisfy, which is exactly how gapy trucks used to be steered into
+        yola_chykdy and stranded there.
+        """
         if obj.status is None:
             return []
         current_code = obj.status.code
-        return [
-            _edge_to(edge)
-            for edge in TRANSITIONS.get(current_code, [])
-            if _edge_to(edge) != 'cancelled'
-        ]
+        out: list[str] = []
+        for edge in TRANSITIONS.get(current_code, []):
+            if _edge_to(edge) == 'cancelled':
+                continue
+            predicate = _edge_predicate(edge)
+            if predicate is not None and not predicate(obj):
+                continue
+            out.append(_edge_to(edge))
+        return out
 
     def get_completeness(self, obj: Shipment) -> dict:
         """Which fields are owed by this shipment's current step — see
@@ -1623,6 +1641,10 @@ _ALL_PATCHABLE_FIELDS = {
     # _REVERSE_FIELD_DELEGATES onto the R23/R27/R28 rows.
     'truck_head_2_id', 'truck_plate_2',
     'driver_2_id', 'driver_2_name', 'driver_2_phone',
+    # Gapy-Satys driver passports — written by the driver_name cell's gapy
+    # overlay, gated through _REVERSE_FIELD_DELEGATES onto that row.
+    'driver_passport_serial', 'driver_passport_issue_date',
+    'driver_2_passport_serial', 'driver_2_passport_issue_date',
     'transit_days', 'transport_temp_c', 'shelf_life_days',
     'has_peregruz', 'peregruz_city', 'peregruz_date',
     # Operator-entered timestamps — sheet R19/R20/R21/R25/R30/R31/R32/R35/R41/R42.

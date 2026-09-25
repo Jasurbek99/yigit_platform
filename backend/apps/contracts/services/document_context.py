@@ -767,26 +767,37 @@ def _border_point_name(shipment, overrides: dict) -> str:
 
 
 def _driver_passports(shipment, overrides: dict) -> tuple[str, str]:
-    """Both drivers' passport numbers, preferring the fleet record.
+    """Both drivers' passport numbers: fleet record, then the persisted
+    Shipment field, then a generate-time typed override.
 
     ``Shipment.driver_id``/``driver_2_id`` are loose integers, not ForeignKeys,
-    so the Driver rows are fetched explicitly. Every driver on record currently
-    has a blank ``passport_serial``, which makes the typed fallback the live path
-    rather than the edge case — but the record wins the moment one is entered.
+    so the Driver rows are fetched explicitly. Gapy-Satys shipments never set
+    either id (HARD RULE — no fleet linkage, see Shipment.driver_passport_serial),
+    so the fleet tier is always empty for them and the persisted field (typed
+    once into the driver_name cell's gapy overlay) is the live path instead of
+    the generate-time dialog. Built as parallel per-slot lists rather than an
+    id-keyed dict: a Gapy shipment has ``driver_id = driver_2_id = None``, and a
+    dict keyed on that would collapse both slots onto one entry.
     """
     ids = [getattr(shipment, 'driver_id', None), getattr(shipment, 'driver_2_id', None)]
-    stored: dict[int, str] = {}
+    fleet = ['', '']
     if any(ids):
         from apps.transport.models import Driver
-        stored = {
+        by_pk = {
             driver.pk: (driver.passport_serial or '').strip()
             for driver in Driver.objects.filter(pk__in=[i for i in ids if i])
         }
-    typed = (overrides.get('driver_passport', ''), overrides.get('driver_2_passport', ''))
-    return tuple(
-        stored.get(driver_id) or (typed[slot] or '').strip()
-        for slot, driver_id in enumerate(ids)
+        fleet = [by_pk.get(driver_id, '') if driver_id else '' for driver_id in ids]
+
+    persisted = [
+        (getattr(shipment, 'driver_passport_serial', '') or '').strip(),
+        (getattr(shipment, 'driver_2_passport_serial', '') or '').strip(),
+    ]
+    typed = (
+        (overrides.get('driver_passport', '') or '').strip(),
+        (overrides.get('driver_2_passport', '') or '').strip(),
     )
+    return tuple(fleet[slot] or persisted[slot] or typed[slot] for slot in range(2))
 
 
 def build_tir_overlay_values(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:

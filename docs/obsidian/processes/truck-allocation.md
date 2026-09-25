@@ -31,6 +31,7 @@ flowchart LR
 | `export.truck_destination_splits` | N rows per allocation (one per destination) | allocation_id, destination_id, truck_count |
 | `export.weekly_destination_selections` | Which destinations show as grid rows for a week | season, week_number, year, destination_id |
 | `core.truck_destinations` | Reference: destination names | name, country, is_active, **is_default** |
+| `core.countries` | Reference: destination countries | name_tk/ru/en, code, currency, **border_point** |
 
 ### Destination selection (which rows appear)
 
@@ -41,6 +42,27 @@ persisted in `weekly_destination_selections` — one row per selected destinatio
 the destinations flagged `TruckDestination.is_default` (seeded to Russia, Kazakhstan,
 Gapy Satys; Kyrgyzstan and any other destination are pickable but not default). Admins
 toggle `is_default` from the Truck Destinations admin page.
+
+### Border point per country ("Serhet nokady")
+
+`Country.border_point` (FK → `core.BorderPoint`, nullable) is the crossing trucks to
+that country normally take. It is **edited from the Truck Destinations admin page**
+(`border_point` / `border_point_name` on `TruckDestinationSerializer`) but **stored on
+the country**: a `Shipment` references `country`, never a `TruckDestination` row, and
+a country may carry two destination rows (or none, like Gapy Satys). Two destinations
+sharing a country therefore share one value, and a destination with `country=NULL`
+returns `400 {"border_point": ...}` on a write.
+
+`Shipment.save()` copies the value into an empty `Shipment.border_point` **when the
+destination country changes** — on create, on `/assign/`, on a Sheet edit of the
+country cell. It never overwrites a value transport already picked, and never fires on
+a save that leaves the country alone, so pre-existing shipments with an empty border
+point stay empty (no backfill — see [[task-rules]] and commit `26e438d1`). An
+`update_fields` save appends `border_point` to the list so the fill is persisted.
+
+Because the fill lands before `resolve_for_shipment()` runs in the same save, the
+`tasks.set_border_point` gate closes in the same request for any country that has a
+default.
 
 ### Relationships
 

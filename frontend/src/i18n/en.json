@@ -1000,6 +1000,9 @@
     "name": "Name",
     "country": "Linked Country",
     "country_placeholder": "Select country (optional)",
+    "border_point": "Border Point",
+    "border_point_placeholder": "Select border point (optional)",
+    "border_point_hint": "Filled into a truck's \"Serhet nokady\" row when this country is set as its destination. Transport can still change it on the Sheet. Stored on the country, so destinations sharing a country share this value.",
     "sort_order": "Sort Order",
     "default_col": "Default",
     "default_tag": "Default",
@@ -1483,7 +1486,8 @@
     "kind_mention": "You were mentioned",
     "kind_task_assigned": "Task assigned to you",
     "kind_task_done": "Your task was marked done",
-    "weekly_plan_summary": "Next week's harvest plan filled:"
+    "weekly_plan_summary": "Next week's harvest plan filled:",
+    "tasks_changed": "Task list changed for this shipment"
   },
   "common": {
     "optional": "optional",
@@ -2725,6 +2729,8 @@
       "trailer": "Trailer",
       "driver_name": "Driver name",
       "driver_phone": "Driver phone",
+      "driver_passport_serial": "Passport series",
+      "driver_passport_issue_date": "Passport issue date",
       "vehicle_responsible": "Vehicle responsible",
       "vehicle_condition": "Vehicle condition",
       "vehicle_condition_note": "Vehicle condition note",
@@ -3011,7 +3017,9 @@
       "quality.suriji_gozukdiriji": "Phytosanitary",
       "quality.hil_sertifikaty": "Quality Certificate",
       "quality.kalibrowka_analiz": "Calibration Analysis",
-      "has_peregruz": "Has transshipment"
+      "has_peregruz": "Has transshipment",
+      "driver_passport_serial": "Passport series",
+      "driver_passport_issue_date": "Passport issue date"
     },
     "edit_in_detail": "Edit in shipment detail",
     "fill_loading_data": "Fill loading data",

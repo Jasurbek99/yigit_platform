@@ -6,7 +6,8 @@ target_value, title_key). This command detects the drift and repairs it, then
 re-runs the resolver so any newly-correct Tasks auto-close immediately.
 
 Usage:
-    python manage.py reconcile_tasks              # sync all open tasks
+    python manage.py reconcile_tasks              # sync drift AND re-evaluate conditions
+    python manage.py reconcile_tasks --create-missing  # also EMIT missing conditioned tasks
     python manage.py reconcile_tasks --dry-run    # report diffs, write nothing
     python manage.py reconcile_tasks --shipment 0201045/25  # scope to one shipment code
 
@@ -30,15 +31,65 @@ class Command(BaseCommand):
             help='Report what would change without writing anything.',
         )
         parser.add_argument(
+            '--create-missing',
+            action='store_true',
+            help=(
+                'Also EMIT a task for every conditioned rule that matches a scanned '
+                'shipment but has no task row. Off by default: a routine run must never '
+                'retroactively gate a shipment (see the tasks.set_border_point decision '
+                'in seed_task_rules.py).'
+            ),
+        )
+        parser.add_argument(
             '--shipment',
             metavar='SHIPMENT_CODE',
             default=None,
             help='Scope reconciliation to a single shipment by shipment code.',
         )
 
+    def _report_conditions(self, shipments, dry_run: bool, create_missing: bool) -> None:
+        """Run and print the condition-re-evaluation pass.
+
+        The second of the command's two passes. The first repairs tasks whose
+        snapshot drifted from their rule; this one repairs tasks whose rule no
+        longer applies to the shipment at all, because a condition field
+        (is_gapy_satys, has_peregruz) was edited after step entry.
+
+        All output is ASCII-only, matching the drift pass -- see the comment in
+        handle() about cp1252 consoles.
+        """
+        from apps.export.services.task_rules import reconcile_conditions_for_shipments
+
+        summary = reconcile_conditions_for_shipments(
+            shipments=shipments, dry_run=dry_run, create_missing=create_missing,
+        )
+        changes = summary['changes']
+        if not changes:
+            self.stdout.write(self.style.SUCCESS(
+                'Condition pass: no task matches a rule it should not, '
+                'and none is missing.'
+            ))
+            return
+
+        verb = 'would be' if dry_run else 'were'
+        self.stdout.write(
+            f'Condition pass ({summary["shipments_scanned"]} shipment(s) scanned) -- '
+            f'{len(changes)} task(s) {verb} changed:'
+        )
+        for ch in changes:
+            self.stdout.write(
+                f'  {ch["shipment_code"]}: {ch["action"]} {ch["title_key"]}'
+            )
+        line = (
+            f'Condition pass summary: created {summary["created"]}, '
+            f'cancelled {summary["cancelled"]}, reopened {summary["reopened"]}.'
+        )
+        self.stdout.write(self.style.WARNING(line) if dry_run else self.style.SUCCESS(line))
+
     def handle(self, *args, **options) -> None:
         dry_run: bool = options['dry_run']
         shipment_code: str | None = options['shipment']
+        create_missing: bool = options['create_missing']
 
         # Lazy imports inside handle() per task spec -- avoids any circular-import
         # risk and keeps the command fast at import time.
@@ -64,9 +115,13 @@ class Command(BaseCommand):
 
         if dry_run:
             summary = reconcile_open_tasks_with_rules(shipments=shipments, dry_run=True)
+            # Before the drift report's early return below, so an empty drift
+            # diff never hides the condition findings.
+            self._report_conditions(shipments, dry_run=True, create_missing=create_missing)
         else:
             with transaction.atomic():
                 summary = reconcile_open_tasks_with_rules(shipments=shipments, dry_run=False)
+                self._report_conditions(shipments, dry_run=False, create_missing=create_missing)
 
                 # Per-task detail printing is inside the atomic block so that
                 # a UnicodeEncodeError during the detail dump (e.g. on a

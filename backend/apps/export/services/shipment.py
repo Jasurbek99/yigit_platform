@@ -59,8 +59,9 @@ CANCEL_ROLES = {'admin', 'director'} | EXPORT_MANAGER_LIKE
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)
 # where predicate is Callable[[Shipment], bool] used by auto-advance to pick
-# the right target when multiple edges exist. Manual transitions IGNORE
-# predicates — the user explicitly picks the target.
+# the right target when multiple edges exist. Manual transitions obey the
+# predicates too, except at the steps in PREDICATE_ADVISORY_STEPS (below),
+# where the user may still pick the branch the predicate rejects.
 #
 # None key = shipment has no status yet (legacy fallback, unused by current flow).
 # Cancel edges use list(CANCEL_ROLES) (declared above) so the set membership is
@@ -84,8 +85,24 @@ TRANSITIONS: dict[Optional[str], list[tuple]] = {
     'gumruk_chykysh':  [('yuklenme',       ['loading_dept_head',
                                             'loading_dept_head_deputy']),
                         ('cancelled',      list(CANCEL_ROLES))],
-    'yuklenme':        [('yola_chykdy',    ['document_team']),
-                        ('cancelled',      list(CANCEL_ROLES))],
+    # Conditional fork: a Gapy-Satyş shipment is a domestic gate sale — the
+    # buyer takes the goods at the greenhouse. There is no road, no border, no
+    # destination and no foreign sales report, so it is complete the moment it
+    # leaves. Sending it to yola_chykdy jammed it there permanently: that
+    # step's trigger is border_crossed_at (R30), which is gapy_hidden, so no
+    # operator could ever fill it.
+    #
+    # Edge order is load-bearing. _resolve_next_status() returns the first edge
+    # whose predicate is True OR which carries no predicate at all — so
+    # 'cancelled' must stay last, exactly as in the barysh_gumrugi fork below,
+    # or every auto-advance out of yuklenme would cancel the shipment.
+    'yuklenme': [
+        ('tamamlandy',  ['document_team'],
+         lambda s: bool(getattr(s, 'is_gapy_satys', False))),
+        ('yola_chykdy', ['document_team'],
+         lambda s: not bool(getattr(s, 'is_gapy_satys', False))),
+        ('cancelled',   list(CANCEL_ROLES)),
+    ],
     'yola_chykdy':     [('serhet_gechdi',  ['transport']),
                         ('cancelled',      list(CANCEL_ROLES))],
     'serhet_gechdi':   [('dest_entry',     ['sales_rep']),
@@ -141,6 +158,20 @@ STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
     'satyldy':         ['sales_rep'],
     'tamamlandy':      ['finansist'],
 }
+
+# Steps where a manual transition may still pick the branch the edge predicate
+# rejects. `barysh_gumrugi` is the only one: both of its branches are live
+# intermediate steps, a wrong pick is cancellable or can be walked on, and
+# privileged roles rely on being able to unstick either.
+#
+# The `yuklenme` fork is deliberately NOT here. One of its branches is the
+# terminal `tamamlandy`, which ADR-019 gives no outgoing edge at all — not even
+# `cancelled` — so a shipment pushed there by mistake cannot be recovered in
+# the app; and the other strands a Gapy-Satyş truck on `border_crossed_at`,
+# a gapy_hidden field it has no UI to fill, which is the exact jam ADR-025
+# exists to remove. Neither wrong pick is a legitimate unstick, and the fork
+# sits one step after loading, reachable from the bulk-transition modal.
+PREDICATE_ADVISORY_STEPS = {'barysh_gumrugi'}
 
 
 def _edge_to(edge: tuple) -> str:
@@ -238,7 +269,14 @@ def transition_to(
 
     current_code = shipment.status.code if shipment.status_id else None
     edges = TRANSITIONS.get(current_code, [])
-    allowed_codes = [_edge_to(edge) for edge in edges]
+    predicates_are_advisory = current_code in PREDICATE_ADVISORY_STEPS
+    allowed_codes = [
+        _edge_to(edge)
+        for edge in edges
+        if predicates_are_advisory
+        or _edge_predicate(edge) is None
+        or _edge_predicate(edge)(shipment)
+    ]
 
     if new_status_code not in allowed_codes:
         raise ValueError(
@@ -363,11 +401,14 @@ def _cancel_open_tasks(shipment: Shipment) -> int:
     Returns:
         Number of Task rows updated.
     """
-    from apps.export.models import Task, TaskState
+    from apps.export.models import Task, TaskCancelReason, TaskState
     return Task.objects.filter(
         shipment=shipment,
         state__in=[TaskState.OPEN, TaskState.IN_PROGRESS, TaskState.BLOCKED],
-    ).update(state=TaskState.CANCELLED)
+    ).update(
+        state=TaskState.CANCELLED,
+        cancelled_reason=TaskCancelReason.SHIPMENT_CANCELLED,
+    )
 
 
 def is_step_trigger_satisfied(shipment: Shipment, status_code: Optional[str]) -> bool:
@@ -488,6 +529,20 @@ def auto_advance_if_ready(shipment: Shipment, resolved_tasks) -> bool:
     return advanced_any
 
 
+def _step_notify_roles(shipment: Shipment, status_code: str) -> list[str]:
+    """Roles STATUS_NOTIFY_ROLES pings when a shipment sits at status_code.
+
+    A Gapy-Satyş gate sale reaches `tamamlandy` straight out of loading with
+    no sales report (ADR-025). STATUS_NOTIFY_ROLES pings finansist on that
+    status for the satyldy -> tamamlandy hand-off, where a report has just
+    been filed — a gate sale leaves finance nothing to act on, so the
+    notification would be noise on every gapy truck.
+    """
+    if status_code == 'tamamlandy' and getattr(shipment, 'is_gapy_satys', False):
+        return []
+    return STATUS_NOTIFY_ROLES.get(status_code, [])
+
+
 def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     """Create action_required notifications for roles that need to fill fields.
 
@@ -497,7 +552,7 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     from apps.core.models import User
     from apps.export.models import Notification
 
-    roles = STATUS_NOTIFY_ROLES.get(new_status_code, [])
+    roles = _step_notify_roles(shipment, new_status_code)
     if not roles:
         return
 
@@ -522,6 +577,73 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
         'Created %d action_required notifications for %s (roles: %s)',
         len(notifications), shipment.shipment_code, roles,
     )
+
+
+def notify_tasks_changed(shipment: Shipment, reconcile_result: dict) -> int:
+    """Tell the affected roles that this shipment's task set changed.
+
+    Recipients are the roles that own the created / cancelled / reopened tasks,
+    union the roles STATUS_NOTIFY_ROLES already pings for the shipment's current
+    step. The union matters: on a Gapy flip the owners of the affected tasks are
+    transport and document_team, but export_manager also needs to know, and it is
+    in the draft step's notify list — so the right three roles fall out without
+    hard-coding them.
+
+    Known wart, shared with _notify_action_required: the actor is notified too,
+    because neither helper takes a user. Since the reconcile is silent by design
+    (no confirmation modal), that self-ping is in fact the editing manager's only
+    feedback.
+
+    Returns:
+        Number of Notification rows created.
+    """
+    from apps.core.models import User
+    from apps.export.models import Notification
+
+    affected = (
+        reconcile_result.get('created', [])
+        + reconcile_result.get('cancelled', [])
+        + reconcile_result.get('reopened', [])
+    )
+    if not affected:
+        return 0
+
+    roles = {task.assignee_role for task in affected if task.assignee_role}
+    if shipment.status_id:
+        roles.update(_step_notify_roles(shipment, shipment.status.code))
+    if not roles:
+        return 0
+
+    user_ids = list(
+        User.objects.filter(role__in=roles, is_active=True)
+        .values_list('id', flat=True)
+    )
+    if not user_ids:
+        return 0
+
+    counts = (
+        f"+{len(reconcile_result.get('created', []))} "
+        f"-{len(reconcile_result.get('cancelled', []))} "
+        f"~{len(reconcile_result.get('reopened', []))}"
+    )
+    message = f'{shipment.shipment_code}: {counts}'
+    Notification.objects.bulk_create(
+        [
+            Notification(
+                user_id=uid,
+                kind='tasks_changed',
+                message=message,
+                link=f'/shipments/{shipment.id}',
+            )
+            for uid in user_ids
+        ],
+        batch_size=500,
+    )
+    logger.info(
+        'notify_tasks_changed: %d notifications for %s (roles: %s)',
+        len(user_ids), shipment.shipment_code, sorted(roles),
+    )
+    return len(user_ids)
 
 
 def generate_shipment_codes(n: int, today=None) -> list[str]:

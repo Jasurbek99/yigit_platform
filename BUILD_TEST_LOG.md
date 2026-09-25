@@ -1,3 +1,72 @@
+- [ ] 2026-09-25 — Swap + task reconcile in one transaction; one task per (shipment, rule) enforced by a DB unique index (export/0080) — NEEDS TEST
+  To test: (1) swap Peregruz between two trucks at Barylýan gümrük — each ends with the task for its NEW value
+  (transshipment vs direct arrival), no leftovers; (2) after `migrate export`, `showmigrations export` lists 0080
+  as applied; (3) walk a shipment through a step on the Sheet — its tasks appear once, not twice.
+- [ ] 2026-09-24 — Ticking Gapy Satyş / Peregruz after the fact re-decides the shipment's tasks; clickable notification bell — NEEDS TEST
+  To test: (1) open an existing **draft** with **Gapy satys = No** that still has transport's
+  "Assign driver" task open; note which tasks the draft shows;
+  (2) set **Gapy satys = Yes** on the Sheet — the Regular driver/documents tasks disappear from the
+  open list and the **Gapy** variants appear instead (transport's gapy driver popup, document_team's
+  gapy handover);
+  (3) check the **bell** as transport / document_team / export_manager — a new notification names the
+  shipment code with counts like "+1 -1 ~0"; **click it** — it should open that shipment (this never
+  worked for any notification before);
+  (4) set **Gapy satys** back to **No** — the original Regular tasks come back as the SAME rows, not
+  duplicates (the open count must not grow);
+  (5) a task somebody had already **marked done** before the flip must stay done — it must not reopen
+  and must not disappear;
+  (6) **most important:** after any of these flips the shipment's **status must not move** — a draft
+  stays a draft. If a truck jumps to Gümrük giriş from ticking a checkbox, stop and report it;
+  (7) edit any ordinary cell (weight, a date, a note) — nothing about the tasks may change and no
+  notification may be sent;
+  (8) same check with **Peregruz** on a shipment at Barylýan gümrük — the mechanism is not gapy-only.
+  (9) open the edit drawer, tick Gapy satys and untick it again, save — no task changes and no bell
+  notification;
+  (10) on a completed Gapy truck, flip Peregruz — finansist gets no notification.
+  Dev DB: the 0078 blocker was the renamed 0077_gapy_driver_passports (fixed 2026-09-24 with --fake);
+  `migrate --plan` now shows 0078 and 0079 cleanly.
+- [ ] 2026-09-24 — Gapy-Satyş ends at greenhouse departure (yuklenme → tamamlandy fork, predicate-aware allowed_transitions, 6 hidden Sheet rows) — NEEDS TEST
+  To test: (1) on the Sheet, set row 47 "Görnüşi" to **Gapy Satyş** on a draft and walk it to
+  Ýüklenme (fill row 19 loading started, rows 8/37/38 blocks/weight/variety);
+  (2) fill row 21 "Ýyladyşhanadan çykdy" — the column's status must jump straight to
+  **Tamamlandy**, NOT Ýola çykdy, and no further step should be offered;
+  (3) the same column's rows 33, 34, 35, 41, 42 and 43 must now read "—" and refuse edits,
+  as rows 29–32 already did;
+  (4) repeat (1)-(2) with Görnüşi = **Adaty** — that truck must still go to Ýola çykdy;
+  (5) open a shipment sitting at "Barysh gümrügi" with Peregruz = no — the transition button
+  must offer only "Bardy", not both Bardy and Transshipment;
+  (6) on the completed gapy shipment's detail page, the route card must show FIVE steps
+  (Garalama → Gümrük girish → Gümrük chykysh → Ýüklenme → Tamamlandy) — no green ticks on
+  border/arrival/sale;
+  (7) on the dashboard, that shipment must show a green ✓ and NOT a red ✕;
+  (8) as finansist, check the bell — no new "action required" for that gapy truck;
+  (9) open the sales-report worklist filtered to "needs report" — the gapy truck must not be there,
+  but it must still appear with the filter off;
+  (10) on /shipments, tick a NORMAL truck at Ýüklenme, use bulk transition and pick "Tamamlandy" —
+  it must be REFUSED (before this it silently completed the truck with no way back).
+  (11) Sales Reports → "All" tab: a completed gapy truck shows "—" in the report-status column, not a red "Missing".
+  (12) Dashboard → open a gapy truck at customs: the lifecycle grid highlights "Gümrük↑"/"Gümrük↓", not "Yüklenme"; order is Gümrük↑ → Gümrük↓ → Yüklenme → Tamam.
+- [x] 2026-09-23 — Per-country border point ("Serhet nokady") on Truck Destinations, auto-filled onto shipments — TESTED
+  To test: (1) open **Admin → Truck Destinations**, edit a country-linked row (e.g. Gazagystan) —
+  a new **Border Point** select appears; pick one and save; the table column shows it;
+  (2) create a NEW draft and set its destination country to that country — Sheet row 29
+  "Serhet nokady" is already filled, and transport's "Serhet nokadyny belle" task is closed;
+  (3) change row 29 to a different crossing — your choice sticks and is not overwritten;
+  (4) set a country that has NO border point configured — row 29 stays empty and the task stays open;
+  (5) open an OLD draft with an empty row 29 and edit any other cell — row 29 must stay empty
+  (no backfill);
+  (6) try setting a border point on **Gapy Satyş** (no country) — it is refused.
+- [ ] 2026-09-23 — Gapy-Satyş driver assignment: passport series + issue date, 2 drivers, ordering gate before document handover — NEEDS TEST
+  To test: (1) create/open a shipment with **Gapy satys = Yes**, open the Sheet, click the **Driver
+  name** cell: a popup opens (not plain text) asking name, phone, passport series, passport date,
+  and the same 4 fields for a second driver; (2) fill name + passport series + date only (leave
+  phone blank), click Done — the **My tasks** "Assign driver" task for that shipment (document_team)
+  auto-completes; (3) on a fresh Gapy shipment, try to mark "Hand over documents" done from My tasks
+  BEFORE assigning a driver — rejected (400); assign the driver first, then it succeeds; (4)
+  generate the CMR or TIR carnet for that shipment — the passport prints without the generate-time
+  dialog asking for it; (5) confirm nothing changed for a non-Gapy shipment: Driver name cell still
+  opens the fleet picker, no passport fields anywhere. `python manage.py test apps.export.tests_task_api apps.contracts.tests.test_document_generation` — all pass (9 new backend
+  cases); frontend `npx vitest run src/components/sheet/SheetGapyDriverEditor.test.tsx` — 7/7 pass.
 
 - [ ] 2026-09-25 — Gaplama truck form: per-date leftover picking removed — at most two rows per block now (today's own plan + one collapsed leftover row, its age the oldest live bucket's); leftover row loads with a null harvest_date; editing a truck with pre-existing dated leftover rows folds them into the one leftover row, summed — NEEDS TEST
   To test: (1) open + Tır Aç on a block that has both a live carry-in leftover AND a plan for
@@ -130,6 +199,7 @@
   reset to the second truck's own values each time, never carrying over the previous truck's
   in-progress edit.
 - [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
+- [x] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — TESTED
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
   (3) leave it empty, finish every other draft task incl. documents_status = ready — the draft must NOT advance

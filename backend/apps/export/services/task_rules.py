@@ -34,6 +34,7 @@ from datetime import datetime, time, timedelta
 from typing import Iterable
 from zoneinfo import ZoneInfo
 
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.export.models import Task, TaskRule, TaskState, TaskCompletionRule
@@ -156,6 +157,26 @@ def _condition_matches(rule: TaskRule, shipment) -> bool:
     return str(actual) == rule.condition_value
 
 
+UNIQUE_RULE_TASK = 'export_task_one_per_shipment_rule'
+
+
+def create_rule_task(**fields) -> Task | None:
+    """Create a rule's Task, or return None if it already exists.
+
+    The generators check for an existing task and then create one; a
+    concurrent request can pass the same check. The unique constraint on
+    (shipment, rule) refuses the second insert, and the savepoint keeps the
+    caller's transaction usable after it.
+    """
+    try:
+        with transaction.atomic():
+            return Task.objects.create(**fields)
+    except IntegrityError as exc:
+        if UNIQUE_RULE_TASK not in str(exc):
+            raise
+        return None
+
+
 def generate_tasks_for_status(
     shipment,
     new_status_code: str,
@@ -199,7 +220,7 @@ def generate_tasks_for_status(
         if not _condition_matches(rule, shipment):
             continue
         deadline = parse_deadline_rule(rule.deadline_rule, reference=now)
-        task = Task.objects.create(
+        task = create_rule_task(
             shipment=shipment,
             step=new_status_code,
             rule=rule,
@@ -212,7 +233,8 @@ def generate_tasks_for_status(
             deadline_rule=rule.deadline_rule,
             state=TaskState.OPEN,
         )
-        created.append(task)
+        if task is not None:
+            created.append(task)
 
     if created:
         logger.info(
@@ -226,6 +248,390 @@ def generate_tasks_for_status(
         resolve_for_shipment(shipment)
 
     return created
+
+
+_ACTIVE_TASK_STATES = (TaskState.OPEN, TaskState.IN_PROGRESS, TaskState.BLOCKED)
+
+
+def _empty_reconcile_result() -> dict:
+    return {'created': [], 'cancelled': [], 'reopened': []}
+
+
+def reconcile_shipment_tasks(
+    shipment,
+    changed_fields: Iterable[str] | None = None,
+    steps: Iterable[str] | None = None,
+    create_missing: bool = True,
+    active_rules: list | None = None,
+) -> dict:
+    """Re-decide which Tasks should exist for this shipment, and why.
+
+    Tasks are generated once, at step entry, from the rules whose condition
+    matched the shipment at that moment. But a condition field
+    (is_gapy_satys, has_peregruz) is edited on the Sheet long after step entry.
+    This function closes that gap.
+
+    **Scope is conditioned rules only, and only the ones whose condition field
+    the caller actually wrote.** An unconditional rule cannot have been affected
+    by a condition change, and neither can a rule keyed on a field nobody
+    touched. Without that filter this function is `backfill_tasks` with no
+    opt-out: it would emit a Task for every active rule with no row, which is
+    exactly what the 2026-09-23 `tasks.set_border_point` decision forbids (see
+    the comment in seed_task_rules.py — the 69 non-gapy drafts open when that
+    gating rule shipped must stay unblocked).
+
+    Per active rule in scope, exactly one outcome:
+      - matches, no Task for (shipment, rule)              -> create
+      - matches, Task CANCELLED with reason rule_mismatch  -> reopen
+      - does not match, Task OPEN/IN_PROGRESS/BLOCKED      -> cancel
+      - Task DONE                                          -> untouched
+      - Task CANCELLED for any other reason                -> untouched
+
+    DONE is untouched on purpose: the work really was done and the person keeps
+    the KPI credit. A task a human cancelled, or one cancelled because the
+    shipment was cancelled, is never resurrected — that is what
+    cancelled_reason is for.
+
+    This function NEVER calls auto_advance_if_ready(). Cancelling the last open
+    auto-task at a step makes that step eligible (is_step_trigger_satisfied
+    counts only OPEN/IN_PROGRESS), and advancing from here would let a checkbox
+    move a truck, cascading through every pre-satisfied step in one save. The
+    shipment advances on its next ordinary save instead, through the normal
+    gate. It does call resolve_for_shipment() when it created or reopened
+    anything, so a task whose targets are already filled closes immediately
+    rather than sitting OPEN — the same courtesy generate_tasks_for_status()
+    extends.
+
+    Args:
+        shipment: Shipment instance with a PK.
+        changed_fields: Field keys the caller just wrote. When given, the
+            function returns an empty result unless at least one active rule
+            conditions on one of them — so an ordinary weight or date PATCH
+            costs one small query and no writes. None means "reconcile
+            regardless of what changed".
+        active_rules: Pre-fetched active TaskRule rows. Supplied by the bulk
+            path so the 24-row rule table is read once instead of once per
+            shipment — the same N+1 escape generate_tasks_for_status offers.
+            Callers MUST pre-filter to is_active=True themselves.
+        create_missing: When False, never emit a Task for a matching rule that
+            has no row — only cancel and reopen. The bulk repair path passes
+            False by default so a routine `reconcile_tasks` run can never
+            retroactively gate a shipment. Per-shipment PATCHes pass True: a
+            deliberate edit to one shipment SHOULD give it the task its new
+            state calls for.
+        steps: Status codes whose rules to consider. None means every step that
+            has a non-terminal task on this shipment, plus the shipment's
+            current step. Scoping to the current step alone would miss
+            long-lived earlier-step tasks (tasks.submit_sales_report is created
+            at yola_chykdy and lives for days past it).
+
+    Returns:
+        {'created': [...], 'cancelled': [...], 'reopened': [...]} of Task
+        instances, so the caller can build a notification without a second
+        query.
+    """
+    from apps.export.models import TaskCancelReason
+
+    # THE GATE COMES FIRST, and it is one small query. This function runs on
+    # every Sheet cell edit — the hottest path in the product, used by people on
+    # public networks — and the overwhelming majority of those edits touch no
+    # condition field at all. The season check and the full rule load are paid
+    # only once the gate has let us through. (When active_rules is supplied by
+    # the bulk path, the gate costs nothing at all.)
+    if changed_fields is not None:
+        if active_rules is not None:
+            condition_fields = {r.condition_field for r in active_rules if r.condition_field}
+        else:
+            condition_fields = set(
+                TaskRule.objects
+                .filter(is_active=True)
+                .exclude(condition_field='')
+                .values_list('condition_field', flat=True)
+                .distinct()
+            )
+        if not condition_fields.intersection(set(changed_fields)):
+            return _empty_reconcile_result()
+
+    # Closed seasons are frozen (D1).
+    if shipment.season_id and shipment.season.closed_at is not None:
+        return _empty_reconcile_result()
+
+    if active_rules is None:
+        active_rules = list(TaskRule.objects.filter(is_active=True))
+    if not active_rules:
+        return _empty_reconcile_result()
+
+    if steps is None:
+        step_set = set(
+            shipment.tasks
+            .filter(state__in=_ACTIVE_TASK_STATES)
+            .values_list('step', flat=True)
+        )
+        if shipment.status_id:
+            step_set.add(shipment.status.code)
+    else:
+        step_set = set(steps)
+
+    # Conditioned rules only — an unconditional rule is not a condition
+    # question. And when the caller told us what changed, only the rules keyed
+    # on one of those fields. See the Scope paragraph in the docstring.
+    rules = [
+        r for r in active_rules
+        if r.step in step_set and r.condition_field
+    ]
+    if changed_fields is not None:
+        changed = set(changed_fields)
+        rules = [r for r in rules if r.condition_field in changed]
+    if not rules:
+        return _empty_reconcile_result()
+
+    # At most one Task per (shipment, rule) — the export_task_one_per_shipment_rule
+    # constraint enforces it (migration 0080). Order by id anyway so rows from
+    # before the constraint resolve deterministically.
+    tasks_by_rule: dict[int, Task] = {
+        task.rule_id: task
+        for task in shipment.tasks.filter(
+            rule_id__in=[r.id for r in rules]
+        ).order_by('id')
+    }
+
+    now = timezone.now()
+    created: list[Task] = []
+    cancelled: list[Task] = []
+    reopened: list[Task] = []
+
+    for rule in rules:
+        task = tasks_by_rule.get(rule.id)
+        matches = _condition_matches(rule, shipment)
+
+        if matches:
+            if task is None:
+                if not create_missing:
+                    continue
+                task = create_rule_task(
+                    shipment=shipment,
+                    step=rule.step,
+                    rule=rule,
+                    title_key=rule.title_key,
+                    assignee_role=rule.assignee_role,
+                    target_fields=rule.target_fields,
+                    completion_rule=rule.completion_rule,
+                    target_value=rule.target_value,
+                    deadline=parse_deadline_rule(rule.deadline_rule, reference=now),
+                    deadline_rule=rule.deadline_rule,
+                    state=TaskState.OPEN,
+                )
+                if task is not None:
+                    created.append(task)
+            elif (
+                task.state == TaskState.CANCELLED
+                and task.cancelled_reason == TaskCancelReason.RULE_MISMATCH
+            ):
+                # Recompute the deadline from now and clear started_at. A task
+                # cancelled days ago would otherwise come back already overdue,
+                # putting work nobody could have done on the overdue board and
+                # the owning role's KPI. Created tasks get a fresh deadline
+                # (above), so this keeps the two branches consistent.
+                task.state = TaskState.OPEN
+                task.cancelled_reason = ''
+                task.deadline = parse_deadline_rule(task.deadline_rule, reference=now)
+                task.started_at = None
+                task.save(update_fields=[
+                    'state', 'cancelled_reason', 'deadline', 'started_at',
+                ])
+                reopened.append(task)
+        elif task is not None and task.state in _ACTIVE_TASK_STATES:
+            task.state = TaskState.CANCELLED
+            task.cancelled_reason = TaskCancelReason.RULE_MISMATCH
+            task.save(update_fields=['state', 'cancelled_reason'])
+            cancelled.append(task)
+
+    # Per step, not globally: a step can lose its last open auto-task while a
+    # different step gains one, and a MANUAL_DONE replacement at the SAME step
+    # does not restore a gate either, because is_step_trigger_satisfied excludes
+    # MANUAL_DONE. Guarding on `cancelled and not created` missed both cases.
+    for step in sorted({t.step for t in cancelled}):
+        still_gated = (
+            shipment.tasks
+            .filter(step=step, state__in=(TaskState.OPEN, TaskState.IN_PROGRESS))
+            .exclude(completion_rule=TaskCompletionRule.MANUAL_DONE)
+            .exists()
+        )
+        if not still_gated:
+            logger.warning(
+                'reconcile_shipment_tasks: shipment %s: step %s has no open '
+                'auto-task left after this reconcile, so it may now be '
+                'auto-advance eligible on the next ordinary save',
+                shipment.shipment_code, step,
+            )
+
+    if created or reopened:
+        # Close anything whose targets are already filled. Deliberately NOT
+        # auto_advance_if_ready — see the docstring.
+        resolve_for_shipment(shipment)
+        for task in created + reopened:
+            task.refresh_from_db()
+
+    if created or cancelled or reopened:
+        logger.info(
+            'reconcile_shipment_tasks: shipment %s: created %d, cancelled %d, reopened %d',
+            shipment.shipment_code, len(created), len(cancelled), len(reopened),
+        )
+
+    return {'created': created, 'cancelled': cancelled, 'reopened': reopened}
+
+
+def reconcile_conditions_for_shipments(
+    shipments=None,
+    dry_run: bool = False,
+    create_missing: bool = False,
+) -> dict:
+    """Run the condition pass across many shipments, with a dry-run mode.
+
+    The bulk counterpart to reconcile_shipment_tasks, used by the
+    reconcile_tasks command to repair shipments whose condition fields were
+    edited before that function existed. Deliberately an explicit operator
+    action: cancelling a stale task can leave a step auto-advance eligible, so
+    this is something a human runs after reading a dry run, not something a
+    Sheet edit triggers en masse.
+
+    dry_run computes the plan by reading the same rule/task state through
+    _plan_condition_changes and never calling the mutator.
+
+    Args:
+        shipments: Optional iterable of Shipment instances. None means every
+            shipment in an open season that has at least one non-terminal task.
+            A shipment with no tasks at all is only reconciled when passed
+            explicitly — a full-table sweep creating tasks for every historical
+            row is not what an operator asked for.
+        dry_run: When True, report what would change and write nothing.
+        create_missing: **Defaults to False.** A routine repair run cancels the
+            tasks a condition change stranded but never emits new ones — that is
+            what keeps `reconcile_tasks` a mutator, as the 2026-09-23
+            `tasks.set_border_point` decision requires (emitting would gate the
+            69 legacy non-gapy drafts on a rule they were deliberately exempted
+            from). Pass True, or `--create-missing` on the command, to opt in.
+
+    Returns:
+        {'created': int, 'cancelled': int, 'reopened': int,
+         'shipments_scanned': int, 'changes': list[dict]} where each change is
+        {'shipment_code': str, 'title_key': str, 'action': str}.
+    """
+    from apps.export.models import Shipment
+
+    if shipments is None:
+        shipment_ids = (
+            Task.objects
+            .filter(state__in=_ACTIVE_TASK_STATES, rule__isnull=False)
+            .filter(shipment__season__closed_at__isnull=True)
+            .values_list('shipment_id', flat=True)
+            .distinct()
+        )
+        # NOT list(shipment_ids): a materialised list becomes one IN parameter
+        # per shipment, and mssql-django caps a statement at 2100. Passing the
+        # queryset makes Django emit a subquery instead. Task has no
+        # Meta.ordering, so no derived-table ORDER BY is inherited.
+        candidates = list(
+            Shipment.objects
+            .filter(pk__in=shipment_ids)
+            .select_related('status', 'season')
+        )
+    else:
+        candidates = [s for s in shipments if s.season.closed_at is None]
+
+    totals = {'created': 0, 'cancelled': 0, 'reopened': 0}
+    changes: list[dict] = []
+
+    # Load the (24-row) rule table ONCE. Without this every iteration re-ran
+    # list(TaskRule.objects.filter(is_active=True)) — the same N+1
+    # generate_tasks_for_status already solved with its `rules=` parameter.
+    active_rules = list(TaskRule.objects.filter(is_active=True))
+
+    for shipment in candidates:
+        if dry_run:
+            plan = _plan_condition_changes(
+                shipment, active_rules=active_rules, create_missing=create_missing,
+            )
+        else:
+            result = reconcile_shipment_tasks(
+                shipment, active_rules=active_rules, create_missing=create_missing,
+            )
+            plan = {
+                key: [(t.title_key, key) for t in result[key]]
+                for key in ('created', 'cancelled', 'reopened')
+            }
+
+        for action in ('created', 'cancelled', 'reopened'):
+            entries = plan.get(action, [])
+            totals[action] += len(entries)
+            for title_key, _action in entries:
+                changes.append({
+                    'shipment_code': shipment.shipment_code,
+                    'title_key': title_key,
+                    'action': action,
+                })
+
+    logger.info(
+        'reconcile_conditions_for_shipments: scanned %d shipment(s): '
+        'created %d, cancelled %d, reopened %d%s',
+        len(candidates), totals['created'], totals['cancelled'],
+        totals['reopened'], ' (dry run)' if dry_run else '',
+    )
+    return {**totals, 'shipments_scanned': len(candidates), 'changes': changes}
+
+
+def _plan_condition_changes(
+    shipment,
+    active_rules: list | None = None,
+    create_missing: bool = False,
+) -> dict:
+    """Read-only twin of reconcile_shipment_tasks's decision loop.
+
+    Returns the same shape the mutating path reports, as
+    {action: [(title_key, action), ...]}, without writing. Kept next to
+    reconcile_shipment_tasks so the two decision loops stay in step;
+    test_dry_run_plan_matches_the_real_run asserts they agree.
+    """
+    from apps.export.models import TaskCancelReason
+
+    if shipment.season_id and shipment.season.closed_at is not None:
+        return {'created': [], 'cancelled': [], 'reopened': []}
+
+    if active_rules is None:
+        active_rules = list(TaskRule.objects.filter(is_active=True))
+    step_set = set(
+        shipment.tasks
+        .filter(state__in=_ACTIVE_TASK_STATES)
+        .values_list('step', flat=True)
+    )
+    if shipment.status_id:
+        step_set.add(shipment.status.code)
+    # Same scope as reconcile_shipment_tasks: conditioned rules only.
+    rules = [r for r in active_rules if r.step in step_set and r.condition_field]
+
+    tasks_by_rule = {
+        task.rule_id: task
+        for task in shipment.tasks.filter(
+            rule_id__in=[r.id for r in rules]
+        ).order_by('id')
+    }
+
+    plan: dict = {'created': [], 'cancelled': [], 'reopened': []}
+    for rule in rules:
+        task = tasks_by_rule.get(rule.id)
+        matches = _condition_matches(rule, shipment)
+        if matches:
+            if task is None:
+                if create_missing:
+                    plan['created'].append((rule.title_key, 'created'))
+            elif (
+                task.state == TaskState.CANCELLED
+                and task.cancelled_reason == TaskCancelReason.RULE_MISMATCH
+            ):
+                plan['reopened'].append((task.title_key, 'reopened'))
+        elif task is not None and task.state in _ACTIVE_TASK_STATES:
+            plan['cancelled'].append((task.title_key, 'cancelled'))
+    return plan
 
 
 def _resolve_value(shipment, dotted_path: str):

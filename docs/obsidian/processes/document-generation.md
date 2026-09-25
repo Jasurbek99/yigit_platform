@@ -559,13 +559,41 @@ is a routine fallback, not an edge case. Filling the Sheet column is the real fi
 | Printed as | Source |
 |---|---|
 | CMR № (`G12`) | Typed at generate time (`cmr_number`). |
-| Driver passports (`C5`, `D5`) | `transport.Driver.passport_serial`, falling back to the typed `driver_passport` / `driver_2_passport`. **Every driver on record currently has a blank passport**, so the typed value is what normally prints. |
+| Driver passports (`C5`, `D5`) | `transport.Driver.passport_serial` first, then the persisted `Shipment.driver_passport_serial`/`driver_2_passport_serial` (Gapy-Satyş — see below), then the typed `driver_passport` / `driver_2_passport` override as a last resort. |
 
 Reading `passport_serial` is why `backend/CLAUDE.md` now records that `contracts/`
 may **read** `transport/` reference rows. The two apps are otherwise siblings in the
 dependency graph; this is the single documented exception, read-only, and it exists
 because the passport lives on `transport.Driver` and nowhere else. The longer-term
 fix is to fill those passports in, after which nothing needs typing.
+
+### Gapy-Satyş driver passports (2026-09-23)
+
+A Gapy-Satyş shipment has no fleet driver at all (`driver_id`/`driver_2_id` stay
+`NULL` — HARD RULE, see [[../screens/shipment-sheet#`driver_name` — Gapy-Satyş free-text overlay (2026-09-23)|shipment-sheet.md]]),
+so the fleet tier of `_driver_passports()` is always empty for them and the typed
+generate-time override used to be the only path — meaning the passport had to be
+re-typed into the CMR/TIR dialog **every single time** a document was generated.
+`Shipment.driver_passport_serial` / `driver_passport_issue_date` (and the
+`driver_2_*` pair) are new plain columns — never linked into `transport.Driver`,
+which stays fleet-only — captured once via the `driver_name` cell's Gapy overlay
+(`SheetGapyDriverEditor.tsx`) and read automatically from then on.
+
+`_driver_passports()` builds its two-slot result as **parallel per-slot lists**,
+never an id-keyed dict: a Gapy shipment has `driver_id = driver_2_id = None` for
+both slots, and a dict keyed on that would collapse both drivers onto one entry.
+Priority per slot: fleet record → persisted `Shipment` field → typed override.
+
+The `tasks.assign_driver` rule for Gapy shipments (`apps/export/management/commands/seed_task_rules.py`)
+requires `driver_name`, `truck_plate`, `driver_passport_serial` and
+`driver_passport_issue_date` to auto-resolve — `driver_phone` is deliberately not
+required, since it is contact info never printed on a document. A shipment's
+`tasks.give_documents_gapy` task cannot be marked done while that shipment's
+`tasks.assign_driver` task is still open (`TaskViewSet.complete`, `apps/export/views.py`)
+— documents cannot be handed to a driver nobody has identified yet. The gate fails
+open (allows completion) when no `assign_driver` task exists at all or it is
+cancelled, so a legacy shipment predating this rule can never get permanently
+stuck.
 
 ### Frontend
 

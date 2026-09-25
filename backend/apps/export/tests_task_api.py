@@ -643,6 +643,145 @@ class TaskCompleteActionTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Gapy-Satys ordering gate: documents cannot be handed over before a driver
+# is assigned (see backend/apps/export/views.py TaskViewSet.complete)
+# ---------------------------------------------------------------------------
+
+class GapyDocumentsOrderingGateTests(TestCase):
+    """POST /api/v1/export/tasks/{id}/complete/ on tasks.give_documents_gapy
+    must not succeed while the shipment's tasks.assign_driver task is still
+    open — a driver must be identified before documents can be handed over."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.doc_user = _make_user('gapy_doc', 'document_team')
+        cls.shipment = _make_shipment('GAPY001')
+        cls.shipment.is_gapy_satys = True
+        cls.shipment.save(update_fields=['is_gapy_satys'])
+
+    def _make_give_documents_task(self) -> Task:
+        return Task.objects.create(
+            shipment=self.shipment,
+            step='draft',
+            title_key='tasks.give_documents_gapy',
+            assignee_role='document_team',
+            completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.OPEN,
+        )
+
+    def _make_assign_driver_task(self, state=TaskState.OPEN) -> Task:
+        return Task.objects.create(
+            shipment=self.shipment,
+            step='draft',
+            title_key='tasks.assign_driver',
+            assignee_role='document_team',
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+            target_fields='driver_name,truck_plate,driver_passport_serial,driver_passport_issue_date',
+            state=state,
+        )
+
+    def test_blocked_while_assign_driver_is_open(self) -> None:
+        self._make_assign_driver_task(state=TaskState.OPEN)
+        docs_task = self._make_give_documents_task()
+        client = APIClient()
+        _auth(client, self.doc_user)
+        resp = client.post(f'/api/v1/export/tasks/{docs_task.pk}/complete/')
+        self.assertEqual(resp.status_code, 400)
+        docs_task.refresh_from_db()
+        self.assertEqual(docs_task.state, TaskState.OPEN)
+
+    def test_allowed_once_assign_driver_is_done(self) -> None:
+        self._make_assign_driver_task(state=TaskState.DONE)
+        docs_task = self._make_give_documents_task()
+        client = APIClient()
+        _auth(client, self.doc_user)
+        resp = client.post(f'/api/v1/export/tasks/{docs_task.pk}/complete/')
+        self.assertEqual(resp.status_code, 200)
+        docs_task.refresh_from_db()
+        self.assertEqual(docs_task.state, TaskState.DONE)
+
+    def test_allowed_when_no_assign_driver_task_exists(self) -> None:
+        """Fails OPEN, not closed: a legacy shipment or a season that never
+        ran reconcile_tasks must not be permanently stuck."""
+        docs_task = self._make_give_documents_task()
+        client = APIClient()
+        _auth(client, self.doc_user)
+        resp = client.post(f'/api/v1/export/tasks/{docs_task.pk}/complete/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_allowed_when_assign_driver_task_is_cancelled(self) -> None:
+        self._make_assign_driver_task(state=TaskState.CANCELLED)
+        docs_task = self._make_give_documents_task()
+        client = APIClient()
+        _auth(client, self.doc_user)
+        resp = client.post(f'/api/v1/export/tasks/{docs_task.pk}/complete/')
+        self.assertEqual(resp.status_code, 200)
+
+    def test_non_gapy_manual_done_tasks_are_unaffected(self) -> None:
+        """The gate only fires for title_key == tasks.give_documents_gapy."""
+        self._make_assign_driver_task(state=TaskState.OPEN)
+        other_task = Task.objects.create(
+            shipment=self.shipment,
+            step='draft',
+            title_key='tasks.give_documents',
+            assignee_role='transport',
+            completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.OPEN,
+        )
+        client = APIClient()
+        _auth(client, _make_user('gapy_transport', 'transport'))
+        resp = client.post(f'/api/v1/export/tasks/{other_task.pk}/complete/')
+        self.assertEqual(resp.status_code, 200)
+
+
+# ---------------------------------------------------------------------------
+# Gapy-Satys assign_driver: passport required, phone not
+# ---------------------------------------------------------------------------
+
+class GapyAssignDriverCompletionTests(TestCase):
+    """The is_gapy_satys=True tasks.assign_driver rule requires driver_name,
+    truck_plate and both passport fields — but NOT driver_phone, which is
+    contact info only (see seed_task_rules.py)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.shipment = _make_shipment('GAPY002')
+        cls.shipment.is_gapy_satys = True
+        cls.shipment.save(update_fields=['is_gapy_satys'])
+
+    def _make_task(self) -> Task:
+        return Task.objects.create(
+            shipment=self.shipment,
+            step='draft',
+            title_key='tasks.assign_driver',
+            assignee_role='document_team',
+            completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED,
+            target_fields='driver_name,truck_plate,driver_passport_serial,driver_passport_issue_date',
+            state=TaskState.OPEN,
+        )
+
+    def test_resolves_without_phone(self) -> None:
+        task = self._make_task()
+        self.shipment.driver_name = 'Amanmyrat A.'
+        self.shipment.truck_plate = '12 AB 3456'
+        self.shipment.driver_passport_serial = 'AA1234567'
+        self.shipment.driver_passport_issue_date = '2020-01-01'
+        self.shipment.driver_phone = None
+        self.shipment.save()
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.DONE)
+
+    def test_stays_open_without_passport(self) -> None:
+        task = self._make_task()
+        self.shipment.driver_name = 'Amanmyrat A.'
+        self.shipment.truck_plate = '12 AB 3456'
+        self.shipment.driver_phone = '+99361234567'
+        self.shipment.save()
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.OPEN)
+
+
+# ---------------------------------------------------------------------------
 # Cancel action
 # ---------------------------------------------------------------------------
 

@@ -49,6 +49,19 @@ class TruckDestination(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def country_border_point(self):
+        """The destination country's default border crossing ("serhet nokady").
+
+        Stored on Country, not here: a shipment references `country`, and this
+        table may hold two rows for one country (and country=NULL rows like
+        Gapy Satys), so it could not answer "which crossing for this truck?".
+        Surfaced as a property because the Truck Destinations admin page is
+        where the value is managed. Editing it from one row therefore changes
+        it for every destination sharing that country.
+        """
+        return self.country.border_point if self.country_id else None
+
 
 class ShipmentStatusType(models.Model):
     """13-step shipment lifecycle status definitions.

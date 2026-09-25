@@ -310,6 +310,13 @@ export interface IShipmentListItem {
   truck_plate_2: string | null;
   driver_2_name: string | null;
   driver_2_phone: string | null;
+  // Gapy-Satys driver passports — no field_key of their own, written via the
+  // driver_name cell's gapy overlay. Never linked to the transport.Driver
+  // fleet table.
+  driver_passport_serial: string | null;
+  driver_passport_issue_date: string | null;
+  driver_2_passport_serial: string | null;
+  driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
   has_peregruz: boolean;
@@ -442,6 +449,13 @@ export interface IShipmentSheetItem {
   driver_2_id: number | null;
   driver_2_name: string | null;
   driver_2_phone: string | null;
+  // Gapy-Satys driver passports — no field_key of their own, written via the
+  // driver_name cell's gapy overlay. Never linked to the transport.Driver
+  // fleet table.
+  driver_passport_serial: string | null;
+  driver_passport_issue_date: string | null;
+  driver_2_passport_serial: string | null;
+  driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
   has_peregruz: boolean;
@@ -1308,6 +1322,9 @@ export interface ITruckDestination {
   name: string;
   country: number | null;
   country_name: string | null;
+  /** "Serhet nokady" — stored on the country, edited from this page. */
+  border_point: number | null;
+  border_point_name: string | null;
   sort_order: number;
   is_active: boolean;
   is_default: boolean;
@@ -1606,7 +1623,7 @@ export interface IAdminUser {
 
 export interface INotification {
   id: number;
-  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary';
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'tasks_changed' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary';
   message: string;
   link: string | null;
   read_at: string | null;

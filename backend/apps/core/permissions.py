@@ -82,6 +82,14 @@ _REVERSE_FIELD_DELEGATES: dict[str, str] = {
     'driver_2_id': 'driver_name',
     'driver_2_name': 'driver_name',
     'driver_2_phone': 'driver_phone',
+    # Gapy-Satys driver passports (2026-09-23) — written by the same driver_name
+    # cell's gapy overlay, no row of their own. Routed to driver_name rather than
+    # split like driver_2_phone: passport fields have no pre-existing row with
+    # its own comment thread/history to preserve, so there is no reason to split.
+    'driver_passport_serial': 'driver_name',
+    'driver_passport_issue_date': 'driver_name',
+    'driver_2_passport_serial': 'driver_name',
+    'driver_2_passport_issue_date': 'driver_name',
     'truck_head_id': 'truck_plate',
     'trailer_id': 'truck_plate',
     'truck_head_2_id': 'truck_plate',

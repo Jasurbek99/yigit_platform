@@ -12,11 +12,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
  * Select dropdowns use.
  *
  * Both dismissal paths deliberately ignore anything inside
- * `.ant-select-dropdown`. Those dropdowns are portaled to `document.body`
- * too (NOT overridden via `getPopupContainer`, since the grid would clip
- * them), so by DOM containment they are "outside" the panel. Without the
- * exclusion, clicking an option or scrolling a long option list would
- * dismiss the editor mid-pick.
+ * `.ant-select-dropdown` or `.ant-picker-dropdown`. Those popups are portaled
+ * to `document.body` too (NOT overridden via `getPopupContainer`, since the
+ * grid would clip them), so by DOM containment they are "outside" the panel.
+ * Without the exclusion, clicking an option, a calendar day, or scrolling a
+ * long option list would dismiss the editor mid-pick.
  *
  * Scrolling re-anchors rather than dismisses: the panel is `position: fixed`
  * and does not ride the grid's scroll container, so it would otherwise be
@@ -96,7 +96,7 @@ export function useAnchoredCellPanel(onDismiss: () => void) {
  */
 function isInsideDropdown(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
-  return Boolean(el?.closest?.('.ant-select-dropdown'));
+  return Boolean(el?.closest?.('.ant-select-dropdown') || el?.closest?.('.ant-picker-dropdown'));
 }
 
 /**

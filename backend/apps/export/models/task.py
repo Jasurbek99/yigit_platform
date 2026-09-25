@@ -45,6 +45,22 @@ class TaskState(models.TextChoices):
     CANCELLED   = 'cancelled',   _('Cancelled')
 
 
+class TaskCancelReason(models.TextChoices):
+    """Why a Task was cancelled.
+
+    Distinguishes a human's decision from the engine's. RULE_MISMATCH is the
+    only value reconcile_shipment_tasks() will reopen — a task a person
+    cancelled by hand, or one cancelled because its shipment was cancelled,
+    stays cancelled forever. RULE_DEACTIVATED is written by the rule editor
+    (a later spec), never by the reconciler; it is defined here so both specs
+    share one column definition.
+    """
+    MANUAL             = 'manual',             _('Cancelled by a user')
+    SHIPMENT_CANCELLED = 'shipment_cancelled', _('Shipment was cancelled')
+    RULE_MISMATCH      = 'rule_mismatch',      _('Rule no longer applies')
+    RULE_DEACTIVATED   = 'rule_deactivated',   _('Rule was deactivated')
+
+
 class TaskRule(models.Model):
     """A recipe for generating Tasks when a Shipment enters a status."""
 
@@ -185,6 +201,13 @@ class Task(models.Model):
         'self', symmetrical=False, blank=True, related_name='blocking',
         help_text='Tasks that must complete before this one can be worked on',
     )
+    cancelled_reason = models.CharField(
+        max_length=24, blank=True, default='',
+        choices=TaskCancelReason.choices,
+        help_text="Why this task was cancelled; blank on tasks that were never "
+                  "cancelled and on rows cancelled before 2026-09 (unknown, "
+                  "not 'manual').",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     started_at = models.DateTimeField(null=True, blank=True)
@@ -196,6 +219,16 @@ class Task(models.Model):
             models.Index(fields=['shipment', 'state'], name='export_task_shipmen_e7db76_idx'),
             models.Index(fields=['assignee_role', 'state'], name='export_task_assigne_250b44_idx'),
             models.Index(fields=['state', 'deadline'], name='export_task_state_577027_idx'),
+        ]
+        # One Task per (shipment, rule): the generators check-then-create, and
+        # two concurrent requests could otherwise both insert. Ad-hoc and
+        # weekly tasks (rule or shipment null) are not rule tasks.
+        constraints = [
+            models.UniqueConstraint(
+                fields=['shipment', 'rule'],
+                condition=models.Q(shipment__isnull=False, rule__isnull=False),
+                name='export_task_one_per_shipment_rule',
+            ),
         ]
 
     def __str__(self) -> str:

@@ -228,6 +228,11 @@ The above describes *ad-hoc* tasks created manually via a comment's assignee fie
   [[../screens/team-kpi|Team KPI leaderboard]] (`/team/kpi`).
 - `deadline` — absolute datetime computed from `deadline_rule` at task creation time
 
+**Two things create shipment Tasks, not one:** `generate_tasks_for_status()` on step
+entry, and `reconcile_shipment_tasks()` when a condition field changes on a shipment
+that is already in a step. Anything that assumes tasks appear only on step entry is
+wrong as of 2026-09-24. See [[../reference/task-rules#Condition re-evaluation]].
+
 ### Engine entry points (in `apps/export/services/task_rules.py`)
 
 | Function | Called from | Purpose |
@@ -235,6 +240,8 @@ The above describes *ad-hoc* tasks created manually via a comment's assignee fie
 | `generate_tasks_for_status(shipment, status_code)` | `transition_to()` after status log write | Creates tasks for the new status (idempotent) |
 | `resolve_for_shipment(shipment)` | `Shipment.save()` override | Auto-marks tasks DONE when completion rule met |
 | `mark_started_for_changed_fields(shipment, keys)` | `ShipmentViewSet.partial_update` after save | Sets `started_at` + `IN_PROGRESS` on tasks whose `target_fields` overlap the patched field set |
+| `reconcile_shipment_tasks(shipment, changed_fields, steps)` | `ShipmentViewSet.partial_update`, inside its `atomic()` block | Re-decides WHICH tasks apply after a condition field (`is_gapy_satys`, `has_peregruz`) changed. Never auto-advances. |
+| `reconcile_conditions_for_shipments(shipments, dry_run)` | `reconcile_tasks` command, second pass | The bulk form, for repairing shipments stranded before the above existed |
 | `parse_deadline_rule(rule, reference)` | `generate_tasks_for_status` | Converts grammar string to absolute `datetime` |
 
 ### Deadline grammar
@@ -247,7 +254,7 @@ The above describes *ad-hoc* tasks created manually via a comment's assignee fie
 | `'Nh_after_status'` | N hours after status change (e.g. `4h_after_status`) |
 | `'friday_eow'` | Coming Friday 18:00 Asia/Ashgabat (same day if already Friday) |
 
-### Initial seed (13 rules)
+### Initial seed (24 rules)
 
 Run once per environment: `python manage.py seed_task_rules`. Idempotent.
 

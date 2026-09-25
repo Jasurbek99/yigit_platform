@@ -21,6 +21,7 @@ import {
   useUpdateTruckDestination,
   useDeleteTruckDestination,
   useCountries,
+  useBorderPoints,
 } from '@/hooks/useAdmin';
 import type { ITruckDestination } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +34,7 @@ export default function TruckDestinationsPage() {
   const { user } = useAuth();
   const { data: destinations = [], isLoading } = useAdminTruckDestinations();
   const { data: countries = [] } = useCountries();
+  const { data: borderPoints = [] } = useBorderPoints();
   const createDest = useCreateTruckDestination({
     onSuccess: () => {
       toast.success(t('truck_dest_admin.toast_created'));
@@ -68,6 +70,7 @@ export default function TruckDestinationsPage() {
     form.setFieldsValue({
       name: record.name,
       country: record.country,
+      border_point: record.border_point,
       sort_order: record.sort_order,
       is_active: record.is_active,
       is_default: record.is_default,
@@ -75,7 +78,7 @@ export default function TruckDestinationsPage() {
     setModalOpen(true);
   }
 
-  function handleSubmit(values: { name: string; country?: number | null; sort_order?: number; is_active?: boolean; is_default?: boolean }) {
+  function handleSubmit(values: { name: string; country?: number | null; border_point?: number | null; sort_order?: number; is_active?: boolean; is_default?: boolean }) {
     if (editTarget) {
       updateDest.mutate({ id: editTarget.id, ...values });
     } else {
@@ -95,6 +98,10 @@ export default function TruckDestinationsPage() {
     label: c.name_en || c.name_tk,
   }));
 
+  const borderPointOptions = borderPoints
+    .filter((b) => b.is_active)
+    .map((b) => ({ value: b.id, label: b.name }));
+
   // Reference data (customers, cities, countries, status types) is gated
   // server-side by REFERENCE_DATA_WRITE alone — it has no permission-matrix
   // resource, so canDo cannot express it. The boss's 2026-08-05 CRUD grant does
@@ -112,6 +119,12 @@ export default function TruckDestinationsPage() {
       title: t('truck_dest_admin.country'),
       dataIndex: 'country_name',
       key: 'country_name',
+      render: (text: string | null) => text || <Text type="secondary">—</Text>,
+    },
+    {
+      title: t('truck_dest_admin.border_point'),
+      dataIndex: 'border_point_name',
+      key: 'border_point_name',
       render: (text: string | null) => text || <Text type="secondary">—</Text>,
     },
     {
@@ -204,6 +217,19 @@ export default function TruckDestinationsPage() {
               showSearch
               optionFilterProp="label"
               placeholder={t('truck_dest_admin.country_placeholder')}
+            />
+          </Form.Item>
+          <Form.Item
+            name="border_point"
+            label={t('truck_dest_admin.border_point')}
+            tooltip={t('truck_dest_admin.border_point_hint')}
+          >
+            <Select
+              options={borderPointOptions}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('truck_dest_admin.border_point_placeholder')}
             />
           </Form.Item>
           <Form.Item name="sort_order" label={t('truck_dest_admin.sort_order')}>

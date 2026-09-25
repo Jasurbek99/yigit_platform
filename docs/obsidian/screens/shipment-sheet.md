@@ -113,6 +113,14 @@ Translation strings (`sheet.who.*`, `sheet.row.*`) stay in `frontend/src/i18n/{t
 
 Dropdown rows whose `options_source` is fixed (e.g. `vehicle_condition`) resolve via `frontend/src/constants/sheetOptions.ts` `SHEET_OPTIONS_REGISTRY`. Dynamic dropdowns (`country`, `customer`, `border_point`, etc.) keep using their dedicated TanStack Query hooks.
 
+**R29 `border_point` ("Serhet nokady") arrives pre-filled.** When the destination country on
+R11 is set (here, on `/assign/`, or at create), `Shipment.save()` copies that country's
+default crossing — `Country.border_point`, managed on the Truck Destinations admin page — into
+an empty `border_point`. It is a default, not a lock: the dropdown stays editable by transport,
+and a value already chosen is never overwritten. Countries with no default leave R29 empty as
+before. See [[truck-allocation]] for the storage decision and [[task-rules]] for what it does
+to the `Set border point` gate.
+
 ### Role blocks (role bands)
 
 The Sheet is **transposed** — fields are rows, shipments are columns — so "give each role its own block of columns" means a contiguous run of **rows** per role, headed by a labelled band row.
@@ -699,6 +707,21 @@ The menu item is **disabled (greyed out)** rather than the whole menu being supp
 
 Hidden cells (`gapy_hidden && is_gapy_satys` — the `—` placeholder rows) are the only ones that skip the Dropdown wrapper entirely; they have no semantic content to act on.
 
+**Which rows are hidden on a Gapy-Satyş column (ten, as of 2026-09-24).** A gapy shipment is a
+domestic gate sale that completes the moment it leaves the greenhouse, so every row describing
+the road, the destination or a later sale is blanked to `—`:
+
+| Rows | Fields | Why |
+|------|--------|-----|
+| R29–R32 | `border_point`, `border_crossed_at`, `dest_entry_at`, `customs_entry_at` | No border is crossed, no destination customs cleared |
+| R33–R35 | `has_peregruz`, `peregruz_date`, `arrived_at` | No road, so no transshipment and nothing to arrive at |
+| R41–R43 | `sale_started_at`, `sale_ended_at`, `sales_report_date` | The sale happened at the gate, before departure; there is no foreign sales report |
+
+R33–R35 and R41–R43 were added when gapy shipments stopped walking the export chain — see
+[[../processes/shipment-lifecycle#Gapy-Satyş ends at loading]]. The flag is **frontend-only**:
+the backend does not reject a write to a hidden field, it is `SheetCell.tsx` that renders the
+placeholder and `SheetGrid.tsx` that skips the cell in keyboard navigation.
+
 ## Permissions
 
 **The real authority, for every Sheet cell, is `can_edit_sheet_field` / `get_sheet_edit_map` /
@@ -949,9 +972,26 @@ Querystring `?season=<id>` overrides the active season; default scopes to `seaso
 stays `'text'`, and `SheetCellEditor` special-cases `field_key === 'driver_name'`: for a
 **non-gapy** shipment it renders `SheetDriverSelectEditor` (one select over the `Z_TIRWEB`
 driver registry, active-only, portaled the same way) and saves
-`driver_id` + `driver_name` in **one** `patchMultiMutation` with Sheet undo capture. For a
-**gapy_satyş** shipment it stays the plain text `<Input>` — local buyers bring their own truck
-*and* their own driver, so picking from the company registry there would pollute it.
+`driver_id` + `driver_name` in **one** `patchMultiMutation` with Sheet undo capture.
+
+**`driver_name` — Gapy-Satyş free-text overlay (2026-09-23).** For a **gapy_satyş** shipment
+the cell no longer falls through to a plain `<Input>` — it renders `SheetGapyDriverEditor`
+instead, the free-text counterpart to `SheetDriverSelectEditor` above: same portaled-panel
+shape, but every field is typed, never picked (local buyers bring their own truck *and* their
+own driver — picking from the company registry there would pollute it, same HARD RULE as
+`truck_plate`). Asks for name, phone (optional) and **passport series + issue date** for up to
+two drivers — the passport fields are new (`driver_passport_serial`,
+`driver_passport_issue_date`, and the `driver_2_*` pair), plain `Shipment` columns with no
+Sheet row or `field_key` of their own, gated through `_REVERSE_FIELD_DELEGATES` onto this row
+like `driver_2_name`/`driver_2_id` already are. They exist because document generation (CMR,
+TIR carnet) needs a passport per driver and a Gapy shipment has no fleet `Driver` record to
+read one from — see [[../processes/document-generation#Gapy-Satyş driver passports]]. The
+`tasks.assign_driver` rule for Gapy shipments requires name + truck plate + both passport
+fields to auto-resolve; phone is deliberately not required (contact info only, never printed
+on a document). Since this task-panel field list is shared with `/me/board`'s task drawer
+(`SelfBoardShipmentFieldList`, `fields` mode), clicking `driver_name` there opens the exact
+same overlay — see [[self-board#Role filter (supervisors only)|self-board.md]] and
+[[../reference/task-rules]].
 
 The same picker (`components/DriverSelect.tsx`) also backs the ShipmentDetail transport card and
 the edit drawer via `ShipmentDriverSelector`, so the three surfaces cannot disagree about

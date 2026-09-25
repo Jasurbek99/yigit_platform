@@ -3,7 +3,7 @@
 No backfill. `mssql-django` renders this `unique_together` as a FILTERED unique
 index — `CREATE UNIQUE INDEX ... WHERE [shipment_id] IS NOT NULL AND [block_id]
 IS NOT NULL AND [harvest_date] IS NOT NULL` (confirmed via `sqlmigrate export
-0077`) — which excludes any row with a null `harvest_date` from the index
+0081`) — which excludes any row with a null `harvest_date` from the index
 entirely. Any number of `(shipment, block, NULL)` rows can coexist; the "MSSQL
 permits exactly ONE null row per unique key combination" rule (true in general —
 see `.claude/rules/mssql-compat.md` — and true of a plain unique constraint/index)
@@ -25,7 +25,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("export", "0076_quality_certificate_filename_collation"),
+        ("export", "0080_task_one_per_shipment_rule"),
     ]
 
     operations = [

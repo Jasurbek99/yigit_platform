@@ -18,6 +18,19 @@ class Country(models.Model):
     # ISO 4217 currency code for this destination country (e.g. 'KZT', 'RUB').
     # Used to default SalesReport.currency on first create. Null = unknown/not set.
     currency = models.CharField(max_length=10, blank=True, null=True)
+    # "Serhet nokady" — the crossing trucks to this country normally take.
+    # Admin-managed from the Truck Destinations page; copied onto a shipment's
+    # empty border_point when its destination country is set, and overwritable
+    # by transport in Sheet R29. SET_NULL, not PROTECT: deleting a crossing
+    # should drop the default, not block the delete — a country without one
+    # simply falls back to the operator filling R29 by hand.
+    border_point = models.ForeignKey(
+        'core.BorderPoint',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='default_for_countries',
+    )
 
     class Meta:
         db_table = schema_table('core', 'countries')
