@@ -1,14 +1,19 @@
 
-- [ ] 2026-09-25 — Gaplama truck form: asymmetric overdraw guard — reducing a batch row or leaving it untouched is always allowed even above the block's live cap; only an increase past max(seeded, live cap) is refused, with a new inline message — NEEDS TEST
+- [ ] 2026-09-25 — Gaplama truck form: asymmetric overdraw guard — reducing a batch row or leaving it untouched is always allowed even above the block's live cap; only an increase past max(seeded, live cap) is refused; the explanation now shows once above Save/Cancel, not per row (round-1 fix) — NEEDS TEST
   To test: (1) open (Üýtget) a legacy/overdrawn draft truck whose recorded kg on a block is
   above what that block currently shows as available — the row must open with a normal
   (non-red) input and Save enabled, same as before; (2) reduce that row's kg to a value still
   above the block's live cap — must save without any error; (3) increase that same row above
-  its original (seeded) value — should turn red and show "Bu blokda ýeterlik hasyl ýok..." next
-  to the input, Save disabled; (4) on a block with room, add a new row and push its kg past
-  what's available — same red message; increase within what's available — no error; (5) on a
-  block with two batch rows, push one row's total over the block's available kg by increasing
-  it — only that row should go red, an untouched sibling row in the same block must stay normal.
+  its original (seeded) value — the row should turn red (Save disabled) and a single notice
+  reading "Bu blokda ýeterlik hasyl ýok..." should appear ONCE, above the Save/Cancel buttons
+  (not beside the input); (4) on a block with room, add a new row and push its kg past what's
+  available — same red row + single notice; increase within what's available — no error, no
+  notice; (5) on a block with two batch rows, push one row's total over the block's available
+  kg by increasing it — only that row should go red, an untouched sibling row in the same
+  block must stay normal, and only one notice should appear even though a row is over; (6) with
+  two rows visible on one block, raise a row that was seeded BELOW the block's live cap to a
+  value still within that cap — must stay valid (this is the edit-mode path, distinct from a
+  brand-new empty row).
 
 - [ ] 2026-09-25 — Shipment detail page (Goods & Loading card) now shows each block's harvest batches with date + weight instead of a duplicated block code for a two-batch truck; task card's block-sources row deduplicates instead of repeating; `BlockSourceSerializer` gained `harvest_date` — NEEDS TEST
   To test: (1) open a shipment whose `block_sources` has two rows for the same block

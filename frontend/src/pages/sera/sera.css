@@ -1073,12 +1073,21 @@
   font-weight: 400;
 }
 
-/* 2026-09-25 overdraw guard — same red as .sera-gaplama-cell-over, next to
-   the row an increase was refused on. */
-.sera-page .sera-gaplama-form-row-error {
-  margin-top: 2px;
-  max-width: 160px;
+/* 2026-09-25 overdraw guard — same red as .sera-gaplama-cell-over. Shown
+   ONCE while any row is over (round 1 fix: was per-row and wrapped into a
+   wall of text at 160px; the owner's text is one instruction meant to be
+   read as a sentence, not repeated beside every offending input). The
+   offending row itself still shows its own red border via InputNumber's
+   `status="error"` — this is the explanation, not a per-row label. */
+.sera-page .sera-gaplama-form-overdraw-notice {
+  margin: 8px 0;
+  max-width: 420px;
+  padding: 6px 10px;
+  border: 1px solid #fecaca;
+  border-radius: var(--sera-radius);
+  background: #fef2f2;
   color: #dc2626;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
+  line-height: 1.4;
 }

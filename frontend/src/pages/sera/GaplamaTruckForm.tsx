@@ -418,11 +418,6 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
                             status={invalid ? 'error' : undefined}
                             onChange={(kg) => upsertRow(blockId, row.harvestDate, kg ?? null)}
                           />
-                          {invalid && (
-                            <div className="sera-gaplama-form-row-error">
-                              {t('tir_takip.gaplama.form.insufficient_harvest')}
-                            </div>
-                          )}
                         </td>
                       </tr>
                     );
@@ -467,6 +462,16 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
           </span>
         )}
       </div>
+
+      {/* Read once, not repeated per row (owner's instruction, meant to be
+       * read as a sentence) — the offending input(s) stay marked invalid
+       * (aria-invalid, red border) on their own row; this is the
+       * explanation, shown once while any row is over. */}
+      {anyExceeds && (
+        <div className="sera-gaplama-form-overdraw-notice">
+          {t('tir_takip.gaplama.form.insufficient_harvest')}
+        </div>
+      )}
 
       <Space>
         <Button type="primary" disabled={submitDisabled} onClick={handleSubmit}>

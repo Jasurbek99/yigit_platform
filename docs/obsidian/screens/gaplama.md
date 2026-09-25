@@ -228,19 +228,33 @@ reducing a row, or leaving it untouched, is **always** allowed, even while its k
 what the block genuinely has today — `if (row.kg <= seededKg) return false`, before either the
 per-batch or the block-level check runs. Only an **increase** past that seeded floor is measured
 against `max(seeded, liveCap)`; increasing past both is refused, with the row marked invalid
-(`aria-invalid`, red `InputNumber` border) and an inline message
-(`tir_takip.gaplama.form.insufficient_harvest`, `.sera-gaplama-form-row-error`, same red as
-`.sera-gaplama-cell-over`) telling the operator to contact the greenhouse manager. The gate also
-protects an **untouched sibling row in the same block**: before this fix, the block-level SUM
-check (`blockTotal(blockId) > blockCapFor(...)`) fired uniformly across every row in the block
-once the sum went over, so increasing one row painted a completely untouched row red too; the
-per-row gate exempts any row at or below its own seeded value from that check as well, so only
-the row actually increased is flagged. (In practice `blockCapFor` can never fall below a block's
-own seeded total on a legacy, single-truck-per-block-per-day draft — `available_kg` is clamped
-at `max(0, ...)` server-side, so `base >= 0` always and `own` is added back exactly — but the
-per-row gate is still what stops an untouched sibling from being dragged down by a *different*
-row's increase.) Tests: `GaplamaTruckForm.test.tsx`, describe block `overdraw guard (seeded
-floor)`.
+(`aria-invalid`, red `InputNumber` border) and Save blocked. The explanation is **not** repeated
+per row — round 1 tried that (`.sera-gaplama-form-row-error`, 160px, next to the input) and it
+became a wall of wrapped text once more than one row was over. The owner's text
+(`tir_takip.gaplama.form.insufficient_harvest`) is one instruction meant to be read once, so it
+now renders as a single notice (`.sera-gaplama-form-overdraw-notice`, same red as
+`.sera-gaplama-cell-over`, room for 1-2 lines) above the Save/Cancel row, shown whenever any row
+is over (`anyExceeds`) — the offending row(s) still carry their own red border on their own.
+
+The gate also protects an **untouched sibling row in the same block**: before this fix, the
+block-level SUM check (`blockTotal(blockId) > blockCapFor(...)`) fired uniformly across every row
+in the block once the sum went over, so increasing one row painted a completely untouched row red
+too; the per-row gate exempts any row at or below its own seeded value from that check as well, so
+only the row actually increased is flagged. This is NOT a redundant belt-and-braces addition —
+verified by reproducing the fixture against the pre-fix source (`git show 8a663684`) in an
+isolated, throwaway test: pre-fix, the untouched sibling really does come back `aria-invalid`.
+`blockCapFor`'s `own` (`props.editingTruck.block_sources.find(...)`) is always the truck's FULL
+saved total for that block, never a partial one — `build_gaplama_board`'s truck-listing query
+folds every `ShipmentBlockSource` row for a truck onto its parent block into one summed entry
+(`gaplama.py`, the `existing_source.weight_kg += weight_kg` fold, "two different sub-blocks under
+the same parent") before the frontend ever sees it — so `blockCapFor = base + own >= own =
+seededBlockTotal` always, given `available_kg` is clamped at `max(0, ...)` server-side (`base >=
+0` always). That makes a *block-level* floor formula (`max(seededBlockTotal, blockCapFor)`)
+provably redundant on its own — the gate is what is actually load-bearing, because the pre-fix
+block check applied to every row in the block uniformly, not just the one that moved. Tests:
+`GaplamaTruckForm.test.tsx`, describe block `overdraw guard (seeded floor)` (7 cases, incl. one
+edit-mode case where a row seeded below the live cap is raised within it — the create-mode
+equivalent alone doesn't exercise the orphan-merged live cap at all).
 
 `DraftBlockSourceInlineSerializer` — the same serializer backing this pre-fill — stays
 per-row on purpose rather than grouping by block the way the Sheet's own

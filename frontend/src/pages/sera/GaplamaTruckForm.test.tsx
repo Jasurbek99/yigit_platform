@@ -538,4 +538,33 @@ describe('GaplamaTruckForm — overdraw guard (seeded floor)', () => {
     expect(screen.getAllByText('tir_takip.gaplama.form.insufficient_harvest')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).toBeDisabled();
   });
+
+  // Round-1 fix: test 5 only covered create mode (seeded 0 for every row),
+  // where the row-level cap is just the plain live batch cap — the same
+  // path as before this change entirely. Edit mode is where the seeded
+  // floor and the orphan merge actually exist, so it is the path that
+  // matters: a row seeded BELOW the live cap, raised to somewhere within
+  // that cap, must stay valid, not just a row raised to exactly its seeded
+  // value or below.
+  it('7. edit mode: a row seeded below the live cap, raised within the cap, is allowed', () => {
+    const truck = {
+      id: 32, shipment_code: '2109032/26', export_code: null, date: '2026-09-21',
+      status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+      block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 5000 }],
+    };
+    renderForm({
+      mode: 'edit',
+      editingTruck: truck,
+      editingTruckBatches: [{ block_id: 1, block_code: 'A', weight_kg: 5000, harvest_date: '2026-09-21' }],
+      // Block genuinely has headroom above what this truck already carries.
+      availableByBlock: { 1: 10000 },
+      batchesByBlock: { 1: [{ harvest_date: '2026-09-21', age_days: 0, available_kg: 10000 }] },
+    });
+    const kgInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement;
+    expect(kgInput).toHaveValue(5000);
+    fireEvent.change(kgInput, { target: { value: '8000' } }); // > seeded 5000, <= live cap 10000
+    expect(kgInput).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByText('tir_takip.gaplama.form.insufficient_harvest')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).not.toBeDisabled();
+  });
 });
