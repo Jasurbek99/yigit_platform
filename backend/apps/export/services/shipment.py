@@ -59,8 +59,9 @@ CANCEL_ROLES = {'admin', 'director'} | EXPORT_MANAGER_LIKE
 # Allowed transitions: from_code → list of edge tuples.
 # Edge tuple shape: (to_code, allowed_roles) OR (to_code, allowed_roles, predicate)
 # where predicate is Callable[[Shipment], bool] used by auto-advance to pick
-# the right target when multiple edges exist. Manual transitions IGNORE
-# predicates — the user explicitly picks the target.
+# the right target when multiple edges exist. Manual transitions obey the
+# predicates too, except at the steps in PREDICATE_ADVISORY_STEPS (below),
+# where the user may still pick the branch the predicate rejects.
 #
 # None key = shipment has no status yet (legacy fallback, unused by current flow).
 # Cancel edges use list(CANCEL_ROLES) (declared above) so the set membership is
@@ -84,8 +85,24 @@ TRANSITIONS: dict[Optional[str], list[tuple]] = {
     'gumruk_chykysh':  [('yuklenme',       ['loading_dept_head',
                                             'loading_dept_head_deputy']),
                         ('cancelled',      list(CANCEL_ROLES))],
-    'yuklenme':        [('yola_chykdy',    ['document_team']),
-                        ('cancelled',      list(CANCEL_ROLES))],
+    # Conditional fork: a Gapy-Satyş shipment is a domestic gate sale — the
+    # buyer takes the goods at the greenhouse. There is no road, no border, no
+    # destination and no foreign sales report, so it is complete the moment it
+    # leaves. Sending it to yola_chykdy jammed it there permanently: that
+    # step's trigger is border_crossed_at (R30), which is gapy_hidden, so no
+    # operator could ever fill it.
+    #
+    # Edge order is load-bearing. _resolve_next_status() returns the first edge
+    # whose predicate is True OR which carries no predicate at all — so
+    # 'cancelled' must stay last, exactly as in the barysh_gumrugi fork below,
+    # or every auto-advance out of yuklenme would cancel the shipment.
+    'yuklenme': [
+        ('tamamlandy',  ['document_team'],
+         lambda s: bool(getattr(s, 'is_gapy_satys', False))),
+        ('yola_chykdy', ['document_team'],
+         lambda s: not bool(getattr(s, 'is_gapy_satys', False))),
+        ('cancelled',   list(CANCEL_ROLES)),
+    ],
     'yola_chykdy':     [('serhet_gechdi',  ['transport']),
                         ('cancelled',      list(CANCEL_ROLES))],
     'serhet_gechdi':   [('dest_entry',     ['sales_rep']),
@@ -141,6 +158,20 @@ STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
     'satyldy':         ['sales_rep'],
     'tamamlandy':      ['finansist'],
 }
+
+# Steps where a manual transition may still pick the branch the edge predicate
+# rejects. `barysh_gumrugi` is the only one: both of its branches are live
+# intermediate steps, a wrong pick is cancellable or can be walked on, and
+# privileged roles rely on being able to unstick either.
+#
+# The `yuklenme` fork is deliberately NOT here. One of its branches is the
+# terminal `tamamlandy`, which ADR-019 gives no outgoing edge at all — not even
+# `cancelled` — so a shipment pushed there by mistake cannot be recovered in
+# the app; and the other strands a Gapy-Satyş truck on `border_crossed_at`,
+# a gapy_hidden field it has no UI to fill, which is the exact jam ADR-025
+# exists to remove. Neither wrong pick is a legitimate unstick, and the fork
+# sits one step after loading, reachable from the bulk-transition modal.
+PREDICATE_ADVISORY_STEPS = {'barysh_gumrugi'}
 
 
 def _edge_to(edge: tuple) -> str:
@@ -238,7 +269,14 @@ def transition_to(
 
     current_code = shipment.status.code if shipment.status_id else None
     edges = TRANSITIONS.get(current_code, [])
-    allowed_codes = [_edge_to(edge) for edge in edges]
+    predicates_are_advisory = current_code in PREDICATE_ADVISORY_STEPS
+    allowed_codes = [
+        _edge_to(edge)
+        for edge in edges
+        if predicates_are_advisory
+        or _edge_predicate(edge) is None
+        or _edge_predicate(edge)(shipment)
+    ]
 
     if new_status_code not in allowed_codes:
         raise ValueError(
@@ -496,6 +534,14 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     """
     from apps.core.models import User
     from apps.export.models import Notification
+
+    # A Gapy-Satyş gate sale reaches `tamamlandy` straight out of loading with
+    # no sales report (ADR-025). STATUS_NOTIFY_ROLES pings finansist on that
+    # status for the satyldy -> tamamlandy hand-off, where a report has just
+    # been filed — a gate sale leaves finance nothing to act on, so the
+    # notification would be noise on every gapy truck.
+    if new_status_code == 'tamamlandy' and getattr(shipment, 'is_gapy_satys', False):
+        return
 
     roles = STATUS_NOTIFY_ROLES.get(new_status_code, [])
     if not roles:

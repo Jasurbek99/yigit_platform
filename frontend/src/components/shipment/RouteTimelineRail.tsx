@@ -25,7 +25,24 @@ const STATUS_STEPS_BASE: IStatusStep[] = [
   { code: 'tamamlandy' },
 ];
 
-function getStatusStepsForShipment(hasPeregruz: boolean | null | undefined): IStatusStep[] {
+// A Gapy-Satyş truck is a domestic gate sale: it completes at departure from
+// the greenhouse and goes straight from `yuklenme` to `tamamlandy` (ADR-025).
+// Every step before the current one is rendered done, so leaving the export
+// steps in the list would put a green ✓ on seven events that never happened.
+const STATUS_STEPS_GAPY: IStatusStep[] = [
+  { code: 'draft' },
+  { code: 'gumruk_girish' },
+  { code: 'gumruk_chykysh' },
+  { code: 'yuklenme' },
+  { code: 'tamamlandy' },
+];
+
+export function getStatusStepsForShipment(
+  hasPeregruz: boolean | null | undefined,
+  isGapySatys: boolean | null | undefined = false,
+): IStatusStep[] {
+  // Gapy wins over peregruz: that fork sits on a step gapy never reaches.
+  if (isGapySatys) return STATUS_STEPS_GAPY;
   if (!hasPeregruz) return STATUS_STEPS_BASE;
   const out = [...STATUS_STEPS_BASE];
   // Insert transshipment between barysh_gumrugi and bardy.
@@ -56,7 +73,7 @@ interface IRouteTimelineRailProps {
 export function RouteTimelineRail({ shipment }: IRouteTimelineRailProps) {
   const { t } = useTranslation();
 
-  const STATUS_STEPS = getStatusStepsForShipment(shipment.has_peregruz);
+  const STATUS_STEPS = getStatusStepsForShipment(shipment.has_peregruz, shipment.is_gapy_satys);
   const isCancelled = shipment.status_code === 'cancelled';
 
   // Map log entries by status_code so we don't rely on positional ordering;

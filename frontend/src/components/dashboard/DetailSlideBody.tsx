@@ -19,6 +19,19 @@ const LIFECYCLE_STEPS = [
   { name: 'Tamam', icon: '✅' },
 ];
 
+// A Gapy-Satyş truck is a domestic gate sale: it completes at departure from
+// the greenhouse (ADR-025). It reaches `tamamlandy` (step 12) without touching
+// the road, the destination or a sale, so rendering it against the export list
+// would light up eleven green bars for events that never happened.
+// Positioned by status code, not status_step: the DB's step_order numbers do
+// not follow the gapy route order.
+const LIFECYCLE_STEPS_GAPY = [
+  { code: 'gumruk_girish', name: 'Gümrük↑', icon: '📋' },
+  { code: 'gumruk_chykysh', name: 'Gümrük↓', icon: '✓' },
+  { code: 'yuklenme', name: 'Yüklenme', icon: '📦' },
+  { code: 'tamamlandy', name: 'Tamam', icon: '✅' },
+];
+
 function getStepBarColor(step: number, index: number, activeColor: string): string {
   if (index < step - 1) return '#12b76a';
   if (index === step - 1) return activeColor;
@@ -76,15 +89,22 @@ export function DetailSlideBody({ detail, activeColor }: IDetailSlideBodyProps) 
   const firmNames = detail.firm_splits.map((f) => f.export_firm_name ?? '—').join(' + ') || '—';
   const blockNames = detail.block_sources.map((b) => b.block_code).join(', ') || '—';
 
+  // Gapy trucks run on the short list; a status not on it (draft) shows 0.
+  const isGapy = Boolean(detail.is_gapy_satys);
+  const steps = isGapy ? LIFECYCLE_STEPS_GAPY : LIFECYCLE_STEPS;
+  const shownStep = isGapy
+    ? LIFECYCLE_STEPS_GAPY.findIndex((s) => s.code === detail.status_code) + 1
+    : detail.status_step;
+
   return (
     <>
       {/* Lifecycle */}
       <DetailSection titleKey="dashboard.lifecycle_label">
         <div className="lifecycle-grid">
-          {LIFECYCLE_STEPS.map((step, i) => {
-            const barColor = getStepBarColor(detail.status_step, i, activeColor);
-            const isDone = i < detail.status_step;
-            const isActive = i === detail.status_step - 1;
+          {steps.map((step, i) => {
+            const barColor = getStepBarColor(shownStep, i, activeColor);
+            const isDone = i < shownStep;
+            const isActive = i === shownStep - 1;
             return (
               <div key={i} className="lifecycle-step">
                 <div className="lifecycle-bar" style={{ background: barColor }} />

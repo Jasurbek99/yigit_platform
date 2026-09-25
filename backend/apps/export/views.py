@@ -1338,7 +1338,12 @@ class ShipmentViewSet(ModelViewSet):
 
         needs_report = request.query_params.get('needs_report', '').lower()
         if needs_report == 'true':
-            qs = qs.filter(has_sales_report=False)
+            # A Gapy-Satyş truck is a domestic gate sale: it completes at
+            # departure with no sales report, deliberately (ADR-025). Listing
+            # it as still owing one would park every finished gate sale in this
+            # queue permanently, clearable only by filing a report for a sale
+            # that produced none. It stays in the unfiltered worklist.
+            qs = qs.filter(has_sales_report=False, is_gapy_satys=False)
 
         qs = qs.order_by('-status_changed_at', '-id')
 

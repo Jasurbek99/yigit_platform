@@ -175,3 +175,75 @@ Conditional fork at `barysh_gumrugi` when `has_peregruz=True`: `barysh_gumrugi �
 **Context**: ADR-017 removed the week-level approve/reject workflow ("submission is final"). The owner now wants managers to adjust a running week by 10–15% with the export manager seeing and approving the ±%. This is a different grain (per cell, per revision), so the dropped `WeeklyHarvestPlan.status/approved_*/rejected_*` columns stay dropped. Week start is a **mode switch, not a lock**: `_plan_edit_window_closed()` (open through the week's own Sunday) is unchanged, so managers still revise already-passed days of the current week, via approval.
 
 **Consequences**: `set_plan_value()` returns the request when it routes to approval; `PATCH /day-entries/{id}/` answers 202. A pending request on an empty cell keeps the manager's `weekly_plan` task open (ADR-021) until approved. In-week revisions no longer fire `plan_late`/`plan_critical_late` notifications; `plan_change_requested` notifies export managers instead. `document_team` is deliberately **not** an approver despite `EXPORT_MANAGER_LIKE`. The admin import commands (`import_weekly_plan`, `import_harvest_plans`) still write `plan_value` directly. Tests: `apps/greenhouse/tests/test_plan_change_*.py`.
+
+## ADR-025: Gapy-Satyş completes at greenhouse departure
+
+**Context**: `Gapy Satyş` is a domestic gate sale. The 13-step chain had zero gapy branching, so
+gapy trucks were routed toward a border they never cross. `yola_chykdy`'s auto-advance trigger is
+`border_crossed_at` (R30), which is `gapy_hidden` — unfillable — so every gapy shipment that got
+that far stopped permanently. This was never decided; it was the absence of a decision.
+
+**Decision**: `TRANSITIONS['yuklenme']` forks on `is_gapy_satys`. Filling `departed_at` completes
+a gapy shipment into the existing terminal status `tamamlandy`; everything else still goes to
+`yola_chykdy`. `get_allowed_transitions()` was made predicate-aware in the same change so the UI
+offers one branch of a fork rather than both (it previously over-reported on `barysh_gumrugi`
+too). Six post-departure Sheet rows became `gapy_hidden`.
+
+**Rejected**: a 14th terminal status `gapy_satyldy`. It would carry no information the
+`is_gapy_satys` flag does not, while every kanban phase map, archive query, dashboard KPI, status
+filter and three i18n files would need updating. Reusing `tamamlandy` (`phase='COMPLETE'`) keeps
+archiving, board grouping and every "done" count working untouched.
+
+**Accepted costs**: (1) `tamamlandy` is labelled "Report received & Completed" and a gapy shipment
+has no sales report, so the label is half untrue for those rows — if this confuses operators, change
+the label, not the status. (2) `_compute_status_avg_seconds` now includes gapy shipments in its
+`tamamlandy` population; they contribute real measurements for the four steps they did pass
+through, so averages stay honest, the sample simply widens. (3) Flipping `is_gapy_satys` to True on
+a shipment already past `yuklenme` leaves it walking the export chain with six blank cells; no
+guard was added, because refusing the edit blocks a legitimate draft correction and force-completing
+a truck that is demonstrably abroad is worse.
+
+**Migration**: none. Four gapy shipments existed at decision time, all still in `draft`.
+
+**Out of scope**: whether gapy consumes government quota (still the open question recorded in
+AD-16's amendment) and where a gate sale's money is recorded.
+
+**Predicates bind on this fork, unlike `barysh_gumrugi`.** `transition_to()` was originally left
+predicate-blind for manual transitions ("the user picks explicitly"), and review found that this
+made `tamamlandy` reachable from `yuklenme` for **any** shipment — including through the Shipments
+page's bulk-transition modal, whose targets come from a hardcoded map. Because ADR-019 gives
+`tamamlandy` no outgoing edge at all, **not even `cancelled`**, a truck pushed there by mistake
+cannot be cancelled, cannot be walked back, and can only be soft-deleted and re-created. The
+mirror case is as bad: a gapy truck manually sent to `yola_chykdy` lands in exactly the jam this
+ADR removes. So `transition_to()` now honours edge predicates, with `PREDICATE_ADVISORY_STEPS =
+{'barysh_gumrugi'}` as the single documented exception — both of that fork's branches are live
+intermediate steps, a wrong pick there is cancellable or can be walked on, and privileged roles
+rely on being able to unstick either. Adding a `cancelled` edge to `tamamlandy` was considered and
+**not** done: it would overturn ADR-019's "cancellable from any non-terminal status", which is the
+domain owner's call, not an implementation detail. **Residual risk, unfixed and deliberate:** if
+`is_gapy_satys` (R47) is wrongly set to True on a real export truck *before* it departs, the truck
+legitimately completes into `tamamlandy` by the data, and that is unrecoverable in-app. Predicates
+cannot catch it — the flag says it is a gate sale. Guarding it needs either the ADR-019 change or a
+confirm step on R47.
+
+**Three side effects found by review and fixed with it**: (1) `STATUS_NOTIFY_ROLES['tamamlandy']`
+pinged every `finansist` on each gate sale — that entry exists for the `satyldy → tamamlandy`
+hand-off, where a report has just been filed, so `_notify_action_required()` now returns early for
+a gapy completion. (2) `GET /shipments/my-sales-reports/?needs_report=true` listed every completed
+gapy truck as still owing a report, clearable only by filing one for a sale that produced none; the
+filter now excludes gapy rows (they stay in the unfiltered worklist). (3) The frontend was **not**
+change-free, contrary to the plan: `RouteTimelineRail` marks every step before the current one as
+done, so a completed gapy truck showed a green ✓ on seven events that never happened —
+`getStatusStepsForShipment()` now takes `isGapySatys` and returns a five-step route
+(draft → customs in → customs out → loading → completed). The same fix went into the dashboard's
+`DetailSlideBody` lifecycle grid, and `ShipmentRow` stopped flagging completed gapy trucks with a
+permanent red ✕ "report missing" (it judged them by `arrived_at`, whose row this change hid).
+
+**Also absorbed, disclosed not fixed**: `kpi_cycle_time` (created → `tamamlandy`) and
+`kpi_throughput.closed_count` in `services/kpi.py` now count gapy trucks, which complete in hours
+rather than weeks — the boss dashboard's headline cycle time will drop. Same kind of effect as
+`_compute_status_avg_seconds` above, and honest in both cases: a gate sale really did close.
+
+**Tests**: `apps/export/tests_gapy_terminal.py` (24 tests),
+`frontend/src/components/shipment/RouteTimelineRail.gapy.test.ts` (5),
+`frontend/src/components/dashboard/ShipmentRow.gapy.test.tsx` (3).
