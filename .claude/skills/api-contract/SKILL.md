@@ -72,8 +72,13 @@ Full data with nested related objects.
     { "export_firm_id": 1, "export_firm_name": "YGT H.J.", "weight_kg": 10000, "amount_usd": 14500 }
   ],
   "block_sources": [
-    { "block_code": "A", "block_name": "A-Ýyladyşhana", "weight_kg": 12000 }
+    { "block_code": "A", "block_name": "A-Ýyladyşhana", "weight_kg": 12000, "harvest_date": "2026-09-21" }
   ],
+  // block_sources is one row per BATCH (block + harvest day), not one per block — a
+  // truck can carry two batches from the same block on different days, so block_code
+  // can repeat. harvest_date is nullable (operator-entered, added 2026-09-24).
+  // weight_kg is a DecimalField (string on the wire, e.g. "12000.00"); shown here
+  // unquoted per this doc's convention of always noting decimal-vs-number explicitly.
   "status_log": [
     { "status_display": "Loading", "changed_by_name": "Soltanmyrat", "changed_at": "...", "comment": "..." }
   ],

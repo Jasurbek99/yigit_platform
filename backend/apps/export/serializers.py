@@ -455,10 +455,11 @@ class ShipmentListSerializer(serializers.ModelSerializer):
         return resolve_phase(code)
 
     # Freshness fields (Finding #5b — expiration clock).
-    # NOTE: The spec called for deriving age from the earliest ShipmentBlockSource.harvest_date,
-    # but ShipmentBlockSource has no harvest_date column today (only weight_kg).
-    # Falling back to Shipment.date is the correct simpler implementation until
-    # harvest_date is added to the block source table.
+    # NOTE: The spec called for deriving age from the earliest ShipmentBlockSource.harvest_date.
+    # ShipmentBlockSource.harvest_date exists now (added 2026-09-24, Gaplama batch
+    # selection) and BlockSourceSerializer reports it, but this method was never
+    # switched over — it still falls back to Shipment.date. Left as-is; not part of
+    # the batch-display fix that added the field below (out of scope here).
     harvest_age_days = serializers.SerializerMethodField()
     freshness = serializers.SerializerMethodField()
 
@@ -853,7 +854,7 @@ class BlockSourceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentBlockSource
-        fields = ['block_code', 'block_name', 'weight_kg']
+        fields = ['block_code', 'block_name', 'weight_kg', 'harvest_date']
 
 
 class StatusLogSerializer(serializers.ModelSerializer):
