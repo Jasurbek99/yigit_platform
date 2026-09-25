@@ -324,19 +324,19 @@ class SwapReconcilesBothShipmentsTests(TestCase):
         from django.core.management import call_command
         call_command('seed_permissions')
 
-    def test_swapping_has_peregruz_reconciles_both(self):
-        _make_status('barysh_gumrugi', 8, phase='TRANSIT')
+    def setUp(self):
+        status = _make_status('barysh_gumrugi', 8, phase='TRANSIT')
         admin = _make_user('swap-recon-admin', 'admin', is_superuser=True)
-        client = APIClient()
-        client.force_authenticate(user=admin)
+        self.client = APIClient()
+        self.client.force_authenticate(user=admin)
 
-        direct = _make_rule(
+        self.direct = _make_rule(
             step='barysh_gumrugi', title_key='tasks.trigger_arrival_direct',
             target_fields='arrived_at',
             completion_rule=TaskCompletionRule.MANUAL_DONE,
             condition_field='has_peregruz', condition_value='False',
         )
-        transship = _make_rule(
+        self.transship = _make_rule(
             step='barysh_gumrugi', title_key='tasks.trigger_transshipment',
             target_fields='peregruz_date',
             completion_rule=TaskCompletionRule.MANUAL_DONE,
@@ -344,37 +344,40 @@ class SwapReconcilesBothShipmentsTests(TestCase):
         )
 
         season = _make_season()
-        status = _make_status('barysh_gumrugi', 8, phase='TRANSIT')
-        ship_a = Shipment.objects.create(
+        self.ship_a = Shipment.objects.create(
             shipment_code='0302001/26', date='2026-01-15', season=season,
             status=status, has_peregruz=False,
         )
-        ship_b = Shipment.objects.create(
+        self.ship_b = Shipment.objects.create(
             shipment_code='0302002/26', date='2026-01-15', season=season,
             status=status, has_peregruz=True,
         )
-        task_a = Task.objects.create(
-            shipment=ship_a, step='barysh_gumrugi', rule=direct,
-            title_key=direct.title_key, assignee_role='sales_rep',
+        self.task_a = Task.objects.create(
+            shipment=self.ship_a, step='barysh_gumrugi', rule=self.direct,
+            title_key=self.direct.title_key, assignee_role='sales_rep',
             completion_rule=TaskCompletionRule.MANUAL_DONE,
             target_fields='arrived_at', target_value='', state=TaskState.OPEN,
         )
-        task_b = Task.objects.create(
-            shipment=ship_b, step='barysh_gumrugi', rule=transship,
-            title_key=transship.title_key, assignee_role='sales_rep',
+        self.task_b = Task.objects.create(
+            shipment=self.ship_b, step='barysh_gumrugi', rule=self.transship,
+            title_key=self.transship.title_key, assignee_role='sales_rep',
             completion_rule=TaskCompletionRule.MANUAL_DONE,
             target_fields='peregruz_date', target_value='', state=TaskState.OPEN,
         )
 
-        response = client.post(
-            f'/api/v1/export/shipments/{ship_a.id}/swap/',
-            {'other_id': ship_b.id, 'fields': ['has_peregruz']},
+    def _swap_peregruz(self):
+        return self.client.post(
+            f'/api/v1/export/shipments/{self.ship_a.id}/swap/',
+            {'other_id': self.ship_b.id, 'fields': ['has_peregruz']},
             format='json',
         )
+
+    def test_swapping_has_peregruz_reconciles_both(self):
+        response = self._swap_peregruz()
         self.assertEqual(response.status_code, 200, response.data)
 
         # Both old tasks must be gone...
-        for task in (task_a, task_b):
+        for task in (self.task_a, self.task_b):
             task.refresh_from_db()
             self.assertEqual(
                 task.state, TaskState.CANCELLED,
@@ -385,13 +388,50 @@ class SwapReconcilesBothShipmentsTests(TestCase):
         # ...and each shipment must hold the task its NEW value calls for.
         self.assertTrue(
             Task.objects.filter(
-                shipment=ship_a, rule=transship, state=TaskState.OPEN,
+                shipment=self.ship_a, rule=self.transship, state=TaskState.OPEN,
             ).exists(),
             'shipment A is now peregruz and needs the transshipment task',
         )
         self.assertTrue(
             Task.objects.filter(
-                shipment=ship_b, rule=direct, state=TaskState.OPEN,
+                shipment=self.ship_b, rule=self.direct, state=TaskState.OPEN,
             ).exists(),
             'shipment B is now direct and needs the direct-arrival task',
         )
+
+    def test_a_failed_reconcile_rolls_back_the_swap(self):
+        """The swap and both reconciles commit together or not at all.
+
+        Reconciling after the swap committed left a failure between the two
+        shipments with swapped values but old tasks — A peregruz, holding the
+        direct-arrival task.
+        """
+        from unittest import mock
+
+        from apps.export.models import Notification
+        from apps.export.services import task_rules
+
+        real = task_rules.reconcile_shipment_tasks
+        calls = []
+
+        def fail_on_second(shipment, **kwargs):
+            calls.append(shipment.pk)
+            if len(calls) == 2:
+                raise RuntimeError('reconcile failed')
+            return real(shipment, **kwargs)
+
+        with mock.patch.object(
+            task_rules, 'reconcile_shipment_tasks', side_effect=fail_on_second,
+        ):
+            with self.assertRaises(RuntimeError):
+                self._swap_peregruz()
+
+        self.ship_a.refresh_from_db()
+        self.ship_b.refresh_from_db()
+        self.assertFalse(self.ship_a.has_peregruz)
+        self.assertTrue(self.ship_b.has_peregruz)
+        for task in (self.task_a, self.task_b):
+            task.refresh_from_db()
+            self.assertEqual(task.state, TaskState.OPEN)
+        self.assertEqual(Task.objects.count(), 2)
+        self.assertFalse(Notification.objects.filter(kind='tasks_changed').exists())

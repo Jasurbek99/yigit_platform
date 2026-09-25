@@ -2746,11 +2746,33 @@ class ShipmentViewSet(ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        # --- Atomic swap ---
+        # `has_peregruz` is in SWAPPABLE_FIELDS, so a swap is the SECOND runtime
+        # writer of a condition field after partial_update. Without a reconcile
+        # each shipment keeps the task its OLD value called for — and worse than
+        # the plain stale-task bug, because _resolve_next_status forks on
+        # has_peregruz, so the stale task targets a field on a branch the
+        # shipment will never take. `swapped` is the gate, as the changed keys
+        # are on the PATCH path; the reconciler never advances a status, so this
+        # cannot move either truck.
+        #
+        # One transaction for the swap and both reconciles: a failure between
+        # them must not leave swapped values with the old tasks. Notifications
+        # go out only after it commits.
+        from apps.export.services.shipment import notify_tasks_changed
+        from apps.export.services.task_rules import reconcile_shipment_tasks
         try:
-            swapped, updated_a, updated_b = self._execute_swap(
-                shipment_a, shipment_b, requested_fields, request.user
-            )
+            with transaction.atomic():
+                swapped, updated_a, updated_b = self._execute_swap(
+                    shipment_a, shipment_b, requested_fields, request.user
+                )
+                updated_a.refresh_from_db()
+                updated_b.refresh_from_db()
+                reconciled = []
+                for shipment in (updated_a, updated_b):
+                    shipment.updated_by = request.user
+                    reconciled.append(
+                        (shipment, reconcile_shipment_tasks(shipment, changed_fields=swapped))
+                    )
         except ValueError as exc:
             logger.exception(
                 'swap rejected a=%s b=%s fields=%s',
@@ -2758,23 +2780,8 @@ class ShipmentViewSet(ModelViewSet):
             )
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        updated_a.refresh_from_db()
-        updated_b.refresh_from_db()
         self._sheet_poke_ids = [updated_a.pk, updated_b.pk]
-
-        # `has_peregruz` is in SWAPPABLE_FIELDS, so a swap is the SECOND runtime
-        # writer of a condition field after partial_update. Without this, each
-        # shipment keeps the task its OLD value called for — and worse than the
-        # plain stale-task bug, because _resolve_next_status forks on
-        # has_peregruz, so the stale task targets a field on a branch the
-        # shipment will never take. `swapped` is the gate, exactly as
-        # submitted_keys is on the PATCH path; the reconciler never advances a
-        # status, so this cannot move either truck.
-        from apps.export.services.shipment import notify_tasks_changed
-        from apps.export.services.task_rules import reconcile_shipment_tasks
-        for shipment in (updated_a, updated_b):
-            shipment.updated_by = request.user
-            result = reconcile_shipment_tasks(shipment, changed_fields=swapped)
+        for shipment, result in reconciled:
             notify_tasks_changed(shipment, result)
 
         serializer_a = ShipmentDetailSerializer(updated_a, context={'request': request})
