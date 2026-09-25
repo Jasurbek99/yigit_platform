@@ -529,6 +529,20 @@ def auto_advance_if_ready(shipment: Shipment, resolved_tasks) -> bool:
     return advanced_any
 
 
+def _step_notify_roles(shipment: Shipment, status_code: str) -> list[str]:
+    """Roles STATUS_NOTIFY_ROLES pings when a shipment sits at status_code.
+
+    A Gapy-Satyş gate sale reaches `tamamlandy` straight out of loading with
+    no sales report (ADR-025). STATUS_NOTIFY_ROLES pings finansist on that
+    status for the satyldy -> tamamlandy hand-off, where a report has just
+    been filed — a gate sale leaves finance nothing to act on, so the
+    notification would be noise on every gapy truck.
+    """
+    if status_code == 'tamamlandy' and getattr(shipment, 'is_gapy_satys', False):
+        return []
+    return STATUS_NOTIFY_ROLES.get(status_code, [])
+
+
 def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     """Create action_required notifications for roles that need to fill fields.
 
@@ -538,15 +552,7 @@ def _notify_action_required(shipment: Shipment, new_status_code: str) -> None:
     from apps.core.models import User
     from apps.export.models import Notification
 
-    # A Gapy-Satyş gate sale reaches `tamamlandy` straight out of loading with
-    # no sales report (ADR-025). STATUS_NOTIFY_ROLES pings finansist on that
-    # status for the satyldy -> tamamlandy hand-off, where a report has just
-    # been filed — a gate sale leaves finance nothing to act on, so the
-    # notification would be noise on every gapy truck.
-    if new_status_code == 'tamamlandy' and getattr(shipment, 'is_gapy_satys', False):
-        return
-
-    roles = STATUS_NOTIFY_ROLES.get(new_status_code, [])
+    roles = _step_notify_roles(shipment, new_status_code)
     if not roles:
         return
 
@@ -604,7 +610,7 @@ def notify_tasks_changed(shipment: Shipment, reconcile_result: dict) -> int:
 
     roles = {task.assignee_role for task in affected if task.assignee_role}
     if shipment.status_id:
-        roles.update(STATUS_NOTIFY_ROLES.get(shipment.status.code, []))
+        roles.update(_step_notify_roles(shipment, shipment.status.code))
     if not roles:
         return 0
 

@@ -99,3 +99,30 @@ class NotifyTasksChangedTests(TestCase):
         notification = Notification.objects.filter(kind='tasks_changed').first()
         self.assertIn(self.shipment.shipment_code, notification.message)
         self.assertEqual(notification.link, f'/shipments/{self.shipment.id}')
+
+    def test_completed_gate_sale_does_not_ping_finance(self):
+        """STATUS_NOTIFY_ROLES pings finansist at tamamlandy, but a Gapy-Satyş
+        gate sale leaves finance nothing to act on (ADR-025) — the same
+        suppression _notify_action_required applies."""
+        _make_user('n-finance', 'finansist')
+        done, _ = ShipmentStatusType.objects.get_or_create(
+            code='tamamlandy',
+            defaults={
+                'name_tk': 'tamamlandy', 'name_en': 'tamamlandy', 'name_ru': 'tamamlandy',
+                'step_order': 12, 'phase': 'COMPLETE',
+            },
+        )
+        self.shipment.status = done
+        self.shipment.is_gapy_satys = True
+        self.shipment.save(update_fields=['status', 'is_gapy_satys'])
+        created = [_make_task(self.shipment, 'transport', 'tasks.gapy_driver')]
+
+        notify_tasks_changed(
+            self.shipment, {'created': created, 'cancelled': [], 'reopened': []},
+        )
+
+        notified = set(
+            Notification.objects.filter(kind='tasks_changed')
+            .values_list('user__role', flat=True)
+        )
+        self.assertEqual(notified, {'transport'})
