@@ -11,7 +11,7 @@ from apps.core.models import (
 )
 from apps.core.permissions import can_edit_field, can_edit_sheet_fields, PRIVILEGED_ROLES
 from apps.core.roles import EXPORT_MANAGER_LIKE
-from apps.export.services import TRANSITIONS, _edge_to
+from apps.export.services import TRANSITIONS, _edge_to, _edge_predicate
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_export_code  # noqa: F401  (kept for downstream importers)
 from apps.export.models import (
@@ -1505,14 +1505,26 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         return int(sum(durations) / len(durations))
 
     def get_allowed_transitions(self, obj: Shipment) -> list[str]:
+        """Forward statuses this shipment may move to, cancellation excluded.
+
+        Conditional edges carry a predicate (yuklenme forks on is_gapy_satys,
+        barysh_gumrugi on has_peregruz). Only the matching branch is offered —
+        otherwise the UI hands the operator a target the shipment can never
+        satisfy, which is exactly how gapy trucks used to be steered into
+        yola_chykdy and stranded there.
+        """
         if obj.status is None:
             return []
         current_code = obj.status.code
-        return [
-            _edge_to(edge)
-            for edge in TRANSITIONS.get(current_code, [])
-            if _edge_to(edge) != 'cancelled'
-        ]
+        out: list[str] = []
+        for edge in TRANSITIONS.get(current_code, []):
+            if _edge_to(edge) == 'cancelled':
+                continue
+            predicate = _edge_predicate(edge)
+            if predicate is not None and not predicate(obj):
+                continue
+            out.append(_edge_to(edge))
+        return out
 
     def get_completeness(self, obj: Shipment) -> dict:
         """Which fields are owed by this shipment's current step — see

@@ -17,6 +17,27 @@
   notification may be sent;
   (8) same check with **Peregruz** on a shipment at Barylýan gümrük — the mechanism is not gapy-only.
   NOT deployed to the dev DB: migration 0078 could not be applied there (see the note below).
+- [ ] 2026-09-24 — Gapy-Satyş ends at greenhouse departure (yuklenme → tamamlandy fork, predicate-aware allowed_transitions, 6 hidden Sheet rows) — NEEDS TEST
+  To test: (1) on the Sheet, set row 47 "Görnüşi" to **Gapy Satyş** on a draft and walk it to
+  Ýüklenme (fill row 19 loading started, rows 8/37/38 blocks/weight/variety);
+  (2) fill row 21 "Ýyladyşhanadan çykdy" — the column's status must jump straight to
+  **Tamamlandy**, NOT Ýola çykdy, and no further step should be offered;
+  (3) the same column's rows 33, 34, 35, 41, 42 and 43 must now read "—" and refuse edits,
+  as rows 29–32 already did;
+  (4) repeat (1)-(2) with Görnüşi = **Adaty** — that truck must still go to Ýola çykdy;
+  (5) open a shipment sitting at "Barysh gümrügi" with Peregruz = no — the transition button
+  must offer only "Bardy", not both Bardy and Transshipment;
+  (6) on the completed gapy shipment's detail page, the route card must show FIVE steps
+  (Garalama → Gümrük girish → Gümrük chykysh → Ýüklenme → Tamamlandy) — no green ticks on
+  border/arrival/sale;
+  (7) on the dashboard, that shipment must show a green ✓ and NOT a red ✕;
+  (8) as finansist, check the bell — no new "action required" for that gapy truck;
+  (9) open the sales-report worklist filtered to "needs report" — the gapy truck must not be there,
+  but it must still appear with the filter off;
+  (10) on /shipments, tick a NORMAL truck at Ýüklenme, use bulk transition and pick "Tamamlandy" —
+  it must be REFUSED (before this it silently completed the truck with no way back).
+  (11) Sales Reports → "All" tab: a completed gapy truck shows "—" in the report-status column, not a red "Missing".
+  (12) Dashboard → open a gapy truck at customs: the lifecycle grid highlights "Gümrük↑"/"Gümrük↓", not "Yüklenme"; order is Gümrük↑ → Gümrük↓ → Yüklenme → Tamam.
 - [x] 2026-09-23 — Per-country border point ("Serhet nokady") on Truck Destinations, auto-filled onto shipments — TESTED
   To test: (1) open **Admin → Truck Destinations**, edit a country-linked row (e.g. Gazagystan) —
   a new **Border Point** select appears; pick one and save; the table column shows it;
