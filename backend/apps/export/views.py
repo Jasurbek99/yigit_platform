@@ -722,13 +722,15 @@ class ShipmentViewSet(ModelViewSet):
             # the transaction so the field write and the task churn commit
             # together: a shipment that says Gapy while its tasks say Regular is
             # exactly the broken state this reconcile exists to remove.
-            # submitted_keys is the gate — reconcile_shipment_tasks returns
-            # immediately when no active rule conditions on any of them. It never
-            # calls auto_advance_if_ready, so a checkbox cannot move the
+            # The fields whose value actually changed are the gate — a form
+            # resubmits a checkbox toggled and back. reconcile_shipment_tasks
+            # returns immediately when no active rule conditions on any of them.
+            # It never calls auto_advance_if_ready, so a checkbox cannot move the
             # shipment; see its docstring.
             from apps.export.services.task_rules import reconcile_shipment_tasks
+            changed_keys = [k for k in submitted_keys if before[k] != after[k]]
             reconcile_result = reconcile_shipment_tasks(
-                instance, changed_fields=submitted_keys,
+                instance, changed_fields=changed_keys,
             )
 
         # Mark OPEN tasks targeting any of the submitted fields as IN_PROGRESS.

@@ -159,6 +159,26 @@ class PatchReconcilesTests(TestCase):
             set(notifications.values_list('user__role', flat=True)),
         )
 
+    def test_resubmitting_an_unchanged_condition_field_does_nothing(self):
+        """The gate is the fields whose value changed, not the fields sent.
+
+        A form that toggles a checkbox and back still submits it. With no open
+        task for the regular rule (a legacy-exempt draft), a reconcile would
+        create one and notify three roles for a no-op edit.
+        """
+        from apps.export.models import Notification
+
+        self.regular_task.delete()
+
+        response = self.client.patch(
+            f'/api/v1/export/shipments/{self.shipment.id}/',
+            {'is_gapy_satys': False}, format='json',
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+
+        self.assertFalse(Task.objects.filter(shipment=self.shipment).exists())
+        self.assertFalse(Notification.objects.filter(kind='tasks_changed').exists())
+
 
 class TwoConditionFieldsInOnePatchTests(TestCase):
     """Review Focus 2.

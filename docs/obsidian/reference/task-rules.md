@@ -151,7 +151,8 @@ manager ticking Gapy Satyş on a draft left the Regular tasks OPEN forever **and
 the Gapy tasks were never created at all.
 
 `reconcile_shipment_tasks()` (`services/task_rules.py`) closes that gap. It runs
-on every shipment PATCH whose submitted fields include a field some active rule
+on every shipment PATCH whose changed fields (value before ≠ after — resubmitting an
+unchanged checkbox does not count) include a field some active rule
 conditions on — an ordinary weight or date edit costs one small query and no
 writes. It also runs on **both** shipments after a `/swap/`, because
 `has_peregruz` is a swappable field.
@@ -193,6 +194,8 @@ together.
 Affected roles get a `tasks_changed` notification: the roles owning the created /
 cancelled / reopened tasks, union `STATUS_NOTIFY_ROLES` for the current step. For
 a Gapy flip on a draft that is `transport`, `document_team` and `export_manager`.
+A completed Gapy-Satyş truck does not add `finansist` from `tamamlandy` — the same
+`_step_notify_roles()` suppression `_notify_action_required` uses (ADR-025).
 The notification is sent **outside** the transaction — nobody should be told about
 a change that then rolled back.
 

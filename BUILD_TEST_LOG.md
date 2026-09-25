@@ -16,7 +16,11 @@
   (7) edit any ordinary cell (weight, a date, a note) — nothing about the tasks may change and no
   notification may be sent;
   (8) same check with **Peregruz** on a shipment at Barylýan gümrük — the mechanism is not gapy-only.
-  NOT deployed to the dev DB: migration 0078 could not be applied there (see the note below).
+  (9) open the edit drawer, tick Gapy satys and untick it again, save — no task changes and no bell
+  notification;
+  (10) on a completed Gapy truck, flip Peregruz — finansist gets no notification.
+  Dev DB: the 0078 blocker was the renamed 0077_gapy_driver_passports (fixed 2026-09-24 with --fake);
+  `migrate --plan` now shows 0078 and 0079 cleanly.
 - [ ] 2026-09-24 — Gapy-Satyş ends at greenhouse departure (yuklenme → tamamlandy fork, predicate-aware allowed_transitions, 6 hidden Sheet rows) — NEEDS TEST
   To test: (1) on the Sheet, set row 47 "Görnüşi" to **Gapy Satyş** on a draft and walk it to
   Ýüklenme (fill row 19 loading started, rows 8/37/38 blocks/weight/variety);
