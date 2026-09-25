@@ -220,6 +220,28 @@ treating it as an orphan, and the row went red again on the second edit even tho
 about its situation had changed. Registering every seeded row (not gating on null-ness) closes
 that reopen path for good.
 
+**Asymmetric overdraw guard (owner's 2026-09-25 decision).** The orphan floor above stops a
+seeded row from opening invalid; it does not by itself say what happens when the operator then
+*edits* that row. `rowInvalid` gates on the row's own seeded kg (the value it held when the form
+opened, `seededKg[blockId:harvestDate]`, computed once at mount the same way as `orphans`):
+reducing a row, or leaving it untouched, is **always** allowed, even while its kg stays above
+what the block genuinely has today — `if (row.kg <= seededKg) return false`, before either the
+per-batch or the block-level check runs. Only an **increase** past that seeded floor is measured
+against `max(seeded, liveCap)`; increasing past both is refused, with the row marked invalid
+(`aria-invalid`, red `InputNumber` border) and an inline message
+(`tir_takip.gaplama.form.insufficient_harvest`, `.sera-gaplama-form-row-error`, same red as
+`.sera-gaplama-cell-over`) telling the operator to contact the greenhouse manager. The gate also
+protects an **untouched sibling row in the same block**: before this fix, the block-level SUM
+check (`blockTotal(blockId) > blockCapFor(...)`) fired uniformly across every row in the block
+once the sum went over, so increasing one row painted a completely untouched row red too; the
+per-row gate exempts any row at or below its own seeded value from that check as well, so only
+the row actually increased is flagged. (In practice `blockCapFor` can never fall below a block's
+own seeded total on a legacy, single-truck-per-block-per-day draft — `available_kg` is clamped
+at `max(0, ...)` server-side, so `base >= 0` always and `own` is added back exactly — but the
+per-row gate is still what stops an untouched sibling from being dragged down by a *different*
+row's increase.) Tests: `GaplamaTruckForm.test.tsx`, describe block `overdraw guard (seeded
+floor)`.
+
 `DraftBlockSourceInlineSerializer` — the same serializer backing this pre-fill — stays
 per-row on purpose rather than grouping by block the way the Sheet's own
 `ShipmentSheetSerializer.get_block_sources` now does (see "Sheet chip grouping" below): this

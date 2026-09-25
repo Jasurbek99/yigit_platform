@@ -218,6 +218,18 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
 
   const [rows, setRows] = useState<IRow[]>(() => initialRowsFor(props));
   const [orphans] = useState<Record<number, IGaplamaBatch[]>>(() => computeOrphans(props));
+  // The kg each row held when the form opened — zero for a row the operator
+  // adds afterwards. Computed once, from the props the form mounted with,
+  // same as `orphans`. Owner's 2026-09-25 rule: reducing a row, or leaving
+  // it untouched, is always allowed, even above what the block currently
+  // has — only an INCREASE past this floor is checked. See `rowInvalid`.
+  const [seededKg] = useState<Record<string, number>>(() => {
+    const map: Record<string, number> = {};
+    for (const r of initialRowsFor(props)) {
+      map[ROW_KEY(r.blockId, r.harvestDate)] = r.kg ?? 0;
+    }
+    return map;
+  });
   const [exportCode, setExportCode] = useState(props.editingTruck?.export_code ?? '');
   const [harvestStatus, setHarvestStatus] = useState<string | undefined>();
   const [variety, setVariety] = useState<number | undefined>();
@@ -245,6 +257,14 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
 
   function rowInvalid(row: IRow): boolean {
     if (!row.kg) return false;
+    // Reducing, or leaving untouched, is always allowed — even a row seeded
+    // above what the block currently shows (another truck took the stock,
+    // or an in-week plan cut landed after this truck was built). The kg
+    // return to the block's derived remainder on their own; only an
+    // INCREASE past what the row started with is ever checked below. This
+    // also keeps an untouched sibling row in the same block from being
+    // dragged down by a DIFFERENT row's increase busting the block total.
+    if (row.kg <= (seededKg[ROW_KEY(row.blockId, row.harvestDate)] ?? 0)) return false;
     const batches = batchesForBlock(row.blockId);
     if (row.kg > capFor(row.harvestDate, batches)) return true;
     return blockTotal(row.blockId) > blockCapFor(row.blockId, props);
@@ -398,6 +418,11 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
                             status={invalid ? 'error' : undefined}
                             onChange={(kg) => upsertRow(blockId, row.harvestDate, kg ?? null)}
                           />
+                          {invalid && (
+                            <div className="sera-gaplama-form-row-error">
+                              {t('tir_takip.gaplama.form.insufficient_harvest')}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

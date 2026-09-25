@@ -3926,7 +3926,8 @@
         "batch_age_fresh": "Fresh",
         "batch_age_days": "{{days}} d",
         "carry_window": "❄ {{days}} d",
-        "oldest_batch": "oldest: {{days}} d"
+        "oldest_batch": "oldest: {{days}} d",
+        "insufficient_harvest": "Not enough harvest in this block — contact the greenhouse manager; if there is surplus harvest, have them change it in the program"
       }
     }
   }

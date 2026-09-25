@@ -418,3 +418,124 @@ describe('GaplamaTruckForm — edit', () => {
     expect(body.blocks).toEqual([{ block_id: 1, weight_kg: 8000, harvest_date: '2026-09-21' }]);
   });
 });
+
+// Owner's 2026-09-25 asymmetric rule: reducing, or leaving untouched, is
+// always allowed even above what the block currently has (the kg return to
+// the block's derived remainder on their own); only an INCREASE past
+// max(seeded, liveCap) is refused. The motivating case: a truck recorded at
+// 18000 kg whose block now has only 10000 available (another truck took the
+// stock, or an in-week plan cut landed after this truck was built).
+describe('GaplamaTruckForm — overdraw guard (seeded floor)', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const overdrawnTruck = {
+    id: 30, shipment_code: '2109030/26', export_code: null, date: '2026-09-21',
+    status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+    block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 18000 }],
+  };
+
+  function renderOverdrawn() {
+    return renderForm({
+      mode: 'edit',
+      editingTruck: overdrawnTruck,
+      editingTruckBatches: [{ block_id: 1, block_code: 'A', weight_kg: 18000, harvest_date: '2026-09-21' }],
+      // The block genuinely only has 10000 available today (the motivating
+      // example) — same figure at both block and batch granularity, since
+      // there is only one batch. `available_kg` is clamped at >= 0 on the
+      // backend (gaplama.py: `max(Decimal(0), carried_in + plan - loaded)`),
+      // so blockCapFor (base + this truck's own 18000 added back = 28000)
+      // can never fall below what this truck itself already carries —
+      // these tests isolate the per-batch cap the motivating example is
+      // about; the block-level gate is exercised separately in test 6.
+      availableByBlock: { 1: 10000 },
+      batchesByBlock: { 1: [{ harvest_date: '2026-09-21', age_days: 0, available_kg: 10000 }] },
+    });
+  }
+
+  it('1. opens valid with Save enabled — a row seeded above its live cap must not regress the legacy-draft fix', () => {
+    renderOverdrawn();
+    const kgInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement;
+    expect(kgInput).toHaveValue(18000);
+    expect(kgInput).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).not.toBeDisabled();
+  });
+
+  it('2. reducing to a value still above the live cap is allowed and saves', async () => {
+    (api.post as any).mockResolvedValue({ data: {} });
+    (api.patch as any).mockResolvedValue({ data: {} });
+    renderOverdrawn();
+    const kgInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement;
+    fireEvent.change(kgInput, { target: { value: '15000' } }); // still > liveCap 10000, < seeded 18000
+    expect(kgInput).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    const [, body] = (api.post as any).mock.calls[0];
+    expect(body.blocks).toEqual([{ block_id: 1, weight_kg: 15000, harvest_date: '2026-09-21' }]);
+  });
+
+  it('3. increasing beyond its seeded value is refused and shows the message', () => {
+    renderOverdrawn();
+    const kgInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement;
+    fireEvent.change(kgInput, { target: { value: '19000' } }); // > seeded 18000 and > liveCap 10000
+    expect(kgInput).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('tir_takip.gaplama.form.insufficient_harvest')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).toBeDisabled();
+  });
+
+  it('4. on a new row, increasing beyond the live cap is refused and shows the message', () => {
+    renderForm(); // create mode — every row is new, seeded 0. Block 1's 21.09 batch caps at 3000.
+    const inputs = screen.getAllByRole('spinbutton');
+    fireEvent.change(inputs[0], { target: { value: '3500' } });
+    expect(inputs[0]).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('tir_takip.gaplama.form.insufficient_harvest')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.open_truck' })).toBeDisabled();
+  });
+
+  it('5. increasing within the live cap is allowed', () => {
+    renderForm(); // Block 1's 24.09 batch caps at 9000.
+    const inputs = screen.getAllByRole('spinbutton');
+    fireEvent.change(inputs[1], { target: { value: '5000' } }); // <= 9000
+    expect(inputs[1]).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByText('tir_takip.gaplama.form.insufficient_harvest')).not.toBeInTheDocument();
+  });
+
+  // The block-level total check gets the same seeded floor as the per-batch
+  // one — sum(seeded rows) becomes the floor, not a replacement for the
+  // block's real cap. Row-level caps are deliberately loose here (live cap
+  // 6000, well above what either row asks for) so only the block-level
+  // check can bind.
+  it("6. block-level total check still refuses an increase that pushes a block's sum past its available kilograms", () => {
+    const truck = {
+      id: 31, shipment_code: '2109031/26', export_code: null, date: '2026-09-21',
+      status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
+      block_sources: [{ block_id: 1, block_code: 'A', weight_kg: 8000 }],
+    };
+    renderForm({
+      mode: 'edit',
+      editingTruck: truck,
+      editingTruckBatches: [
+        { block_id: 1, block_code: 'A', weight_kg: 5000, harvest_date: '2026-09-20' },
+        { block_id: 1, block_code: 'A', weight_kg: 3000, harvest_date: '2026-09-21' },
+      ],
+      availableByBlock: { 1: 0 }, // blockCapFor = 0 + own(8000) = 8000, same as the seeded total
+      batchesByBlock: {
+        1: [
+          { harvest_date: '2026-09-20', age_days: 1, available_kg: 5000 },
+          { harvest_date: '2026-09-21', age_days: 0, available_kg: 6000 }, // loose row-level cap
+        ],
+      },
+    });
+    const inputs = screen.getAllByRole('spinbutton');
+    // Oldest first: [0] = 20.09 (seeded 5000), [1] = 21.09 (seeded 3000).
+    expect(inputs[0]).toHaveValue(5000);
+    expect(inputs[1]).toHaveValue(3000);
+    fireEvent.change(inputs[1], { target: { value: '4000' } }); // within its own row cap (6000), pushes block total to 9000 > 8000
+    expect(inputs[1]).toHaveAttribute('aria-invalid', 'true');
+    // The untouched 20.09 row (still at its seeded 5000) must NOT be
+    // dragged down with it — only the row actually increased is flagged.
+    expect(inputs[0]).not.toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getAllByText('tir_takip.gaplama.form.insufficient_harvest')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'tir_takip.gaplama.form.save' })).toBeDisabled();
+  });
+});

@@ -3931,7 +3931,8 @@
         "batch_age_fresh": "Täze",
         "batch_age_days": "{{days}} gün",
         "carry_window": "❄ {{days}} gün",
-        "oldest_batch": "iň köne: {{days}} gün"
+        "oldest_batch": "iň köne: {{days}} gün",
+        "insufficient_harvest": "Bu blokda ýeterlik hasyl ýok, ýyladyşhananyň müdiri bilen habarlaşyň egerde artykmaç hasyl bolsa programmada üýtgetsin"
       }
     }
   }
