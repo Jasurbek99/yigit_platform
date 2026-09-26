@@ -678,7 +678,11 @@ export default function OptionListsTab({ canWrite }: IProps) {
           is_active: values.is_active ?? true,
           sub_blocks: [],
         };
-        if (isCreate) cBlock.mutate(payload);
+        // carry_days is not shown or tracked on this quick-list form — only
+        // set it (to the model default) on create. Omitting it from the PATCH
+        // body on edit leaves the block's existing value untouched, since the
+        // update endpoint is partial.
+        if (isCreate) cBlock.mutate({ ...payload, carry_days: 7 });
         else uBlock.mutate({ id, ...payload });
         break;
       }

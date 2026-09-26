@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from apps.core.db_utils import cyrillic_collation, schema_table
 
@@ -56,6 +57,22 @@ class GreenhouseBlock(models.Model):
     color = models.CharField(max_length=7, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # How many days a leftover from this block stays loadable. Blocks with cold
+    # storage hold tomatoes for days; blocks without do not. Replaces the single
+    # GreenhouseConfig.gaplama_carry_days, which applied 2 days to everything
+    # (owner report 2026-09-24). Everyone starts at 7 and is tuned later.
+    # Capped at 30 (2026-09-25): build_gaplama_board sizes its walk window at
+    # 2 x max(carry_days) ACROSS EVERY BLOCK, and each block's own bucket
+    # list inside that window is bounded by its own carry_days — cost is
+    # quadratic in this value, and the walk window is shared by the whole
+    # roster, so one block's mistake slows the board for everyone. 30 days
+    # is already generous for a fresh tomato even under cold storage (real
+    # operators run 2-3 weeks); it bounds the worst case to a ~60-day walk
+    # with ~30-entry bucket lists, trivial either way, instead of a typo
+    # like 3650 walking two decades for every block on every request.
+    carry_days = models.PositiveSmallIntegerField(
+        default=7, validators=[MinValueValidator(1), MaxValueValidator(30)],
+    )
 
     class Meta:
         db_table = schema_table('core', 'greenhouse_blocks')

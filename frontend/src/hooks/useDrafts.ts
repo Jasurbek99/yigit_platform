@@ -44,7 +44,19 @@ export function useDrafts() {
       const { data } = await api.get<{ results: IShipmentDraft[] }>(
         `/export/shipments/?status_code=draft&page_size=200&ordering=harvest_age_desc${seasonParam}`,
       );
-      return data.results ?? [];
+      // block_sources[].weight_kg is a DecimalField — arrives as a string
+      // ("8000.00"), same api-contract convention as every other decimal
+      // field. Coerced here, at the fetch boundary, not at any usage site
+      // (GaplamaTruckForm's edit-mode seeding sums it — see
+      // task-7-report.md) — DraftPool's own defensive `Number(b.weight_kg)`
+      // wrapping is evidence this was never coerced before.
+      return (data.results ?? []).map((d) => ({
+        ...d,
+        block_sources: (d.block_sources ?? []).map((s) => ({
+          ...s,
+          weight_kg: s.weight_kg != null ? Number(s.weight_kg) : null,
+        })),
+      }));
     },
     enabled: USE_MOCK || isReady,
     staleTime: 30_000,
@@ -68,7 +80,9 @@ export function useCreateDraft() {
         // No-op in mock mode — optimistically return a stub.
         const stub: IShipmentDraft = {
           id: Date.now(),
-          shipment_code: payload.shipment_code,
+          // shipment_code is optional on the payload (server auto-generates
+          // it when omitted) — mock the same fallback here.
+          shipment_code: payload.shipment_code ?? dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Mock User',
@@ -100,6 +114,11 @@ export function useCreateDraft() {
       queryClient.invalidateQueries({
         predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
       });
+      // GaplamaTruckForm (create mode) submits through this hook — the
+      // Gaplama board's available_kg must reflect the newly-opened truck
+      // immediately, or a second truck can be opened against capacity
+      // that's already been claimed by the first.
+      queryClient.invalidateQueries({ queryKey: ['gaplama-board'] });
     },
   });
 }
@@ -325,7 +344,9 @@ export function useCreateDestinationDraft() {
       if (USE_MOCK) {
         const stub: IShipmentDraft = {
           id: Date.now(),
-          shipment_code: payload.shipment_code,
+          // shipment_code is optional on the payload (server auto-generates
+          // it when omitted) — mock the same fallback here.
+          shipment_code: payload.shipment_code ?? dayjs().format('DDMMHHmm') + '/' + dayjs().format('YY'),
           date: payload.date,
           created_at: new Date().toISOString(),
           created_by_name: 'Gadam (mock)',

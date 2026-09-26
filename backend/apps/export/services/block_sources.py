@@ -27,24 +27,24 @@ def _block_id(block) -> int:
     return block.id if hasattr(block, 'id') else int(block)
 
 
-def merge_to_parent(entries, parent_map: dict[int, int]) -> "OrderedDict[int, dict]":
-    """Collapse (block, weight, harvest_date) entries to {parent_id: {...}}.
+def merge_to_parent(entries, parent_map: dict[int, int]) -> "OrderedDict[tuple, dict]":
+    """Collapse (block, weight, harvest_date) entries to {(parent_id, harvest_date): {...}}.
 
-    Weights are summed; the first non-null harvest_date wins; input order is kept.
-    Each entry is a dict with `block` (instance or id), `weight_kg`, and optional
-    `harvest_date`.
+    Keyed on the BATCH, not the block (2026-09-24). A truck may take two harvest
+    days from the same block — the operator picks them by date in Gaplama — and the
+    old key summed those into one row, keeping the first non-null harvest_date and
+    silently losing the other batch. Weights within one batch are still summed and
+    input order is still kept.
     """
-    merged: "OrderedDict[int, dict]" = OrderedDict()
+    merged: "OrderedDict[tuple, dict]" = OrderedDict()
     for entry in entries:
         top_id = parent_map.get(_block_id(entry['block']), _block_id(entry['block']))
+        key = (top_id, entry.get('harvest_date'))
         weight = Decimal(str(entry['weight_kg']))
-        harvest_date = entry.get('harvest_date')
-        if top_id in merged:
-            merged[top_id]['weight_kg'] += weight
-            if merged[top_id]['harvest_date'] is None and harvest_date:
-                merged[top_id]['harvest_date'] = harvest_date
+        if key in merged:
+            merged[key]['weight_kg'] += weight
         else:
-            merged[top_id] = {'weight_kg': weight, 'harvest_date': harvest_date}
+            merged[key] = {'weight_kg': weight}
     return merged
 
 
@@ -69,11 +69,11 @@ def write_block_sources(shipment, entries, *, replace: bool = True) -> int:
         rows = [
             ShipmentBlockSource(
                 shipment=shipment,
-                block_id=top_id,
+                block_id=block_id,
                 weight_kg=data['weight_kg'],
-                harvest_date=data['harvest_date'],
+                harvest_date=harvest_date,
             )
-            for top_id, data in merged.items()
+            for (block_id, harvest_date), data in merged.items()
         ]
         if rows:
             ShipmentBlockSource.objects.bulk_create(rows, batch_size=500)

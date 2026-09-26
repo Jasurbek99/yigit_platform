@@ -73,6 +73,7 @@ const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage
 const PackingTemplatePage = lazy(() => import('@/pages/admin/PackingTemplatePage'));
 const FleetMap = lazy(() => import('@/pages/transport/FleetMap'));
 const TirTakip = lazy(() => import('@/pages/sera/TirTakip'));
+const GaplamaPage = lazy(() => import('@/pages/sera/GaplamaPage'));
 const FleetAdminPage = lazy(() => import('@/pages/admin/FleetAdminPage'));
 
 const queryClient = new QueryClient({
@@ -327,6 +328,12 @@ export default function App() {
                       first revoke is an admin's checkbox, not a deploy. */}
                   <Route path="tir-takip" element={
                     <ProtectedRoute pageCode="tir_takip"><TirTakip /></ProtectedRoute>
+                  } />
+                  {/* Gaplama standalone page — the design's second entry point for
+                      the same tab reachable inside Tır Takip. Same page code
+                      (`tir_takip.gaplama`), no new permission row. */}
+                  <Route path="export/gaplama" element={
+                    <ProtectedRoute pageCode="tir_takip.gaplama"><GaplamaPage /></ProtectedRoute>
                   } />
                   {/* Fleet admin (truck-head / trailer / driver CRUD). page_code
                       registered 2026-09-03, replacing the hardcoded fleet-editor

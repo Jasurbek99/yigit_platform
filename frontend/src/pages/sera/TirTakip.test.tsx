@@ -32,6 +32,12 @@ vi.mock('./HasabatTab', () => ({
   default: () => <div data-testid="hasabat-body" />,
 }));
 
+// And for `GaplamaTab`: it renders a packing summary grid with allocation UI.
+// Its own behaviour is in `GaplamaTab.test.tsx`.
+vi.mock('./GaplamaTab', () => ({
+  default: () => <div data-testid="gaplama-body" />,
+}));
+
 // And for the Shipment Settings page behind Datalar: six sub-tabs of queries
 // and mutations.
 vi.mock('@/pages/admin/ShipmentSettingsPage', () => ({
@@ -120,6 +126,32 @@ describe('TirTakip', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the Gaplama body when export.plan is granted', async () => {
+    grant([...ALL_TAB_CODES, 'export.plan']);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Packing' }));
+
+    expect(screen.getByTestId('gaplama-body')).toBeInTheDocument();
+    expect(screen.queryByText('This section has no content yet.')).toBeNull();
+  });
+
+  it('withholds the Gaplama body from a role that cannot see /export/plan', async () => {
+    // `tir_takip.gaplama` is granted to all 15 roles; `export.plan` to 8.
+    // The tab stays visible while the packing data does not leak.
+    grant(ALL_TAB_CODES);
+    render(<TirTakip />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Packing' }));
+
+    expect(screen.queryByTestId('gaplama-body')).toBeNull();
+    expect(
+      screen.getByText(
+        'You do not have access to this data. An administrator can grant it in the permission matrix.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('renders the Tırlar body when the Sheet itself is granted', async () => {
     grant([...ALL_TAB_CODES, 'export.shipments_sheet']);
     render(<TirTakip />);
@@ -201,7 +233,7 @@ describe('TirTakip', () => {
     grant(ALL_TAB_CODES);
     render(<TirTakip />);
 
-    await userEvent.click(screen.getByRole('tab', { name: 'Packing' }));
+    await userEvent.click(screen.getByRole('tab', { name: /Export Report/ }));
 
     expect(screen.queryByTestId('onumcilik-body')).toBeNull();
     expect(screen.getByText('This section has no content yet.')).toBeInTheDocument();
