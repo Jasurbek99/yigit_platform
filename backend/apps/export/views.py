@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
 from django.http import FileResponse
@@ -16,6 +16,7 @@ from django.db.models import (
 from django.db.models.functions import Now, RowNumber
 from django.db.models.expressions import Window
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -2204,10 +2205,16 @@ class ShipmentViewSet(ModelViewSet):
             # path with no prior HarvestDayEntry forecast).
             if bs_rows and not skip_forecast_check:
                 from apps.export.services.harvest_forecast import assert_draw_within_pool
-                assert_draw_within_pool(
-                    {row['block_id'].id: row['weight_kg'] for row in bs_rows},
-                    data['date'],
-                )
+                # Sum per block, not last-write-wins: a block can now appear
+                # on more than one row (its separate harvest-date batches),
+                # and the pool/truck-cap check must see the block's total
+                # draw, matching the aggregated check in the serializer's
+                # validate() above.
+                block_draw: dict[int, Decimal] = {}
+                for row in bs_rows:
+                    bid = row['block_id'].id
+                    block_draw[bid] = block_draw.get(bid, Decimal('0')) + row['weight_kg']
+                assert_draw_within_pool(block_draw, data['date'])
 
             shipment = Shipment.objects.create(
                 shipment_code=data['shipment_code'],
@@ -2260,7 +2267,14 @@ class ShipmentViewSet(ModelViewSet):
             if bs_rows:
                 blocks_written = write_block_sources(
                     shipment,
-                    [{'block': row['block_id'], 'weight_kg': row['weight_kg']} for row in bs_rows],
+                    [
+                        {
+                            'block': row['block_id'],
+                            'weight_kg': row['weight_kg'],
+                            'harvest_date': row.get('harvest_date'),
+                        }
+                        for row in bs_rows
+                    ],
                     replace=False,
                 )
 
@@ -3284,8 +3298,34 @@ class ShipmentViewSet(ModelViewSet):
 
         ``harvest_date`` is optional per-block. When the R8 multi-select editor
         re-picks blocks without sending harvest_date, the server preserves the
-        existing date by reading the prior block_id → date map before deleting
-        the rows. Pass harvest_date=null explicitly to clear.
+        block's existing batches by reading the prior (block_id -> [(harvest_date,
+        weight_kg), ...]) map before deleting the rows, instead of collapsing
+        them to one row: a block can carry two harvest days in one truck
+        (2026-09-24), and picking it again in R8 must not silently drop one.
+        The entry's weight (explicit override or auto-split share) is
+        distributed across the preserved batches in their existing weight
+        ratio, remainder on the last. Dates, batch count, and the ratio
+        between batches always survive; the absolute kg each batch gets
+        follows the block's *current* total the same way a single-batch
+        block's weight already does — unchanged only when that total happens
+        to match what it was before (e.g. the block is the only one in the
+        payload). Adding or dropping a sibling block changes this block's
+        auto-split share and rescales its batches accordingly, same as it
+        always has for a single batch.
+        Pass harvest_date=null explicitly to clear down to one dateless row.
+
+        Optional ``"sync_weight_net": true`` in the body makes this call ALSO
+        set ``shipment.weight_net`` to the sum of the blocks just written, in
+        the SAME transaction as the block-sources write. Before this, the
+        Gaplama edit form (Üýtget) wrote the split with this endpoint and then
+        PATCHed weight_net in a second, separate request — two server-side
+        gates (block-sources needs shipment.create, weight_net needs
+        shipment.edit + the field grant) — so a 403/500/dropped connection on
+        the second call left the split rewritten with the total still stale
+        (2026-09-25 fix). The weight_net field permission is checked BEFORE
+        any write (400/403, nothing written), and the new total is computed
+        server-side from the rows just written, never trusted from the
+        request — the caller cannot desync it from the split it just sent.
         """
         shipment = self.get_object()
         blocks_data = request.data.get('blocks', [])
@@ -3299,6 +3339,37 @@ class ShipmentViewSet(ModelViewSet):
         valid_entries = [e for e in blocks_data if e.get('block_id')]
         n = len(valid_entries)
 
+        # The weight_net field permission is a SEPARATE gate from this
+        # endpoint's own (shipment.create) — checked before any write so a
+        # caller who lacks it gets a clean 403 with nothing rewritten, instead
+        # of a rewritten split and a stale total (see docstring).
+        sync_weight_net = bool(request.data.get('sync_weight_net'))
+        if sync_weight_net and not can_edit_sheet_field(request.user, 'weight_net'):
+            user_role = getattr(request.user, 'role', None)
+            return Response(
+                {'error': f"Role '{user_role}' cannot edit: weight_net"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Reject a negative override before any DB read/write. None/0/'0'/'0.00'
+        # are the auto-split sentinel (handled below), not a weight — so this
+        # only rejects a genuinely negative number, the same sentinel check the
+        # weight-building loop uses. Unlike ShipmentCreateSerializer's
+        # min_value=0.01, 0 must stay legal here: it is how a caller asks for
+        # auto-split, not a weight of zero.
+        for entry in valid_entries:
+            override = entry.get('weight_kg')
+            if override in (None, 0, '0', '0.00'):
+                continue
+            try:
+                if Decimal(str(override)) < 0:
+                    raise ValueError
+            except (InvalidOperation, ValueError):
+                return Response(
+                    {'error': f'weight_kg must not be negative: {override!r}', 'field': 'weight_kg'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # Build per-row weights — explicit overrides win; otherwise auto-split.
         auto_weights: list[Decimal] = []
         if n > 0:
@@ -3307,15 +3378,17 @@ class ShipmentViewSet(ModelViewSet):
             auto_weights = [base] * (n - 1)
             auto_weights.append((Decimal(total) - base * (n - 1)).quantize(Decimal('0.01')))
 
-        # Preserve existing harvest_date for blocks the caller didn't send —
-        # R8's multiselect editor only ships block_id, so without this the
-        # date would silently reset every time blocks were reordered. block_sources
-        # are stored at PARENT grain, so existing_dates is parent-keyed; normalize
-        # the incoming (possibly sub-block) id to its parent before the lookup.
-        existing_dates = dict(
-            shipment.block_sources.values_list('block_id', 'harvest_date')
-        )
+        # Preserve existing batches for blocks the caller didn't send a
+        # harvest_date for. block_sources are stored at PARENT grain, so this
+        # is parent-keyed; normalize the incoming (possibly sub-block) id to
+        # its parent before the lookup. Ordered by (harvest_date, id) so the
+        # rounding remainder always lands on the same (latest) batch.
         parent_of = build_block_parent_map()
+        existing_by_parent: dict[int, list[tuple]] = {}
+        for block_id, harvest_date, weight_kg in shipment.block_sources.order_by(
+            'harvest_date', 'id',
+        ).values_list('block_id', 'harvest_date', 'weight_kg'):
+            existing_by_parent.setdefault(block_id, []).append((harvest_date, weight_kg))
 
         entries = []
         for i, entry in enumerate(valid_entries):
@@ -3325,21 +3398,111 @@ class ShipmentViewSet(ModelViewSet):
                 if override not in (None, 0, '0', '0.00')
                 else auto_weights[i]
             )
-            # harvest_date semantics: explicit key (even null) overrides the
-            # preserved value; absent key falls back to the prior date.
             block_id = entry['block_id']
+
             if 'harvest_date' in entry:
-                harvest_date = entry['harvest_date'] or None
-            else:
-                harvest_date = existing_dates.get(parent_of.get(block_id, block_id))
-            entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': harvest_date})
+                # Explicit key (even null) always overrides — single row.
+                # Parsed to a real `date` here (not left as the raw request
+                # string) because a PRESERVED entry a few lines below carries
+                # a real `date` object read straight from the DB —
+                # merge_to_parent keys on this value, and a str and a date
+                # naming the same calendar day are different dict keys, so
+                # they never merge: both get written and the (shipment,
+                # block, harvest_date) unique index then rejects the pair as
+                # an IntegrityError, surfacing as a 500 (2026-09-25 fix).
+                raw_date = entry['harvest_date']
+                if raw_date in (None, ''):
+                    harvest_date = None
+                else:
+                    harvest_date = None
+                    if isinstance(raw_date, str):
+                        try:
+                            harvest_date = parse_date(raw_date)
+                        except ValueError:
+                            harvest_date = None
+                    if harvest_date is None:
+                        return Response(
+                            {'error': f'harvest_date is not a valid date: {raw_date!r}', 'field': 'harvest_date'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': harvest_date})
+                continue
+
+            existing = existing_by_parent.get(parent_of.get(block_id, block_id))
+            if not existing:
+                entries.append({'block': block_id, 'weight_kg': weight, 'harvest_date': None})
+                continue
+
+            # No harvest_date key — spread this entry's weight across every
+            # preserved batch of the block, proportional to each batch's own
+            # existing weight (even split if the existing weights are all
+            # null/0). Allocated as a running CUMULATIVE target rather than
+            # per-batch share + remainder-on-last: row_weight is the
+            # difference between two non-decreasing quantized cumulative
+            # targets, so it can never go negative (unlike rounding each
+            # share independently and dumping the drift on the last row,
+            # which can undershoot into a negative value — e.g. batches
+            # 1000/1000/0 splitting 2666.67 rounds the first two shares up
+            # to 1333.34 each, leaving the last row -0.01). The final
+            # batch's target is forced to the full weight, so the sum is
+            # still exact by construction (telescoping sum).
+            existing_total = sum((w or Decimal('0')) for _, w in existing)
+            n_batches = len(existing)
+            running_old = Decimal('0')
+            allocated = Decimal('0')
+            last = n_batches - 1
+            for idx, (harvest_date, old_weight) in enumerate(existing):
+                running_old += (old_weight or Decimal('0'))
+                if idx == last:
+                    target = weight
+                else:
+                    cum_share = (
+                        running_old / existing_total
+                        if existing_total > 0
+                        else Decimal(idx + 1) / n_batches
+                    )
+                    target = (weight * cum_share).quantize(Decimal('0.01'))
+                row_weight = target - allocated
+                allocated = target
+                entries.append({'block': block_id, 'weight_kg': row_weight, 'harvest_date': harvest_date})
 
         # Normalize sub-blocks to parent grain and merge (F1/F2 -> F) before write.
-        count = write_block_sources(shipment, entries, replace=True)
+        # write_block_sources() opens its own transaction.atomic() (delete +
+        # bulk_create); nested inside this one it becomes a savepoint, so the
+        # split write and the weight_net sync below still commit or roll back
+        # together.
+        from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
+
+        weight_net_before = snapshot_fields(shipment, ['weight_net']) if sync_weight_net else None
+        with transaction.atomic():
+            count = write_block_sources(shipment, entries, replace=True)
+            if sync_weight_net:
+                from django.db.models import Sum
+
+                # Computed from the rows just written (post-merge, post-split),
+                # not the pre-merge `entries` list and never the request body —
+                # this is what makes the two writes agree by construction.
+                new_total = shipment.block_sources.aggregate(
+                    total=Sum('weight_kg'),
+                )['total'] or Decimal('0')
+                shipment.weight_net = new_total
+                shipment.updated_by = request.user
+                shipment.save(update_fields=['weight_net', 'updated_by'])
+
+        if sync_weight_net:
+            weight_net_after = snapshot_fields(shipment, ['weight_net'])
+            audit_rows = diff_audit_rows(shipment, weight_net_before, weight_net_after, request.user)
+            if audit_rows:
+                AuditLog.objects.bulk_create(audit_rows, batch_size=500)
+            # Mirrors partial_update: AFTER save, so Shipment.save()'s own
+            # auto-resolution (a task already DONE) runs first.
+            from apps.export.services.task_rules import mark_started_for_changed_fields
+            mark_started_for_changed_fields(shipment, ['weight_net'])
 
         logger.info(
-            'Block sources for %s updated by %s (%d blocks -> %d parent rows)',
+            'Block sources for %s updated by %s (%d blocks -> %d parent rows)%s',
             shipment.shipment_code, request.user.username, n, count,
+            ', weight_net synced' if sync_weight_net else '',
         )
         return Response({'status': 'ok', 'count': count})
 

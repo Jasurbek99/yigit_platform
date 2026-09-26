@@ -1,4 +1,5 @@
 """Tests for Phase C — supply draft creation (nullable block weights)."""
+from datetime import date
 from decimal import Decimal
 from io import StringIO
 
@@ -206,6 +207,128 @@ class SupplyDraftCreateTests(TestCase):
         self.client.force_authenticate(user=sales)
         resp = self.client.post('/api/v1/export/shipments/', self._payload(), format='json')
         self.assertEqual(resp.status_code, 403, resp.data)
+
+
+class BlockSourceBatchCreateTests(TestCase):
+    """Create-path coverage for Gaplama batch selection (2026-09-24).
+
+    A truck may carry two batches (harvest days) from the same block. The
+    create path had two defects fixed here:
+      - ShipmentCreateSerializer.validate() rejected ANY repeated block_id,
+        which also rejected two legitimate batches of one block.
+      - BlockSourceInputSerializer never declared harvest_date, so DRP
+        silently dropped it and every created draft lost its batch date.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.season = Season.objects.create(
+            name='26-jibatch', is_active=True,
+            start_date='2025-09-01', end_date='2026-06-30',
+        )
+        cls.draft = ShipmentStatusType.objects.create(
+            code='draft', name_tk='Garalama', step_order=0,
+        )
+        cls.block_a = GreenhouseBlock.objects.create(code='JH', name='JH')
+        cls.block_b = GreenhouseBlock.objects.create(code='JI', name='JI')
+        cls.loader = User.objects.create_user(
+            username='solt_batch', password='pw', role='loading_dept_head',
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.loader)
+
+    def _post(self, block_sources, **over):
+        payload = {
+            'is_draft': True,
+            'skip_forecast_check': True,
+            'block_sources': block_sources,
+        }
+        payload.update(over)
+        return self.client.post('/api/v1/export/shipments/', payload, format='json')
+
+    def test_two_batches_from_one_block_creates_two_rows(self):
+        """3,000 kg picked the 21st + 5,000 kg picked the 24th, both block A."""
+        resp = self._post([
+            {'block_id': self.block_a.pk, 'weight_kg': '3000.00', 'harvest_date': '2026-01-21'},
+            {'block_id': self.block_a.pk, 'weight_kg': '5000.00', 'harvest_date': '2026-01-24'},
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        s = Shipment.objects.get(pk=resp.data['id'])
+        self.assertEqual(s.block_sources.count(), 2)
+        rows = {
+            bs.harvest_date: bs.weight_kg
+            for bs in s.block_sources.filter(block=self.block_a)
+        }
+        self.assertEqual(rows, {
+            date(2026, 1, 21): Decimal('3000.00'),
+            date(2026, 1, 24): Decimal('5000.00'),
+        })
+
+    def test_same_block_same_harvest_date_still_rejected(self):
+        """Two rows for one block on the SAME date are a genuine duplicate."""
+        resp = self._post([
+            {'block_id': self.block_a.pk, 'weight_kg': '3000.00', 'harvest_date': '2026-01-21'},
+            {'block_id': self.block_a.pk, 'weight_kg': '5000.00', 'harvest_date': '2026-01-21'},
+        ])
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('block_sources', resp.data)
+
+    def test_single_batch_create_persists_harvest_date(self):
+        """A single-batch create must not lose its harvest_date to null."""
+        resp = self._post([
+            {'block_id': self.block_a.pk, 'weight_kg': '18000.00', 'harvest_date': '2026-01-22'},
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        s = Shipment.objects.get(pk=resp.data['id'])
+        bs = s.block_sources.get(block=self.block_a)
+        self.assertEqual(bs.harvest_date, date(2026, 1, 22))
+
+    def test_two_bare_entries_for_one_block_rejected(self):
+        """Two entries for one block with NO harvest_date on either are still
+        rejected as a duplicate. Both key on (block, None): with no date to
+        tell the batches apart they're indistinguishable from an accidental
+        double-submit, and write_block_sources would silently sum them into
+        one row rather than keeping two — the DB's unique index doesn't catch
+        this pair either, since NULL != NULL there."""
+        resp = self._post([
+            {'block_id': self.block_a.pk, 'weight_kg': '3000.00'},
+            {'block_id': self.block_a.pk, 'weight_kg': '5000.00'},
+        ])
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('block_sources', resp.data)
+
+    def test_dated_and_undated_batch_for_one_block_allowed(self):
+        """A dated batch plus an undated batch of the same block ARE distinct
+        keys — (block, date) vs (block, None) — and both are legal."""
+        resp = self._post([
+            {'block_id': self.block_a.pk, 'weight_kg': '3000.00', 'harvest_date': '2026-01-21'},
+            {'block_id': self.block_a.pk, 'weight_kg': '5000.00'},
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        s = Shipment.objects.get(pk=resp.data['id'])
+        rows = {
+            bs.harvest_date: bs.weight_kg
+            for bs in s.block_sources.filter(block=self.block_a)
+        }
+        self.assertEqual(rows, {
+            date(2026, 1, 21): Decimal('3000.00'),
+            None: Decimal('5000.00'),
+        })
+
+    def test_two_batches_of_one_block_alongside_another_block(self):
+        """Two batches of block A plus one row of block B — the common
+        Gaplama shape — all three rows persist."""
+        resp = self._post([
+            {'block_id': self.block_a.pk, 'weight_kg': '3000.00', 'harvest_date': '2026-01-21'},
+            {'block_id': self.block_a.pk, 'weight_kg': '5000.00', 'harvest_date': '2026-01-24'},
+            {'block_id': self.block_b.pk, 'weight_kg': '2000.00', 'harvest_date': '2026-01-21'},
+        ])
+        self.assertEqual(resp.status_code, 201, resp.data)
+        s = Shipment.objects.get(pk=resp.data['id'])
+        self.assertEqual(s.block_sources.count(), 3)
 
 
 class JoinNullWeightTests(TestCase):

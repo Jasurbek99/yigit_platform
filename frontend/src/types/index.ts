@@ -853,6 +853,7 @@ export interface IGreenhouseConfig {
   notification_lead_minutes: number;
   truck_capacity_kg: string;            // Decimal as string
   plan_change_max_pct: string;          // Decimal as string, default "15.00"
+  gaplama_carry_days: number;           // default 2 — see GreenhouseConfig.gaplama_carry_days
   operating_days_bitmask: number;       // bits 0â€“6 = Monâ€“Sun
   timezone_name: string;
   updated_by: number | null;
@@ -1566,6 +1567,8 @@ export interface IGreenhouseBlock {
   sort_order?: number;
   is_active: boolean;
   sub_blocks: IGreenhouseBlockSub[];
+  /** How many days a leftover from this block stays loadable (default 7). */
+  carry_days: number;
 }
 
 export interface IBlockAssignment {
@@ -1844,10 +1847,18 @@ export interface IDraftFirmSplitInput {
 }
 
 export interface IDraftCreatePayload {
-  shipment_code: string;
+  // Optional — the server auto-generates it when omitted (see
+  // ShipmentCreateSerializer.shipment_code, required=False, in
+  // backend/apps/export/serializers.py). Callers that pick a code
+  // themselves (e.g. DraftComposerModal) still supply it.
+  shipment_code?: string;
   date: string;
   is_draft: true;
-  block_sources?: { block_id: number; weight_kg: number }[];
+  // harvest_date is optional and additive (2026-09-24, gaplama batch
+  // selection) — DraftComposerModal never sets it; GaplamaTruckForm always
+  // does: a real date for today's own harvest, or null for the block's
+  // collapsed leftover (2026-09-25 — per-date leftover picking removed).
+  block_sources?: { block_id: number; weight_kg: number; harvest_date?: string | null }[];
   // Supply draft: block IDs + total weight in place of per-block `block_sources`
   block_ids?: number[];
   weight_net?: number;
@@ -1890,6 +1901,69 @@ export interface IDraftAssignPayload {
   import_firm: number | null;
   firm_splits?: { export_firm_id: number; weight_kg: number }[];
   border_point?: number | null;
+}
+
+// ─── Gaplama Board ────────────────────────────────────────────────────────────
+
+/** One live carry-over bucket contributing to a day's carried_in_kg, oldest first. */
+export interface IGaplamaCarryInBucket {
+  origin_date: string;
+  kg: number;
+  /** Days between this bucket's harvest day and the board day it is shown on. */
+  age_days: number;
+}
+
+export interface IGaplamaDay {
+  date: string;
+  block_id: number;
+  block_code: string;
+  location: string | null;
+  plan_kg: number;
+  loaded_kg: number;
+  carried_in_kg: number;
+  /** The live buckets making up carried_in_kg, captured before this day's own
+   * consumption — what the day started with, for the "+N (from day X)" tooltip. */
+  carry_in_breakdown: IGaplamaCarryInBucket[];
+  available_kg: number;
+  over_kg: number;
+  /** The fresh remainder this day hands forward to tomorrow (0 if none) — for the
+   * "N →" outgoing marker. Covers only THIS day's own leftover, not aged carry-in
+   * that also moves on. */
+  carried_out_kg: number;
+}
+
+/** Week-aggregate per block. plan_kg/loaded_kg/over_kg are real sums (each day's
+ * figure is an independent event); available_kg is the LAST day's value in the
+ * requested window, not a sum — see build_gaplama_board's docstring (design spec
+ * D8/I1): summing available_kg across days double-counts a remainder that stays
+ * live for several days. */
+export interface IGaplamaWeekTotal {
+  block_id: number;
+  block_code: string;
+  location: string | null;
+  plan_kg: number;
+  loaded_kg: number;
+  over_kg: number;
+  available_kg: number;
+}
+
+export interface IGaplamaTruckSource {
+  block_id: number;
+  block_code: string;
+  weight_kg: number;
+}
+
+export interface IGaplamaTruck {
+  id: number;
+  shipment_code: string;
+  export_code: string | null;
+  date: string;
+  status: number;
+  status_code: string;
+  status_display: string;
+  country: number | null;
+  customer: number | null;
+  block_sources: IGaplamaTruckSource[];
 }
 
 // ─── Harvest Forecast ─────────────────────────────────────────────────────────

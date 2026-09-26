@@ -70,6 +70,12 @@ class GreenhouseConfig(models.Model):
         help_text='Standard truck capacity in kg; used for Est. Trucks calculation.',
     )
 
+    # === Gaplama ===
+    # Gaplama: how many days a block's unpacked plan remainder stays claimable.
+    # FIFO — the oldest live remainder is drawn down first. Owner default 2026-09-23:
+    # "2-3 days, not the whole week." Changeable here without a deploy.
+    gaplama_carry_days = models.PositiveSmallIntegerField(default=2)
+
     # === Plan revisions (ADR-024) ===
     plan_change_max_pct = models.DecimalField(
         max_digits=5,
@@ -128,6 +134,7 @@ class GreenhouseConfig(models.Model):
                 'forecast_same_day_close': time(23, 59),
                 'notification_lead_minutes': 60,
                 'truck_capacity_kg': Decimal('18500'),
+                'gaplama_carry_days': 2,
                 'operating_days_bitmask': 0b0111111,
                 'timezone_name': 'Asia/Ashgabat',
             },

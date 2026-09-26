@@ -124,9 +124,12 @@ export default function BlockDetailPage() {
       sub_blocks: [],
     };
     if (editTarget) {
+      // carry_days is not shown or tracked on this sub-block form — omit it
+      // from the PATCH so an unrelated edit here can't reset it (the update
+      // endpoint is partial; a field left out of the body is left untouched).
       updateBlock.mutate({ id: editTarget.id, ...payload });
     } else {
-      createBlock.mutate(payload);
+      createBlock.mutate({ ...payload, carry_days: 7 });
     }
   }
 

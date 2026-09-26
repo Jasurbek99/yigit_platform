@@ -19,6 +19,7 @@ const DEFAULT_CONFIG: IGreenhouseConfig = {
   notification_lead_minutes: 60,
   truck_capacity_kg: '18500',
   plan_change_max_pct: '15.00',
+  gaplama_carry_days: 2,
   operating_days_bitmask: 0b0111111,
   timezone_name: 'Asia/Ashgabat',
   updated_by: null,

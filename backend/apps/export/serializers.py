@@ -455,10 +455,11 @@ class ShipmentListSerializer(serializers.ModelSerializer):
         return resolve_phase(code)
 
     # Freshness fields (Finding #5b — expiration clock).
-    # NOTE: The spec called for deriving age from the earliest ShipmentBlockSource.harvest_date,
-    # but ShipmentBlockSource has no harvest_date column today (only weight_kg).
-    # Falling back to Shipment.date is the correct simpler implementation until
-    # harvest_date is added to the block source table.
+    # NOTE: The spec called for deriving age from the earliest ShipmentBlockSource.harvest_date.
+    # ShipmentBlockSource.harvest_date exists now (added 2026-09-24, Gaplama batch
+    # selection) and BlockSourceSerializer reports it, but this method was never
+    # switched over — it still falls back to Shipment.date. Left as-is; not part of
+    # the batch-display fix that added the field below (out of scope here).
     harvest_age_days = serializers.SerializerMethodField()
     freshness = serializers.SerializerMethodField()
 
@@ -631,17 +632,9 @@ class SheetFirmSplitInlineSerializer(serializers.ModelSerializer):
         fields = ['firm_code', 'firm_name', 'firm_color', 'weight_kg', 'amount_usd']
 
 
-class SheetBlockSourceInlineSerializer(serializers.ModelSerializer):
-    """Inline block source for sheet view — minimal fields."""
-
-    block_id = serializers.IntegerField(source='block.id', read_only=True)
-    block_code = serializers.CharField(source='block.code', read_only=True)
-    # Per-block cell color — paints the block-chip in the block_sources cell.
-    block_color = serializers.CharField(source='block.color', read_only=True, default=None)
-
-    class Meta:
-        model = ShipmentBlockSource
-        fields = ['block_id', 'block_code', 'block_color', 'weight_kg', 'harvest_date']
+# Reused to format a summed Decimal exactly like ShipmentBlockSource.weight_kg
+# would serialize on its own (max_digits/decimal_places must match the model).
+_SHEET_BLOCK_WEIGHT_FIELD = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class ShipmentSheetSerializer(serializers.ModelSerializer):
@@ -726,9 +719,50 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
 
     # Inline related data
     firm_splits = SheetFirmSplitInlineSerializer(many=True, read_only=True)
-    block_sources = SheetBlockSourceInlineSerializer(many=True, read_only=True)
+    # One chip per BLOCK, not per row — see get_block_sources.
+    block_sources = serializers.SerializerMethodField()
     # Multi-variety dominant list — N+1-safe when queryset prefetches 'varieties_dominant'
     varieties_dominant = TomatoVarietyInlineSerializer(many=True, read_only=True)
+
+    def get_block_sources(self, obj) -> list[dict]:
+        """Group block_sources rows by block and sum weight_kg per block.
+
+        A block can now have more than one row on the same shipment — one
+        per harvest-day batch (2026-09-24, unique_together widened to
+        (shipment, block, harvest_date)). The Sheet shows one chip per
+        block; per-batch detail belongs on the Gaplama board, not here.
+
+        Reads `obj.block_sources.all()` — prefetched by the sheet queryset
+        (`block_sources__block`), so this is N+1-safe for the unpaginated
+        whole-season list.
+        """
+        grouped: dict[int, dict] = {}
+        order: list[int] = []
+        for bs in obj.block_sources.all():
+            block = bs.block
+            entry = grouped.get(block.id)
+            if entry is None:
+                entry = {
+                    'block_id': block.id,
+                    'block_code': block.code,
+                    'block_color': block.color,
+                    'weight_kg': None,
+                }
+                grouped[block.id] = entry
+                order.append(block.id)
+            if bs.weight_kg is not None:
+                running = entry['weight_kg']
+                entry['weight_kg'] = bs.weight_kg if running is None else running + bs.weight_kg
+
+        result = []
+        for bid in order:
+            entry = dict(grouped[bid])
+            weight = entry['weight_kg']
+            entry['weight_kg'] = (
+                _SHEET_BLOCK_WEIGHT_FIELD.to_representation(weight) if weight is not None else None
+            )
+            result.append(entry)
+        return result
 
     class Meta:
         model = Shipment
@@ -826,7 +860,7 @@ class BlockSourceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShipmentBlockSource
-        fields = ['block_code', 'block_name', 'weight_kg']
+        fields = ['block_code', 'block_name', 'weight_kg', 'harvest_date']
 
 
 class StatusLogSerializer(serializers.ModelSerializer):
@@ -1705,13 +1739,18 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
 
 
 class BlockSourceInputSerializer(serializers.Serializer):
-    """One row of the multi-block composer: block + allocated weight.
+    """One row of the multi-block composer: block + allocated weight + batch date.
 
     Used as a child serializer inside ShipmentCreateSerializer.block_sources.
+    harvest_date identifies the batch (the day that block was picked) — a truck
+    may carry two batches from the same block on different harvest_date values
+    (2026-09-24). Optional: omitted means the batch's date is unknown/unset,
+    same as the block-sources edit endpoint (set_block_sources).
     """
 
     block_id = serializers.PrimaryKeyRelatedField(queryset=GreenhouseBlock.objects.all())
     weight_kg = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0.01'))
+    harvest_date = serializers.DateField(required=False, allow_null=True)
 
 
 class FirmSplitInputSerializer(serializers.Serializer):
@@ -1866,12 +1905,24 @@ class ShipmentCreateSerializer(serializers.Serializer):
         # edit paths. The original strictness was an artifact of DraftPool's
         # use case, not an intrinsic property of the draft state.
 
-        # Validate block uniqueness within the submitted list (when provided).
+        # Validate batch uniqueness within the submitted list (when provided).
+        # Keyed on (block, harvest_date) rather than block alone (2026-09-24):
+        # a truck may legitimately carry two batches of one block picked on
+        # different days (Gaplama), so only a repeated block+date pair — the
+        # same batch submitted twice — is a genuine accidental duplicate.
+        # Two bare entries (no harvest_date, i.e. both keyed on block+None)
+        # are ALSO rejected here: with no date to tell them apart they are
+        # indistinguishable from an accidental double-submit, and letting
+        # them through would have write_block_sources silently sum them into
+        # one row instead of raising — the DB's unique index does not catch
+        # this pair either, since NULL != NULL there.
         if block_sources:
-            block_ids = [row['block_id'].id for row in block_sources]
-            if len(block_ids) != len(set(block_ids)):
+            batch_keys = [
+                (row['block_id'].id, row.get('harvest_date')) for row in block_sources
+            ]
+            if len(batch_keys) != len(set(batch_keys)):
                 raise serializers.ValidationError(
-                    {'block_sources': 'Duplicate blocks are not allowed in a single shipment.'}
+                    {'block_sources': 'Duplicate batches (same block and harvest date) are not allowed in a single shipment.'}
                 )
 
         # Validate firm_splits uniqueness within the submitted list.
@@ -1908,15 +1959,28 @@ class ShipmentCreateSerializer(serializers.Serializer):
         enforce_caps = is_draft and block_sources and not skip_forecast_check
 
         if enforce_caps:
+            # Both caps are evaluated against the block's TOTAL across every
+            # row in this submission, not each row alone — a block can now
+            # appear on more than one row (its separate harvest-date batches),
+            # and two rows that each individually clear a cap can still
+            # together exceed it (e.g. 12,000 + 10,000 kg both < 18,500 kg
+            # alone, but the truck can't hold 22,000 kg). Pre-2026-09-24,
+            # duplicate blocks were rejected above, so per-row == per-block
+            # and this distinction was a no-op.
+            block_totals: dict[int, D] = {}
+            for row in block_sources:
+                pk = row['block_id'].pk
+                block_totals[pk] = block_totals.get(pk, D('0')) + D(str(row['weight_kg']))
+
             # Cap 1: truck capacity.
             truck_errors = {}
             for i, row in enumerate(block_sources):
                 block = row['block_id']
-                weight_kg = D(str(row['weight_kg']))
                 block_code = getattr(block, 'code', str(block.pk))
-                if weight_kg > D('18500'):
+                total = block_totals[block.pk]
+                if total > D('18500'):
                     truck_errors[f'block_sources[{i}]'] = (
-                        f'Block {block_code}: weight {weight_kg} kg exceeds the '
+                        f'Block {block_code}: total weight {total} kg exceeds the '
                         f'18,500 kg truck capacity.'
                     )
             if truck_errors:
@@ -1936,18 +2000,18 @@ class ShipmentCreateSerializer(serializers.Serializer):
             forecast_errors = {}
             for i, row in enumerate(block_sources):
                 block = row['block_id']
-                weight_kg = D(str(row['weight_kg']))
                 block_code = getattr(block, 'code', str(block.pk))
+                total = block_totals[block.pk]
                 remaining = remaining_map.get(block.pk)
                 if remaining is None:
                     forecast_errors[f'block_sources[{i}]'] = (
                         f'Block {block_code}: no forecast has been entered for '
                         f'{ship_date}. Submit a forecast before creating a draft.'
                     )
-                elif weight_kg > remaining:
+                elif total > remaining:
                     forecast_errors[f'block_sources[{i}]'] = (
                         f'Block {block_code}: only {remaining} kg of forecast '
-                        f'remaining on {ship_date} (requested {weight_kg} kg).'
+                        f'remaining on {ship_date} (requested {total} kg total).'
                     )
 
             if forecast_errors:

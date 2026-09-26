@@ -17,6 +17,18 @@ from apps.export.services.block_sources import (
 )
 
 
+def _format_batch(code, weight_kg, harvest_date) -> str:
+    """Preview text for one row/merged-batch: 'CODE=WEIGHT@DATE'.
+
+    A batch's harvest_date is legal to leave null (the Gaplama board still
+    consumes such a load FIFO) — omit the suffix rather than print the
+    noise of '@None' when a human is reading a dry run.
+    """
+    if harvest_date is None:
+        return f'{code}={weight_kg}'
+    return f'{code}={weight_kg}@{harvest_date}'
+
+
 class Command(BaseCommand):
     help = 'Normalize sub-block block_sources to parent grain (weekly-plan fix).'
 
@@ -53,7 +65,8 @@ class Command(BaseCommand):
             sid = shipment.id
             existing = list(shipment.block_sources.all())
             before = ', '.join(
-                f'{code_map.get(bs.block_id, bs.block_id)}={bs.weight_kg}' for bs in existing
+                _format_batch(code_map.get(bs.block_id, bs.block_id), bs.weight_kg, bs.harvest_date)
+                for bs in existing
             )
 
             # An unweighed block source (supply draft, not yet weighed) has no
@@ -71,8 +84,8 @@ class Command(BaseCommand):
             ]
             merged = merge_to_parent(entries, parent_map)
             after = ', '.join(
-                f'{code_map.get(top_id, top_id)}={data["weight_kg"]}'
-                for top_id, data in merged.items()
+                _format_batch(code_map.get(top_id, top_id), data['weight_kg'], harvest_date)
+                for (top_id, harvest_date), data in merged.items()
             )
             self.stdout.write(f'  #{sid} {shipment.shipment_code}: [{before}] -> [{after}]')
 

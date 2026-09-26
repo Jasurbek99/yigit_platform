@@ -1,13 +1,53 @@
+import type { TFunction } from 'i18next';
 import { Flex, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { VarietyOverrideRow } from '@/components/shipment/VarietyOverrideRow';
+import { compareBatchesByHarvestDate, groupByBlock } from '@/components/shipment/blockSourceGroups';
 import { HARVEST_STATUS_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
-import { fmtDate } from '@/pages/export/ShipmentDetailHelpers.helpers';
+import { fmtDate, fmtNum } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import { COLORS } from '@/constants/styles';
-import type { IShipmentDetail } from '@/types';
+import type { IBlockSource, IShipmentDetail } from '@/types';
+
+/**
+ * A block can now appear as more than one row — one per harvest batch (the
+ * day that block was picked), e.g. block A picked on both the 21st and the
+ * 24th. Grouped by block code so a block still reads as its bare code when
+ * it has only one batch (the common case, and what every truck showed
+ * before batches existed) — the date/weight breakdown only appears once a
+ * block has 2+ batches to disambiguate.
+ *
+ * Blocks are joined with ", " UNLESS at least one block in the row has 2+
+ * batches — that breakdown already uses ", " between its own batches (and
+ * fmtNum's thousands separator is a comma too), so ", " between blocks
+ * would be ambiguous ("A: 21.09.2026 — 3,000, 5,000, B" reads as three
+ * numbers, not two batches plus a second block). "; " disambiguates once
+ * any block needs the breakdown; the common all-single-batch row keeps the
+ * original ", " unchanged.
+ */
+function formatBlockSources(blockSources: IBlockSource[], t: TFunction): string {
+  if (blockSources.length === 0) return '—';
+
+  const groups = groupByBlock(blockSources);
+  const blockSeparator = groups.some((g) => g.batches.length > 1) ? '; ' : ', ';
+
+  return groups
+    .map(({ code, batches }) => {
+      if (batches.length === 1) return code;
+
+      const batchStrings = [...batches].sort(compareBatchesByHarvestDate).map((b) => {
+        const weight = t('shipment_detail.block_sources_weight_kg', { weight: fmtNum(b.weight_kg) });
+        // A null date is dropped rather than shown as a placeholder — this
+        // is operator-entered and can be genuinely unfilled; the weight
+        // still needs to be visible.
+        return b.harvest_date == null ? weight : `${fmtDate(b.harvest_date)} — ${weight}`;
+      });
+      return `${code}: ${batchStrings.join(', ')}`;
+    })
+    .join(blockSeparator);
+}
 
 interface IShipmentGoodsBodyProps {
   shipment: IShipmentDetail;
@@ -35,10 +75,7 @@ export function ShipmentGoodsBody({
 }: IShipmentGoodsBodyProps) {
   const { t } = useTranslation();
 
-  const blockDisplay =
-    shipment.block_sources.length === 0
-      ? '—'
-      : shipment.block_sources.map((b) => b.block_code).join(', ');
+  const blockDisplay = formatBlockSources(shipment.block_sources, t);
 
   return (
     <>

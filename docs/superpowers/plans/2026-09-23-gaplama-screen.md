@@ -51,7 +51,7 @@ Query (frontend), MSSQL (no JSONField/ArrayField/DISTINCT ON).
 | `backend/apps/export/permissions.py` | `CanViewTirGaplama` |
 | `backend/apps/export/views_gaplama.py` | `GaplamaBoardView` |
 | `backend/apps/export/urls.py` | route |
-| `backend/apps/export/tests/test_gaplama_board.py` | backend tests |
+| `backend/apps/export/tests_gaplama_board.py` | backend tests |
 | `frontend/src/types/index.ts` | `IGaplamaDay`, `IGaplamaTruck`, `IGaplamaTruckSource` |
 | `frontend/src/hooks/useGaplama.ts` | `useGaplamaBoard`, `useUpdateTruckBlocks` |
 | `frontend/src/pages/sera/GaplamaTab.tsx` | the grid + weekly summary + truck list (§3 ①③④) |
@@ -184,7 +184,7 @@ and every downstream screen and (in Plan 2) task/notification is correct by cons
 
 **Files:**
 - Create: `backend/apps/export/services/gaplama.py`
-- Test: `backend/apps/export/tests/test_gaplama_board.py`
+- Test: `backend/apps/export/tests_gaplama_board.py`
 
 **Interfaces:**
 - Consumes: `HarvestDayEntry` (`plan_value`, `block`, `entry_date`, `season`) from
@@ -229,7 +229,7 @@ def build_gaplama_board(
 - [ ] **Step 1: Write the failing tests**
 
 ```python
-# backend/apps/export/tests/test_gaplama_board.py
+# backend/apps/export/tests_gaplama_board.py
 from datetime import date
 from decimal import Decimal
 from django.test import TestCase
@@ -372,7 +372,7 @@ needed, not a guaranteed-correct fixture API).
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: FAIL — `ModuleNotFoundError: No module named 'apps.export.services.gaplama'`
 
 - [ ] **Step 3: Write the implementation**
@@ -538,7 +538,7 @@ after that cleanup to confirm nothing depended on the dead line.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: PASS (9 tests). If `test_fifo_consumes_oldest_bucket_first` fails, check the
 bucket-consumption loop order — it must consume from the front of the deque (oldest) first,
 which `for bucket in buckets` does since buckets are appended at the end and expired from
@@ -561,7 +561,7 @@ Append this to `GaplamaBoardTest` in the same file.
 
 - [ ] **Step 6: Run full test file again**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: PASS (10 tests). If the query count is off, check that `.values().annotate()`
 querysets are evaluated once (not inside the per-block loop) — `plan_map`/`loaded_map`
 must be built from a single query each, before the `for block in blocks` loop.
@@ -569,7 +569,7 @@ must be built from a single query each, before the `for block in blocks` loop.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add backend/apps/export/services/gaplama.py backend/apps/export/tests/test_gaplama_board.py
+git add backend/apps/export/services/gaplama.py backend/apps/export/tests_gaplama_board.py
 git commit -m "feat(export): add build_gaplama_board with FIFO carry-over
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
@@ -584,7 +584,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Modify: `backend/apps/export/permissions.py` — add `CanViewTirGaplama` after
   `CanViewTirHasabat`
 - Modify: `backend/apps/export/urls.py:36` (import) and after line 122 (route)
-- Test: append to `backend/apps/export/tests/test_gaplama_board.py`
+- Test: append to `backend/apps/export/tests_gaplama_board.py`
 
 **Interfaces:**
 - Consumes: `build_gaplama_board(from_date, to_date, season)` from Task 2.
@@ -594,7 +594,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - [ ] **Step 1: Write the failing tests**
 
 ```python
-# append to backend/apps/export/tests/test_gaplama_board.py
+# append to backend/apps/export/tests_gaplama_board.py
 from rest_framework.test import APIClient
 from apps.core.models import User
 
@@ -666,7 +666,7 @@ class GaplamaBoardViewTest(TestCase):
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board.GaplamaBoardViewTest -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board.GaplamaBoardViewTest -v 2`
 Expected: FAIL — 404 on the URL (not yet routed) or import error.
 
 - [ ] **Step 3: Add `CanViewTirGaplama`**
@@ -752,9 +752,12 @@ class GaplamaBoardView(APIView):
                 {'error': f'Window may not exceed {MAX_WINDOW_DAYS} days.'}, status=400,
             )
 
-        season, error_response = resolve_season(request)
-        if error_response is not None:
-            return error_response
+        # resolve_season() itself raises NotFound (unknown season id) or
+        # PermissionDenied (closed season without closed_season.can_view) — DRF's
+        # default exception handler converts those to 404/403 automatically, so
+        # nothing extra is needed here. It returns None only during the
+        # close→open gap (no active season and no ?season= given).
+        season = resolve_season(request)
         if season is None:
             return Response({'days': [], 'trucks': []})
 
@@ -768,12 +771,13 @@ class GaplamaBoardView(APIView):
         return Response(board)
 ```
 
-**Before wiring this in, check the exact signature of `resolve_season`** — grep
-`backend/apps/export/services/harvest_forecast.py` or `views_harvest_forecast.py` for how
-the existing `remaining` endpoint calls it (this plan assumes it returns
-`(season, error_response_or_none)` and returns `None` season during the close→open gap —
-verify against the real helper and adjust the four lines above to match its actual return
-shape before running tests).
+**Verified against the real helper** (`backend/apps/core/seasons.py:58-89`):
+`resolve_season(request) -> Season | None` reads `?season=`, falls back to
+`get_active_season()`, and **raises** `NotFound` (unknown id) or `PermissionDenied`
+(closed season without `closed_season.can_view`) rather than returning an error tuple —
+DRF's `APIView.dispatch()` catches both automatically and converts them to 404/403
+responses, so the view needs no explicit handling for either case. It returns `None`
+only during the close→open gap, which the code above already handles.
 
 - [ ] **Step 5: Wire the URL**
 
@@ -793,14 +797,14 @@ After line 122 (`path('harvest-forecast/remaining/', ...)`), add:
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `cd backend && python manage.py test apps.export.tests.test_gaplama_board -v 2`
+Run: `cd backend && python manage.py test apps.export.tests_gaplama_board -v 2`
 Expected: PASS (15 tests total — 10 from Task 2 + 5 from this task's view tests).
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add backend/apps/export/views_gaplama.py backend/apps/export/permissions.py \
-        backend/apps/export/urls.py backend/apps/export/tests/test_gaplama_board.py
+        backend/apps/export/urls.py backend/apps/export/tests_gaplama_board.py
 git commit -m "feat(export): add GET /export/gaplama/board/ endpoint
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
@@ -823,7 +827,7 @@ export interface IGaplamaDay {
   date: string;
   block_id: number;
   block_code: string;
-  location: string;
+  location: string | null;
   plan_kg: number;
   loaded_kg: number;
   carried_in_kg: number;
@@ -863,10 +867,10 @@ export function useUpdateTruckBlocks(): UseMutationResult<void, unknown, { shipm
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import { useGaplamaBoard } from './useGaplama';
 
-vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -917,7 +921,7 @@ Expected: FAIL — `Failed to resolve import "./useGaplama"`
 ```ts
 // frontend/src/hooks/useGaplama.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import type { IGaplamaDay, IGaplamaTruck } from '@/types';
 
 interface IGaplamaBoardResponse {
@@ -980,8 +984,13 @@ export function useUpdateTruckBlocks() {
       shipmentId: number;
       rows: { block_id: number; weight_kg: number }[];
     }) => {
+      // The real request body key is "blocks", not "block_sources" — verified
+      // against ShipmentViewSet.set_block_sources (backend/apps/export/views.py:3223-3291):
+      // `blocks_data = request.data.get('blocks', [])`. Sending weight_kg on every
+      // row (never 0/omitted) avoids the endpoint's auto-split-by-weight_net path,
+      // which only activates when weight_kg is missing/0/"0"/"0.00".
       await api.post(`/export/shipments/${vars.shipmentId}/block-sources/`, {
-        block_sources: vars.rows,
+        blocks: vars.rows.map((r) => ({ block_id: r.block_id, weight_kg: r.weight_kg })),
       });
       const weightNet = vars.rows.reduce((sum, r) => sum + r.weight_kg, 0);
       await api.patch(`/export/shipments/${vars.shipmentId}/`, { weight_net: weightNet });
@@ -997,11 +1006,14 @@ Add the two new interfaces (`IGaplamaDay`, `IGaplamaTruckSource`, `IGaplamaTruck
 `frontend/src/types/index.ts`, placed near `IShipmentDraft` (around line 1774) since they
 describe the same domain (drafts/shipments).
 
-**Verify the exact request-body shape for `POST /shipments/{id}/block-sources/`** against
-`backend/apps/export/views.py:3081-3153` (from the earlier research) before finalizing —
-this plan assumes `{block_sources: [{block_id, weight_kg}]}`; confirm the field name isn't
-`block_ids`-only for this particular endpoint (it accepts both shapes per the earlier
-research — use the one that always carries kg).
+**Request-body shape verified** against `backend/apps/export/views.py:3223-3291`
+(`ShipmentViewSet.set_block_sources`): the body key is `"blocks"`, each entry
+`{block_id, weight_kg, harvest_date?}` — `weight_kg` is optional there in general (the
+endpoint auto-splits `weight_net` evenly when it's omitted/0), but this hook always sends
+it explicitly since the Gaplama form always knows each row's kg. `weight_net` on the
+shipment itself IS patchable directly (`_ALL_PATCHABLE_FIELDS`,
+`backend/apps/export/serializers.py:1569-1574`), so the follow-up `PATCH` call is correct
+as written.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1202,10 +1214,10 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps): JSX.Ele
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import GaplamaTruckForm from './GaplamaTruckForm';
 
-vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 
 function renderForm(overrides: Partial<React.ComponentProps<typeof GaplamaTruckForm>> = {}) {
@@ -1308,8 +1320,8 @@ import { toast } from 'sonner';
 import { useCreateDraft } from '@/hooks/useDrafts';
 import { useUpdateTruckBlocks } from '@/hooks/useGaplama';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
-import { VarietySelect } from '@/components/shipment/VarietySelect'; // adjust to actual export path
-import { useShipmentOptions } from '@/hooks/useShipmentOptions'; // adjust to actual hook path
+import { VarietySelect } from '@/components/VarietySelect';
+import { useShipmentOptions } from '@/hooks/useAdmin';
 import type { IGaplamaTruck } from '@/types';
 
 interface IGaplamaTruckFormProps {
@@ -1338,7 +1350,8 @@ function capFor(blockId: number, props: IGaplamaTruckFormProps): number {
 }
 
 export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   const createDraft = useCreateDraft();
   const updateBlocks = useUpdateTruckBlocks();
 
@@ -1468,7 +1481,13 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
             placeholder={t('tir_takip.gaplama.form.harvest_status_ph')}
             value={harvestStatus}
             onChange={setHarvestStatus}
-            options={harvestStatusOptions.map((o: any) => ({ value: o.value, label: o.label }))}
+            options={harvestStatusOptions
+              .filter((o) => o.is_active)
+              .map((o) => ({
+                value: o.code,
+                label: lang.startsWith('ru') && o.label_ru ? o.label_ru
+                  : lang.startsWith('en') && o.label_en ? o.label_en : o.label_tk,
+              }))}
           />
           <VarietySelect value={variety} onChange={setVariety} />
         </>
@@ -1492,10 +1511,11 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
 }
 ```
 
-**Before finalizing, verify the actual import paths** for `OfficialCodeEditor`,
-`VarietySelect`, and `useShipmentOptions` against `frontend/src/components/draft/
-OfficialCodeEditor.tsx`, `frontend/src/components/shipment/SupplyDraftModal.tsx` (which
-imports both) — copy its exact import lines rather than guessing paths.
+**Import paths verified** against `frontend/src/components/shipment/SupplyDraftModal.tsx:5-9`,
+which imports the same three: `VarietySelect` from `@/components/VarietySelect`,
+`OfficialCodeEditor` from `@/components/draft/OfficialCodeEditor`, and `useShipmentOptions`
+from `@/hooks/useAdmin` (not a dedicated `useShipmentOptions.ts` file) — the import lines
+above are the real ones, already correct.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1537,11 +1557,11 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { api } from '@/api/client';
+import api from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 import GaplamaTab from './GaplamaTab';
 
-vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
 vi.mock('@/hooks/useSeasonReadOnly', () => ({ useSeasonReadOnly: () => false }));
@@ -1625,8 +1645,9 @@ import { canDoBackendGated } from '@/utils/permissions';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { BlockFilterSelect } from './BlockFilterSelect';
 import GaplamaTruckForm from './GaplamaTruckForm';
-import { sumByLocation, trucksForDay, truckCountByDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
-import type { IGaplamaTruck } from '@/types';
+import { sumByLocation, trucksForDay, isPartialTruck, weekTotal, truckTotalKg } from './GaplamaTab.totals';
+import type { IGaplamaTruck, IGreenhouseBlock } from '@/types';
+import type { IPlanGridRow } from '@/pages/export/WeeklyPlanGrid.rows';
 import './sera.css';
 
 dayjs.extend(isoWeek);
@@ -1650,16 +1671,42 @@ export default function GaplamaTab() {
 
   const { data: config } = useGreenhouseConfig();
   const carryDays = config?.gaplama_carry_days ?? 2;
-  const truckCapacityKg = config?.truck_capacity_kg ?? 18500;
+  // Decimal-as-string, per the api-contract convention — coerce at the point
+  // of use, same as useGaplama.ts's queryFn does for the board response.
+  const truckCapacityKg = Number(config?.truck_capacity_kg) || 18500;
 
   const fetchFrom = weekStart.subtract(carryDays, 'day').format('YYYY-MM-DD');
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
   const { data: board, isLoading } = useGaplamaBoard(fetchFrom, fetchTo);
 
   const { data: blocksData } = useGreenhouseBlocks();
-  const blocks = (blocksData ?? []).filter(
-    (b: any) => selectedBlockIds === null || selectedBlockIds.includes(b.id),
+  // Top-level, active blocks only — sub-blocks and inactive blocks never
+  // appear in the board's days[] rows either (backend/apps/export/services/
+  // gaplama.py filters the same way), so including them here would render
+  // grid rows with no matching data.
+  const topLevelBlocks = (blocksData ?? []).filter(
+    (b: IGreenhouseBlock) => b.parent === null && b.is_active,
   );
+  const blocks = topLevelBlocks.filter(
+    (b) => selectedBlockIds === null || selectedBlockIds.includes(b.id),
+  );
+
+  // BlockFilterSelect (already on the branch, built for Önümçilik) takes
+  // IPlanGridRow[], not a bare block list — its grouped-by-location dropdown
+  // reads only block/code/name/location_name from each row. Gaplama has no
+  // per-block plan to attach, so `plan` and the plan-derived fields are
+  // always empty; the filter option list itself only needs the block facts.
+  const filterRows: IPlanGridRow[] = topLevelBlocks.map((b) => ({
+    key: `block-${b.id}`,
+    block: b.id,
+    block_code: b.code,
+    block_name: b.name || b.code,
+    location: b.location,
+    location_name: b.location_name,
+    plan: null,
+    block_manager_names: [],
+    late_edit_active: false,
+  }));
 
   const boardDays = (board?.days ?? []).filter((d) => days.includes(d.date));
   const trucks = board?.trucks ?? [];
@@ -1675,26 +1722,34 @@ export default function GaplamaTab() {
     return map;
   }, [boardDays]);
 
-  // D16 grouping: blocks bucketed by GreenhouseBlock.location (Dusak/Kaka/Owadandepe),
-  // in a stable, human-sensible order. Blocks with an unrecognized/missing location
-  // fall into their own trailing group rather than being silently dropped.
-  const LOCATION_ORDER = ['dusak', 'kaka', 'owadandepe'];
+  // D16 grouping: blocks bucketed by GreenhouseBlock.location_name (the display
+  // string — "Dusak"/"Kaka"/"Owadandepe" per LoadingLocation.name), NOT
+  // `location` (that field is the location's numeric id, and the board's
+  // IGaplamaDay.location carries the same name string this groups by, so the
+  // two must match on the name, not the id). A block with no location falls
+  // into its own trailing "other" group instead of being silently dropped.
+  const LOCATION_KEY_FALLBACK = 'other';
   const blocksByLocation = useMemo(() => {
-    const map: Record<string, any[]> = {};
+    const map: Record<string, IGreenhouseBlock[]> = {};
     for (const block of blocks) {
-      const loc = block.location ?? 'other';
+      const loc = block.location_name ?? LOCATION_KEY_FALLBACK;
       map[loc] = map[loc] ?? [];
       map[loc].push(block);
     }
     return map;
   }, [blocks]);
-  const locationOrder = [
-    ...LOCATION_ORDER.filter((loc) => blocksByLocation[loc]?.length),
-    ...Object.keys(blocksByLocation).filter((loc) => !LOCATION_ORDER.includes(loc)),
-  ];
+  const locationOrder = Object.keys(blocksByLocation)
+    .filter((loc) => loc !== LOCATION_KEY_FALLBACK)
+    .sort((a, b) => a.localeCompare(b))
+    .concat(blocksByLocation[LOCATION_KEY_FALLBACK]?.length ? [LOCATION_KEY_FALLBACK] : []);
 
+  // location_name is already the real display string (a place name, not a
+  // code), except for the synthetic 'other' bucket, which needs the one
+  // translated fallback label.
   function locationLabel(location: string, tFn: typeof t): string {
-    return tFn(`tir_takip.gaplama.location_${location}`, location);
+    return location === LOCATION_KEY_FALLBACK
+      ? tFn('tir_takip.gaplama.location_other')
+      : location;
   }
 
   function availableFor(blockId: number, date: string): number {
@@ -1729,7 +1784,7 @@ export default function GaplamaTab() {
           {t('tir_takip.gaplama.this_week')}
         </Button>
         <Button onClick={() => setWeekOffset((w) => w + 1)}>{t('tir_takip.gaplama.next_week')} ▶</Button>
-        <BlockFilterSelect selected={selectedBlockIds} onChange={setSelectedBlockIds} />
+        <BlockFilterSelect rows={filterRows} value={selectedBlockIds} onChange={setSelectedBlockIds} />
       </div>
 
       {isLoading ? (
@@ -1760,7 +1815,7 @@ export default function GaplamaTab() {
                 <tr className="sera-gaplama-location-header">
                   <td colSpan={days.length + 2}>{locationLabel(location, t)}</td>
                 </tr>
-                {blocksByLocation[location].map((block: any) => (
+                {blocksByLocation[location].map((block: IGreenhouseBlock) => (
                   <tr key={block.id}>
                     <td className="sera-gaplama-block-name">{block.name}</td>
                     {days.map((d) => {
@@ -1793,7 +1848,7 @@ export default function GaplamaTab() {
                   ))}
                   <td>
                     {blocksByLocation[location].reduce(
-                      (sum: number, b: any) => sum + weekTotal(rowsByBlock[b.id] ?? [], 'available_kg'),
+                      (sum: number, b: IGreenhouseBlock) => sum + weekTotal(rowsByBlock[b.id] ?? [], 'available_kg'),
                       0,
                     )}
                   </td>
@@ -1871,7 +1926,7 @@ export default function GaplamaTab() {
             today={today}
             editingTruck={editingTruck ?? undefined}
             availableByBlock={availableByBlockToday}
-            blocks={blocks.map((b: any) => ({ id: b.id, code: b.code, label: b.name }))}
+            blocks={blocks.map((b) => ({ id: b.id, code: b.code, label: b.name || b.code }))}
             truckCapacityKg={truckCapacityKg}
             onDone={closeForm}
             onCancel={closeForm}
@@ -1892,7 +1947,7 @@ export default function GaplamaTab() {
                 </tr>
               </thead>
               <tbody>
-                {blocks.map((block: any) => {
+                {blocks.map((block: IGreenhouseBlock) => {
                   const rows = (rowsByBlock[block.id] ?? []).filter(
                     (r) => selectedDay === null || r.date === selectedDay,
                   );
@@ -2263,14 +2318,14 @@ the `form.*` sub-keys: `day_label`, `kg_label`, `available_hint`, `add_block`,
 following the voice of the existing `tir_takip.*` block in the same file (Turkmen for tk,
 matching the register the other Sera tabs use).
 
-**The `location_*` keys need adding by hand, not by grep**: `GaplamaTab.tsx`'s
-`locationLabel()` builds the key as a template literal
-(`` `tir_takip.gaplama.location_${location}` ``), which the grep pattern above (a literal
-`'...'` string match) will not catch. Add `location_dusak`, `location_kaka`,
-`location_owadandepe` explicitly (values: "Dusak", "Kaka", "Owadandepe" — same three names
-`OnumcilikTab.tsx`'s block-group chip selector already uses, per `feedback_sera_copies_leave_originals`
-memory — copy them verbatim rather than re-translating). Also add `location_other` as a
-fallback label for a block with no/unrecognized `location` value.
+**Only one `location_*` key is needed, and it needs adding by hand, not by grep:**
+`location_other` — the fallback label for a block with no `location_name` at all.
+`GaplamaTab.tsx`'s `locationLabel()` shows every real location's own `location_name`
+string directly (e.g. "Dusak"/"Kaka"/"Owadandepe" — the actual `LoadingLocation.name`
+values, already correct in whatever language they were entered in, same as
+`OnumcilikTab.tsx`'s block-group chip selector shows them), and only falls back to
+`t('tir_takip.gaplama.location_other')` — a literal string call the grep pattern above
+DOES catch — for the synthetic no-location bucket. No per-location keys to translate.
 
 - [ ] **Step 2: Add minimal `.sera-*` CSS**
 

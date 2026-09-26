@@ -1,3 +1,17 @@
+- [ ] 2026-09-25 — Gaplama Üýtget edit: split + weight_net now one atomic write; server rejects negative weight_kg and carry_days=0 (PR #20 review fixes) — NEEDS TEST
+  To test: (1) edit an existing Gaplama truck (Üýtget) and Save — the block split and the total kg
+  must both update, in one request (check the network tab: one POST to /block-sources/, no
+  separate PATCH); (2) as a role WITHOUT the weight_net field grant, try the same edit — must get
+  a clean error and the split must NOT have been rewritten either; (3) Admin -> Block Management,
+  try to set carry_days to 0 — must be refused, same as before; (4) normal Sheet R8 block editing
+  and Gaplama Ctrl+Z undo must still work unchanged (they never send sync_weight_net).
+
+- [ ] 2026-09-25 — Admin Blocks list: the edit (pencil) button now opens the drawer instead of being swallowed by the row's navigation to the block detail page — carry_days was unreachable from the UI — NEEDS TEST
+  To test: (1) Settings -> Block Management, click the pencil on any row — the edit drawer must
+  open and STAY open, showing "Saklaw mohleti (gun)"; the page must not jump to the block's
+  detail card; (2) click anywhere else on the same row — must still navigate to the detail card
+  as before; (3) change carry_days in the drawer and Save — reopen and confirm it stuck.
+
 - [ ] 2026-09-25 — Swap + task reconcile in one transaction; one task per (shipment, rule) enforced by a DB unique index (export/0080) — NEEDS TEST
   To test: (1) swap Peregruz between two trucks at Barylýan gümrük — each ends with the task for its NEW value
   (transshipment vs direct arrival), no leftovers; (2) after `migrate export`, `showmigrations export` lists 0080
@@ -68,6 +82,137 @@
   opens the fleet picker, no passport fields anywhere. `python manage.py test apps.export.tests_task_api apps.contracts.tests.test_document_generation` — all pass (9 new backend
   cases); frontend `npx vitest run src/components/sheet/SheetGapyDriverEditor.test.tsx` — 7/7 pass.
 
+- [ ] 2026-09-25 — Gaplama truck form: per-date leftover picking removed — at most two rows per block now (today's own plan + one collapsed leftover row, its age the oldest live bucket's); leftover row loads with a null harvest_date; editing a truck with pre-existing dated leftover rows folds them into the one leftover row, summed — NEEDS TEST
+  To test: (1) open + Tır Aç on a block that has both a live carry-in leftover AND a plan for
+  today — must show exactly TWO rows: one labelled "Galyndy" (leftover) with an "up to N days"
+  age tag and available kg = the sum of every carry-in bucket for that block/day, and one dated
+  today with age "Täze"/fresh; (2) a block with NO carry-in shows only the today row; a block
+  with a carry-in but NO plan today shows only the leftover row; (3) load some kg on the
+  leftover row and submit — the truck should save fine (backend consumes the null-dated load
+  FIFO across the mixed pool); (4) open Üýtget on an OLDER truck that was created with the
+  previous per-date form and holds two or more dated leftover rows on one block — it must now
+  show as ONE leftover row with their kilograms summed, not two rows and not silently dropped;
+  (5) open Üýtget on a very old/legacy draft (predates batch selection entirely, null
+  harvest_date on every row) — must still open with a normal (non-red) row and Save enabled,
+  same as before; (6) the overdraw guard from the entry above must still work unchanged on both
+  the leftover and today rows.
+
+- [ ] 2026-09-25 — Gaplama truck form: asymmetric overdraw guard — reducing a batch row or leaving it untouched is always allowed even above the block's live cap; only an increase past max(seeded, live cap) is refused; the explanation now shows once above Save/Cancel, not per row (round-1 fix) — NEEDS TEST
+  To test: (1) open (Üýtget) a legacy/overdrawn draft truck whose recorded kg on a block is
+  above what that block currently shows as available — the row must open with a normal
+  (non-red) input and Save enabled, same as before; (2) reduce that row's kg to a value still
+  above the block's live cap — must save without any error; (3) increase that same row above
+  its original (seeded) value — the row should turn red (Save disabled) and a single notice
+  reading "Bu blokda ýeterlik hasyl ýok..." should appear ONCE, above the Save/Cancel buttons
+  (not beside the input); (4) on a block with room, add a new row and push its kg past what's
+  available — same red row + single notice; increase within what's available — no error, no
+  notice; (5) on a block with two batch rows, push one row's total over the block's available
+  kg by increasing it — only that row should go red, an untouched sibling row in the same
+  block must stay normal, and only one notice should appear even though a row is over; (6) with
+  two rows visible on one block, raise a row that was seeded BELOW the block's live cap to a
+  value still within that cap — must stay valid (this is the edit-mode path, distinct from a
+  brand-new empty row).
+
+- [ ] 2026-09-25 — Shipment detail page (Goods & Loading card) now shows each block's harvest batches with date + weight instead of a duplicated block code for a two-batch truck; task card's block-sources row deduplicates instead of repeating; `BlockSourceSerializer` gained `harvest_date` — NEEDS TEST
+  To test: (1) open a shipment whose `block_sources` has two rows for the same block
+  (different `harvest_date`) — the "Greenhouse Block Sources" row should read
+  "A: 21.09.2026 — 3,000, 24.09.2026 — 5,000"-style (real dates/weights), not "A, A";
+  (2) open a normal single-batch-per-block shipment — that row must look exactly as
+  it did before (bare block code(s), comma-joined, no dates); (3) open a task card
+  (My Tasks / board) for a shipment whose task targets `block_sources` on a two-batch
+  block — should show the code once, not twice; (4) note: the dashboard slide-over
+  (`DetailSlideBody.tsx`, clicking a card on `/export/dashboard`) still shows the old
+  duplicated-code bug — known, intentionally out of scope for this fix.
+
+- [ ] 2026-09-25 — Admin Blocks screen: `carry_days` (storage window, days) is now a real field on the create/edit drawer instead of shell-only — NEEDS TEST
+  To test: (1) Settings → Greenhouse Blocks → edit an existing block — the "Saklaw möhleti (gün)"
+  field shows its current value (not 7, not blank); change only the name and Save — reopen the
+  block and confirm `carry_days` is unchanged; (2) create a new block, leave the field untouched
+  — confirm it saves as 7 (check via the block's edit drawer, or `GET /api/v1/greenhouse/admin/blocks/`);
+  (3) in the drawer, type 31 or 0 into the field and try to Save — must show a validation message
+  and not save; clear the field entirely on an edit and try to Save — must show "Required" and not
+  save (must not silently send 7); (4) as a sanity check on the two other places that create blocks
+  — add a sub-block on a Block Detail page, and add a block via Settings → Shipment Settings →
+  block quick-list — neither has a `carry_days` field, confirm creating one still works and editing
+  an existing sub-block/quick-list block afterward doesn't reset its `carry_days` (check via the
+  main Blocks screen's edit drawer, since neither of those two forms shows the field).
+
+- [ ] 2026-09-25 — Gaplama batch selection fix wave: null-harvest_date rows no longer flag invalid in the truck form, `/block-sources/` no longer 500s on mixed string/date-object harvest_date entries (400 on bad input instead), `GreenhouseBlock.carry_days` capped at 30 — NEEDS TEST
+  **Migrate first**: `core/0061` (this wave) plus `core/0060`/`export/0077` (already pending
+  from the base feature) are NOT applied to the shared dev DB — run `migrate core` and
+  `migrate export` in whichever environment you test in first.
+  To test: (1) open (Üýtget) any pre-existing draft in Gaplama — every one has a null
+  `harvest_date` on its block sources — and confirm the row is NOT red and Save is NOT disabled
+  on open, even when its kg exceeds that day's own plan; save it unchanged, then open it (Üýtget)
+  a SECOND time — must still be valid, not red again (the fix generalizes past the null-date
+  case specifically so this round-trip doesn't reopen the bug); (2) in the Sheet's R8 block editor (or
+  via API), submit a payload with a dated sub-block and a bare sibling folding to the same
+  parent block — must return 200, not a 500; also try a garbage `harvest_date` string — must
+  return 400 naming the field; (3) as director, try setting a block's `carry_days` above 30
+  (`PATCH /api/v1/greenhouse/admin/blocks/{id}/`) — must be rejected with a 400.
+
+- [ ] 2026-09-24 — Gaplama: per-block carry days, batch selection in the truck form, one board table with Gün/Hepde — NEEDS TEST
+  **Migrate first**: `core/0060` and `export/0077` are on `feat/gaplama-batches` but have NOT
+  been applied to the shared dev DB (every worktree shares one DB; an earlier NOT NULL attempt
+  broke other sessions). Run `migrate core` and `migrate export` in whichever environment you
+  test in before any of the steps below will work.
+  To test: (1) pick a block and set its `carry_days` to 2 — there's no admin UI field yet, use
+  `python manage.py shell -c "from apps.core.models import GreenhouseBlock;
+  GreenhouseBlock.objects.filter(code='X').update(carry_days=2)"` (replace X) — then seed a
+  leftover on day D for that block (a plan with nothing loaded against it) and check the board
+  on D+1 and D+2: the leftover is still counted in `carried_in_kg`/`available_kg` and its `DD.MM`
+  line still appears in the carry-in tooltip; check again on D+3: that line is gone from the
+  tooltip and `carried_in_kg` has dropped by that bucket's amount (available_kg on D+3 may still
+  be nonzero from D+1/D+2's own plan — the check is that bucket's own line disappearing, not the
+  whole number hitting zero). Restore `carry_days` to 7 afterward;
+  (2) open a truck in Gaplama taking only the freshest batch shown in the truck form (today's own
+  plan, not an older carry-in bucket) — after saving, the older batch must still show as
+  available tomorrow, provided it hasn't separately reached its own `carry_days` expiry by then;
+  (3) to check the batch-selection change didn't alter old rows' own consumption order (a
+  separate question from whether carry-window numbers changed — they will, see the CHANGELOG
+  entry's note): note a past week's board before this branch, then on the test DB set every
+  block's `carry_days` to 2 (matching the old global default) and compare the same week's board
+  after migrating — it should match, since every pre-2026-09-24 row has `harvest_date = NULL`
+  and is pure FIFO on both sides. Restore `carry_days` to 7 afterward;
+  (4) open a truck taking two batches from the same block (different harvest dates) — the Sheet
+  shows one chip for that block with the two batches' weights summed, not two chips.
+- [ ] 2026-09-23 — Gaplama screen (board endpoint, grid, Tır Aç/Üýtget form, tab + standalone page) — NEEDS TEST
+  Whole-feature entry covering Tasks 1-10 of the Gaplama plan (endpoint, FIFO calc, grid, form,
+  tab wiring, standalone `/export/gaplama` page + sidebar entry). The detailed per-scenario test
+  steps for the grid/form itself are in the entry directly below this one (Task 7) — that entry's
+  "NOTE: not yet wired into TAB_BODIES" is now stale: both entry points are wired as of Task 9.
+  To additionally test the two entry points: (1) `/tir-takip` → Gaplama tab renders the board;
+  (2) `/export/gaplama` (sidebar, export group) renders the identical board standalone; (3) a role
+  with `tir_takip.gaplama` but not `export.plan` sees the no-access panel on both.
+- [ ] 2026-09-23 — GaplamaTab.tsx: week grid (blocks grouped by location, plan/loaded/available/over/carry-in per day), weekly summary, opened-truck list, Tır Aç / Üýtget toggle (Task 7 of the Gaplama screen plan) — NEEDS TEST
+  To test: (1) open the Gaplama tab as `loading_dept_head` — the week grid shows blocks grouped by
+  location with per-location subtotal rows, a "Tır Aç" button appears; (2) as `sales_rep` (no
+  `shipment.create`), the button is hidden; (3) click a day column header — the weekly summary and
+  truck list below filter to that day, click again to clear; (4) click "Tır Aç" — the form (Task 6)
+  opens in place of the button, capped at each block's remaining `available_kg`; (5) a block that
+  hits its plan shows the over-capacity "⚠" marker in its day cell; (6) a location with no
+  `location_name` groups under "Beýleki"/"Другое"/"Other" instead of disappearing.
+  NOTE: not yet wired into `TirTakip.tsx`'s `TAB_BODIES` (that's Task 9) — only reachable by
+  mounting `GaplamaTab` directly until then.
+  ADDITIONAL STEPS after the 2026-09-23 edit-cap/filter fix (post-review, same day): (7) click
+  "Üýtget" on an already-open truck from a PAST day of the current week (not today) — the kg input's
+  available hint/cap must reflect that truck's own date's `available_kg`, not today's; typing a
+  value between the truck's old cap and its real cap must NOT show the red/invalid state; (8) set the
+  block filter (dropdown in the header) to a single block, then "Üýtget" a truck sourced from a
+  DIFFERENT block — that other block must still be selectable and correctly capped in the form, not
+  stuck at 0 kg / missing from the dropdown; (9) with that same block filter active, compare the
+  per-location subtotal row's day cells against the week-total cell in the same row and against the
+  single visible block row above it — all three must agree (previously the day cells ignored the
+  filter while the week-total respected it); (10) a truck opened 1–2 days before this Monday (inside
+  the carry-days lookback the board API fetches for the carry-in calc) must NOT appear in "Açylan
+  tırlar" or count toward the truck total — it has no day column of its own to filter it into view.
+  ADDITIONAL STEP after the same-day form-remount fix: (11) click "Tır Aç", type a kg value into the
+  create form WITHOUT submitting it, then click "Üýtget" on any truck in the list below — the form
+  must switch to that truck's own block/kg values, not keep showing the leftover create-mode input;
+  repeat by clicking "Üýtget" on a second truck without submitting the first edit — the form must
+  reset to the second truck's own values each time, never carrying over the previous truck's
+  in-progress edit.
+- [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
 - [x] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — TESTED
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
