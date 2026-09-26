@@ -100,7 +100,7 @@
     "shipment_board": "Tagta",
     "harvest_board": "Ýük plan we galyndy",
     "weightmaster": "Çekimçi",
-    "drafts": "Garalama ýükler",
+    "drafts": "Taýýarlykdaky ýükler",
     "assign": "Belgilemek",
     "boss_dashboard": "Boss paneli",
     "fallback_forecast": "Ätiýaç çaklama",
@@ -739,7 +739,7 @@
     "temperature": "Temperaturasy"
   },
   "shipment_status": {
-    "draft": "Garalama",
+    "draft": "Taýýarlyk",
     "yuklenme": "Ýükleniş başlady",
     "gumruk_girish": "TM Gümrük girdi",
     "gumruk_chykysh": "TM Gümrük çykdy",
@@ -785,14 +785,14 @@
     "submit": "Döret",
     "shipment_code_format": "Format: NNNNNNN/ÝÝ (meselem 0201045/25)",
     "toast_success": "Ýük döredildi",
-    "toast_success_draft": "Garalama döredildi — ugruny saýlaň we Ýüklemä geçiriň",
+    "toast_success_draft": "Taýýarlyk ýagdaýynda döredildi — ugruny saýlaň we Ýüklemä geçiriň",
     "toast_success_loading": "Ýük gönüden Ýüklemede döredildi (taýynlyk geçilmedi)",
     "toast_error": "Ýük döretmek başa barmady",
     "skip_prep": "Taýynlygy geç — gönüden Ýüklemede dörediň",
-    "skip_prep_help": "Howsalaly täzeden ýüklemeler we köne maglumatlar üçin. Adatça: garalama hökmünde dörediň we taýynlyk tabşyryklary boýunça işläň.",
+    "skip_prep_help": "Howsalaly täzeden ýüklemeler we köne maglumatlar üçin. Adatça: Taýýarlyk ýagdaýynda dörediň we taýýarlyk tabşyryklary boýunça işläň.",
     "skip_prep_on": "Geç",
-    "skip_prep_off": "Garalama",
-    "draft_mode_alert": "Garalama hökmünde dörediler. Topar ugruny, firmalary, sürüjini saýlaýar we resminamalary taýýarlap başlaýar — soň siz Ýüklemä geçirýärsiňiz Detal sahypasyndan.",
+    "skip_prep_off": "Taýýarlyk",
+    "draft_mode_alert": "Taýýarlyk ýagdaýynda dörediler. Topar ugruny, firmalary, sürüjini saýlaýar we resminamalary taýýarlap başlaýar — soň siz Ýüklemä geçirýärsiňiz Detal sahypasyndan.",
     "skip_prep_alert": "Gönüden Ýüklemede dörediler. Iberiş kody awtomatiki döredilýär; ýükleme başlangyç wagty derrew bellenýär. Diňe howsalaly täzeden ýüklemeler we köne maglumatlar üçin."
   },
   "kanban": {
@@ -1333,7 +1333,7 @@
     "close_button": "Möwsümi ýap",
     "open_button": "Möwsümi aç",
     "close_confirm_title": "{{name}} möwsümi ýapylsynmy?",
-    "close_confirm_body": "{{name}} möwsümini ýapmak {{drafts}} garalama ýügi, {{in_transit}} ýolda barýan ýügi we {{open_tasks}} açyk wezipäni gizlär, şeýle-de heniz faktiki netijesi girizilmedik {{unfinished_plans}} hepdelik meýilnamany gizlär. Hiç zat pozulmaýar — ähli ýazgylar bolşy ýaly galýar we {{name}} möwsüm saýlanjy sanawynda saýlananda diňe okamak üçin ýene görünýär.",
+    "close_confirm_body": "{{name}} möwsümini ýapmak {{drafts}} taýýarlykdaky ýügi, {{in_transit}} ýolda barýan ýügi we {{open_tasks}} açyk wezipäni gizlär, şeýle-de heniz faktiki netijesi girizilmedik {{unfinished_plans}} hepdelik meýilnamany gizlär. Hiç zat pozulmaýar — ähli ýazgylar bolşy ýaly galýar we {{name}} möwsüm saýlanjy sanawynda saýlananda diňe okamak üçin ýene görünýär.",
     "close_confirm_quota_warning": "{{name}} möwsüminde kwota ulanylyşynyň {{quota_drafts}} garalama ýazgysy bar. Möwsüm ýapylanda olar doňdurylýar, doňdurylan ýazgyny bolsa tassyklap bolmaýar — ýapmazdan öň olary tassyklaň ýa-da pozuň.",
     "close_preview_error": "Ýapmak barada maglumaty ýüklemek başartmady",
     "retry": "Gaýtadan synanyş",
@@ -1787,7 +1787,7 @@
     "alerts_empty": "Işjeň bildiriş ýok"
   },
   "phases": {
-    "DRAFT": "Garalama",
+    "DRAFT": "Taýýarlyk",
     "CUSTOMS": "Gümrük",
     "LOADING": "Ýüklenýär",
     "TRANSIT": "Ýolda",
@@ -2025,7 +2025,7 @@
     "drag_to_reorder": "Tertibi üýtgetmek üçin süýräň",
     "new_supply": {
       "btn": "Üpjünçilik sütüni",
-      "tooltip": "Täze üpjünçilik garalamasy dör (bloklar + önüm, barmaly ýer ýok)"
+      "tooltip": "Täze üpjünçilik meýilnamasyny döret (bloklar + önüm, barmaly ýer ýok)"
     },
     "add_shipment": {
       "btn": "Iberiş goş",
@@ -2035,11 +2035,11 @@
     },
     "new_destination": {
       "btn": "Barmaly ýer sütüni",
-      "tooltip": "Täze barmaly ýer garalamasy dör (ýurt + müşderi, bloklar ýok)"
+      "tooltip": "Täze barmaly ýer meýilnamasyny döret (ýurt + müşderi, bloklar ýok)"
     },
     "join": {
       "btn": "Birleşdir",
-      "tooltip": "Üpjünçilik garalamany barmaly ýer garalamasy bilen birleşdir"
+      "tooltip": "Üpjünçilik meýilnamasyny barmaly ýer meýilnamasy bilen birleşdir"
     },
     "join_bar": {
       "instruction": "Birleşdirmek üçin üpjünçilik sütünine, soňra barmaly ýer sütünine basyň",
@@ -2047,15 +2047,15 @@
       "cancel": "Ýatyr",
       "kept": "Galýar",
       "removed": "Öçüriler",
-      "need_pair": "Bir üpjünçilik + bir barmaly ýer garalamasy saýlaň",
-      "only_drafts": "Diňe garalama sütünleri birleşdirilip bilner"
+      "need_pair": "Bir üpjünçilik + bir barmaly ýer meýilnamasyny saýlaň",
+      "only_drafts": "Diňe taýýarlykdaky sütünler birleşdirilip bilner"
     },
     "supply_column_legend": {
-      "label": "Üpjünçilik garalamasy",
-      "tooltip": "Ýaşyl sütünler Soltanmyrat / ambar tarapyndan döredilen üpjünçilik garalamalarydyr. Barmaly ýer bellemek üçin Birleşdir düwmesini ulanyň."
+      "label": "Üpjünçilik meýilnamasy",
+      "tooltip": "Ýaşyl sütünler Soltanmyrat / ambar tarapyndan döredilen üpjünçilik meýilnamalarydyr. Barmaly ýer bellemek üçin Birleşdir düwmesini ulanyň."
     },
     "supply_modal": {
-      "title": "Täze Üpjünçilik Garalamasy",
+      "title": "Täze Üpjünçilik Meýilnamasy",
       "shipment_code_label": "Iberiş kody",
       "shipment_code_ph": "meselen 2505201/26",
       "variety_label": "Pomidor görnüşi",
@@ -2068,24 +2068,24 @@
       "avail_hint": "{{kg}} kg bar",
       "block_ph": "Blok saýla...",
       "add_row": "Blok goş",
-      "save": "Garalama hökmünde sakla",
+      "save": "Ýatda sakla",
       "error_no_blocks": "Agramy bolan azyndan bir blok goşuň",
-      "toast_saved": "Üpjünçilik garalamasy {{code}} döredildi",
-      "toast_error": "Üpjünçilik garalamasy döredip bolmady"
+      "toast_saved": "Üpjünçilik meýilnamasy {{code}} döredildi",
+      "toast_error": "Üpjünçilik meýilnamasyny döredip bolmady"
     },
     "dest_modal": {
       "title": "Täze Ýük",
-      "save": "Garalama hökmünde sakla",
+      "save": "Ýatda sakla",
       "firm_splits_label": "Eksport firmalary bölünişigi",
       "firm_ph": "Firma saýla...",
       "add_firm_split": "Eksport firmasy goş",
       "error_no_country": "Ýurt hökmany",
       "error_no_customer": "Müşderi hökmany",
-      "toast_saved": "Barmaly ýer garalamasy {{code}} döredildi",
-      "toast_error": "Barmaly ýer garalamasy döredip bolmady"
+      "toast_saved": "Barmaly ýer meýilnamasy {{code}} döredildi",
+      "toast_error": "Barmaly ýer meýilnamasyny döredip bolmady"
     },
     "join_modal": {
-      "toast_success": "Garalamalar üstünlikli birleşdirildi",
+      "toast_success": "Meýilnamalar üstünlikli birleşdirildi",
       "toast_error": "Birleşdirme başartmady"
     },
     "swap": {
@@ -2140,16 +2140,16 @@
     }
   },
   "draft": {
-    "page_title": "Garalama ýükler",
+    "page_title": "Taýýarlykdaky ýükler",
     "page_subtitle": "Düýn / bu gün / köne — täzelik reňki bilen görkezilýär",
-    "create_btn": "Täze garalama (multi-blok)",
+    "create_btn": "Täze ýük (multi-blok)",
     "banner_title": "Täzelik indikator:",
     "banner_body": "Ýaşyl — bu gün (eksport üçin iň ýokary), Sary — düýn (gyssagly), Gyzyl — 2+ gün (diňe ýerli).",
-    "error_load": "Garalama ýükleri ýükläp bolmady",
-    "card_list_title": "garalama",
+    "error_load": "Taýýarlykdaky ýükleri ýükläp bolmady",
+    "card_list_title": "taýýarlykda",
     "total_suffix": "jemi",
     "sorted_oldest_first": "Köne ilki tertip edildi",
-    "empty": "Garalama ýük ýok — ilkinjisini döretmek üçin 'Garalama döret' basyň",
+    "empty": "Taýýarlykdaky ýük ýok — ilkinjisini döretmek üçin 'Ýük döret' basyň",
     "blocks_suffix": "blok",
     "card_sources": "Bloklardan",
     "card_weight": "Agram",
@@ -2158,9 +2158,9 @@
     "freshness_today": "bu gün",
     "freshness_yesterday": "düýn",
     "freshness_old": "2+ gün",
-    "composer_title": "Garalama ýük · multi-blok düzmek",
+    "composer_title": "Taýýarlykdaky ýük · multi-blok düzmek",
     "composer_cancel": "Ret et",
-    "composer_save": "✓ Garalama hökmünde ýatda sakla",
+    "composer_save": "✓ Ýatda sakla",
     "composer_shipment_code": "Iberiş kody",
     "composer_target": "Maksat agram",
     "composer_section_harvest": "Hasyl",
@@ -2180,24 +2180,24 @@
     "composer_notes_label": "Bellik (erkin)",
     "composer_notes_ph": "Mysal: köp galan sortdan, ýa-da ~1.6 kalibrasy",
     "composer_sort_notice_title": "Sort:",
-    "composer_sort_notice_body": "Garalamada sort ýok. Bu TR üçin sort paketlemede weight master ýazar (her paletde).",
+    "composer_sort_notice_body": "Taýýarlykda sort ýok. Bu TR üçin sort paketlemede weight master ýazar (her paletde).",
     "composer_error_no_rows": "Azyndan bir blok setirimini dolduryň",
     "composer_error_no_code": "Iberiş kodyny giriziň",
-    "composer_toast_saved": "Garalama döredildi: {{code}}",
-    "composer_toast_error": "Garalama döredip bolmady",
+    "composer_toast_saved": "Taýýarlykdaky ýük döredildi: {{code}}",
+    "composer_toast_error": "Ýüki döredip bolmady",
     "composer_truck_estimate": "≈ {{count}} ulag",
     "composer_truck_capacity": "Ulag sygymy",
     "enter_forecast_btn": "Hasyl maglumatyny giriziň",
-    "create_draft_btn": "Garalama döret",
+    "create_draft_btn": "Ýük döret",
     "composer_available_kg": "bar: {{kg}} kg",
     "composer_no_forecast": "çaklama ýok / 0 bar",
-    "composer_no_pool": "Şu gün garalama üçin hasyl ýok. Ilki 'Çaklama gir' düwmesini ulan, soňra garalama döret.",
+    "composer_no_pool": "Şu gün täze ýükler üçin hasyl ýok. Ilki 'Çaklama gir' düwmesini ulan, soňra ýük döret.",
     "composer_need_more": "doly tirkeg üçin ýene {{kg}} kg gerek",
-    "composer_min_truck": "Garalama doly tirkeg bolmaly — azyndan {{kg}} kg."
+    "composer_min_truck": "Taýýarlykdaky ýük doly tirkeg bolmaly — azyndan {{kg}} kg."
   },
   "supply_draft": {
-    "title": "Täze üpjünçilik garalamasy",
-    "open_button": "Üpjünçilik garalamasy",
+    "title": "Täze üpjünçilik meýilnamasy",
+    "open_button": "Üpjünçilik meýilnamasy",
     "field_weight": "Jemi agram (kg)",
     "field_blocks": "Bloklar",
     "field_variety": "Sort",
@@ -2209,29 +2209,29 @@
     "variety_ph": "Sort saýlaň...",
     "harvest_status_ph": "Hasyl ýagdaýyny saýlaň...",
     "notes_ph": "Hökman däl bellik",
-    "submit": "Garalama döret",
+    "submit": "Meýilnama döret",
     "error_weight_positive": "0-dan uly agram giriziň",
     "error_blocks": "Azyndan bir blok saýlaň",
-    "toast_success": "Üpjünçilik garalamasy döredildi: {{code}}",
-    "toast_error": "Üpjünçilik garalamasyny döredip bolmady"
+    "toast_success": "Üpjünçilik meýilnamasy döredildi: {{code}}",
+    "toast_error": "Üpjünçilik meýilnamasyny döredip bolmady"
   },
   "join_supply": {
     "open_button": "Üpjünçiligi birleşdir",
-    "title": "Üpjünçilik garalamasyny birleşdir",
+    "title": "Üpjünçilik meýilnamasyny birleşdir",
     "join_button": "Birleşdir",
     "cancel": "Ýatyr",
-    "empty": "Birleşdirmek üçin elýeterli üpjünçilik garalamasy ýok",
+    "empty": "Birleşdirmek üçin elýeterli üpjünçilik meýilnamasy ýok",
     "col_blocks": "Bloklar",
     "col_weight": "Agram",
-    "toast_success": "Üpjünçilik garalamasy üstünlikli birleşdirildi",
-    "toast_error": "Üpjünçilik garalamasyny birleşdirip bolmady"
+    "toast_success": "Üpjünçilik meýilnamasy üstünlikli birleşdirildi",
+    "toast_error": "Üpjünçilik meýilnamasyny birleşdirip bolmady"
   },
   "join_blockers": {
-    "need_two": "Takyk 2 sany garalama sütünini saýlaň",
+    "need_two": "Taýýarlykdaky takyk 2 sany sütüni saýlaň",
     "same_shipment": "Iki dürli sütün saýlaň",
-    "not_draft": "{{code}} garalama däl — diňe garalamalar birleşdirilip bilner",
-    "both_supply": "Iki sütünde-de üpjünçilik bloklary bar. Olaryň biri barmaly ýer garalamasy bolmaly: ýurt + müşderi doldurylan, bloksuz",
-    "no_supply": "Hiç bir sütünde üpjünçilik bloky ýok. Olaryň biri azyndan bir bloky bolan üpjünçilik garalamasy bolmaly",
+    "not_draft": "{{code}} taýýarlykda däl — diňe taýýarlykdaky ýükler birleşdirilip bilner",
+    "both_supply": "Iki sütünde-de üpjünçilik bloklary bar. Olaryň biri barmaly ýer meýilnamasy bolmaly: ýurt + müşderi doldurylan, bloksuz",
+    "no_supply": "Hiç bir sütünde üpjünçilik bloky ýok. Olaryň biri azyndan bir bloky bolan üpjünçilik meýilnamasy bolmaly",
     "target_no_country": "{{code}}: Ýurdy dolduryň",
     "target_no_customer": "{{code}}: Müşderini dolduryň"
   },
@@ -2240,15 +2240,15 @@
     "save_error": "Eksport firmalaryny täzeläp bolmady"
   },
   "join_drafts": {
-    "title": "Iki taslamany birleşdir",
+    "title": "Iki meýilnamany birleşdir",
     "confirm": "Birleşdir",
     "destination_label": "Barmaly ýer (galýar)",
     "supply_label": "Üpjünçilik (pozulýar)",
-    "ambiguous": "Haýsy taslamanyň barmaly ýerdigini kesgitläp bolmady. Bir barmaly ýer taslamasyny (ýurt + müşderi, bloklar ýok) we bir üpjünçilik taslamasyny (bloklar bilen) saýlaň.",
-    "fetch_error": "Saýlanan taslamalary ýükläp bolmady.",
-    "toast_success": "Taslamalar birleşdirildi.",
-    "toast_error": "Taslamalary birleşdirip bolmady.",
-    "button": "Taslamalary birleşdir"
+    "ambiguous": "Haýsy meýilnamanyň barmaly ýerdigini kesgitläp bolmady. Bir barmaly ýer meýilnamasyny (ýurt + müşderi, bloklar ýok) we bir üpjünçilik meýilnamasyny (bloklar bilen) saýlaň.",
+    "fetch_error": "Saýlanan meýilnamalary ýükläp bolmady.",
+    "toast_success": "Meýilnamalar birleşdirildi.",
+    "toast_error": "Meýilnamalary birleşdirip bolmady.",
+    "button": "Meýilnamalary birleşdir"
   },
   "forecast": {
     "modal_title": "Hasyl çaklamasyny giriziň",
@@ -2275,11 +2275,11 @@
     "page_subtitle": "Sol: üpjünçilik (täzelige görä sort) · Sag: talap",
     "role_label": "Gadam · Eksport menejeri",
     "banner_title": "Sort kesgitlenmedi:",
-    "banner_body": "Garalamada sort entek ýok. Gadam blogyň adaty plantings-lerine esaslanyp karar berýär.",
+    "banner_body": "Taýýarlykdaky ýükde sort entek ýok. Gadam blogyň adaty plantings-lerine esaslanyp karar berýär.",
     "col_supply": "Üpjünçilik (täzelige sort)",
     "col_match": "Deňeşdirmek",
     "col_demand": "Talap",
-    "supply_empty": "Garalama ýük ýok",
+    "supply_empty": "Taýýarlykdaky ýük ýok",
     "demand_empty": "Talap ýok",
     "match_empty_primary": "Sol tarapdan TR-ni saýla",
     "match_empty_secondary": "Soňra sagdan talaby saýla",
@@ -2301,7 +2301,7 @@
     "toast_confirmed": "{{code}} bellendi → {{country}} ugry bilen lifecycle başlady",
     "toast_error": "Belgilemek başa barmady",
     "confirm_navigate_title": "Ýüke geç",
-    "confirm_navigate_body": "Garalama lifecycle-a geçirildi. Ýüküň sahypasyna geçmek isleýärsiňizmi?",
+    "confirm_navigate_body": "Ýük taýýarlykdan lifecycle-a geçirildi. Ýüküň sahypasyna geçmek isleýärsiňizmi?",
     "confirm_navigate_ok": "Hawa, geç",
     "confirm_navigate_cancel": "Ýok",
     "group_contracts": "Açyk şertnamalar",
@@ -2321,10 +2321,10 @@
     "demand_label_local": "Ýerli Gapy Satyş",
     "variety_pending_warning_title": "Sort entek tassyklanmadyk",
     "variety_pending_warning_body": "Paketlemede sort kesgitlener — ýa garaşmaly ýa-da başga TR saýla. Gaty sort talap edilýän müşderi üçin tassyklamak zerur.",
-    "center_select_draft": "Sol tarapdan garalama saýlaň"
+    "center_select_draft": "Sol tarapdan taýýarlykdaky ýüki saýlaň"
   },
   "split": {
-    "header_title": "Garalama bölmek — ulaga paýlamak",
+    "header_title": "Ýüki bölmek — ulaga paýlamak",
     "header_batch_code": "Iberiş kody",
     "header_shipment_code": "Ýük kody",
     "header_harvest_total": "Jemi hasyl",
@@ -2354,7 +2354,7 @@
     "toast_error": "Bölmek başa barmady"
   },
   "nav_extended": {
-    "drafts": "Garalama ýükler",
+    "drafts": "Taýýarlykdaky ýükler",
     "assign": "Belgilemek"
   },
   "official_code": {
@@ -2903,7 +2903,7 @@
   },
   "phase": {
     "plan": "Meýilnama",
-    "prep": "Taýynlyk",
+    "prep": "Taýýarlyk",
     "docs": "Resminamalar",
     "load": "Ýüklemek",
     "transit": "Ýolda",
@@ -2924,16 +2924,16 @@
       "other_tasks_title": "Beýleki tabşyryklar",
       "back_to_detail": "Ýüklemä yzyna",
       "promote_button": "TM Gümrük girdisine geçir",
-      "promote_confirm_title": "Garalamany TM Gümrük girdisine geçirmelimi?",
-      "promote_confirm_body": "Ýük Garalamadan TM Gümrük girdisine geçer. Gümrük tabşyryklary döredler; resminama topary habarly bolar.",
+      "promote_confirm_title": "Taýýarlykdan TM Gümrük girdisine geçirmelimi?",
+      "promote_confirm_body": "Ýük Taýýarlykdan TM Gümrük girdisine geçer. Gümrük tabşyryklary döredler; resminama topary habarly bolar.",
       "promote_toast_success": "TM Gümrük girdisine geçirildi",
       "promote_toast_error": "Geçirip bolmady — ugur we müşderi bellenenmi barlaň",
-      "hard_delete_button": "Garalamany poz",
-      "hard_delete_confirm_title": "{{code}} garalamasyny hemişelik pozmalymy?",
-      "hard_delete_confirm_content": "Bu garalama we onuň ähli teswirleri, ýagdaý taryhy, firma paýlary, blok çeşmeleri we tabşyryklary hemişelik pozular. Muny yzyna gaýtaryp bolmaýar.",
+      "hard_delete_button": "Ýüki poz",
+      "hard_delete_confirm_title": "{{code}} ýüki hemişelik pozmalymy?",
+      "hard_delete_confirm_content": "Bu ýük we onuň ähli teswirleri, ýagdaý taryhy, firma paýlary, blok çeşmeleri we tabşyryklary hemişelik pozular. Muny yzyna gaýtaryp bolmaýar.",
       "hard_delete_confirm_ok": "Hemişelik poz",
-      "hard_delete_success": "Garalama pozuldy",
-      "hard_delete_error": "Garalamany pozup bolmady",
+      "hard_delete_success": "Ýük pozuldy",
+      "hard_delete_error": "Ýüki pozup bolmady",
       "others_working": "Başgalarynyň elinde {{count}} tabşyryk bar. Olar gutaranda size habar berler.",
       "others_working_plural": "Başgalarynyň elinde {{count}} tabşyryk bar. Olar gutaranda size habar berler.",
       "task_started_toast": "Tabşyryk başlandy",
@@ -2948,7 +2948,7 @@
       "retry": "Gaýtala",
       "guide": {
         "your_task": "Siziň tabşyrygyňyz: {{task}}",
-        "draft": "Bu garalama — barjak ýeri we müşderi entek bellenmedi. Aşakdaky meýdanlary dolduryp, ony geçirmäge taýýarlaň.",
+        "draft": "Bu ýük taýýarlykda — barjak ýeri we müşderi entek bellenmedi. Aşakdaky meýdanlary dolduryp, ony geçirmäge taýýarlaň.",
         "cancelled": "Bu ýük ýatyryldy.",
         "completed": "Tamamlandy — satuw hasabaty taýýarlandy.",
         "active": "Häzirki ýagdaý: {{status}}. Indiki ädime taýýar bolanda «Ýagdaýy üýtget» düwmesini ulanyň."
@@ -3609,8 +3609,8 @@
       "text": "TIR-ler doldukça ulgam galyndyny görkezýär — her blokda näçe kg galandygyny."
     },
     "step3": {
-      "title": "Üpjünçilik draftyny döretmek",
-      "text": "Irden üpjünçilik drafty döredilýär: haýsy bloklar, näçe kg. Müşderi soň goşulýar — şonuň üçin DRAFT."
+      "title": "Üpjünçilik meýilnamasyny döretmek",
+      "text": "Irden üpjünçilik meýilnamasy döredilýär: haýsy bloklar, näçe kg. Müşderi soň goşulýar — şonuň üçin ýük Taýýarlyk ýagdaýyndan başlaýar."
     },
     "step4": {
       "title": "Maşyn we sürüji",
@@ -3866,7 +3866,7 @@
       "unknown": "Näbelli",
       "empty": "Tırlar bölüminde tır girilende hasabatlar awtomatik çykýar.",
       "no_season": "Işjeň möwsüm ýok — hasabat görkezip bolmaýar.",
-      "scope_note": "Garalamalar, ýatyrylan, pozulan we arhiwdäki tırlar hasaba alynmaýar."
+      "scope_note": "Taýýarlykdaky, ýatyrylan, pozulan we arhiwdäki tırlar hasaba alynmaýar."
     },
     "gaplama": {
       "prev_week": "Öňki hepde",

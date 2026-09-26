@@ -15,7 +15,7 @@
 
 | Шаг | Код | Название (RU) | EN | Фаза в БД | Роль | Активен |
 |---|---|---|---|---|---|---|
-| 0 | `draft` | Черновик | Draft | DRAFT | warehouse_chief | да |
+| 0 | `draft` | Подготовка | Preparation | DRAFT | warehouse_chief | да |
 | 1 | `yuklenme` | Загрузка | Loading | LOADING | warehouse_chief | да |
 | 2 | `gumruk_girish` | Таможня вход | Customs Entry | CUSTOMS | document_team | да |
 | 3 | `gumruk_chykysh` | Таможня выход | Customs Exit | CUSTOMS | document_team | да |
@@ -34,6 +34,9 @@
 | 99 | `cancelled` | Отменён | Cancelled | CANCELLED | — | да |
 
 Активных — 14, выключенных — 3. Номера шагов 6 и 8 заняты дважды.
+
+Статус `draft` называется «Подготовка / Preparation / Taýýarlyk» с 2026-09-24 (миграция
+`core/0064`, до этого «Черновик / Draft / Garalama»). Код остался `draft`.
 
 ## 2. Фазы board (`phases.py`)
 

@@ -1,3 +1,12 @@
+- [ ] 2026-09-24 — «Черновик / Draft / Garalama» renamed to «Подготовка / Preparation / Taýýarlyk» (labels only) — NEEDS TEST
+  To test (after `migrate core` applies 0064 and the build is deployed): (1) open a shipment
+  that is in the old Draft status — the Detail header tag reads **Preparation**, the list/Sheet
+  status reads «Подготовка» (ru) / «Taýýarlyk» (tk); (2) board: the card sits in the
+  «Подготовка» column (tk «Taýýarlyk»); (3) sidebar «В подготовке», page title «Отгрузки в
+  подготовке»; (4) Sheet: supply legend «План поставки», the supply/destination modals say
+  «Новый план поставки» / «План назначения», save button «Сохранить»; (5) list: select two →
+  «Объединить планы»; (6) promote a half-built one → error says "in Preparation … plans must be
+  joined first"; (7) quota dashboard and local sell plan still say «черновик» — intended.
 - [ ] 2026-09-25 — Gaplama Üýtget edit: split + weight_net now one atomic write; server rejects negative weight_kg and carry_days=0 (PR #20 review fixes) — NEEDS TEST
   To test: (1) edit an existing Gaplama truck (Üýtget) and Save — the block split and the total kg
   must both update, in one request (check the network tab: one POST to /block-sources/, no

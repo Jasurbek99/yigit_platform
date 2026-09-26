@@ -69,7 +69,7 @@ describe('SupplyDraftModal', () => {
     await i18n.changeLanguage('en');
   });
 
-  const submitBtn = () => screen.getByRole('button', { name: 'Create Supply Draft' });
+  const submitBtn = () => screen.getByRole('button', { name: 'Create Supply Plan' });
 
   it('blocks submit with no blocks, then submits weight_net + block_ids once a block and weight are set', async () => {
     wrap();

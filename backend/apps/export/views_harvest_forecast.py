@@ -307,7 +307,7 @@ def _notify_forecast_handoff(submitter, target_date: datetime.date, block_count:
     )
     message = (
         f'{submitter_name} submitted forecast for {target_date.isoformat()} '
-        f'({block_count} block(s)). Build drafts now.'
+        f'({block_count} block(s)). Build shipments now.'
     )
     link = f'/export/drafts?date={target_date.isoformat()}'
 

@@ -8,6 +8,8 @@ tags: [reference, lifecycle, statuses]
 > Complete reference for the **state machine v2** statuses: 12 active steps + `cancelled` + 3 retired codes.
 > Source of truth: `apps/core/migrations/0010_state_machine_v2.py` (rows) and
 > `apps/export/services/shipment.py::TRANSITIONS` (edges).
+> `draft` is labelled «Подготовка / Preparation / Taýýarlyk» since 2026-09-24 (`core/0064`;
+> management rejected "draft"). The code stays `draft`.
 
 ## Active Status Table
 
@@ -17,7 +19,7 @@ cell that, once filled, resolves the step's tasks and fires `transition_to()`.
 
 | Step | Code | Name (TK) | Name (EN) | Name (RU) | Phase | Required Role | Trigger field(s) → next |
 |------|------|-----------|-----------|-----------|-------|---------------|--------------------------|
-| 0 | `draft` | Garalama | Draft | Черновик | DRAFT | warehouse_chief | `country`+`customer`+`import_firm`, `firm_splits`, `driver_name`+`driver_phone`+`truck_plate`, `documents_status == 'ready'` |
+| 0 | `draft` | Taýýarlyk | Preparation | Подготовка | DRAFT | warehouse_chief | `country`+`customer`+`import_firm`, `firm_splits`, `driver_name`+`driver_phone`+`truck_plate`, `documents_status == 'ready'` |
 | 1 | `gumruk_girish` | Gümrük girizilmesi | Customs Entry | Передача документов на таможню | CUSTOMS | document_team | `customs_exit_at` |
 | 2 | `gumruk_chykysh` | Gümrükden çykyş | Customs Exit | Выход с таможни | CUSTOMS | document_team | `loading_started_at` |
 | 3 | `yuklenme` | Ýüklenme | Loading | Погрузка | LOADING | warehouse_chief | `shipment_code`+`block_sources`+`variety`+`weight_net`, `departed_at` |

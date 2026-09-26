@@ -46,7 +46,7 @@ COUNTRIES = [
 
 STATUS_TYPES = [
     # step_order=0 — pre-lifecycle draft; created by warehouse_chief before destination is decided.
-    {'code': 'draft', 'name_tk': 'Garalama', 'name_en': 'Draft', 'name_ru': 'Черновик',
+    {'code': 'draft', 'name_tk': 'Taýýarlyk', 'name_en': 'Preparation', 'name_ru': 'Подготовка',
      'step_order': 0, 'required_role': 'warehouse_chief', 'phase': 'DRAFT'},
     {'code': 'yuklenme', 'name_tk': 'Ýüklenme', 'name_en': 'Loading', 'name_ru': 'Загрузка',
      'step_order': 1, 'required_role': 'warehouse_chief', 'phase': 'LOADING'},

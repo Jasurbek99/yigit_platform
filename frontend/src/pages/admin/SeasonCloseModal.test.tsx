@@ -72,7 +72,7 @@ describe('SeasonCloseModal', () => {
 
     expect(
       await screen.findByText(
-        'Closing 2026/2027 will hide 3 draft shipments, 14 shipments in transit, ' +
+        'Closing 2026/2027 will hide 3 shipments in preparation, 14 shipments in transit, ' +
           '5 open tasks, and 2 weekly plans still missing reported actuals. Nothing is ' +
           'deleted — every record stays exactly as it is and reappears, read-only, ' +
           'whenever 2026/2027 is selected in the season switcher.',

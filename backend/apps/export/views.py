@@ -1037,7 +1037,7 @@ class ShipmentViewSet(ModelViewSet):
         shipment = self.get_object()
         if shipment.status.code != 'draft':
             return Response(
-                {'error': 'Only draft shipments can be permanently deleted. '
+                {'error': 'Only shipments in Preparation can be permanently deleted. '
                           'Cancel or soft-delete active shipments instead.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -2084,7 +2084,7 @@ class ShipmentViewSet(ModelViewSet):
             }
             if user_role not in allowed_draft_roles:
                 return Response(
-                    {'error': 'Only warehouse_chief, loading_dept_head, loading_dept_head_deputy, document_team, export_manager, or director can create draft shipments'},
+                    {'error': 'Only warehouse_chief, loading_dept_head, loading_dept_head_deputy, document_team, export_manager, or director can create shipments in Preparation'},
                     status=status.HTTP_403_FORBIDDEN,
                 )
         else:
@@ -2236,7 +2236,7 @@ class ShipmentViewSet(ModelViewSet):
                 shipment=shipment,
                 status=draft_status,
                 changed_by=user,
-                comment='Draft created',
+                comment='Created in Preparation',
             )
 
             # Multi-variety: when `varieties` list is provided, apply it now.
@@ -2369,7 +2369,7 @@ class ShipmentViewSet(ModelViewSet):
         # a draft is a genuine process step, so its only action must work.
         if user_role not in PRIVILEGED_ROLES | {'boss'}:
             return Response(
-                {'error': 'Only export_manager, document_team, director or boss can assign draft shipments'},
+                {'error': 'Only export_manager, document_team, director or boss can assign shipments in Preparation'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -2377,7 +2377,7 @@ class ShipmentViewSet(ModelViewSet):
 
         if shipment.status.code != 'draft':
             return Response(
-                {'error': 'Shipment is not a draft'},
+                {'error': 'Shipment is not in Preparation'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -2398,7 +2398,7 @@ class ShipmentViewSet(ModelViewSet):
                 # Promote draft → gumruk_girish (state machine v2). Was draft →
                 # yuklenme in v1. Operators can also reach this state by setting
                 # documents_status='in_progress' on the Sheet (auto-advance).
-                transition_to(shipment, 'gumruk_girish', request.user, comment='assigned from draft')
+                transition_to(shipment, 'gumruk_girish', request.user, comment='assigned from Preparation')
         except PermissionError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as exc:
@@ -2448,7 +2448,7 @@ class ShipmentViewSet(ModelViewSet):
         if not is_super and getattr(request.user, 'role', None) not in JOIN_ROLES:
             return Response(
                 {'error': 'Only admin, export_manager, director, boss or document_team '
-                          'can join draft shipments'},
+                          'can join shipments in Preparation'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -2504,9 +2504,9 @@ class ShipmentViewSet(ModelViewSet):
         if target.pk == source.pk:
             return 'Source and target must be different shipments'
         if target.status.code != 'draft':
-            return 'Target shipment is not a draft'
+            return 'Target shipment is not in Preparation'
         if source.status.code != 'draft':
-            return 'Source shipment is not a draft'
+            return 'Source shipment is not in Preparation'
         if not target.country_id or not target.customer_id:
             return 'Target shipment has no destination (country and customer required)'
         if not source.block_sources.exists():
@@ -2556,9 +2556,9 @@ class ShipmentViewSet(ModelViewSet):
             # Re-assert status + block gates on the now-locked rows.
             # (Cheap identity check already passed in _validate_join; no need to repeat.)
             if target.status.code != 'draft':
-                raise ValueError('Target shipment is no longer a draft')
+                raise ValueError('Target shipment is no longer in Preparation')
             if source.status.code != 'draft':
-                raise ValueError('Source shipment is no longer a draft')
+                raise ValueError('Source shipment is no longer in Preparation')
             if not source.block_sources.exists():
                 raise ValueError('Source shipment has no supply blocks')
             if target.block_sources.exists():
@@ -2655,7 +2655,7 @@ class ShipmentViewSet(ModelViewSet):
                     user_id=source.created_by_id,
                     kind='action_required',
                     message=(
-                        f'Your supply draft {source.shipment_code} was merged into '
+                        f'Your supply plan {source.shipment_code} was merged into '
                         f'{target.shipment_code} by {user.username}.'
                     ),
                     link=f'/export/shipments/sheet?shipment={target.pk}',
