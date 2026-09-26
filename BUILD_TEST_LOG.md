@@ -1,3 +1,9 @@
+- [ ] 2026-09-26 — Turkmen part names: «Üpjünçilik bölegi» / «Eksport bölegi» (tk only) — NEEDS TEST
+  To test (interface in Turkmen, after deploy): (1) Sheet: the green-column legend reads
+  «Üpjünçilik bölegi», the supply «+» opens «Täze Üpjünçilik Bölegi»; (2) the destination «+»
+  tooltip says «Täze eksport bölegini döret»; (3) Shipments list: tick two → «Bölekleri
+  birleşdir»; (4) a destination's Detail page: «Üpjünçilik bölegini birleşdir»; (5) switch to
+  Russian/English — still «План поставки», «Объединить планы» / "Supply plan", "Join plans".
 - [ ] 2026-09-24 — «Черновик / Draft / Garalama» renamed to «Подготовка / Preparation / Taýýarlyk» (labels only) — NEEDS TEST
   To test (after `migrate core` applies 0064 and the build is deployed): (1) open a shipment
   that is in the old Draft status — the Detail header tag reads **Preparation**, the list/Sheet
