@@ -47,20 +47,24 @@
   - Если упадёт на `0077_gapy_driver_passports` (колонки уже есть): `migrate export 0077_gapy_driver_passports --fake`, потом снова `migrate`
 - [ ] Пересобрать celery-контейнеры (правило из памяти: после деплоя)
 
-### 2.3 Уборка (решить, когда удобно)
-- [ ] Скопировать 29 media-файлов из старых папок в `yigit_platform/backend/media/`:
-  - `yigit_split`: 21 сертификат качества
-  - `yigit_merge_trial`: 2 контракта PDF, паспорт водителя, документ на грузовик
-  - `yigit_merge_base`: 2 контракта PDF
-- [ ] Потом удалить папки `yigit_split`, `yigit_merge_trial`, `yigit_merge_base`
-- [ ] Удалить ветки, которые уже в main (локально и на GitHub):
-  `feat/quality-and-taskrules`, `merge/gadams-trial`, `Copy_Gadams_UI`, `feat/transport-fleet-map`, `learn/django`,
-  `feat/gapy-terminal`, `feat/task-condition-reconcile`, `feat/gaplama-batches`, `feat/prep-label`
-- [ ] Удалить папки `ygt_gapy`, `ygt_taskreconcile`, `ygt_gaplama_batches`, `ygt_prep_label` (всё смержено)
-- [ ] Решить сам (в них есть коммиты, которых нет в main): `wip/quality-inspector` (1 коммит),
-      `feature/copy-sera-butce-ui` (4, старая), `backup/pre-rebase-2026-09-11`
-- [ ] `yigit_learn` (учебная база `YIGIT_LEARN`): не трогаю без твоего слова
-- [ ] Старый stash `contracts/CMR WIP` (`feat/supply-draft-creation`): решить, нужен ли
+### 2.3 Уборка — СДЕЛАНО 2026-09-26 ✅
+- [x] 27 media-файлов (21 сертификат, 4 контракта/паспорт/документ, 2 контракта) скопированы в
+      `yigit_platform/backend/media/`, проверены побайтно. Было 703 файла → стало 730
+- [x] Удалены все 8 папок: `ygt_gapy`, `ygt_taskreconcile`, `ygt_gaplama_batches`, `ygt_prep_label`,
+      `yigit_split`, `yigit_merge_trial`, `yigit_merge_base`, `.claude/worktrees/gaplama-screen` (~270 МБ)
+- [x] Удалены 9 локальных веток через `git branch -d` (отказался бы при несмёрженных коммитах).
+      **На GitHub все сохранены** — по твоей просьбе «на всякий случай»
+- [x] Попутно закрыты 6 зависших dev-серверов, которые держали папки (vite 3000/5173/5175,
+      python 8000/8001/8010). Сейчас ни один dev-сервер не запущен
+
+**Осталось решить тебе:**
+- [ ] 3 ветки с коммитами, которых нет в main — удалять или доводить до PR:
+  - `wip/quality-inspector` — 1 коммит, 4 дня назад: «quality inspector role + task rule editor»
+  - `backup/pre-rebase-2026-09-11` — 4 коммита, 2 недели: юрформа фирм, печать+подпись одним фото,
+    предупреждение на Sheet о неполной записи грузовика/водителя
+  - `feature/copy-sera-butce-ui` — 4 коммита, 9 недель: прототип Sera Býujet (19 экранов, мок-данные)
+- [ ] `yigit_learn` (учебная база `YIGIT_LEARN`) — не трогаю без твоего слова
+- [ ] Старый stash `contracts/CMR WIP` (от ветки `feat/supply-draft-creation`) — нужен ли
 
 ---
 
