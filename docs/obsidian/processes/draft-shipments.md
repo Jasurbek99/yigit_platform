@@ -12,8 +12,9 @@ Shipment creation is split across **two people, two moments, two data contexts**
 
 > **UI wording (2026-09-24):** management rejected the word "draft", so users never see it.
 > The status reads «Подготовка / Preparation / Taýýarlyk» (`core/0064` + `shipment_status.draft`),
-> a supply draft reads «план поставки / supply plan», a destination draft «план назначения /
-> destination plan». Code, API and this vault keep *draft*.
+> a supply draft reads «план поставки / Üpjünçilik bölegi / supply plan», a destination draft
+> «план назначения / Eksport bölegi / destination plan» (tk names set by the owner 2026-09-26;
+> ADR-0013 addendum). Code, API and this vault keep *draft*.
 
 Origin: Kaka site visit (Apr 2026), Findings #1 and #2. See [[../../../data/kaka_greenhouse_findings/Kaka_Findings_v1.md|Kaka Findings v1]] for the operational rationale.
 

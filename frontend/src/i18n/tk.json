@@ -2025,7 +2025,7 @@
     "drag_to_reorder": "Tertibi üýtgetmek üçin süýräň",
     "new_supply": {
       "btn": "Üpjünçilik sütüni",
-      "tooltip": "Täze üpjünçilik meýilnamasyny döret (bloklar + önüm, barmaly ýer ýok)"
+      "tooltip": "Täze üpjünçilik bölegini döret (bloklar + önüm, barmaly ýer ýok)"
     },
     "add_shipment": {
       "btn": "Iberiş goş",
@@ -2035,11 +2035,11 @@
     },
     "new_destination": {
       "btn": "Barmaly ýer sütüni",
-      "tooltip": "Täze barmaly ýer meýilnamasyny döret (ýurt + müşderi, bloklar ýok)"
+      "tooltip": "Täze eksport bölegini döret (ýurt + müşderi, bloklar ýok)"
     },
     "join": {
       "btn": "Birleşdir",
-      "tooltip": "Üpjünçilik meýilnamasyny barmaly ýer meýilnamasy bilen birleşdir"
+      "tooltip": "Üpjünçilik bölegini eksport bölegi bilen birleşdir"
     },
     "join_bar": {
       "instruction": "Birleşdirmek üçin üpjünçilik sütünine, soňra barmaly ýer sütünine basyň",
@@ -2047,15 +2047,15 @@
       "cancel": "Ýatyr",
       "kept": "Galýar",
       "removed": "Öçüriler",
-      "need_pair": "Bir üpjünçilik + bir barmaly ýer meýilnamasyny saýlaň",
+      "need_pair": "Bir üpjünçilik + bir eksport bölegini saýlaň",
       "only_drafts": "Diňe taýýarlykdaky sütünler birleşdirilip bilner"
     },
     "supply_column_legend": {
-      "label": "Üpjünçilik meýilnamasy",
-      "tooltip": "Ýaşyl sütünler Soltanmyrat / ambar tarapyndan döredilen üpjünçilik meýilnamalarydyr. Barmaly ýer bellemek üçin Birleşdir düwmesini ulanyň."
+      "label": "Üpjünçilik bölegi",
+      "tooltip": "Ýaşyl sütünler Soltanmyrat / ambar tarapyndan döredilen üpjünçilik bölekleridir. Barmaly ýer bellemek üçin Birleşdir düwmesini ulanyň."
     },
     "supply_modal": {
-      "title": "Täze Üpjünçilik Meýilnamasy",
+      "title": "Täze Üpjünçilik Bölegi",
       "shipment_code_label": "Iberiş kody",
       "shipment_code_ph": "meselen 2505201/26",
       "variety_label": "Pomidor görnüşi",
@@ -2070,8 +2070,8 @@
       "add_row": "Blok goş",
       "save": "Ýatda sakla",
       "error_no_blocks": "Agramy bolan azyndan bir blok goşuň",
-      "toast_saved": "Üpjünçilik meýilnamasy {{code}} döredildi",
-      "toast_error": "Üpjünçilik meýilnamasyny döredip bolmady"
+      "toast_saved": "Üpjünçilik bölegi {{code}} döredildi",
+      "toast_error": "Üpjünçilik bölegini döredip bolmady"
     },
     "dest_modal": {
       "title": "Täze Ýük",
@@ -2081,11 +2081,11 @@
       "add_firm_split": "Eksport firmasy goş",
       "error_no_country": "Ýurt hökmany",
       "error_no_customer": "Müşderi hökmany",
-      "toast_saved": "Barmaly ýer meýilnamasy {{code}} döredildi",
-      "toast_error": "Barmaly ýer meýilnamasyny döredip bolmady"
+      "toast_saved": "Eksport bölegi {{code}} döredildi",
+      "toast_error": "Eksport bölegini döredip bolmady"
     },
     "join_modal": {
-      "toast_success": "Meýilnamalar üstünlikli birleşdirildi",
+      "toast_success": "Bölekler üstünlikli birleşdirildi",
       "toast_error": "Birleşdirme başartmady"
     },
     "swap": {
@@ -2196,8 +2196,8 @@
     "composer_min_truck": "Taýýarlykdaky ýük doly tirkeg bolmaly — azyndan {{kg}} kg."
   },
   "supply_draft": {
-    "title": "Täze üpjünçilik meýilnamasy",
-    "open_button": "Üpjünçilik meýilnamasy",
+    "title": "Täze üpjünçilik bölegi",
+    "open_button": "Üpjünçilik bölegi",
     "field_weight": "Jemi agram (kg)",
     "field_blocks": "Bloklar",
     "field_variety": "Sort",
@@ -2209,29 +2209,29 @@
     "variety_ph": "Sort saýlaň...",
     "harvest_status_ph": "Hasyl ýagdaýyny saýlaň...",
     "notes_ph": "Hökman däl bellik",
-    "submit": "Meýilnama döret",
+    "submit": "Üpjünçilik bölegini döret",
     "error_weight_positive": "0-dan uly agram giriziň",
     "error_blocks": "Azyndan bir blok saýlaň",
-    "toast_success": "Üpjünçilik meýilnamasy döredildi: {{code}}",
-    "toast_error": "Üpjünçilik meýilnamasyny döredip bolmady"
+    "toast_success": "Üpjünçilik bölegi döredildi: {{code}}",
+    "toast_error": "Üpjünçilik bölegini döredip bolmady"
   },
   "join_supply": {
     "open_button": "Üpjünçiligi birleşdir",
-    "title": "Üpjünçilik meýilnamasyny birleşdir",
+    "title": "Üpjünçilik bölegini birleşdir",
     "join_button": "Birleşdir",
     "cancel": "Ýatyr",
-    "empty": "Birleşdirmek üçin elýeterli üpjünçilik meýilnamasy ýok",
+    "empty": "Birleşdirmek üçin elýeterli üpjünçilik bölegi ýok",
     "col_blocks": "Bloklar",
     "col_weight": "Agram",
-    "toast_success": "Üpjünçilik meýilnamasy üstünlikli birleşdirildi",
-    "toast_error": "Üpjünçilik meýilnamasyny birleşdirip bolmady"
+    "toast_success": "Üpjünçilik bölegi üstünlikli birleşdirildi",
+    "toast_error": "Üpjünçilik bölegini birleşdirip bolmady"
   },
   "join_blockers": {
     "need_two": "Taýýarlykdaky takyk 2 sany sütüni saýlaň",
     "same_shipment": "Iki dürli sütün saýlaň",
     "not_draft": "{{code}} taýýarlykda däl — diňe taýýarlykdaky ýükler birleşdirilip bilner",
-    "both_supply": "Iki sütünde-de üpjünçilik bloklary bar. Olaryň biri barmaly ýer meýilnamasy bolmaly: ýurt + müşderi doldurylan, bloksuz",
-    "no_supply": "Hiç bir sütünde üpjünçilik bloky ýok. Olaryň biri azyndan bir bloky bolan üpjünçilik meýilnamasy bolmaly",
+    "both_supply": "Iki sütünde-de üpjünçilik bloklary bar. Olaryň biri eksport bölegi bolmaly: ýurt + müşderi doldurylan, bloksuz",
+    "no_supply": "Hiç bir sütünde üpjünçilik bloky ýok. Olaryň biri azyndan bir bloky bolan üpjünçilik bölegi bolmaly",
     "target_no_country": "{{code}}: Ýurdy dolduryň",
     "target_no_customer": "{{code}}: Müşderini dolduryň"
   },
@@ -2240,15 +2240,15 @@
     "save_error": "Eksport firmalaryny täzeläp bolmady"
   },
   "join_drafts": {
-    "title": "Iki meýilnamany birleşdir",
+    "title": "Iki bölegi birleşdir",
     "confirm": "Birleşdir",
     "destination_label": "Barmaly ýer (galýar)",
     "supply_label": "Üpjünçilik (pozulýar)",
-    "ambiguous": "Haýsy meýilnamanyň barmaly ýerdigini kesgitläp bolmady. Bir barmaly ýer meýilnamasyny (ýurt + müşderi, bloklar ýok) we bir üpjünçilik meýilnamasyny (bloklar bilen) saýlaň.",
-    "fetch_error": "Saýlanan meýilnamalary ýükläp bolmady.",
-    "toast_success": "Meýilnamalar birleşdirildi.",
-    "toast_error": "Meýilnamalary birleşdirip bolmady.",
-    "button": "Meýilnamalary birleşdir"
+    "ambiguous": "Haýsy bölegiň eksport bölegidigini kesgitläp bolmady. Bir eksport bölegini (ýurt + müşderi, bloklar ýok) we bir üpjünçilik bölegini (bloklar bilen) saýlaň.",
+    "fetch_error": "Saýlanan bölekleri ýükläp bolmady.",
+    "toast_success": "Bölekler birleşdirildi.",
+    "toast_error": "Bölekleri birleşdirip bolmady.",
+    "button": "Bölekleri birleşdir"
   },
   "forecast": {
     "modal_title": "Hasyl çaklamasyny giriziň",
@@ -3609,8 +3609,8 @@
       "text": "TIR-ler doldukça ulgam galyndyny görkezýär — her blokda näçe kg galandygyny."
     },
     "step3": {
-      "title": "Üpjünçilik meýilnamasyny döretmek",
-      "text": "Irden üpjünçilik meýilnamasy döredilýär: haýsy bloklar, näçe kg. Müşderi soň goşulýar — şonuň üçin ýük Taýýarlyk ýagdaýyndan başlaýar."
+      "title": "Üpjünçilik bölegini döretmek",
+      "text": "Irden üpjünçilik bölegi döredilýär: haýsy bloklar, näçe kg. Müşderi soň goşulýar — şonuň üçin ýük Taýýarlyk ýagdaýyndan başlaýar."
     },
     "step4": {
       "title": "Maşyn we sürüji",
