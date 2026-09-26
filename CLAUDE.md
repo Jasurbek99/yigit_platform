@@ -47,6 +47,32 @@ Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, sim
 - **When you make a mistake** — acknowledge briefly, propose options, wait for the user to choose. Do not auto-fix.
 - **Log every build that needs testing.** Whenever you build or meaningfully change a feature/fix, append an entry to `BUILD_TEST_LOG.md` (newest on top): `- [ ] YYYY-MM-DD — <what was built> — NEEDS TEST`. Then, in your reply, state plainly: *"Built — NOT tested yet. Did you test it?"* Check the item off (`- [x]`) only when the user confirms they tested it.
 
+## Parallel sessions (one repo, many Claude windows)
+
+Several sessions share this working tree — **and the same git index**. Two incidents on
+2026-09-22/23 came from that: one nearly committed a 7,490-line deletion of a finished
+merge, and two sessions produced colliding migration numbers twice.
+
+- **No feature branches, no worktrees (deadline rule, 2026-09-26).** Work directly on
+  `main` in this tree. Do not create `feat/*` branches or `git worktree add` unless the
+  user explicitly asks. Because every session now shares one tree and one index, the
+  checks below are mandatory, not optional.
+- **Before every `git add` / `git commit`: run `git status` and read it.** If it shows
+  deletions you did not make, or far more files than you touched, **STOP** — `HEAD` has
+  moved under the tree. Never `git add -A` past that. Recover by capturing the tree as a
+  commit on the base it was actually written against (`git commit-tree <tree> -p <base>`),
+  never by staging what the diff appears to say.
+- **`git diff --cached` before committing.** The index is shared: another session may have
+  staged its files into yours. Commit only your own paths, explicitly.
+- **Migrations: check the number is free before writing one** —
+  `ls backend/apps/<app>/migrations/ | tail -3` *and* `git log --oneline origin/main -5`.
+  Two leaves make `migrate` refuse outright.
+- **Never renumber a migration that is already applied** — its `django_migrations` row would
+  be orphaned and every later migration breaks. Renumber the *unapplied* side, or add a
+  `--merge` migration. Check with `showmigrations` before touching any number.
+- **Never `stash` or `checkout` over a dirty tree you did not dirty.** Snapshot first
+  (HEAD + `git diff` + a copy of untracked files) — see [[breakpoint-pattern]].
+
 ## Orchestration patterns
 
 **Single feature**: `/feature shipment-list` — runs the full sequence, invokes skills as needed.
