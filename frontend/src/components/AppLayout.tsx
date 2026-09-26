@@ -446,7 +446,9 @@ export default function AppLayout() {
   // the header goes with them — a white bar above a green page is the mismatch
   // the design was meant to avoid. Keep this in step with the routes that
   // actually mount a sera page; nothing else in the app reads it.
-  const isSeraPage = location.pathname === '/tir-takip' || location.pathname === '/export/gaplama';
+  // `/export/gaplama` is deliberately absent: the sidebar Gaplama page wears the
+  // platform's look (white header and page), only the Tır Takip tab is green.
+  const isSeraPage = location.pathname === '/tir-takip';
 
   const selectedKey = location.pathname.startsWith('/shipments/')
     ? '/export/shipments'

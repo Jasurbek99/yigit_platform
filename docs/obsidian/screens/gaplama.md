@@ -9,7 +9,11 @@ related: [[tir-takip]], [[../processes/weekly-harvest-planning]], [[../reference
 Two entry points, one screen: the `gaplama` tab of `/tir-takip` (`TirTakip.tsx`'s
 `TAB_BODIES`) and its own route at `/export/gaplama` (`GaplamaPage.tsx`, sidebar entry
 under the export group). Both mount `frontend/src/pages/sera/GaplamaTab.tsx` unmodified —
-`GaplamaPage` is a thin `.sera-page` wrapper around it, nothing else. Both are gated on
+`GaplamaPage` is a thin `.sera-page.sera-page--platform` wrapper around it, nothing else.
+The look differs by entry point: the tab is green (Sera design); the sidebar page wears the
+platform's look — white panel on the grey content area, antd blue, white app header (2026-09-26;
+`/export/gaplama` is no longer in `AppLayout`'s `isSeraPage`, and the modifier block at the end
+of `sera.css` re-points the tokens). Both are gated on
 the **same pair of page codes**: `tir_takip.gaplama` (the entry point's own code, shared
 by design between the tab and the standalone route) and `export.plan` (the audience of
 the Weekly Plan data the board reads). The tab checks the pair through
@@ -449,7 +453,7 @@ not part of this screen at all (that is the Sheet's clipboard feature, unrelated
 | Route | `frontend/src/App.tsx` — `export/gaplama`, `pageCode="tir_takip.gaplama"` |
 | Nav | `frontend/src/components/AppLayout.tsx` — `nav.gaplama` |
 | i18n | `frontend/src/i18n/{tk,ru,en}.json` — `tir_takip.gaplama.*`, `nav.gaplama` |
-| CSS | `frontend/src/pages/sera/sera.css` — `.sera-gaplama-*` |
+| CSS | `frontend/src/pages/sera/sera.css` — `.sera-gaplama-*`; `.sera-page--platform` block at the end = white platform skin for the sidebar page |
 | Design spec | `docs/superpowers/specs/2026-09-18-tir-takip-gaplama-design.md` (original board), `docs/superpowers/specs/2026-09-24-gaplama-batch-selection-design.md` (carry-days per block, batch selection, this board redesign) |
 
 ## Migrations not yet applied to the shared dev database

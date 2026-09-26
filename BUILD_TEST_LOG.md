@@ -1,3 +1,5 @@
+- [ ] 2026-09-26 — Sidebar «Gaplama» page (/export/gaplama) restyled to the platform look: white panel, antd blue, white header; the Gaplama tab inside Tır Takip stays green — NEEDS TEST
+  To test (as a role that can open both): (1) sidebar → Gaplama: header bar is white (not green), page is a white panel on the grey content area, totals/chips blue, "full" cells green, "over" cells red; (2) open the Gaplama truck form (+ Tır Aç) — still readable, overdraw notice red; (3) /tir-takip → Gaplama tab: still the green Sera look, green header, unchanged. Not checked in a browser — the test account got /unauthorized on both routes.
 - [ ] 2026-09-26 — Turkmen part names: «Üpjünçilik bölegi» / «Eksport bölegi» (tk only) — NEEDS TEST
   To test (interface in Turkmen, after deploy): (1) Sheet: the green-column legend reads
   «Üpjünçilik bölegi», the supply «+» opens «Täze Üpjünçilik Bölegi»; (2) the destination «+»

@@ -1091,3 +1091,70 @@
   font-weight: 500;
   line-height: 1.4;
 }
+
+/* ── Platform skin for the sidebar Gaplama page ─────────────────────────
+   GaplamaPage.tsx adds `.sera-page--platform` (owner request, 2026-09-26: the
+   sidebar entry must look like the rest of the platform — white surface, antd
+   blue — while the Gaplama tab inside Tır Takip stays green). The markup and
+   every `.sera-page .sera-gaplama-*` rule above are shared; this block only
+   re-points the tokens and the few hardcoded emerald tints. It is a white
+   panel sitting on <Content>'s grey, like any antd page, so it drops the
+   gradient layer and the edge bleed. Two classes on one element outrank the
+   single-class rules above, so nothing above needs touching. */
+.sera-page.sera-page--platform {
+  --sera-accent: #1677ff; /* antd colorPrimary */
+  --sera-accent-hover: #4096ff;
+  --sera-card-bg: #fafafa;
+  --sera-border: #f0f0f0;
+  --sera-text: #262626;
+  --sera-text-soft: #595959;
+  --sera-text-muted: #8c8c8c;
+  --sera-text-faint: #8c8c8c;
+  --sera-surface: #fafafa;
+  --sera-today: #fff7e6;
+  --sera-radius: 8px;
+  --sera-shadow: none;
+
+  margin: 0;
+  padding: 16px;
+  min-height: 0;
+  background: #fff;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.sera-page.sera-page--platform::before {
+  display: none;
+}
+
+/* Semantic tints: green = a whole truck available, red = overloaded (owner's
+   two-colour rule), blue for totals/chips instead of emerald. */
+.sera-page.sera-page--platform .sera-gaplama-cell-full {
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.sera-page.sera-page--platform .sera-gaplama-cell-over {
+  background: #fff2f0;
+  color: #cf1322;
+}
+
+.sera-page.sera-page--platform .sera-gaplama-carry-in {
+  color: #389e0d;
+}
+
+.sera-page.sera-page--platform .sera-gaplama-partial-tag {
+  color: #d48806;
+}
+
+.sera-page.sera-page--platform .sera-gaplama-location-subtotal td,
+.sera-page.sera-page--platform .sera-gaplama-truck-chip {
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
+.sera-page.sera-page--platform .sera-gaplama-form-overdraw-notice {
+  border-color: #ffccc7;
+  background: #fff2f0;
+  color: #cf1322;
+}
