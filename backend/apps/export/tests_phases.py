@@ -2,7 +2,7 @@
 
 Coverage:
   - get_phase() with known codes, unknown codes, None, and empty string
-  - All 14 documented status codes have a PHASE_MAP entry
+  - All 17 status codes have a PHASE_MAP entry
   - PHASE_ORDER contains exactly the 7 phase codes used by PHASE_MAP plus 'PLAN'
   - PHASE_LABELS has exactly the 7 keys matching PHASE_ORDER
   - Integration: serialize Shipment in 5 states and assert phase field is present/correct
@@ -62,8 +62,17 @@ class GetPhaseUnitTests(TestCase):
     def test_hasabat_returns_dest(self) -> None:
         self.assertEqual(get_phase('hasabat'), 'DEST')
 
+    def test_dest_entry_returns_transit(self) -> None:
+        self.assertEqual(get_phase('dest_entry'), 'TRANSIT')
+
+    def test_transshipment_returns_transit(self) -> None:
+        self.assertEqual(get_phase('transshipment'), 'TRANSIT')
+
     def test_tamamlandy_returns_close(self) -> None:
         self.assertEqual(get_phase('tamamlandy'), 'CLOSE')
+
+    def test_cancelled_returns_close(self) -> None:
+        self.assertEqual(get_phase('cancelled'), 'CLOSE')
 
     def test_unknown_code_returns_close(self) -> None:
         self.assertEqual(get_phase('unknown_code'), 'CLOSE')
@@ -78,14 +87,15 @@ class GetPhaseUnitTests(TestCase):
 class PhaseMapCompletenessTests(TestCase):
     """Structural tests — PHASE_MAP, PHASE_ORDER, and PHASE_LABELS are internally consistent."""
 
-    # The 14 status codes documented in the plan.
+    # Every status code in core_shipment_status_types.
     EXPECTED_CODES = {
         'draft', 'yuklenme', 'gumruk_girish', 'gumruk_chykysh',
-        'yola_chykdy', 'serhet_tm', 'serhet_gechdi', 'barysh_gumrugi',
-        'yolda', 'bardy', 'satylyar', 'satyldy', 'hasabat', 'tamamlandy',
+        'yola_chykdy', 'serhet_tm', 'serhet_gechdi', 'dest_entry', 'barysh_gumrugi',
+        'yolda', 'transshipment', 'bardy', 'satylyar', 'satyldy', 'hasabat',
+        'tamamlandy', 'cancelled',
     }
 
-    def test_all_14_status_codes_are_mapped(self) -> None:
+    def test_all_17_status_codes_are_mapped(self) -> None:
         missing = self.EXPECTED_CODES - set(PHASE_MAP.keys())
         self.assertEqual(missing, set(), f"Missing from PHASE_MAP: {missing}")
 

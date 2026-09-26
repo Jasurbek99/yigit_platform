@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Fixed
+- **Board phases for `dest_entry` / `transshipment` / `cancelled` (fix(p3)).** The three codes were missing from `phases.py::PHASE_MAP`, so `get_phase()` dropped them into CLOSE: a truck entering the destination country or being transshipped showed as closed on the board, dashboard and KPI. Now `dest_entry`, `transshipment` → TRANSIT, `cancelled` → CLOSE. `tests_phases.py` now requires all 17 codes. Docs: `docs/SHIPMENT_STATUSES_AND_PHASES.md`, `docs/obsidian/reference/status-codes.md`.
+
 ### Changed
 - **Sidebar Gaplama page now uses the platform look (fix(frontend)).** `/export/gaplama` rendered in the green Sera style; it is now a white panel with antd-blue accents and a white app header. The Gaplama tab inside Tır Takip is unchanged. `AppLayout` drops `/export/gaplama` from `isSeraPage`; `GaplamaPage` adds `sera-page--platform`, whose token/tint overrides sit at the end of `sera.css`. Docs: `docs/obsidian/screens/gaplama.md`.
 - **Turkmen names for the shipment parts (feat(p3)).** The owner named the parts in Turkmen: a supply draft is «Üpjünçilik bölegi», a destination draft «Eksport bölegi». 31 tk values changed («…meýilnamasy» → «…bölegi», «Meýilnamalary birleşdir» → «Bölekleri birleşdir»); keys and `{{placeholders}}` untouched. Russian and English keep «план поставки / план назначения» and "supply plan / destination plan". The future transport part will be «Transport bölegi / план транспорта / transport plan». The Gaplama screen (a sera copy, «Tır Aç») is unchanged. ADR-0013 addendum in `docs/DECISIONS.md`.

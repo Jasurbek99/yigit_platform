@@ -1,3 +1,5 @@
+- [ ] 2026-09-26 — Board phases: `dest_entry` / `transshipment` now in TRANSIT, `cancelled` explicitly CLOSE (were falling into CLOSE by default) — NEEDS TEST
+  To test: move a test shipment to «Въезд в страну назначения» (or «Перегрузка») → on the Shipment board / SelfBoard it sits in the TRANSIT column, not CLOSE; dashboard active-shipments tag shows TRANSIT. Live DB has 0 shipments in those two statuses today, so use a test shipment.
 - [ ] 2026-09-26 — Sidebar «Gaplama» page (/export/gaplama) restyled to the platform look: white panel, antd blue, white header; the Gaplama tab inside Tır Takip stays green — NEEDS TEST
   To test (as a role that can open both): (1) sidebar → Gaplama: header bar is white (not green), page is a white panel on the grey content area, totals/chips blue, "full" cells green, "over" cells red; (2) open the Gaplama truck form (+ Tır Aç) — still readable, overdraw notice red; (3) /tir-takip → Gaplama tab: still the green Sera look, green header, unchanged. Not checked in a browser — the test account got /unauthorized on both routes.
 - [ ] 2026-09-26 — Turkmen part names: «Üpjünçilik bölegi» / «Eksport bölegi» (tk only) — NEEDS TEST

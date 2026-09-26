@@ -25,13 +25,16 @@ PHASE_MAP: dict[str, str] = {
     'yola_chykdy':      'TRANSIT',
     'serhet_tm':        'TRANSIT',
     'serhet_gechdi':    'TRANSIT',
+    'dest_entry':       'TRANSIT',
     'barysh_gumrugi':   'TRANSIT',
     'yolda':            'TRANSIT',
+    'transshipment':    'TRANSIT',
     'bardy':            'DEST',
     'satylyar':         'DEST',
     'satyldy':          'DEST',
     'hasabat':          'DEST',
     'tamamlandy':       'CLOSE',
+    'cancelled':        'CLOSE',
 }
 
 PHASE_ORDER: list[str] = ['PLAN', 'PREP', 'DOCS', 'LOAD', 'TRANSIT', 'DEST', 'CLOSE']

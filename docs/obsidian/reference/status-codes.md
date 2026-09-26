@@ -79,9 +79,10 @@ Two different "phase" vocabularies exist — do not mix them (see [[../../DECISI
 `PLAN → PREP → DOCS → LOAD → TRANSIT → DEST → CLOSE`. This is deliberately NOT the state-machine
 order (documents start in `draft`/PREP before the truck physically loads).
 
-> ⚠️ **Known gap:** `PHASE_MAP` has no entry for `dest_entry`, `transshipment`, or `cancelled`.
-> `get_phase()` falls through to its `'CLOSE'` default, so shipments at those statuses land in the
-> board's CLOSE column and are counted as CLOSE by `dashboard_summary` and `kpi`. Tracked, not fixed.
+All 17 status codes are mapped. `dest_entry` and `transshipment` → TRANSIT, `cancelled` → CLOSE
+(fixed 2026-09-26; before that the three fell through to `get_phase()`'s `'CLOSE'` default, so
+in-transit trucks showed as closed on the board, `dashboard_summary` and `kpi`).
+`tests_phases.py::test_all_17_status_codes_are_mapped` guards against a new status being left out.
 
 ## Lifecycle Timestamps — operator-entered (v2)
 

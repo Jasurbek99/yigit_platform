@@ -48,15 +48,17 @@
 | PREP | `draft` |
 | DOCS | `gumruk_girish`, `gumruk_chykysh` |
 | LOAD | `yuklenme` |
-| TRANSIT | `yola_chykdy`, `serhet_tm`, `serhet_gechdi`, `barysh_gumrugi`, `yolda` |
+| TRANSIT | `yola_chykdy`, `serhet_tm`, `serhet_gechdi`, `dest_entry`, `barysh_gumrugi`, `yolda`, `transshipment` |
 | DEST | `bardy`, `satylyar`, `satyldy`, `hasabat` |
-| CLOSE | `tamamlandy` |
+| CLOSE | `tamamlandy`, `cancelled` |
 
 DOCS стоит **перед** LOAD намеренно: документы готовят ещё в черновике, до загрузки.
 Порядок колонок ≠ порядок статусов.
 
-## 3. Известная проблема
+## 3. Исправлено 2026-09-26
 
-`dest_entry`, `transshipment` и `cancelled` **нет** в `PHASE_MAP`. `get_phase()` для
-неизвестного кода возвращает `CLOSE`, поэтому отправка на въезде в страну назначения
-или на перегрузке показывается на board как **завершённая**. Не исправлено.
+До 2026-09-26 `dest_entry`, `transshipment` и `cancelled` не было в `PHASE_MAP`, и
+`get_phase()` отправлял их в `CLOSE`: отправка на въезде в страну назначения или на
+перегрузке показывалась на board как завершённая. Теперь `dest_entry` и `transshipment`
+→ TRANSIT, `cancelled` → CLOSE (явно). `tests_phases.py` проверяет, что все 17 статусов
+есть в карте.
