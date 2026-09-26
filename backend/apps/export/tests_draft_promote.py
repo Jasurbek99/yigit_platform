@@ -159,7 +159,7 @@ class DraftCreationGeneratesTasksTests(TestCase):
             f'Auto-generated shipment_code {shipment_code!r} does not match DDMMNNN/YY',
         )
         # And the shipment landed in DRAFT, not Loading. The label is read from
-        # the row: seeded test DBs hold the core/0061 name, DJANGO_TESTING ones
+        # the row: seeded test DBs hold the core/0064 name, DJANGO_TESTING ones
         # hold _make_status's.
         draft = ShipmentStatusType.objects.get(code='draft')
         self.assertEqual(resp.data['status_display'], draft.name_en)

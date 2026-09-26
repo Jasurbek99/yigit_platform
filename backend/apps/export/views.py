@@ -2398,7 +2398,7 @@ class ShipmentViewSet(ModelViewSet):
                 # Promote draft → gumruk_girish (state machine v2). Was draft →
                 # yuklenme in v1. Operators can also reach this state by setting
                 # documents_status='in_progress' on the Sheet (auto-advance).
-                transition_to(shipment, 'gumruk_girish', request.user, comment='assigned from draft')
+                transition_to(shipment, 'gumruk_girish', request.user, comment='assigned from Preparation')
         except PermissionError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as exc:
