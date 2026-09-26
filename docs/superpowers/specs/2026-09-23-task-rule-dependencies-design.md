@@ -1,7 +1,16 @@
 # TaskRule dependencies — ordering tasks within a step
 
-**Status: BRAINSTORM PARKED.** Approaches proposed, none approved. No code written for
-this feature. Resume at "Decision needed" below.
+**Status: BRAINSTORM PARKED.** Approach A is the standing recommendation, still not
+formally approved. No code written for this feature.
+
+> **Read [[2026-09-24-task-lifecycle-roadmap]] first.** The 2026-09-24 brainstorm
+> sequenced this feature **after** the rule editor, which invalidates two specifics
+> below. Short version: use a `depends_on` **self-FK** resolved by `seed_key`, not
+> `depends_on_title_key` — §3.7's premise no longer holds once `--reset` is
+> `--force`-gated, and `depends_on_title_key` cannot reference an admin-created
+> rule at all (those have `title_key=''`). The dependency must also be editable in
+> the editor's WHEN→IF→THEN drawer, which this document did not anticipate.
+> Everything else here still stands.
 
 **Written for:** whoever picks this up in a later session — assume they have not read the
 conversation that produced it. Every fact below is cited to a file so nothing has to be
