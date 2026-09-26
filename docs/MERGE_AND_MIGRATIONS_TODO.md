@@ -11,10 +11,11 @@
 - [x] Миграции применены к общей базе: `export/0078`, `0079`, `0080`. `migrate --plan` → «No planned migration operations»
 - [x] Исправлена путаница с Gapy: в базе миграция была записана как `0076_gapy_driver_passports`, файл переименовали в `0077`.
       2026-09-24 выполнено `migrate export 0077_gapy_driver_passports --fake`. Колонки уже были, схема не менялась
-- [x] PR #20 Gaplama batches готов к мержу (`MERGEABLE`/`CLEAN` на GitHub, 2026-09-25). Другая сессия уже
-      переномеровала миграции (`core/0060-0062`, `export/0081`) — конфликтов с main нет, `makemigrations --check`
-      чисто. Проверено review + тесты: backend 202/203 (1 известный старый сбой, не от этого PR), frontend
-      1060/1060, tsc чисто. Исправлены по review 3 из 4 находок (§5)
+- [x] PR #20 Gaplama batches смержен (`e72e6837`). Миграции `core/0060-0063`, `export/0081` применены к общей
+      базе. Исправлены по review 3 из 4 находок (§5), 4-я отложена отдельным PR
+- [x] PR #21 «draft → Подготовка/Preparation/Taýýarlyk» смержен (`d770353b`, 2026-09-26). Миграция `core/0064`
+      применена к общей базе. Review: 1 находка (пропущенный `comment='assigned from draft'` в activity log
+      рейса) — исправлена. Тесты: backend 29/29 (свои), frontend 1061/1061, tsc чисто
 
 ---
 
@@ -32,6 +33,11 @@
 - [ ] PR #20 Gaplama: запись в `BUILD_TEST_LOG.md` от 2026-09-25 («Gaplama Üýtget edit…»). Минимум:
   - Редактировать существующий грузовик (Üýtget) — сплит и общий вес обновляются одним запросом
   - Роль без права на `weight_net` не может отредактировать — и партии тоже не переписываются
+- [ ] PR #21 «Подготовка»: запись в `BUILD_TEST_LOG.md` от 2026-09-24. Минимум:
+  - Рейс в старом статусе draft — в детали, списке, Sheet и на доске статус читается «Подготовка» /
+    «Preparation» / «Taýýarlyk», не «Черновик» / «Draft» / «Garalama»
+  - Лента активности рейса, который прошёл через сборку (assign) — комментарий там тоже без слова draft
+  - Quota dashboard и local sell plan по-прежнему говорят «черновик» — так и задумано, не баг
   - Admin → Block Management: `carry_days = 0` отклоняется
 - [ ] После проверки отметь `[x]` в `BUILD_TEST_LOG.md` (или скажи мне)
 
@@ -49,8 +55,8 @@
 - [ ] Потом удалить папки `yigit_split`, `yigit_merge_trial`, `yigit_merge_base`
 - [ ] Удалить ветки, которые уже в main (локально и на GitHub):
   `feat/quality-and-taskrules`, `merge/gadams-trial`, `Copy_Gadams_UI`, `feat/transport-fleet-map`, `learn/django`,
-  `feat/gapy-terminal`, `feat/task-condition-reconcile`
-- [ ] Удалить папки `ygt_gapy` и `ygt_taskreconcile` (всё смержено)
+  `feat/gapy-terminal`, `feat/task-condition-reconcile`, `feat/gaplama-batches`, `feat/prep-label`
+- [ ] Удалить папки `ygt_gapy`, `ygt_taskreconcile`, `ygt_gaplama_batches`, `ygt_prep_label` (всё смержено)
 - [ ] Решить сам (в них есть коммиты, которых нет в main): `wip/quality-inspector` (1 коммит),
       `feature/copy-sera-butce-ui` (4, старая), `backup/pre-rebase-2026-09-11`
 - [ ] `yigit_learn` (учебная база `YIGIT_LEARN`): не трогаю без твоего слова
