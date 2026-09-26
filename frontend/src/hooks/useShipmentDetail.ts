@@ -28,7 +28,19 @@ export function useShipmentDetail(id: number | string | undefined) {
     queryFn: async (): Promise<IShipmentDetail> => {
       if (USE_MOCK) return MOCK_SHIPMENT_DETAIL;
       const { data } = await api.get<IShipmentDetail>(`/export/shipments/${id}/`);
-      return data;
+      // block_sources[].weight_kg is a DecimalField — arrives as a string
+      // ("3000.00"), same api-contract convention as every other decimal
+      // field. Coerced here, at the fetch boundary, not at any usage site
+      // (see useDrafts.ts's useDrafts() for the identical pattern) — the
+      // Goods & Loading card's per-batch breakdown is the first detail-page
+      // consumer to render this field numerically.
+      return {
+        ...data,
+        block_sources: (data.block_sources ?? []).map((s) => ({
+          ...s,
+          weight_kg: s.weight_kg != null ? Number(s.weight_kg) : null,
+        })),
+      };
     },
     enabled: id != null,
     staleTime: 30_000,

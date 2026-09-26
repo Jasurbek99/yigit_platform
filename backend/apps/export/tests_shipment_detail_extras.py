@@ -13,6 +13,7 @@ Coverage:
   - phase_avg_seconds: cache hit on second call (assertNumQueries)
 """
 import datetime
+from decimal import Decimal
 
 from django.core.cache import cache
 from django.core.management import call_command
@@ -21,9 +22,10 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.core.models import Season, ShipmentStatusType, User
+from apps.core.models import GreenhouseBlock, Season, ShipmentStatusType, User
 from apps.export.models import (
     Shipment,
+    ShipmentBlockSource,
     ShipmentStatusLog,
     Task,
     TaskCompletionRule,
@@ -537,3 +539,63 @@ class DetailEndpointNewFieldsTests(TestCase):
         val = resp.json()['in_phase_seconds']
         self.assertIsInstance(val, int)
         self.assertGreaterEqual(val, 0)
+
+
+# ---------------------------------------------------------------------------
+# block_sources[].harvest_date (Gaplama batch-selection detail-page display)
+# ---------------------------------------------------------------------------
+
+class BlockSourcesHarvestDateTests(TestCase):
+    """BlockSourceSerializer previously exposed only block_code/block_name/weight_kg.
+
+    The model has had harvest_date since b041aa47 (batch = block + day picked),
+    but it was write-only from the frontend's perspective — the detail page had
+    no way to show which batches a truck was built from. Widening the READ-only
+    serializer to include it.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions')
+        cls.user = _make_user('det_bsh1', 'warehouse_chief')
+        cls.shipment = _make_shipment('DETBSH001')
+        cls.block = GreenhouseBlock.objects.create(code='DETBSHA', name='A')
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_serializer_includes_harvest_date(self) -> None:
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block,
+            weight_kg=Decimal('3000'), harvest_date=datetime.date(2026, 9, 21),
+        )
+        data = _serialize_detail(self.shipment, self.user)
+        self.assertEqual(len(data['block_sources']), 1)
+        self.assertEqual(data['block_sources'][0]['harvest_date'], '2026-09-21')
+
+    def test_serializer_reports_null_harvest_date_as_null_not_missing(self) -> None:
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block, weight_kg=Decimal('1000'), harvest_date=None,
+        )
+        data = _serialize_detail(self.shipment, self.user)
+        self.assertIn('harvest_date', data['block_sources'][0])
+        self.assertIsNone(data['block_sources'][0]['harvest_date'])
+
+    def test_detail_endpoint_returns_harvest_date_for_every_batch(self) -> None:
+        """A truck with two batches from one block (two rows, per unique_together
+        on (shipment, block, harvest_date)) reports both dates over the wire."""
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block,
+            weight_kg=Decimal('3000'), harvest_date=datetime.date(2026, 9, 21),
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=self.block,
+            weight_kg=Decimal('5000'), harvest_date=datetime.date(2026, 9, 24),
+        )
+        resp = self.client.get(f'/api/v1/export/shipments/{self.shipment.pk}/')
+        self.assertEqual(resp.status_code, 200)
+        rows = resp.json()['block_sources']
+        self.assertEqual(len(rows), 2)
+        dates = sorted(r['harvest_date'] for r in rows)
+        self.assertEqual(dates, ['2026-09-21', '2026-09-24'])

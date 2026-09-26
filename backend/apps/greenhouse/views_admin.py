@@ -68,6 +68,7 @@ class GreenhouseBlockAdminSerializer(serializers.ModelSerializer):
             'season_start_month',
             'color', 'sort_order',
             'is_active',
+            'carry_days',
             'sub_blocks',
         ]
 

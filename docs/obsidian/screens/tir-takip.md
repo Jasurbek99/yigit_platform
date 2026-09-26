@@ -11,12 +11,13 @@ Tab shell at `/tir-takip`. A port of the `TirTakipPage` tab bar from the separat
 language rather than the platform's Ant Design theme** — owner request, 2026-09-16:
 *"new pages have another design, don't change ours."*
 
-> [!warning] Status as of 2026-09-16
-> **Four of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
-> [[#The Önümçilik tab]]), `tirlar` renders the Shipment Sheet (see
+> [!warning] Status as of 2026-09-23
+> **Five of nine tabs filled.** `onumcilik` renders the Weekly Plan grid (see
+> [[#The Önümçilik tab]]), `gaplama` renders the Weekly-Plan-minus-opened-trucks board
+> (see [[#The Gaplama tab]]), `tirlar` renders the Shipment Sheet (see
 > [[#The Tırlar tab]]), `hasabat` renders live report aggregates (see
 > [[#The Hasabat tab]]) and `datalar` renders the Shipment Settings page (see
-> [[#The Datalar tab]]); the other five are still placeholders. The owner is
+> [[#The Datalar tab]]); the other four are still placeholders. The owner is
 > supplying the contents tab by tab, and each placeholder is replaced as its spec
 > arrives.
 
@@ -32,10 +33,10 @@ language rather than the platform's Ant Design theme** — owner request, 2026-0
 │  ──────────                                                    │
 │  Gümrük Ewraklary │ Kwota Takibi │ Yurtdışı Sertnamaları │ …   │
 │ ┌────────────────────────────────────────────────────────────┐ │
-│ │  Önümçilik → Weekly Plan grid · Tırlar → Shipment Sheet      │ │
-│ │  (Tırlar has no card: the sheet fills the page edge to edge) │ │
+│ │  Önümçilik → Weekly Plan grid · Gaplama → packing board       │ │
+│ │  Tırlar → Shipment Sheet (no card: fills the page edge to edge)│ │
 │ │  Hasabat → report · Datalar → Shipment Settings              │ │
-│ │  (the other 5 → placeholder)                                 │ │
+│ │  (the other 4 → placeholder)                                 │ │
 │ └────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -285,6 +286,41 @@ what our equivalent of sera's export-bound daily kg is, where its
 whether the tab keeps ISO weeks or adopts sera's rolling 7-day window, and who may
 write.
 
+## The Gaplama tab
+
+`frontend/src/pages/sera/GaplamaTab.tsx` — a read-only week grid over the Weekly Plan,
+minus kg already loaded onto opened trucks, plus a carried-over remainder from earlier
+days. Unlike Önümçilik it is not a copy of an existing screen; it is new, hand-rolled
+markup (plain `<table>`, not antd `<Table>`) in the same sera type scale and palette.
+Full detail: [[gaplama]].
+
+**Two entry points, one component.** The same `GaplamaTab` mounts both here (behind the
+`gaplama` tab) and at its own route, `/export/gaplama` (`GaplamaPage.tsx`, sidebar entry).
+Both check the same pair of page codes — see [[gaplama]] for the full gate breakdown.
+
+### Permissions
+
+Same rule as Önümçilik: `TAB_BODIES` carries `gaplama: { requires: 'export.plan', node:
+<GaplamaTab /> }`. `tir_takip.gaplama` is granted to all 15 roles; `export.plan` to 8 —
+without the second gate the tab would hand every role the same plan/forecast data
+Önümçilik's second gate protects. The standalone route repeats both checks itself
+(`ProtectedRoute pageCode="tir_takip.gaplama"` in the router, `canSeePage(user,
+'export.plan')` inside `GaplamaPage.tsx`), and the API enforces the identical pair
+server-side (`CanViewTirGaplama`), so none of the three surfaces can be widened by
+forgetting a check on just one of them.
+
+### What's new here that Önümçilik didn't need
+
+- **A carry-over calculation**, not just a read of `HarvestDayEntry` — FIFO buckets over a
+  configurable window (`GreenhouseConfig.gaplama_carry_days`), computed once in
+  `services/gaplama.py` and shared verbatim between this screen and (eventually) the
+  over-load task/notification, so the two can never disagree about a number.
+- **A write path of its own** — Tır Aç / Üýtget open and edit draft trucks directly from
+  this tab, not just read plan data. Both go through the existing draft-create and
+  block-sources endpoints; nothing new was added on the write side.
+- **Its own CSS block**, `.sera-gaplama-*` in `sera.css`, since the markup is not an antd
+  `<Table>` this time — there was no existing DOM to restyle.
+
 ## The Tırlar tab
 
 `frontend/src/pages/sera/TirlarTab.tsx` — the trucks sheet. A copy of
@@ -525,6 +561,9 @@ Two consequences worth knowing:
 |---|---|
 | Page | `frontend/src/pages/sera/TirTakip.tsx` — tab strip + `TAB_BODIES` map |
 | Önümçilik body | `frontend/src/pages/sera/OnumcilikTab.tsx` — verbatim copy of `pages/export/WeeklyPlanGrid.tsx` |
+| Gaplama body | `frontend/src/pages/sera/GaplamaTab.tsx` + `.test.tsx`, `GaplamaTruckForm.tsx` + `.test.tsx`, `GaplamaTab.totals.ts` + `.test.ts` — see [[gaplama]] |
+| Gaplama standalone page | `frontend/src/pages/sera/GaplamaPage.tsx` + `.test.tsx` — `/export/gaplama`, same `GaplamaTab` |
+| Gaplama endpoint | `backend/apps/export/views_gaplama.py`, `services/gaplama.py`, `permissions.py` (`CanViewTirGaplama`); tests `tests_gaplama_board.py` |
 | Tırlar body | `frontend/src/pages/sera/TirlarTab.tsx` + `.test.tsx` (5 tests) — copy of the `pages/export/ShipmentSheet.tsx` wrapper; renders `SheetGrid` with `variant="ios"` |
 | Sheet grid | `frontend/src/components/sheet/SheetGrid.tsx` — optional `variant` prop, forwarded to the cell |
 | Sheet cell | `frontend/src/components/sheet/SheetCell.tsx` — same optional prop; `SheetCell.variantPin.test.tsx` (3 tests). With `SheetGrid`, the only edits to shared Sheet code |

@@ -792,3 +792,302 @@
 .sera-page .sera-settings .ant-tabs-ink-bar {
   background: var(--sera-accent);
 }
+
+/* ── Gaplama tab ────────────────────────────────────────────────────────
+   GaplamaTab.tsx / GaplamaTruckForm.tsx — a read-only Weekly-Plan-minus-
+   opened-trucks board plus the Tır Aç/Üýtget form. Plain <table>/<div>
+   markup (not antd <Table>), so — unlike the ported Önümçilik/Hasabat
+   blocks above — there is no antd DOM to restyle here; these rules define
+   the whole look from scratch, in the same palette and scale as the rest
+   of this file (11-14px type, --sera-* tokens, amber for "today"/partial,
+   emerald for totals). */
+
+/* Task 6 redesign: one full-width bar above the table — location filter,
+   block filter, day stepper, Gün/Hepde mode toggle, a spacer, then
+   + Tır Aç pushed to the far right. Not a sidebar, not stacked. */
+.sera-page .sera-gaplama-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.sera-page .sera-gaplama-header-spacer {
+  flex: 1 1 auto;
+}
+
+.sera-page .sera-gaplama-daystepper,
+.sera-page .sera-gaplama-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sera-page .sera-gaplama-daystepper > span {
+  min-width: 72px;
+  text-align: center;
+  font-weight: 500;
+  color: var(--sera-text-soft);
+  font-size: 12px;
+}
+
+/* The formula the redesign puts on screen instead of leaving it only in the
+   design doc (docs/obsidian/screens/gaplama.md). */
+.sera-page .sera-gaplama-formula {
+  margin-bottom: 8px;
+  color: var(--sera-text-faint);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sera-page .sera-gaplama-grid th,
+.sera-page .sera-gaplama-grid td {
+  border: 1px solid var(--sera-border);
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.sera-page .sera-gaplama-grid th {
+  background: var(--sera-surface);
+  color: var(--sera-text-faint);
+  font-weight: 500;
+}
+
+.sera-page .sera-gaplama-grid td:first-child {
+  text-align: left;
+}
+
+/* Week grid only: the column whose date is today — same amber as
+   --sera-today used elsewhere in the sera pages. */
+.sera-page .sera-gaplama-day-today {
+  background: var(--sera-today);
+}
+
+.sera-page .sera-gaplama-weekday {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sera-text-faint);
+}
+
+/* Two colours, not four (owner's redesign call) — green when a whole truck
+   is available, red when the block is overloaded. Everything else stays
+   plain, no amber/grey tiers. Used on both the day table's Boş cell and the
+   week grid's per-day cell. */
+.sera-page .sera-gaplama-cell-full {
+  background: #ecfdf5;
+  color: var(--sera-accent);
+  font-weight: 600;
+}
+
+.sera-page .sera-gaplama-cell-over {
+  background: #fef2f2;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.sera-page .sera-gaplama-location-header td {
+  background: var(--sera-surface);
+  color: var(--sera-text-soft);
+  font-weight: 600;
+  text-align: left;
+}
+
+.sera-page .sera-gaplama-block-name {
+  color: var(--sera-text-soft);
+  font-weight: 500;
+}
+
+/* Day table only — the block's own carry window, written on screen (not
+   just a hover title, which tablets never see). */
+.sera-page .sera-gaplama-carry-window {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sera-text-faint);
+}
+
+/* Day table's Geçen (carried-in) column — the origin-day breakdown moves to
+   the title tooltip (FIFO order, design spec §3①). */
+.sera-page .sera-gaplama-carry-in {
+  color: #059669;
+  cursor: help;
+}
+
+.sera-page .sera-gaplama-location-subtotal td {
+  background: #ecfdf5;
+  color: var(--sera-accent);
+  font-weight: 600;
+}
+
+/* Single collapsed row for every block with nothing available today
+   (owner's redesign: "fewer numbers by default") — click to expand. */
+.sera-page .sera-gaplama-folded-row {
+  cursor: pointer;
+  color: var(--sera-text-faint);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-folded-row:hover {
+  background: var(--sera-surface);
+}
+
+.sera-page .sera-gaplama-folded-block td {
+  color: var(--sera-text-faint);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-footer-tir-sany td,
+.sera-page .sera-gaplama-footer-trucks td {
+  border-top: 1px solid var(--sera-border);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-footer-tir-sany td {
+  font-weight: 700;
+  color: var(--sera-accent);
+}
+
+/* One chip per opened truck, listed inside its day's footer cell. */
+.sera-page .sera-gaplama-truck-chip {
+  display: inline-block;
+  margin: 1px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: var(--sera-accent);
+  font-size: 10px;
+}
+
+.sera-page .sera-gaplama-truck-open {
+  margin: 12px 0;
+}
+
+.sera-page .sera-gaplama-truck-list {
+  margin-top: 16px;
+}
+
+.sera-page .sera-gaplama-truck-list table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.sera-page .sera-gaplama-truck-list th,
+.sera-page .sera-gaplama-truck-list td {
+  border-bottom: 1px solid var(--sera-border);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.sera-page .sera-gaplama-truck-list th {
+  color: var(--sera-text-faint);
+  font-weight: 500;
+}
+
+.sera-page .sera-gaplama-partial-tag {
+  margin-left: 4px;
+  font-size: 10px;
+  color: #d97706;
+}
+
+.sera-page .sera-gaplama-form {
+  max-width: 480px;
+  padding: 12px;
+  border: 1px solid var(--sera-border);
+  border-radius: var(--sera-radius);
+  background: var(--sera-card-bg);
+}
+
+.sera-page .sera-gaplama-form-day {
+  margin-bottom: 8px;
+  color: var(--sera-text-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sera-page .sera-gaplama-form-cap {
+  color: var(--sera-text-faint);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-form-total {
+  margin: 12px 0;
+  color: var(--sera-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Batch selection (2026-09-24) — one card per chosen block, its batches as
+   rows inside. */
+.sera-page .sera-gaplama-form-block {
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid var(--sera-border);
+  border-radius: var(--sera-radius);
+}
+
+.sera-page .sera-gaplama-form-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sera-page .sera-gaplama-form-carry {
+  color: var(--sera-text-soft);
+  font-size: 11px;
+}
+
+.sera-page .sera-gaplama-batch-table {
+  width: 100%;
+  font-size: 12px;
+}
+
+.sera-page .sera-gaplama-batch-table th {
+  text-align: left;
+  color: var(--sera-text-faint);
+  font-weight: 500;
+  padding: 2px 6px 2px 0;
+}
+
+.sera-page .sera-gaplama-batch-table td {
+  padding: 2px 6px 2px 0;
+}
+
+.sera-page .sera-gaplama-form-subtotal {
+  margin-top: 4px;
+  color: var(--sera-text-soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sera-page .sera-gaplama-form-oldest {
+  margin-left: 8px;
+  color: var(--sera-text-faint);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* 2026-09-25 overdraw guard — same red as .sera-gaplama-cell-over. Shown
+   ONCE while any row is over (round 1 fix: was per-row and wrapped into a
+   wall of text at 160px; the owner's text is one instruction meant to be
+   read as a sentence, not repeated beside every offending input). The
+   offending row itself still shows its own red border via InputNumber's
+   `status="error"` — this is the explanation, not a per-row label. */
+.sera-page .sera-gaplama-form-overdraw-notice {
+  margin: 8px 0;
+  max-width: 420px;
+  padding: 6px 10px;
+  border: 1px solid #fecaca;
+  border-radius: var(--sera-radius);
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}

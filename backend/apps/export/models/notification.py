@@ -41,6 +41,10 @@ class Notification(models.Model):
         ('mention', 'Mention'),
         ('task_assigned', 'Task assigned'),
         ('task_done', 'Task done'),
+        # Written by reconcile_shipment_tasks via notify_tasks_changed: a
+        # condition field changed, so which tasks apply to this shipment
+        # changed too.
+        ('tasks_changed', 'Tasks changed'),
         # Feedback module — author notified of ticket outcome
         ('feedback_resolved', 'Feedback resolved'),
         ('feedback_rejected', 'Feedback rejected'),

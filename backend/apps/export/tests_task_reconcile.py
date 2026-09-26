@@ -398,3 +398,128 @@ class ReconcileCommandTests(TestCase):
         call_command('reconcile_tasks', stdout=out)
         output = out.getvalue()
         self.assertIn('No stale tasks found', output)
+
+
+# ---------------------------------------------------------------------------
+# Condition re-evaluation pass (feature B)
+# ---------------------------------------------------------------------------
+
+class ReconcileConditionsTests(TestCase):
+    """The condition pass added to the reconcile_tasks command.
+
+    This is how the historical backlog gets repaired: explicitly, with a dry
+    run available first.
+    """
+
+    def setUp(self):
+        # Rules are created once per test, not once per shipment: a test that
+        # builds two shipments must see ONE pair of rules, or the expected
+        # counts double.
+        self.regular_rule = _make_rule(
+            title_key='tasks.assign_driver',
+            condition_field='is_gapy_satys', condition_value='False',
+        )
+        self.gapy_rule = _make_rule(
+            title_key='tasks.assign_driver_gapy',
+            condition_field='is_gapy_satys', condition_value='True',
+        )
+
+    def _gapy_shipment_with_stale_task(self, code: str):
+        """A shipment flipped to Gapy whose Regular task was never reconciled.
+
+        Exactly the historical state the command exists to repair.
+        """
+        ship = _make_shipment(code)
+        ship.is_gapy_satys = True
+        ship.save(update_fields=['is_gapy_satys'])
+        task = _make_task(
+            ship, self.regular_rule, title_key='tasks.assign_driver',
+            target_fields='driver_name', state=TaskState.OPEN,
+        )
+        return ship, task
+
+    def test_dry_run_reports_and_writes_nothing(self):
+        from apps.export.services.task_rules import reconcile_conditions_for_shipments
+
+        ship, task = self._gapy_shipment_with_stale_task('0501001/26')
+
+        # create_missing=True: emitting is opt-in since the review, and this
+        # test is specifically about the create side of the plan.
+        summary = reconcile_conditions_for_shipments(
+            shipments=[ship], dry_run=True, create_missing=True,
+        )
+
+        self.assertEqual(summary['cancelled'], 1)
+        self.assertEqual(summary['created'], 1)
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.OPEN)
+        self.assertEqual(Task.objects.filter(shipment=ship).count(), 1)
+
+    def test_real_run_repairs_the_shipment(self):
+        from apps.export.models import TaskCancelReason
+        from apps.export.services.task_rules import reconcile_conditions_for_shipments
+
+        ship, task = self._gapy_shipment_with_stale_task('0501002/26')
+
+        summary = reconcile_conditions_for_shipments(
+            shipments=[ship], dry_run=False, create_missing=True,
+        )
+
+        self.assertEqual(summary['cancelled'], 1)
+        self.assertEqual(summary['created'], 1)
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.CANCELLED)
+        self.assertEqual(task.cancelled_reason, TaskCancelReason.RULE_MISMATCH)
+        self.assertTrue(
+            Task.objects.filter(
+                shipment=ship, title_key='tasks.assign_driver_gapy',
+                state=TaskState.OPEN,
+            ).exists()
+        )
+
+    def test_dry_run_plan_matches_the_real_run(self):
+        """_plan_condition_changes duplicates the decision loop of
+        reconcile_shipment_tasks in read-only form. Nothing but this test stops
+        the two drifting apart."""
+        from apps.export.services.task_rules import reconcile_conditions_for_shipments
+
+        ship_a, _ = self._gapy_shipment_with_stale_task('0501005/26')
+        ship_b, _ = self._gapy_shipment_with_stale_task('0501006/26')
+
+        # create_missing=True on both sides so the comparison exercises the
+        # create branch as well as cancel - with it off both plans are
+        # cancel-only and the test would agree while covering less.
+        planned = reconcile_conditions_for_shipments(
+            shipments=[ship_a], dry_run=True, create_missing=True,
+        )
+        actual = reconcile_conditions_for_shipments(
+            shipments=[ship_b], dry_run=False, create_missing=True,
+        )
+
+        def _shape(summary):
+            return (
+                summary['created'], summary['cancelled'], summary['reopened'],
+                sorted((c['action'], c['title_key']) for c in summary['changes']),
+            )
+
+        self.assertEqual(_shape(planned), _shape(actual))
+
+    def test_command_runs_both_passes(self):
+        ship, task = self._gapy_shipment_with_stale_task('0501003/26')
+        out = StringIO()
+
+        call_command('reconcile_tasks', '--shipment', '0501003/26', stdout=out)
+
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.CANCELLED)
+        self.assertIn('condition', out.getvalue().lower())
+
+    def test_command_dry_run_writes_nothing(self):
+        ship, task = self._gapy_shipment_with_stale_task('0501004/26')
+        out = StringIO()
+
+        call_command('reconcile_tasks', '--dry-run', '--shipment', '0501004/26', stdout=out)
+
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.OPEN)
+        self.assertIn('DRY RUN', out.getvalue())

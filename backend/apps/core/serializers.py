@@ -163,7 +163,7 @@ class GreenhouseBlockSerializer(serializers.ModelSerializer):
         model = GreenhouseBlock
         fields = [
             'id', 'code', 'name', 'color', 'sort_order', 'is_active',
-            'parent', 'location', 'location_name',
+            'parent', 'location', 'location_name', 'carry_days',
         ]
 
 
@@ -306,6 +306,7 @@ class GreenhouseConfigSerializer(serializers.ModelSerializer):
             'forecast_primary_open', 'forecast_primary_close',
             'forecast_fallback_close', 'forecast_same_day_close',
             'notification_lead_minutes', 'truck_capacity_kg',
+            'gaplama_carry_days',
             'plan_change_max_pct',
             'operating_days_bitmask', 'timezone_name',
             'updated_by', 'updated_by_name', 'updated_at',
