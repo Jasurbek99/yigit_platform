@@ -1,5 +1,5 @@
 - [ ] 2026-09-24 — «Черновик / Draft / Garalama» renamed to «Подготовка / Preparation / Taýýarlyk» (labels only) — NEEDS TEST
-  To test (after `migrate core` applies 0061 and the build is deployed): (1) open a shipment
+  To test (after `migrate core` applies 0064 and the build is deployed): (1) open a shipment
   that is in the old Draft status — the Detail header tag reads **Preparation**, the list/Sheet
   status reads «Подготовка» (ru) / «Taýýarlyk» (tk); (2) board: the card sits in the
   «Подготовка» column (tk «Taýýarlyk»); (3) sidebar «В подготовке», page title «Отгрузки в

@@ -8,7 +8,7 @@ tags: [reference, lifecycle, statuses]
 > Complete reference for the **state machine v2** statuses: 12 active steps + `cancelled` + 3 retired codes.
 > Source of truth: `apps/core/migrations/0010_state_machine_v2.py` (rows) and
 > `apps/export/services/shipment.py::TRANSITIONS` (edges).
-> `draft` is labelled «Подготовка / Preparation / Taýýarlyk» since 2026-09-24 (`core/0061`;
+> `draft` is labelled «Подготовка / Preparation / Taýýarlyk» since 2026-09-24 (`core/0064`;
 > management rejected "draft"). The code stays `draft`.
 
 ## Active Status Table
