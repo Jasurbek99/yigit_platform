@@ -5,6 +5,7 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Added
+- **Pallet QR scan endpoint (feat(p3)).** `GET|POST /export/shipments/{id}/scan/` records the current transit step's trigger timestamp (border → sale end) and auto-advances the status; repeat scans are no-ops. Frontend scan page not built yet.
 - **Pallet QR label PDF (feat(p3)).** `GET /export/shipments/{id}/label/` returns an A5 page: QR linking to `/scan/{id}` with the `export_code` printed underneath; 400 when the export code is blank. Scan page not built yet. Docs: `docs/obsidian/processes/pallet-qr-scan.md`.
 
 ### Fixed

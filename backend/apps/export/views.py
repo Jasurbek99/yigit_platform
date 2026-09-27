@@ -207,6 +207,11 @@ class ShipmentViewSet(ModelViewSet):
         )
         if is_pallet_write:
             return [IsAuthenticated(), SeasonNotClosed()]
+        # Pallet QR scan writes one trigger timestamp. POST maps to
+        # shipment.can_create, which transport / sales_rep (the scanners) lack;
+        # the per-field Sheet grant inside ShipmentPatchSerializer decides instead.
+        if action == 'scan' and self.request.method == 'POST':
+            return [IsAuthenticated(), SeasonNotClosed()]
         is_quality_write = (
             action == 'delete_quality_certificate'
             or (action == 'quality_certificates' and self.request.method == 'POST')
@@ -3632,6 +3637,80 @@ class ShipmentViewSet(ModelViewSet):
         safe_code = re.sub(r'[^A-Za-z0-9_-]', '-', shipment.export_code)
         resp['Content-Disposition'] = f'attachment; filename="label_{safe_code}.pdf"'
         return resp
+
+    @action(detail=True, methods=['get', 'post'], url_path='scan')
+    def scan(self, request, pk=None):
+        """GET/POST /api/v1/export/shipments/{id}/scan/ — pallet QR scan page.
+
+        GET: {id, code, export_code, status, field} — `field` is the trigger
+             timestamp a scan would record now, or null (nothing to scan).
+        POST {"field": "...", "occurred_at": optional ISO datetime, default now}:
+             fills that field through ShipmentPatchSerializer (same per-field
+             grants + audit as a Sheet PATCH); Shipment.save() auto-advances the
+             status. Scanning the other pallets of the same truck is a no-op:
+             an already-filled field returns 200 with recorded=false.
+        """
+        from apps.export.services.scan import SCAN_FIELDS, scan_target_field
+        from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
+
+        shipment = self.get_object()
+
+        def payload(recorded=None):
+            data = {
+                'id': shipment.pk,
+                'code': shipment.shipment_code,
+                'export_code': shipment.export_code,
+                'status': shipment.status.code if shipment.status_id else None,
+                'field': scan_target_field(shipment),
+            }
+            if recorded is not None:
+                data['recorded'] = recorded
+            return data
+
+        if request.method == 'GET':
+            return Response(payload())
+
+        if shipment.is_archived or shipment.deleted_at is not None:
+            return Response(
+                {'error': 'Archived or deleted shipments are read-only.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        field = request.data.get('field')
+        if field not in SCAN_FIELDS:
+            return Response({'error': 'Unknown scan field.'}, status=status.HTTP_400_BAD_REQUEST)
+        if getattr(shipment, field) is not None:
+            return Response(payload(recorded=False))
+        if field != scan_target_field(shipment):
+            return Response(
+                {'error': 'This step cannot be recorded by scan now.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_role = getattr(request.user, 'role', None)
+        serializer = ShipmentPatchSerializer(
+            shipment,
+            data={field: request.data.get('occurred_at') or timezone.now()},
+            partial=True,
+            context={'role': user_role, 'request': request},
+        )
+        if not serializer.is_valid():
+            if any('cannot edit' in str(m) for m in serializer.errors.get(field, [])):
+                return Response(
+                    {'error': f"Role '{user_role}' cannot record this step."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            before = snapshot_fields(shipment, [field])
+            serializer.save(updated_by=request.user)
+            shipment.refresh_from_db()
+            audit_rows = diff_audit_rows(
+                shipment, before, snapshot_fields(shipment, [field]), request.user,
+            )
+            if audit_rows:
+                AuditLog.objects.bulk_create(audit_rows, batch_size=500)
+        return Response(payload(recorded=True))
 
     @action(detail=True, methods=['get', 'post'], url_path='pallets')
     def pallets(self, request, pk=None):
