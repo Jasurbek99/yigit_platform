@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Added
+- **Pallet QR label PDF (feat(p3)).** `GET /export/shipments/{id}/label/` returns an A5 page: QR linking to `/scan/{id}` with the `export_code` printed underneath; 400 when the export code is blank. Scan page not built yet. Docs: `docs/obsidian/processes/pallet-qr-scan.md`.
+
 ### Fixed
 - **Board phases for `dest_entry` / `transshipment` / `cancelled` (fix(p3)).** The three codes were missing from `phases.py::PHASE_MAP`, so `get_phase()` dropped them into CLOSE: a truck entering the destination country or being transshipped showed as closed on the board, dashboard and KPI. Now `dest_entry`, `transshipment` → TRANSIT, `cancelled` → CLOSE. `tests_phases.py` now requires all 17 codes. Docs: `docs/SHIPMENT_STATUSES_AND_PHASES.md`, `docs/obsidian/reference/status-codes.md`.
 

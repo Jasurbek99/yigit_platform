@@ -1,8 +1,10 @@
 import logging
+import re
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.db import transaction
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from django.db.models import (
     Count,
     Exists,
@@ -70,6 +72,7 @@ from apps.export.services.files import (
     sanitise_filename,
     validate_quality_certificate,
 )
+from apps.export.exports.shipment_label import build_shipment_label_pdf
 from apps.export.services.quality import sync_certificate_flags
 from apps.export.serializers import (
     ExpenseCategorySerializer,
@@ -3606,6 +3609,29 @@ class ShipmentViewSet(ModelViewSet):
             shipment.shipment_code, request.user.username, len(firms_data), usage_count,
         )
         return Response({'status': 'ok', 'count': len(firms_data)})
+
+    @action(detail=True, methods=['get'], url_path='label')
+    def label(self, request, pk=None):
+        """GET /api/v1/export/shipments/{id}/label/
+
+        A5 PDF: QR code linking to the frontend scan page (/scan/{id}),
+        export code printed underneath. One page — printed once per pallet.
+        400 when the shipment has no export code yet (nothing to print).
+        """
+        shipment = self.get_object()
+        if not shipment.export_code:
+            return Response(
+                {'error': 'Shipment has no export code yet.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # Production serves the SPA and /api from one origin, so the request
+        # host is the frontend host unless PLATFORM_URL overrides it.
+        base = (settings.PLATFORM_URL or request.build_absolute_uri('/')).rstrip('/')
+        pdf = build_shipment_label_pdf(shipment.export_code, f'{base}/scan/{shipment.pk}')
+        resp = HttpResponse(pdf, content_type='application/pdf')
+        safe_code = re.sub(r'[^A-Za-z0-9_-]', '-', shipment.export_code)
+        resp['Content-Disposition'] = f'attachment; filename="label_{safe_code}.pdf"'
+        return resp
 
     @action(detail=True, methods=['get', 'post'], url_path='pallets')
     def pallets(self, request, pk=None):
