@@ -1,4 +1,5 @@
 import zoneinfo
+from urllib.parse import urlparse
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -296,6 +297,9 @@ class GreenhouseConfigSerializer(serializers.ModelSerializer):
         max_digits=5, decimal_places=2, min_value=Decimal('0.00'), max_value=Decimal('100.00'),
     )
     timezone_name = serializers.CharField(max_length=64, allow_blank=False)
+    scan_base_url = serializers.CharField(
+        max_length=200, allow_blank=True, required=False, trim_whitespace=True,
+    )
 
     class Meta:
         model = GreenhouseConfig
@@ -309,6 +313,7 @@ class GreenhouseConfigSerializer(serializers.ModelSerializer):
             'gaplama_carry_days',
             'plan_change_max_pct',
             'operating_days_bitmask', 'timezone_name',
+            'scan_base_url',
             'updated_by', 'updated_by_name', 'updated_at',
         ]
         read_only_fields = ['id', 'updated_by', 'updated_by_name', 'updated_at']
@@ -319,6 +324,24 @@ class GreenhouseConfigSerializer(serializers.ModelSerializer):
         u = obj.updated_by
         full = f'{u.first_name} {u.last_name}'.strip()
         return full or u.username
+
+    def validate_scan_base_url(self, value: str) -> str:
+        """Blank, or an absolute http(s) URL — it is printed into a QR code.
+
+        A typo here is not a 500 somewhere: it is a pallet label that no phone
+        can open, discovered after the print run. Rejecting a relative value and
+        a bare host (`ygt.example`) catches the two shapes a phone camera will
+        not treat as a link at all.
+        """
+        value = (value or '').strip().rstrip('/')
+        if not value:
+            return ''
+        parsed = urlparse(value)
+        if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+            raise serializers.ValidationError(
+                'Enter a full URL including http:// or https://, e.g. https://ygt.example'
+            )
+        return value
 
     def validate_timezone_name(self, value: str) -> str:
         try:

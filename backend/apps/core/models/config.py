@@ -96,6 +96,22 @@ class GreenhouseConfig(models.Model):
         help_text='IANA timezone name used for local-time window calculations.',
     )
 
+    # === Pallet QR labels ===
+    # Editable here, not only in the PLATFORM_URL env var, because the QR is
+    # PRINTED onto a pallet label: whatever host it encodes travels with the
+    # truck and cannot be re-pointed afterwards. Keeping it in the admin lets
+    # the owner set the final address (a domain, once one is assigned) before a
+    # print run, without a deploy. Blank falls back to settings.PLATFORM_URL and
+    # then to the requesting host, so nothing breaks while it is unset.
+    scan_base_url = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        help_text='Base URL encoded in printed pallet QR labels, e.g. '
+                  'https://ygt.example. Blank = PLATFORM_URL, then the request host. '
+                  'Printed labels keep the value they were printed with.',
+    )
+
     # === Audit ===
     updated_by = models.ForeignKey(
         'core.User',

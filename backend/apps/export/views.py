@@ -162,6 +162,28 @@ def _packing_template_share_nets(shipment, num_firms: int) -> list[Decimal] | No
     return [Decimal(n) for n in nets]
 
 
+def _scan_recorded_by(shipment, field_name: str) -> str | None:
+    """Display name of whoever last wrote `field_name` on this shipment.
+
+    Reads the AuditLog row the scan (or a Sheet edit) already writes, rather
+    than adding a column: every write path through diff_audit_rows leaves one,
+    so this also names an operator who filled the cell on the Sheet instead of
+    scanning. None when no audit row exists (a value written before auditing,
+    or by a migration).
+    """
+    row = (
+        AuditLog.objects
+        .filter(model_name='Shipment', object_id=shipment.pk, field_name=field_name)
+        .select_related('user')
+        .order_by('-created_at')
+        .first()
+    )
+    if row is None or row.user is None:
+        return None
+    full = f'{row.user.first_name} {row.user.last_name}'.strip()
+    return full or row.user.username
+
+
 class ShipmentViewSet(ModelViewSet):
     """
     GET    /api/v1/export/shipments/                 — paginated list (all roles)
@@ -3642,9 +3664,19 @@ class ShipmentViewSet(ModelViewSet):
                 {'error': 'Shipment has no export code yet.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        # Production serves the SPA and /api from one origin, so the request
-        # host is the frontend host unless PLATFORM_URL overrides it.
-        base = (settings.PLATFORM_URL or request.build_absolute_uri('/')).rstrip('/')
+        # Three tiers, most explicit first. GreenhouseConfig.scan_base_url is
+        # the one an owner can set without a deploy, and it matters because this
+        # URL is PRINTED: the label travels with the truck and cannot be
+        # re-pointed once the host changes. PLATFORM_URL stays as the env-level
+        # default, and the request host is the last resort so an unconfigured
+        # install still produces a scannable label on the LAN.
+        from apps.core.models import GreenhouseConfig
+
+        base = (
+            GreenhouseConfig.get_solo().scan_base_url
+            or settings.PLATFORM_URL
+            or request.build_absolute_uri('/')
+        ).rstrip('/')
         pdf = build_shipment_label_pdf(shipment.export_code, f'{base}/scan/{shipment.pk}')
         resp = HttpResponse(pdf, content_type='application/pdf')
         safe_code = re.sub(r'[^A-Za-z0-9_-]', '-', shipment.export_code)
@@ -3668,7 +3700,7 @@ class ShipmentViewSet(ModelViewSet):
 
         shipment = self.get_object()
 
-        def payload(recorded=None):
+        def payload(recorded=None, already_field=None):
             data = {
                 'id': shipment.pk,
                 'code': shipment.shipment_code,
@@ -3678,6 +3710,15 @@ class ShipmentViewSet(ModelViewSet):
             }
             if recorded is not None:
                 data['recorded'] = recorded
+            # Who already recorded this step, and when the event itself was —
+            # the scan page shows that instead of a button, so the second
+            # operator can see it is done rather than wonder if the tap worked.
+            if already_field:
+                data['already'] = {
+                    'field': already_field,
+                    'occurred_at': getattr(shipment, already_field),
+                    'recorded_by': _scan_recorded_by(shipment, already_field),
+                }
             return data
 
         if request.method == 'GET':
@@ -3692,7 +3733,7 @@ class ShipmentViewSet(ModelViewSet):
         if field not in SCAN_FIELDS:
             return Response({'error': 'Unknown scan field.'}, status=status.HTTP_400_BAD_REQUEST)
         if getattr(shipment, field) is not None:
-            return Response(payload(recorded=False))
+            return Response(payload(recorded=False, already_field=field))
         if field != scan_target_field(shipment):
             return Response(
                 {'error': 'This step cannot be recorded by scan now.'},
@@ -3715,6 +3756,21 @@ class ShipmentViewSet(ModelViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
+            # Lock the row and re-read the field under the lock. Every pallet of
+            # one truck carries the same QR target, so two operators scanning
+            # together is the normal case, not an edge one — without this both
+            # passed the "field is empty" check above and both wrote, leaving a
+            # duplicate audit row and a status advanced twice. A real step takes
+            # 2-3 hours, so a second scan inside that window is always a
+            # duplicate: it is refused and reported as already recorded.
+            locked = (
+                Shipment.objects.select_for_update()
+                .select_related('status')
+                .get(pk=shipment.pk)
+            )
+            if getattr(locked, field) is not None:
+                shipment = locked
+                return Response(payload(recorded=False, already_field=field))
             before = snapshot_fields(shipment, [field])
             serializer.save(updated_by=request.user)
             shipment.refresh_from_db()

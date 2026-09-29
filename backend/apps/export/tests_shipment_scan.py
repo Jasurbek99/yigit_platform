@@ -213,3 +213,81 @@ class ShipmentScanLeaksToRolesWithoutViewTests(TestCase):
         self.assertTrue(resp.data['recorded'])
         shipment.refresh_from_db()
         self.assertIsNotNone(shipment.border_crossed_at)
+
+
+class ShipmentScanDuplicateTests(TestCase):
+    """A second pallet of the same truck must not record the step twice.
+
+    A real step takes 2-3 hours, so a second scan inside that window is always
+    a duplicate — it is refused and reported as already recorded, with who did
+    it and when, so the operator sees it is done rather than wondering whether
+    the tap registered.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        for order, code in enumerate(STATUSES):
+            ShipmentStatusType.objects.get_or_create(
+                code=code,
+                defaults={'name_tk': code, 'name_en': code,
+                          'step_order': order, 'phase': 'TRANSIT'},
+            )
+        SeedTaskRulesCommand().handle(reset=False)
+        call_command('seed_permissions')
+        cls.season, _ = Season.objects.get_or_create(
+            name='scandup',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30',
+                      'is_active': True},
+        )
+        cls.driver = User.objects.create_user(
+            username='scan_dup_transport', password='pw', role='transport',
+            first_name='Myrat', last_name='T',
+        )
+
+    def setUp(self):
+        self.shipment = Shipment.objects.create(
+            shipment_code='0000011/26', date='2026-01-15', season=self.season,
+            status=ShipmentStatusType.objects.get(code='yola_chykdy'),
+            export_code='DUP11/26',
+        )
+        generate_tasks_for_status(self.shipment, 'yola_chykdy')
+        self.client_ = APIClient()
+        self.client_.force_authenticate(self.driver)
+        self.url = f'/api/v1/export/shipments/{self.shipment.pk}/scan/'
+
+    def _scan(self):
+        return self.client_.post(
+            self.url, {'field': 'border_crossed_at'}, format='json',
+        )
+
+    def test_second_scan_is_refused_and_names_who_recorded_it(self):
+        first = self._scan()
+        self.assertEqual(first.status_code, 200, first.data)
+        self.assertTrue(first.data['recorded'])
+
+        second = self._scan()
+        self.assertEqual(second.status_code, 200, second.data)
+        self.assertFalse(second.data['recorded'])
+        already = second.data['already']
+        self.assertEqual(already['field'], 'border_crossed_at')
+        self.assertEqual(already['recorded_by'], 'Myrat T')
+        self.assertIsNotNone(already['occurred_at'])
+
+    def test_second_scan_writes_no_second_audit_row(self):
+        self._scan()
+        self._scan()
+        self.assertEqual(
+            AuditLog.objects.filter(
+                model_name='Shipment', object_id=self.shipment.pk,
+                field_name='border_crossed_at',
+            ).count(),
+            1,
+        )
+
+    def test_second_scan_does_not_advance_the_status_again(self):
+        self._scan()
+        self.shipment.refresh_from_db()
+        after_first = self.shipment.status.code
+        self._scan()
+        self.shipment.refresh_from_db()
+        self.assertEqual(self.shipment.status.code, after_first)
