@@ -8,11 +8,17 @@ from apps.export.models import Shipment
 
 class ShipmentLabelTests(TestCase):
     def setUp(self):
-        season = Season.objects.create(
-            name='lbl', start_date='2025-09-01', end_date='2026-06-30', is_active=True,
+        # get_or_create: a seeded test DB already holds these rows from the
+        # migrations, and create() hit the unique index on `code`.
+        season, _ = Season.objects.get_or_create(
+            name='lbl',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30',
+                      'is_active': True},
         )
-        status = ShipmentStatusType.objects.create(
-            code='yola_chykdy', name_tk='x', name_en='x', step_order=5, phase='TRANSIT',
+        status, _ = ShipmentStatusType.objects.get_or_create(
+            code='yola_chykdy',
+            defaults={'name_tk': 'x', 'name_en': 'x', 'step_order': 5,
+                      'phase': 'TRANSIT'},
         )
         self.shipment = Shipment.objects.create(
             shipment_code='0000001/26', date='2026-01-15', season=season, status=status,

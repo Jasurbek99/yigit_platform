@@ -207,11 +207,24 @@ class ShipmentViewSet(ModelViewSet):
         )
         if is_pallet_write:
             return [IsAuthenticated(), SeasonNotClosed()]
-        # Pallet QR scan writes one trigger timestamp. POST maps to
-        # shipment.can_create, which transport / sales_rep (the scanners) lack;
-        # the per-field Sheet grant inside ShipmentPatchSerializer decides instead.
+        # Pallet QR scan writes one trigger timestamp on an EXISTING shipment.
+        # DynamicResourcePermission would map the POST to shipment.can_create,
+        # which transport / sales_rep (the scanners) lack — so it needs the
+        # can_edit factory, not no resource check at all. Dropping the resource
+        # check entirely (as this action first shipped) left the action's own
+        # "already filled" short-circuit answering 200 with shipment_code /
+        # export_code / status to ANY authenticated caller, before the per-field
+        # grant in ShipmentPatchSerializer ever ran: greenhouse_manager and
+        # seller hold no `shipment` row at all and are 403'd on every other
+        # read, so this was the one path that let them walk sequential ids.
+        # Every role holding a SCAN_FIELDS grant has can_edit, so no scanner
+        # loses access. The per-field grant still decides who may record what.
         if action == 'scan' and self.request.method == 'POST':
-            return [IsAuthenticated(), SeasonNotClosed()]
+            return [
+                IsAuthenticated(),
+                SeasonNotClosed(),
+                resource_edit_permission('shipment')(),
+            ]
         is_quality_write = (
             action == 'delete_quality_certificate'
             or (action == 'quality_certificates' and self.request.method == 'POST')

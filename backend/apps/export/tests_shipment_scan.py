@@ -1,4 +1,5 @@
 """Tests for GET/POST /export/shipments/{id}/scan/ — pallet QR scan."""
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -18,13 +19,24 @@ STATUSES = [
 class ShipmentScanTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        # get_or_create, not create: a seeded test DB already holds these
+        # status rows from the migrations, and create() hit the unique index on
+        # `code` so setUpClass errored before any test ran.
         for order, code in enumerate(STATUSES):
-            ShipmentStatusType.objects.create(
-                code=code, name_tk=code, name_en=code, step_order=order, phase='TRANSIT',
+            ShipmentStatusType.objects.get_or_create(
+                code=code,
+                defaults={'name_tk': code, 'name_en': code,
+                          'step_order': order, 'phase': 'TRANSIT'},
             )
         SeedTaskRulesCommand().handle(reset=False)
-        cls.season = Season.objects.create(
-            name='scan', start_date='2025-09-01', end_date='2026-06-30', is_active=True,
+        # The resource gate on the scan POST is fail-closed, so without the
+        # RoleResourcePermission rows every role 403s there and the per-field
+        # tests below would never reach ShipmentPatchSerializer.
+        call_command('seed_permissions')
+        cls.season, _ = Season.objects.get_or_create(
+            name='scan',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30',
+                      'is_active': True},
         )
         cls.admin = User.objects.create_user(
             username='scan_admin', password='pw', role='admin', is_superuser=True,
@@ -122,3 +134,82 @@ class ShipmentScanTests(TestCase):
         self.assertIn('cannot record this step', resp.data['error'])
         shipment.refresh_from_db()
         self.assertIsNone(shipment.border_crossed_at)
+
+
+class ShipmentScanLeaksToRolesWithoutViewTests(TestCase):
+    """POST /scan/ must not answer a role that cannot view shipments at all.
+
+    get_permissions() drops DynamicResourcePermission for the scan POST, and
+    the "already filled" short-circuit returns shipment_code / export_code /
+    status BEFORE ShipmentPatchSerializer's per-field grant is consulted — so
+    any authenticated user could walk sequential ids and read them.
+    `greenhouse_manager` and `seller` have no `shipment` row in
+    RESOURCE_DEFAULTS at all (no can_view); every other shipment read 403s
+    for them.
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        for order, code in enumerate(STATUSES):
+            ShipmentStatusType.objects.get_or_create(
+                code=code,
+                defaults={'name_tk': code, 'name_en': code,
+                          'step_order': order, 'phase': 'TRANSIT'},
+            )
+        cls.season, _ = Season.objects.get_or_create(
+            name='scanleak',
+            defaults={'start_date': '2025-09-01', 'end_date': '2026-06-30',
+                      'is_active': True},
+        )
+        SeedTaskRulesCommand().handle(reset=False)
+        call_command('seed_permissions')
+        cls.snooper = User.objects.create_user(
+            username='scan_greenhouse', password='pw', role='greenhouse_manager',
+        )
+
+    def setUp(self):
+        from django.utils import timezone
+        self.shipment = Shipment.objects.create(
+            shipment_code='0000009/26', date='2026-01-15', season=self.season,
+            status=ShipmentStatusType.objects.get(code='yola_chykdy'),
+            export_code='LEAK99/26',
+            border_crossed_at=timezone.now(),   # already filled -> short-circuit
+        )
+        self.client_ = APIClient()
+        self.client_.force_authenticate(self.snooper)
+        self.url = f'/api/v1/export/shipments/{self.shipment.pk}/scan/'
+
+    def test_get_is_refused(self):
+        """The GET side is correctly gated — this is the control."""
+        self.assertEqual(self.client_.get(self.url).status_code, 403)
+
+    def test_post_does_not_leak_the_shipment(self):
+        resp = self.client_.post(
+            self.url, {'field': 'border_crossed_at'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 403, resp.data)
+        self.assertNotIn('LEAK99/26', str(resp.data))
+        self.assertNotIn('0000009/26', str(resp.data))
+
+    def test_transport_can_still_record_its_own_step(self):
+        """The fix must not cost a real scanner its access: transport holds
+        shipment.can_edit plus the border_crossed_at Sheet grant."""
+        shipment = Shipment.objects.create(
+            shipment_code='0000010/26', date='2026-01-15', season=self.season,
+            status=ShipmentStatusType.objects.get(code='yola_chykdy'),
+            export_code='OK99/26',
+        )
+        generate_tasks_for_status(shipment, 'yola_chykdy')
+        driver = User.objects.create_user(
+            username='scan_transport', password='pw', role='transport',
+        )
+        client = APIClient()
+        client.force_authenticate(driver)
+        resp = client.post(
+            f'/api/v1/export/shipments/{shipment.pk}/scan/',
+            {'field': 'border_crossed_at'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['recorded'])
+        shipment.refresh_from_db()
+        self.assertIsNotNone(shipment.border_crossed_at)
