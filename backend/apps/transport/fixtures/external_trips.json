@@ -1,0 +1,29 @@
+{
+  "items": [
+    {"integrationTripId": "89f2783b-e7e9-47ba-9884-8fe7bf34f1bd", "tripNumber": "X-TEST-0001", "status": "CREATED", "plannedDeparture": "2026-10-11", "changedAt": "2026-09-28T16:15:18.824156+00:00", "destinationCountryCode": "RU",
+     "tractor": {"plateNumber": "2563AHF", "brand": "DAF", "model": "XF480", "companyName": "\"YIGIT\" HJ", "source": "GARAGE"},
+     "trailer": {"plateNumber": "2251TAH", "brand": "SCHMITZ Cargobull", "model": "S.KO", "companyName": null, "source": "GARAGE"},
+     "driver": {"fullName": "Amandurdyyew Atajan", "phone": "99361202698", "foreignPassport": {"seriesNumber": "A2510574", "expiryDate": "2029-04-08"}, "visas": [{"country": "Gazagystan", "expiryDate": "2026-10-28"}, {"country": "Russiýa", "expiryDate": "2026-10-28"}], "source": "GARAGE"}},
+    {"integrationTripId": "b242b4de-a941-4dba-899e-3b0235e9f4ec", "tripNumber": null, "status": "CREATED", "plannedDeparture": "2026-10-01", "changedAt": "2026-09-29T10:58:12.951168+00:00", "destinationCountryCode": "KZ",
+     "tractor": {"plateNumber": "2546AHF", "brand": "DAF", "model": "XF480", "companyName": "\"YIGIT\" HJ", "source": "GARAGE"},
+     "trailer": {"plateNumber": "2296TAH", "brand": "SCHMITZ Cargobull", "model": "S.KO", "companyName": null, "source": "GARAGE"},
+     "driver": {"fullName": "Allanazarow Agageldi Jorayewich", "phone": "99363318685", "foreignPassport": {"seriesNumber": "A2051674", "expiryDate": "2028-03-15"}, "visas": [{"country": "Gazagystan", "expiryDate": "2027-01-31"}, {"country": "Özbegistan", "expiryDate": "2027-03-07"}], "source": "GARAGE"}},
+    {"integrationTripId": "052752a7-a810-4c69-8d3b-dc1d02f925ce", "tripNumber": null, "status": "CREATED", "plannedDeparture": "2026-10-02", "changedAt": "2026-09-29T10:59:39.814952+00:00", "destinationCountryCode": "KZ",
+     "tractor": {"plateNumber": "1234AGG", "brand": "MAN", "model": "TF", "companyName": "Telekeçi Amanow", "source": "THIRD_PARTY"},
+     "trailer": {"plateNumber": "Carrier", "brand": null, "model": null, "companyName": "Telekeçi Amanow", "source": "THIRD_PARTY"},
+     "driver": {"fullName": "Amanberdiyew Aman Amanowich", "phone": null, "foreignPassport": null, "visas": [], "source": "THIRD_PARTY"}},
+    {"integrationTripId": "bcf69fba-c7dc-48df-b0ae-1367f0a48da5", "tripNumber": null, "status": "CREATED", "plannedDeparture": "2026-10-03", "changedAt": "2026-09-29T11:00:30.136181+00:00", "destinationCountryCode": "KZ",
+     "tractor": {"plateNumber": "2408AHF", "brand": "DAF", "model": "XF480", "companyName": "\"YIGIT\" HJ", "source": "GARAGE"},
+     "trailer": {"plateNumber": "2251TAH", "brand": "SCHMITZ Cargobull", "model": "S.KO", "companyName": null, "source": "GARAGE"},
+     "driver": {"fullName": "Amanow Nurjuma Allaberdiyewich", "phone": "99361311232", "foreignPassport": {"seriesNumber": "A2016533", "expiryDate": "2028-01-25"}, "visas": [{"country": "Gazagystan", "expiryDate": "2027-01-31"}, {"country": "Özbegistan", "expiryDate": "2027-03-07"}], "source": "GARAGE"}},
+    {"integrationTripId": "088bc527-a988-48f5-8822-5cc11998dbfe", "tripNumber": null, "status": "CREATED", "plannedDeparture": "2026-10-03", "changedAt": "2026-09-29T11:01:10.43713+00:00", "destinationCountryCode": "UZ",
+     "tractor": {"plateNumber": "2954AHF", "brand": "DAF", "model": "XF480", "companyName": "\"YIGIT\" HJ", "source": "GARAGE"},
+     "trailer": {"plateNumber": "2285TAH", "brand": "SCHMITZ Cargobull", "model": "S.KO", "companyName": null, "source": "GARAGE"},
+     "driver": {"fullName": "Annayew Derkar Azatgulyyewich", "phone": "99364438332", "foreignPassport": {"seriesNumber": "A2439616", "expiryDate": "2029-02-19"}, "visas": [{"country": "Russiýa", "expiryDate": "2026-08-03"}, {"country": "Gazagystan", "expiryDate": "2026-08-26"}, {"country": "Özbegistan", "expiryDate": "2026-11-30"}, {"country": "Eýran Yslam Respublikasy", "expiryDate": "2026-12-18"}], "source": "GARAGE"}},
+    {"integrationTripId": "a236010e-cff3-466f-a1e9-dbf8aa66e377", "tripNumber": null, "status": "CREATED", "plannedDeparture": "2026-10-05", "changedAt": "2026-09-29T11:02:11.137529+00:00", "destinationCountryCode": "RU",
+     "tractor": {"plateNumber": "2408AHF", "brand": "DAF", "model": "XF480", "companyName": "\"YIGIT\" HJ", "source": "GARAGE"},
+     "trailer": {"plateNumber": "2068TAH", "brand": "SCHMITZ Cargobull", "model": "S.KO", "companyName": null, "source": "GARAGE"},
+     "driver": {"fullName": "Annagurbanow Bekmyrat Orazbayewich", "phone": "99365299041", "foreignPassport": {"seriesNumber": "A2098786", "expiryDate": "2028-02-08"}, "visas": [{"country": "Gazagystan", "expiryDate": "2027-02-12"}, {"country": "Russiýa", "expiryDate": "2027-06-07"}], "source": "GARAGE"}}
+  ],
+  "total": 6, "page": 1, "pageSize": 200
+}
