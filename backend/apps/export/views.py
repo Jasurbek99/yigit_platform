@@ -2733,6 +2733,33 @@ class ShipmentViewSet(ModelViewSet):
         )
         return target
 
+    @action(detail=True, methods=['post'], url_path='unjoin')
+    def unjoin(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/unjoin/
+
+        Detaches the packing of a destination plan (before loading, no pallets)
+        into a NEW supply-plan row with a new code. Spec 2026-09-29 §1.3.
+
+        Returns:
+            200 — the export row's detail + new_supply_id + new_supply_code.
+            400 — not allowed (message says why). 403 — role.
+        """
+        from apps.export.services.packaging import unjoin_packing
+
+        if not _can_move_packing(request.user):
+            return Response({'error': 'Your role cannot detach packing'},
+                            status=status.HTTP_403_FORBIDDEN)
+        shipment = self.get_object()
+        try:
+            new = unjoin_packing(shipment, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        self._sheet_poke_ids = [shipment.pk, new.pk]
+        shipment.refresh_from_db()
+        data = ShipmentDetailSerializer(shipment, context={'request': request}).data
+        return Response({**data, 'new_supply_id': new.pk, 'new_supply_code': new.shipment_code})
+
     # -----------------------------------------------------------------------
     # Swap action
     # -----------------------------------------------------------------------

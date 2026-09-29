@@ -13,6 +13,7 @@ from apps.core.models import Country, Customer, GreenhouseBlock, Season, Shipmen
 from apps.export.models import Notification, Shipment, ShipmentBlockSource, ShipmentStatusLog
 from apps.export.services.packaging import net_update, packaging_weight
 from apps.export.services.shipment import transition_to
+from apps.greenhouse.services.actual_rollup import parse_shipment_code_date
 
 #: (code, step_order, phase) — same values as tests_cancel.ALL_TEST_STATUSES.
 STATUSES = [
@@ -256,3 +257,85 @@ class LateJoinTests(PackingFixtures):
         target = self.make('gumruk_girish', destination=True)
         resp = self._join(target, self._supply(), user=rep)
         self.assertEqual(resp.status_code, 403, resp.data)
+
+
+class UnjoinTests(PackingFixtures):
+    """Spec §1.3."""
+
+    def _unjoin(self, ship: Shipment, user: User | None = None):
+        return self.client_for(user or self.manager).post(
+            f'/api/v1/export/shipments/{ship.pk}/unjoin/', {}, format='json',
+        )
+
+    def test_unjoin_moves_packing_to_a_new_supply_plan(self):
+        ship = self.make('gumruk_girish', destination=True,
+                         blocks=[(self.block_a, Decimal('9000'), datetime.date(2026, 9, 28))],
+                         weight_net=Decimal('9000'))
+        Shipment.objects.filter(pk=ship.pk).update(export_code='EXP-1', harvest_status='ok')
+        resp = self._unjoin(ship)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        new = Shipment.objects.get(pk=resp.data['new_supply_id'])
+        self.assertEqual(resp.data['new_supply_code'], new.shipment_code)
+        self.assertEqual(new.status.code, 'draft')
+        self.assertIsNone(new.country_id)
+        self.assertEqual(new.export_code, 'EXP-1')
+        self.assertEqual(new.harvest_status, 'ok')
+        self.assertEqual(list(new.block_sources.values_list('block_id', 'weight_kg', 'harvest_date')),
+                         [(self.block_a.pk, Decimal('9000.00'), datetime.date(2026, 9, 28))])
+        ship.refresh_from_db()
+        self.assertFalse(ship.block_sources.exists())
+        self.assertIsNone(ship.export_code)
+        self.assertEqual(ship.status.code, 'gumruk_girish')
+        self.assertEqual(ship.weight_net, Decimal('9000'))  # not draft → untouched
+
+    def test_unjoin_from_draft_clears_net(self):
+        ship = self.make('draft', destination=True,
+                         blocks=[(self.block_a, Decimal('9000'), None)], weight_net=Decimal('9000'))
+        self._unjoin(ship)
+        ship.refresh_from_db()
+        self.assertIsNone(ship.weight_net)
+
+    def test_unjoin_unweighed_blocks_carry_declared_total(self):
+        ship = self.make('draft', destination=True,
+                         blocks=[(self.block_a, None, None)], weight_net=Decimal('18000'))
+        resp = self._unjoin(ship)
+        new = Shipment.objects.get(pk=resp.data['new_supply_id'])
+        self.assertEqual(new.weight_net, Decimal('18000'))
+
+    def test_unjoin_new_code_uses_export_row_date(self):
+        ship = self.make('gumruk_girish', destination=True, date=datetime.date(2026, 9, 25),
+                         blocks=[(self.block_a, Decimal('9000'), None)])
+        resp = self._unjoin(ship)
+        self.assertEqual(parse_shipment_code_date(resp.data['new_supply_code']),
+                         datetime.date(2026, 9, 25))
+
+    def test_unjoin_logs_both_rows_and_notifies_loading_head(self):
+        solt = _user('solt_pk_unjoin', 'loading_dept_head')
+        clerk = _user('sirin_pk_unjoin', 'document_team')
+        ship = self.make('gumruk_girish', destination=True,
+                         blocks=[(self.block_a, Decimal('9000'), None)])
+        resp = self._unjoin(ship)
+        new_id = resp.data['new_supply_id']
+        self.assertTrue(ShipmentStatusLog.objects.filter(shipment=ship, comment__contains='detached').exists())
+        self.assertTrue(ShipmentStatusLog.objects.filter(shipment_id=new_id).exists())
+        self.assertTrue(Notification.objects.filter(user=solt).exists())
+        self.assertTrue(Notification.objects.filter(user=clerk).exists())  # documents started
+        self.assertFalse(Notification.objects.filter(user=self.manager).exists())  # actor
+
+    def test_unjoin_refused_without_packing_after_loading_or_with_pallets(self):
+        from apps.export.models import Pallet
+        empty = self.make('gumruk_girish', destination=True)
+        loading = self.make('yuklenme', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+        palleted = self.make('gumruk_chykysh', destination=True, blocks=[(self.block_b, Decimal('1'), None)])
+        Pallet.objects.create(**_pallet_kwargs(palleted, self.block_b))
+        for ship in (empty, loading, palleted):
+            with self.subTest(code=ship.shipment_code):
+                self.assertEqual(self._unjoin(ship).status_code, 400)
+
+    def test_unjoin_refused_on_a_free_supply_plan(self):
+        free = self.make('draft', blocks=[(self.block_a, Decimal('9000'), None)])
+        self.assertEqual(self._unjoin(free).status_code, 400)
+
+    def test_sales_rep_may_not_unjoin(self):
+        ship = self.make('gumruk_girish', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+        self.assertEqual(self._unjoin(ship, _user('rep_pk_unjoin', 'sales_rep')).status_code, 403)

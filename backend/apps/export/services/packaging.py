@@ -9,7 +9,9 @@ status — transition_to() stays the only path for that.
 """
 from decimal import Decimal
 
-from apps.export.models import Shipment
+from django.db import transaction
+
+from apps.export.models import Notification, Shipment, ShipmentBlockSource, ShipmentStatusLog
 
 # Statuses in which packing may still be joined, detached or swapped.
 PRE_LOADING = frozenset({'draft', 'gumruk_girish', 'gumruk_chykysh'})
@@ -83,3 +85,85 @@ def assert_can_move_packing(shipment: Shipment) -> None:
         raise ValueError(
             f'{shipment.shipment_code}: pallets are recorded — packing can no longer change'
         )
+
+
+def _notify_packing_change(shipments: list[Shipment], user, message: str) -> None:
+    """Tell the loading department (and document_team once documents started)."""
+    from apps.core.models import User
+
+    roles = {'loading_dept_head'}
+    if any(s.status.code != 'draft' for s in shipments):
+        roles.add('document_team')
+    user_ids = (
+        User.objects.filter(role__in=roles, is_active=True)
+        .exclude(pk=user.pk)
+        .values_list('id', flat=True)
+    )
+    link = f'/export/shipments/sheet?shipment={shipments[0].pk}'
+    Notification.objects.bulk_create(
+        [Notification(user_id=uid, kind='action_required', message=message, link=link)
+         for uid in user_ids],
+        batch_size=500,
+    )
+
+
+def unjoin_packing(shipment: Shipment, user) -> Shipment:
+    """Detach the packing of an export part into a new supply-plan row.
+
+    The new row keeps the export row's date in its code, so the weekly-plan
+    actual (keyed on the code's date) does not move to another day.
+
+    Returns:
+        The new supply-plan Shipment.
+
+    Raises:
+        ValueError: not an export part with packing, loading started, or pallets.
+    """
+    from apps.core.models import ShipmentStatusType
+    from apps.export.services.shipment import generate_shipment_code
+    from apps.export.services.task_rules import generate_tasks_for_status
+
+    with transaction.atomic():
+        row = Shipment.objects.select_for_update().select_related('status').get(pk=shipment.pk)
+        if not (row.country_id and row.customer_id):
+            raise ValueError(f'{row.shipment_code}: not a destination plan — nothing to detach from')
+        if not has_packing(row):
+            raise ValueError(f'{row.shipment_code}: has no packing to detach')
+        assert_can_move_packing(row)
+
+        draft = ShipmentStatusType.objects.get(code='draft')
+        new = Shipment.objects.create(
+            shipment_code=generate_shipment_code(today=row.date),
+            date=row.date,
+            season=row.season,
+            status=draft,
+            created_by=user,
+            weight_net=packaging_weight(row),
+            **{field: getattr(row, field) for field in PACKING_FIELDS},
+        )
+        ShipmentStatusLog.objects.create(
+            shipment=new, status=draft, changed_by=user,
+            comment=f'Created in Preparation — packing detached from {row.shipment_code}',
+        )
+        row.block_sources.update(shipment=new)
+        new.varieties_dominant.set(row.varieties_dominant.all())
+        row.varieties_dominant.clear()
+
+        cleared = {field: None for field in PACKING_FIELDS}
+        cleared.update(net_update(row, None))
+        cleared['updated_by_id'] = user.pk
+        # .update(): a packing move must never run auto-advance.
+        Shipment.objects.filter(pk=row.pk).update(**cleared)
+        ShipmentStatusLog.objects.create(
+            shipment=row, status=row.status, changed_by=user,
+            comment=f'Packing detached into {new.shipment_code}',
+        )
+        _notify_packing_change(
+            [row], user,
+            f'Packing of {row.shipment_code} was detached into {new.shipment_code} by {user.username}.',
+        )
+
+    # Same trade-off as the supply-plan create path: tasks after commit. Since
+    # b318f0d8 a row with no destination gets no draft-step tasks.
+    generate_tasks_for_status(new, 'draft')
+    return new
