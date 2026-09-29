@@ -77,6 +77,8 @@ def net_update(shipment: Shipment, incoming: Decimal | None) -> dict:
 
 def assert_can_move_packing(shipment: Shipment) -> None:
     """Raise ValueError unless packing on ``shipment`` may still change."""
+    if shipment.deleted_at is not None:
+        raise ValueError(f'{shipment.shipment_code}: deleted — packing can no longer change')
     if shipment.status.code not in PRE_LOADING:
         raise ValueError(
             f'{shipment.shipment_code}: loading has started — packing can no longer change'
@@ -124,7 +126,10 @@ def unjoin_packing(shipment: Shipment, user) -> Shipment:
     from apps.export.services.task_rules import generate_tasks_for_status
 
     with transaction.atomic():
-        row = Shipment.objects.select_for_update().select_related('status').get(pk=shipment.pk)
+        try:
+            row = Shipment.objects.select_for_update().select_related('status').get(pk=shipment.pk)
+        except Shipment.DoesNotExist:
+            raise ValueError(f'Shipment {shipment.pk} no longer exists')
         if not (row.country_id and row.customer_id):
             raise ValueError(f'{row.shipment_code}: not a destination plan — nothing to detach from')
         if not has_packing(row):
@@ -189,6 +194,8 @@ def swap_packing(a: Shipment, b: Shipment, user) -> tuple[Shipment, Shipment]:
                 .filter(pk__in=[a.pk, b.pk]).order_by('pk')
             )
         }
+        if len(locked) != 2:
+            raise ValueError('A shipment in this swap no longer exists')
         a, b = locked[a.pk], locked[b.pk]
         for row in (a, b):
             assert_can_move_packing(row)

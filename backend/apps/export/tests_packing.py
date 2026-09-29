@@ -7,11 +7,12 @@ from decimal import Decimal
 
 from django.core.management import call_command
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.core.models import Country, Customer, GreenhouseBlock, Season, ShipmentStatusType, User
 from apps.export.models import Notification, Shipment, ShipmentBlockSource, ShipmentStatusLog
-from apps.export.services.packaging import net_update, packaging_weight
+from apps.export.services.packaging import net_update, packaging_weight, swap_packing
 from apps.export.services.shipment import transition_to
 from apps.greenhouse.services.actual_rollup import parse_shipment_code_date
 
@@ -466,3 +467,68 @@ class BoardListTests(PackingFixtures):
             f'/api/v1/export/shipments/?status_code=draft&page_size=200&season={self.season.pk}')
         self.assertEqual(resp.status_code, 200)
         self.assertIn('block_sources', resp.data['results'][0])
+
+
+class DeletedRowTests(PackingFixtures):
+    """final-fix-brief item 2 — packing moves refuse soft-deleted rows.
+
+    assert_can_move_packing() runs under the lock for join (both rows),
+    unjoin and both swap rows, so a soft-deleted row surfaces as a 400 no
+    matter which side of the move it's on.
+    """
+
+    def test_swap_refused_with_a_soft_deleted_partner(self):
+        a = self.make('draft', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+        b = self.make('draft', destination=True, blocks=[(self.block_b, Decimal('1'), None)])
+        Shipment.objects.filter(pk=b.pk).update(deleted_at=timezone.now())
+        resp = self.client_for(self.manager).post(
+            f'/api/v1/export/shipments/{a.pk}/swap-packaging/', {'other_id': b.pk}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_join_refused_into_a_soft_deleted_target(self):
+        target = self.make('draft', destination=True)
+        Shipment.objects.filter(pk=target.pk).update(deleted_at=timezone.now())
+        source = self.make('draft', blocks=[(self.block_a, Decimal('1'), None)])
+        resp = self.client_for(self.manager).post(
+            f'/api/v1/export/shipments/{target.pk}/join/', {'source_id': source.pk}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+
+class PackingRaceConditionTests(PackingFixtures):
+    """final-fix-brief item 3 — a true race gives ValueError (→ 400), not a 500."""
+
+    def test_swap_packing_raises_valueerror_when_a_row_vanishes_mid_race(self):
+        a = self.make('draft', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+        b = self.make('draft', destination=True, blocks=[(self.block_b, Decimal('1'), None)])
+        # Simulate a concurrent hard-delete between the caller's load and the
+        # locked re-fetch inside swap_packing — `b` is now a stale instance.
+        Shipment.objects.filter(pk=b.pk).delete()
+        with self.assertRaises(ValueError):
+            swap_packing(a, b, self.manager)
+
+
+class DeputyRoleTests(PackingFixtures):
+    """final-fix-brief item 4 — loading_dept_head_deputy may join, unjoin, swap."""
+
+    def test_deputy_may_join_unjoin_and_swap(self):
+        deputy = _user('deputy_pk', 'loading_dept_head_deputy')
+        client = self.client_for(deputy)
+
+        with self.subTest('join'):
+            target = self.make('draft', destination=True)
+            source = self.make('draft', blocks=[(self.block_a, Decimal('1'), None)])
+            resp = client.post(
+                f'/api/v1/export/shipments/{target.pk}/join/', {'source_id': source.pk}, format='json')
+            self.assertEqual(resp.status_code, 200, resp.data)
+
+        with self.subTest('unjoin'):
+            ship = self.make('draft', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+            resp = client.post(f'/api/v1/export/shipments/{ship.pk}/unjoin/', {}, format='json')
+            self.assertEqual(resp.status_code, 200, resp.data)
+
+        with self.subTest('swap'):
+            a = self.make('draft', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+            b = self.make('draft', destination=True, blocks=[(self.block_b, Decimal('1'), None)])
+            resp = client.post(
+                f'/api/v1/export/shipments/{a.pk}/swap-packaging/', {'other_id': b.pk}, format='json')
+            self.assertEqual(resp.status_code, 200, resp.data)

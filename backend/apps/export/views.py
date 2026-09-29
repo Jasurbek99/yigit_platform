@@ -2603,6 +2603,8 @@ class ShipmentViewSet(ModelViewSet):
             )
             # Re-bind references to the locked instances.
             locked_map = {s.pk: s for s in locked}
+            if target.pk not in locked_map or source.pk not in locked_map:
+                raise ValueError('A shipment in this join no longer exists')
             target = locked_map[target.pk]
             source = locked_map[source.pk]
 
