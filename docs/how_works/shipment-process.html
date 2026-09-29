@@ -212,10 +212,14 @@
       <small class="path">backend/apps/export/views.py · join (~1832)</small>
     </div>
 
-    <div class="note"><b>Draft lock:</b> a draft cannot leave <span class="mono">draft</span> until all three exist —
-      <span class="ok">country ✓</span> &nbsp;<span class="ok">customer ✓</span> &nbsp;<span class="ok">block_sources ✓</span>.
-      Otherwise <span class="mono">transition_to()</span> raises: <i>"Supply-only and destination-only drafts must be joined first."</i>
-      A coexisting Assignment-Board path lets the manager <i>assign</i> a destination to a supply draft directly — same end state.
+    <div class="note"><b>Packing barrier (moved 2026-09-29):</b> leaving <span class="mono">draft</span> only needs
+      <span class="ok">country ✓</span>&nbsp;<span class="ok">customer ✓</span> — packing is no longer required here.
+      Packing (<span class="mono">block_sources</span>) is required instead at
+      <span class="mono">gumruk_chykysh → yuklenme</span>; without it that edge refuses with <i>"Packing not joined"</i>.
+      Packing can be <b>joined</b>, <b>detached</b> (<span class="mono">/unjoin/</span>) or <b>swapped</b>
+      (<span class="mono">/swap-packaging/</span>) with another row any time before loading — not only while both
+      rows are still <span class="mono">draft</span>. Spec:
+      <span class="mono">docs/superpowers/specs/2026-09-29-packaging-join-board-design.md</span>.
     </div>
   </div>
 

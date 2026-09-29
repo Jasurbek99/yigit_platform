@@ -88,9 +88,9 @@ Each transition is strictly linear (no skipping steps, no going back). The `TRAN
 
 | Step | Code | Name (EN) | Edge role | Trigger field(s) filled on the Sheet | → Next |
 |------|------|-----------|-----------|--------------------------------------|--------|
-| 0 | `draft` | Draft | `document_team` | see [[#Leaving `draft` — four triggers plus a join guard]] | `gumruk_girish` |
+| 0 | `draft` | Draft | `document_team` | see [[#Leaving `draft` — four triggers, country + customer]] | `gumruk_girish` |
 | 1 | `gumruk_girish` | Customs Entry | `document_team` | `customs_exit_at` (R25) | `gumruk_chykysh` |
-| 2 | `gumruk_chykysh` | Customs Exit | `loading_dept_head` (+ deputy) | `loading_started_at` (R19) | `yuklenme` |
+| 2 | `gumruk_chykysh` | Customs Exit | `loading_dept_head` (+ deputy) | `loading_started_at` (R19) — see [[#Packing barrier — `gumruk_chykysh` → `yuklenme` (2026-09-29)]] | `yuklenme` |
 | 3 | `yuklenme` | Loading | `document_team` | `shipment_code` + `block_sources` (R8) + `variety` (R38) + `weight_net` (R37), and `departed_at` (R21) | `tamamlandy` if `is_gapy_satys`, else `yola_chykdy` |
 | 4 | `yola_chykdy` | Departed | `transport` | `border_crossed_at` (R30) | `serhet_gechdi` |
 | 5 | `serhet_gechdi` | Crossed TM Border | `sales_rep` | `dest_entry_at` (R31) | `dest_entry` |
@@ -135,7 +135,7 @@ Each cascaded transition still writes its own `ShipmentStatusLog` (`is_auto=True
 The declarative source of truth for every trigger is
 `backend/apps/export/management/commands/seed_task_rules.py::TASK_RULES`. See [[../reference/task-rules]].
 
-#### Leaving `draft` — four triggers plus a join guard
+#### Leaving `draft` — four triggers, country + customer
 
 `draft` is the only step gated by a *set* of triggers rather than one field. All four auto-resolving
 rules must be DONE before `gumruk_girish`:
@@ -167,11 +167,38 @@ re-fire and left drafts stuck. (Two stale comments still say `in_progress` — t
 > **Lesson for any new FIELD_EQUALS rule:** two options in one category must never render the same
 > string in any language, or the gate becomes a coin flip the operator cannot see.
 
-**Two-row join guard.** On top of the tasks, `transition_to()` refuses to leave `draft` unless
-`block_sources`, `country` **and** `customer` are all set. A pure supply draft (`loading_dept_head`,
-blocks only) or a pure destination draft (`export_manager`, destination only) raises `ValueError` —
-they must `/join/` first. This applies uniformly to manual `/transition/`, `/assign/`, and the
-auto-advance cascade. See [[draft-shipments]]. **This is the usual answer to "why is my draft stuck".**
+**Country + customer, not packing (moved 2026-09-29).** On top of the tasks, `transition_to()`
+refuses to leave `draft` (except to `cancelled`) unless `country` **and** `customer` are set —
+`block_sources` was dropped from this gate. A pure supply plan (`loading_dept_head`, packing
+only, no destination) has nothing to advance; it stays in `draft` until something is `/join/`ed
+onto it. A destination plan can now walk all the way through customs with **no packing at all**.
+This applies uniformly to manual `/transition/`, `/assign/`, and the auto-advance cascade. See
+[[draft-shipments#Late join, detach, swap (2026-09-29)]]. **This is the usual answer to "why is my
+draft stuck"** — check country/customer first, then see the packing barrier below.
+
+#### Packing barrier — `gumruk_chykysh` → `yuklenme` (2026-09-29)
+
+The requirement `block_sources` used to gate leaving `draft`; it now gates the **loading** edge
+instead, because documents start before packing is assigned (spec
+`docs/superpowers/specs/2026-09-29-packaging-join-board-design.md`). `transition_to()` refuses
+`gumruk_chykysh → yuklenme` with `ValueError` `PACKING_NOT_JOINED` ("Packing not joined: join a
+supply plan to this shipment before loading starts.") unless the row has at least one
+`block_sources` row. Same rule for manual `/transition/`, `/assign/` and auto-advance.
+
+**Visible error instead of a silent hang.** `auto_advance_if_ready` swallows `ValueError`, so
+typing `loading_started_at` on a packing-less row would otherwise write the field and leave the
+status silently stuck at `gumruk_chykysh`. `ShipmentPatchSerializer` therefore rejects a write to
+`loading_started_at` on any row in `PRE_LOADING = {draft, gumruk_girish, gumruk_chykysh}` that has
+no packing yet, with the same `PACKING_NOT_JOINED` message, as a 400 — a row already at
+`yuklenme` or later is never checked (legacy Excel imports can be block-less). The QR scan
+endpoint (`/shipments/{id}/scan/`) never writes `loading_started_at` (its `SCAN_FIELDS` start at
+`border_crossed_at`), so it is unaffected.
+
+Packing itself is a **move between rows**, not a link: `POST /join/` (extended to accept a
+target anywhere in `PRE_LOADING`, not only `draft`), the new `POST /unjoin/` (detach into a fresh
+supply-plan row) and the new `POST /swap-packaging/` (exchange packing between two rows) all work
+up to the moment loading starts. See [[assignment-board]] and
+[[draft-shipments#Late join, detach, swap (2026-09-29)]] for the endpoints and the weight rule.
 
 ### Cancellation (the one off-ramp)
 
@@ -317,7 +344,7 @@ Logic:
 1. Get current status code (or `None` if no status)
 2. Look up allowed transitions from `TRANSITIONS[current_code]`
 3. Validate that `new_status_code` is in allowed list → raises `ValueError` if not
-4. **Two-row join guard** — when leaving `draft` (and not cancelling): require `block_sources`, `country`, and `customer` all to be set. Pure supply drafts (loading_dept_head, has blocks only) and pure destination drafts (export_manager, has destination only) raise `ValueError` here — they must `/join/` first. Applies uniformly to manual `/transition/`, `/assign/`, and the auto-advance cascade.
+4. **Country + customer, and (from `gumruk_chykysh`) packing** — leaving `draft` (and not cancelling) requires `country` and `customer` only (spec 2026-09-29 moved the packing check off this edge). Leaving `gumruk_chykysh` requires `block_sources` instead — raises `ValueError` `PACKING_NOT_JOINED` otherwise. Applies uniformly to manual `/transition/`, `/assign/`, and the auto-advance cascade.
 5. Check user role permission (privileged roles bypass; `is_auto=True` also bypasses) → raises `PermissionError` if denied
 6. Look up `ShipmentStatusType` by code → raises `ValueError` if not found
 7. Set `shipment.status = new_status`, `shipment.updated_by = user`, `shipment.updated_at = now`
@@ -352,7 +379,7 @@ Creates a new shipment at step 0 (`draft`):
 4. Create initial `ShipmentStatusLog` entry
 5. Return new Shipment
 
-From there the four `draft` task triggers ([[#Leaving `draft` — four triggers plus a join guard]])
+From there the four `draft` task triggers ([[#Leaving `draft` — four triggers, country + customer]])
 advance it to `gumruk_girish`. No timestamp is written at creation.
 
 ### Serializers

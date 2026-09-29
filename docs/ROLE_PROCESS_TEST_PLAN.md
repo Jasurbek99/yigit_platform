@@ -37,9 +37,13 @@ useful for a fast smoke run, useless for testing that the gates work.
 only**; a manual `/transition/` ignores them, so `sales_rep` can pick either target by hand
 regardless of the flag. Test both branches.
 
-**Draft guard.** A `draft` cannot leave `draft` without `country` **and** `customer` **and**
-`block_sources`. Supply-only and destination-only drafts must be joined first
-(`/shipments/{id}/join/`). Expect a 400 naming the missing halves, not a 403.
+**Draft guard (moved 2026-09-29).** A `draft` cannot leave `draft` (except to `cancelled`)
+without `country` **and** `customer` — `block_sources` was dropped from this edge. Packing is
+required instead at `gumruk_chykysh → yuklenme` (`ValueError` `PACKING_NOT_JOINED` otherwise). A
+supply-only draft has no destination to advance and stays in `draft` until joined
+(`/shipments/{id}/join/`, now accepted on a target anywhere in `draft` / `gumruk_girish` /
+`gumruk_chykysh`); packing can also be detached (`/unjoin/`) or swapped (`/swap-packaging/`) with
+another row any time before loading. Spec: `docs/superpowers/specs/2026-09-29-packaging-join-board-design.md`.
 
 ## 2. Four data-vs-code divergences found
 

@@ -1,7 +1,7 @@
 # Упаковка: присоединить, отсоединить, поменять — design
 
 **Date:** 2026-09-29
-**Status:** approved in chat, not implemented
+**Status:** implemented 2026-09-29 (commits 8edaec16..b1426128); core migration 0068 pending commit
 **Builds on:** `docs/SHIPMENT_THREE_PARTS_RU.md` — это подпроект **(b)**: упаковка присоединяется
 поздно (R4) и меняется между машинами (R5).
 

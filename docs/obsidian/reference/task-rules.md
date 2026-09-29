@@ -179,9 +179,18 @@ the Gapy tasks were never created at all.
 on every shipment PATCH whose changed fields (value before ≠ after — resubmitting an
 unchanged checkbox does not count) include a field some active rule
 conditions on — an ordinary weight or date edit costs one small query and no
-writes. It also runs on **both** shipments after a `/swap/`, because
-`has_peregruz` is a swappable field — inside the same transaction as the swap,
-so the swapped values and both task sets commit together or not at all.
+writes.
+
+**No longer runs on a swap (2026-09-29).** The old field-picking `/swap/` could
+exchange `has_peregruz`, so `reconcile_shipment_tasks()` used to also run on
+both shipments after it, inside the same transaction, so the swapped values and
+both task sets committed together or not at all. `/swap/` is removed; its
+replacement, `POST /shipments/{a}/swap-packaging/`, only exchanges packing
+(`block_sources`, `export_code`, `variety`, `varieties_dominant`,
+`harvest_date`, `harvest_status`, `weight_to_load_kg`) — `has_peregruz` is not
+among them, so swap-packaging never calls `reconcile_shipment_tasks()` and
+cannot flip a shipment between its Regular and Gapy task sets. See
+[[../processes/draft-shipments#Late join, detach, swap (2026-09-29)]].
 
 **One task per (shipment, rule), enforced by the database.** The generators
 check for an existing task and then create one, so two concurrent requests could

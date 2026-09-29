@@ -60,6 +60,8 @@ The example below shows the **default-visible** fields. As of the ShipmentList c
 }
 ```
 
+**Join board filter** (`?status_code__in=draft,gumruk_girish,gumruk_chykysh`, spec 2026-09-29): a comma-separated list of status codes, alongside the existing single `?status_code=`. Serves `ShipmentDraftListSerializer` — same shape as `?status_code=draft` (incl. `block_sources`) — extended with `status_code`, `country`, `customer` (ids), `truck_plate`, `driver_name`. Powers the Assignment Board's `useJoinBoard()`, which classifies rows into supply/waiting/joined client-side from these fields. `?status_code=draft` alone is unchanged.
+
 ### Detail endpoint: `GET /api/v1/export/shipments/{id}/`
 Full data with nested related objects.
 
@@ -109,6 +111,58 @@ Full data with nested related objects.
 // Error 400: { "error": "Cannot transition from yuklenme to bardy" }
 // Error 403: { "error": "Role document_team cannot trigger this transition" }
 ```
+
+### Packing join / unjoin / swap (spec 2026-09-29)
+
+Packing (`block_sources` + `export_code`, `variety`, `varieties_dominant`, `harvest_date`,
+`harvest_status`, `weight_to_load_kg`) **moves** between shipment rows — it is never linked. All
+three actions gate on `apps.core.roles.JOIN_ROLES` (`admin`/`director`/`boss`/export-manager-like
+roles, plus `loading_dept_head`/`loading_dept_head_deputy` since this spec) + superuser, via
+`resource_edit_permission('shipment')`. All three refuse a row outside
+`PRE_LOADING = {draft, gumruk_girish, gumruk_chykysh}` or with recorded pallets. Weight rule,
+shared by all three: `packaging_weight()` is read **before** the move; a row still `draft`
+afterwards gets `weight_net` = the packing's weight; a row past `draft` only has an **empty**
+`weight_net` filled (never overwrites one already set); `weight_gross` is never touched.
+
+**Join** (extended) — `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`.
+Target may now be **any** `PRE_LOADING` status, not only `draft` — a destination plan can start
+customs paperwork before packing is joined. Gates: target has country + customer, no packing, no
+pallets; source is `draft`, has ≥1 block, no pallets.
+
+```json
+// Response 200: full shipment detail (target)
+// Error 400: { "error": "Target shipment has no destination (country and customer required)" }
+```
+
+**Unjoin** (new) — `POST /api/v1/export/shipments/{id}/unjoin/`, no body. Detaches the packing of
+a destination plan into a **new** `draft` supply-plan row (fresh `shipment_code`, same date so
+the weekly-plan actual doesn't move day). Caller must hold the shared JOIN_ROLES gate above.
+
+```json
+// Response 200: { ...full shipment detail of the ORIGINAL row..., "new_supply_id": 431, "new_supply_code": "2909002/26" }
+// Error 400: { "error": "<code>: has no packing to detach" }
+```
+
+**Swap packing** (new, replaces the old field-picking `/swap/`) —
+`POST /api/v1/export/shipments/{a_id}/swap-packaging/` body `{"other_id": <int>}`. Either row may
+be a free supply plan. `block_sources` are deleted and re-created on the opposite row, one row at
+a time — **not** `bulk_create`, because a batch mixing `None`/`Decimal` `weight_kg` trips an
+MSSQL/pyodbc type bug (`.claude/rules/mssql-compat.md`).
+
+```json
+// Request: { "other_id": 512 }
+// Response 200: { "shipments": [ {...detail a...}, {...detail b...} ] }
+// Error 400: { "error": "Cannot swap packing of a shipment with itself" }
+```
+
+**Notifications**: join still notifies the source's creator. Unjoin/swap notify every active
+`loading_dept_head` (plus `document_team` too if either row's documents have started), excluding
+the caller — the original creator may be long out of the picture by the time packing is detached
+or swapped.
+
+**Removed**: `POST /shipments/{id}/swap/`, `GET /shipments/swappable-fields/`, `swap_config.py`,
+`ShipmentSwapSerializer` — the old field-picking swap is gone; `swap-packaging` moves packing
+only, with a fixed field set, no `fields: [...]` list in the body.
 
 ### Hard-delete draft: `POST /api/v1/export/shipments/{id}/hard-delete/`
 

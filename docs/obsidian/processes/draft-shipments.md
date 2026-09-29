@@ -188,6 +188,52 @@ The target stays `draft` and is then assigned via the existing assign action (St
 
 **Sheet tint**: supply columns are visually tinted in the Sheet by `created_by_role ∈ {loading_dept_head, warehouse_chief}`. A manual `column_color` still takes precedence over the tint. See [[../screens/shipment-sheet#Supply-column tint|Shipment Sheet]] for the toolbar buttons and tint rendering.
 
+### Late join, detach, swap (2026-09-29)
+
+Spec: `docs/superpowers/specs/2026-09-29-packaging-join-board-design.md`. Two changes on top of
+the Join flow above — packing (`block_sources` + `export_code`, `variety`, `varieties_dominant`,
+`harvest_date`, `harvest_status`, `weight_to_load_kg`) now moves between rows any time before
+loading, not only while both rows are `draft`:
+
+1. **Join no longer requires the target to be `draft`.** `/join/` now accepts a target anywhere
+   in `PRE_LOADING = {draft, gumruk_girish, gumruk_chykysh}` — a destination plan can start
+   customs paperwork before Soltanmyrat has given it packing (the barrier moved to
+   `gumruk_chykysh → yuklenme`; see [[shipment-lifecycle#Packing barrier — `gumruk_chykysh` → `yuklenme` (2026-09-29)]]).
+   Source is still `draft` only, with ≥1 block.
+2. **Two new operations**, both in `backend/apps/export/services/packaging.py`:
+   - `POST /shipments/{id}/unjoin/` — detaches the packing of a destination plan into a **new**
+     supply-plan row (`draft`, a fresh `shipment_code`, same date and season so the weekly-plan
+     actual's date-from-code doesn't move to another day). Returns the original row's detail
+     plus `new_supply_id` / `new_supply_code`.
+   - `POST /shipments/{a}/swap-packaging/` `{other_id}` — exchanges the packing of two rows
+     before loading (either may be a free supply plan). `block_sources` are deleted and
+     re-created on the opposite row one at a time, not `bulk_create` (a batch mixing `None` and
+     `Decimal` `weight_kg` trips an MSSQL/pyodbc type bug — see `.claude/rules/mssql-compat.md`).
+     Replaces the old field-picking `POST /shipments/{id}/swap/` (removed, along with
+     `swap_config.py` / `ShipmentSwapSerializer` on the backend and `SwapFieldsModal` /
+     `swapFieldGroups.ts` on the frontend) — Sheet Swap now moves packing only, nothing else.
+
+Both new operations refuse a row that has started loading or already has recorded pallets
+(`assert_can_move_packing`), and both notify every active `loading_dept_head` (plus
+`document_team` too if either row's documents have started) rather than the original creator —
+by the time someone detaches or swaps packing, whoever made the original supply plan may be long
+out of the picture.
+
+**Weight rule** (`packaging_weight()` / `net_update()` in `services/packaging.py`, shared by
+join/unjoin/swap): a row still `draft` after the move gets `weight_net` = the moved packing's
+weight (read **before** the move); a row already past `draft` only has its `weight_net` **filled
+if it was empty** — a value already there is never overwritten; `weight_gross` is never touched
+by any of the three.
+
+**Roles**: `apps.core.roles.JOIN_ROLES` gained `loading_dept_head` + `loading_dept_head_deputy` —
+it's their packing. All three endpoints (`join`, `unjoin`, `swap-packaging`) check it through
+`get_permissions()` → `resource_edit_permission('shipment')`, not the coarse `can_create` gate.
+Frontend mirror: `frontend/src/components/sheet/joinHelpers.ts`.
+
+**Board**: [[assignment-board|Assignment Board]] was rebuilt on these three operations in place
+of its old `MOCK_DEMAND` matching — see that note for the new three-column layout and the
+QR-reprint reminder shown on unjoin/swap confirmation.
+
 ### Create supply draft (outside the Sheet)
 
 A **third way** to start a supply draft (Phase C, 2026-08-14) — a modal-based create on the Shipment List, independent of both the Sheet (Two-column Join flow above) and the forecast-pool composer (Forecast-first flow above). Unlike those two paths, **this one captures variety at creation** — see the Key Facts note above.
