@@ -23,7 +23,7 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
   const [target, setTarget] = useState<number | null>(null);
 
   const onError = (err: Error) => {
-    const detail = isAxiosError(err) ? err.response?.data?.detail : undefined;
+    const detail = isAxiosError(err) ? err.response?.data?.error : undefined;
     toast.error(t(`truck_board.error.${detail ?? 'generic'}`));
   };
 

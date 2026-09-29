@@ -112,7 +112,9 @@ class ApplyTripChangeTests(TestCase):
         self._set_status('cancelled')
         self.assertEqual(release_cancelled_shipments(), 1)
         self.trip.refresh_from_db()
+        self.shipment.refresh_from_db()
         self.assertIsNone(self.trip.shipment_id)
+        self.assertIsNone(self.shipment.trip_id)
 
 
 @override_settings(TRANSPORT_API_MODE='mock')
@@ -202,3 +204,27 @@ class PendingChangeTests(TestCase):
         move_trip(self.trip, other, self.user, confirm_unknown_country=True)
         other.refresh_from_db()
         self.assertEqual(other.trip_id, self.trip.pk)
+
+
+class AcceptCancelledTripTests(TestCase):
+    def test_accepting_a_cancelled_trip_reopens_choose_truck(self):
+        from apps.export.models import Task, TaskState
+        from apps.export.services.task_rules import generate_tasks_for_status
+        from apps.export.tests_auto_advance import _ensure_statuses, _seed_rules
+        _ensure_statuses()
+        _seed_rules()
+        user = User.objects.create_user(username='em', password='x', role='export_manager')
+        kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
+        shipment = _make_shipment(country=kz)
+        generate_tasks_for_status(shipment, 'draft')
+        trip = make_trip()
+        assign_trip(trip, shipment, user)
+        task = Task.objects.get(shipment=shipment, rule__title_key='tasks.choose_truck')
+        self.assertEqual(task.state, TaskState.DONE)
+        departed = ShipmentStatusType.objects.get(code='yola_chykdy')
+        type(shipment).objects.filter(pk=shipment.pk).update(status=departed)
+        ExternalTrip.objects.filter(pk=trip.pk).update(status='CANCELLED')
+        self.assertEqual(apply_trip_change(trip, user), 'conflict')
+        accept_trip_change(trip, user)
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.OPEN)

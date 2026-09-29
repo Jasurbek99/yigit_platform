@@ -40,7 +40,7 @@ flowchart LR
 | Assign / unassign / move / accept / react | `apps/transport/services/trip_assignment.py` |
 | Rollback | `apps/export/services/rollback.py` + `transition_to(..., rollback=True)` (system-only `ROLLBACK_TRANSITIONS`, never in `TRANSITIONS`) |
 | Pushes to Planning | `apps/transport/services/trip_push.py` + Celery `push_trip_update` |
-| Sheet lock | `apps/export/services/trip_lock.py` (PATCH guard) + `isTripLockedCell` in `frontend/src/utils/sheetPermissions.ts` |
+| Sheet / Detail lock | `apps/export/services/trip_lock.py` (PATCH guard) + `isTripLockedCell` in `frontend/src/utils/sheetPermissions.ts`; Detail: `ShipmentTransportBody` locks the truck/driver selectors and `lockedKeys` rows |
 | Screen | `frontend/src/pages/export/TruckBoard.tsx` (+ `truckBoard/`), banner `components/shipment/ShipmentTripBanner.tsx` |
 
 ## What assigning writes on the shipment
@@ -114,5 +114,5 @@ The next poll (≤ 2 min) runs the full reaction. The command edits a tracked fi
 - Planning has a foreign passport for 1 of 95 own drivers — documents print blanks until they fill it.
 - `destinationCountryCode` is missing from Planning's list response (they will add it); until then one
   detail call per new trip.
-- Detail page transport selectors are not locked (only the Sheet); the backend PATCH guard refuses the
-  write either way.
+- API errors on these endpoints follow the contract shape `{"error": "<code>"}` (e.g. `trip_taken`,
+  `country_unknown`, `trip_locked` + `fields`); the frontend maps the code to `truck_board.error.*`.

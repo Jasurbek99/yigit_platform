@@ -25,6 +25,16 @@ MOCK_PDF = (
 )
 
 
+def tls_verify(value: str) -> bool | str:
+    """requests' `verify`: True/False from a flag, otherwise a CA-bundle path."""
+    flag = (value or '').strip()
+    if flag.lower() in ('', 'false', '0', 'no'):
+        return False
+    if flag.lower() in ('true', '1', 'yes'):
+        return True
+    return flag
+
+
 class TripsApiUnavailable(Exception):
     def __init__(self, message: str, status_code: int | None = None):
         super().__init__(message)
@@ -45,7 +55,7 @@ class TripsClient:
         try:
             return requests.request(
                 method, f'{self.base_url}{path}', headers=headers,
-                timeout=TIMEOUT_SECONDS, verify=settings.TRANSPORT_API_VERIFY_TLS, **kwargs,
+                timeout=TIMEOUT_SECONDS, verify=tls_verify(settings.TRANSPORT_API_VERIFY_TLS), **kwargs,
             )
         except requests.RequestException as exc:
             logger.warning('Planning API %s %s failed: %s', method, path, exc)

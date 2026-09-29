@@ -22,7 +22,7 @@ export function filterShipmentsForTrip(
 }
 
 export function hasVisaFor(trip: IExternalTrip, countryCode: string | null): boolean {
-  if (!countryCode) return true;
+  if (!countryCode || trip.has_unrecognised_visa) return true;
   return trip.visa_country_codes.includes(countryCode);
 }
 

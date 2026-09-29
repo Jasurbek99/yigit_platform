@@ -55,7 +55,7 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
             pdf = get_trips_client().get_document(str(trip.integration_trip_id))
         except TripsApiUnavailable as exc:
             code = 'no_documents' if exc.status_code == 404 else 'planning_unavailable'
-            return Response({'detail': code}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response({'error': code}, status=status.HTTP_502_BAD_GATEWAY)
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="trip-{trip.integration_trip_id}.pdf"'
         return response
@@ -68,7 +68,7 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
             assign_trip(trip, shipment, request.user,
                         confirm_unknown_country=bool(request.data.get('confirm_unknown_country')))
         except AssignmentError as exc:
-            return Response({'detail': exc.code}, status=status.HTTP_409_CONFLICT)
+            return Response({'error': exc.code}, status=status.HTTP_409_CONFLICT)
         return Response(ExternalTripSerializer(ExternalTrip.objects.get(pk=trip.pk)).data)
 
     @action(detail=True, methods=['post'])
@@ -77,7 +77,7 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
         try:
             unassign_trip(trip, request.user)
         except AssignmentError as exc:
-            return Response({'detail': exc.code}, status=status.HTTP_409_CONFLICT)
+            return Response({'error': exc.code}, status=status.HTTP_409_CONFLICT)
         return Response(ExternalTripSerializer(ExternalTrip.objects.get(pk=trip.pk)).data)
 
     @action(detail=True, methods=['post'], url_path='accept-change')
@@ -94,7 +94,7 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
             move_trip(trip, target, request.user,
                       confirm_unknown_country=bool(request.data.get('confirm_unknown_country')))
         except AssignmentError as exc:
-            return Response({'detail': exc.code}, status=status.HTTP_409_CONFLICT)
+            return Response({'error': exc.code}, status=status.HTTP_409_CONFLICT)
         return Response(ExternalTripSerializer(ExternalTrip.objects.get(pk=trip.pk)).data)
 
     @action(detail=False, methods=['get'], url_path='sync-state')

@@ -24,6 +24,11 @@ describe('truckBoardHelpers', () => {
     expect(filterShipmentsForTrip([ship(1, 'KZ'), ship(2, 'RU')], trip(5, null)).map((s) => s.id)).toEqual([1, 2]);
   });
 
+  it('never warns when a visa name was not recognised', () => {
+    const unknown = { ...trip(1, 'KZ', []), has_unrecognised_visa: true } as IExternalTrip;
+    expect(hasVisaFor(unknown, 'KZ')).toBe(true);
+  });
+
   it('visa check is only a warning when the country code is known', () => {
     expect(hasVisaFor(trip(1, 'KZ', ['KZ']), 'KZ')).toBe(true);
     expect(hasVisaFor(trip(1, 'KZ', []), 'KZ')).toBe(false);

@@ -31,6 +31,8 @@ export interface IExternalTrip {
   driver_source: 'GARAGE' | 'THIRD_PARTY';
   visas: { country: string; expiry_date: string }[];
   visa_country_codes: string[];
+  /** A visa name matched no country — the missing-visa warning stays quiet. */
+  has_unrecognised_visa: boolean;
   shipment: number | null;
   shipment_code: string | null;
   conflict_note: string | null;

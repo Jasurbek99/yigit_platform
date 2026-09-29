@@ -40,7 +40,7 @@ class TripApiTests(TestCase):
         url = f'/api/v1/transport/external-trips/{self.trip.pk}/assign/'
         self.client.post(url, {'shipment_id': self.shipment.pk}, format='json')
         response = self.client.post(url, {'shipment_id': other.pk}, format='json')
-        self.assertEqual((response.status_code, response.json()['detail']), (409, 'trip_taken'))
+        self.assertEqual((response.status_code, response.json()['error']), (409, 'trip_taken'))
 
     def test_transport_role_can_view_not_assign(self):
         self._as('transport')
@@ -121,7 +121,7 @@ class MoveUnknownCountryApiTests(TestCase):
 
     def test_move_passes_the_confirm_through(self):
         refused = self.client.post(self.base + 'move/', {'shipment_id': self.b.pk}, format='json')
-        self.assertEqual((refused.status_code, refused.json()['detail']), (409, 'country_unknown'))
+        self.assertEqual((refused.status_code, refused.json()['error']), (409, 'country_unknown'))
         moved = self.client.post(self.base + 'move/', {'shipment_id': self.b.pk, 'confirm_unknown_country': True}, format='json')
         self.assertEqual(moved.status_code, 200, moved.content)
         self.assertEqual(moved.json()['shipment'], self.b.pk)

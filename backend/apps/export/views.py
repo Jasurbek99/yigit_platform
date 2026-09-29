@@ -727,7 +727,7 @@ class ShipmentViewSet(ModelViewSet):
         locked = trip_locked_fields(shipment, request.data.keys())
         if locked:
             return Response(
-                {'detail': 'trip_locked', 'fields': locked},
+                {'error': 'trip_locked', 'fields': locked},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

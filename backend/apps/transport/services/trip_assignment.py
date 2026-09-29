@@ -176,6 +176,7 @@ def accept_trip_change(trip: ExternalTrip, user) -> None:
     with transaction.atomic():
         if trip.status == 'CANCELLED':
             _release(trip, shipment, user)
+            reopen_rule_task(shipment, 'tasks.choose_truck')
         else:
             write_transport_fields(shipment, values, user)
             trip.conflict_note = None
@@ -227,7 +228,12 @@ def find_pending_changes() -> list[ExternalTrip]:
 
 
 def release_cancelled_shipments() -> int:
-    """Free trips whose shipment we cancelled; Planning is not told (no such operation)."""
-    return ExternalTrip.objects.filter(shipment__status__code='cancelled').update(
-        shipment=None, conflict_note=None, last_pushed_export_code=None,
-    )
+    """Free trips whose shipment we cancelled; Planning is not told (no such operation).
+
+    Both sides of the link are cleared with queryset updates: a cancelled
+    shipment is terminal, so there are no tasks to resolve on it.
+    """
+    trips = ExternalTrip.objects.filter(shipment__status__code='cancelled')
+    shipment_ids = list(trips.values_list('shipment_id', flat=True))
+    Shipment.objects.filter(pk__in=shipment_ids).update(trip_id=None)
+    return trips.update(shipment=None, conflict_note=None, last_pushed_export_code=None)

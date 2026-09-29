@@ -44,6 +44,12 @@ class VisaCountryTests(TestCase):
             ['KZ', 'UZ', 'RU'],
         )
 
+    def test_unrecognised_visa_is_reported(self):
+        from apps.transport.services.trip_parsing import has_unrecognised_visa
+        self.assertTrue(has_unrecognised_visa('Eýran Yslam Respublikasy:2999-01-01'))
+        self.assertFalse(has_unrecognised_visa('Gazagystan:2999-01-01'))
+        self.assertFalse(has_unrecognised_visa(''))
+
     def test_expired_visa_does_not_count(self):
         self.assertEqual(visa_country_codes('Russiýa:2000-01-01;Gazagystan:2999-01-01'), ['KZ'])
 
@@ -84,3 +90,13 @@ class FactoryTests(TestCase):
         since = datetime(2026, 9, 29, 11, 0, tzinfo=dt_tz.utc)
         items = MockTripsClient().list_trips(since, page=1)['items']
         self.assertEqual(len(items), 3)  # 11:00:30, 11:01:10, 11:02:11
+
+
+class TlsVerifySettingTests(TestCase):
+    def test_true_false_and_path(self):
+        from apps.transport.services.trips_client import tls_verify
+        self.assertIs(tls_verify('true'), True)
+        self.assertIs(tls_verify('1'), True)
+        self.assertIs(tls_verify('false'), False)
+        self.assertIs(tls_verify(''), False)
+        self.assertEqual(tls_verify('C:/certs/planning.pem'), 'C:/certs/planning.pem')

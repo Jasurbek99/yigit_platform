@@ -254,6 +254,8 @@ export interface IApiError {
 export type VehicleCondition = 'OK' | 'ISSUE' | 'BREAKDOWN' | 'RETURNED';
 
 export interface IShipmentListItem {
+  /** ExternalTrip pk when a Planning trip is linked — transport fields go read-only. */
+  trip_id?: number | null;
   id: number;
   shipment_code: string;
   date: string;             // ISO date

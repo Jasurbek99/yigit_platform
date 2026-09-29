@@ -5,8 +5,10 @@ import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import TruckBoard from './TruckBoard';
 import * as trips from '@/hooks/useExternalTrips';
+import { toast } from 'sonner';
 
 vi.mock('@/hooks/useExternalTrips');
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { is_superuser: true } }) }));
 vi.mock('@/hooks/useSeasonReadOnly', () => ({ useSeasonReadOnly: () => false }));
 vi.mock('react-leaflet', () => ({
@@ -18,7 +20,7 @@ const base = { visas: [], visa_country_codes: [], position: null, tractor_source
 
 beforeAll(async () => { await i18n.changeLanguage('en'); });
 
-function renderBoard() {
+function renderBoard(assignMutate = vi.fn()) {
   vi.mocked(trips.useCandidateShipments).mockReturnValue({ data: [
     { id: 1, code: 'KZ-SHIP', date: '2026-10-01', country_code: 'KZ', country_name: 'GAZAGYSTAN', customer_name: 'C', blocks: ['A'] },
     { id: 2, code: 'RU-SHIP', date: '2026-10-01', country_code: 'RU', country_name: 'RUSSIYA', customer_name: 'C', blocks: ['B'] },
@@ -29,7 +31,7 @@ function renderBoard() {
     { ...base, id: 12, tractor_plate: 'NO-COUNTRY', destination_country_code: null },
   ], isLoading: false } as any);
   vi.mocked(trips.useTripSyncState).mockReturnValue({ data: { last_success_at: null, last_error: '', is_mock: true } } as any);
-  vi.mocked(trips.useAssignTrip).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
+  vi.mocked(trips.useAssignTrip).mockReturnValue({ mutate: assignMutate, isPending: false } as any);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter><TruckBoard /></MemoryRouter>
@@ -57,5 +59,16 @@ describe('TruckBoard', () => {
   it('shows the demo badge in mock mode', () => {
     renderBoard();
     expect(screen.getByText('Demo')).toBeInTheDocument();
+  });
+
+  it('shows the translated API error key from the {error} body', () => {
+    const mutate = vi.fn((_vars: unknown, opts: { onError: (e: Error) => void }) => opts.onError(
+      Object.assign(new Error('409'), { isAxiosError: true, response: { data: { error: 'trip_taken' } } }),
+    ));
+    renderBoard(mutate);
+    fireEvent.click(screen.getByText('KZ-SHIP'));
+    fireEvent.click(screen.getByText(/KZ-TRUCK/));
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    expect(toast.error).toHaveBeenCalledWith('This truck is already assigned');
   });
 });

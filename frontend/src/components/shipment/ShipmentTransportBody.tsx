@@ -6,6 +6,7 @@ import { ShipmentDriverSelector } from '@/components/shipment/ShipmentDriverSele
 import { ShipmentTripBanner } from '@/components/shipment/ShipmentTripBanner';
 import { TRUCK_PLATE_FIELD, DRIVER_NAME_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
+import { TRIP_LOCKED_FIELDS } from '@/utils/sheetPermissions';
 import { fmt } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import type { IShipmentDetail } from '@/types';
 
@@ -42,6 +43,10 @@ export function ShipmentTransportBody({
   commentCountsByField,
 }: IShipmentTransportBodyProps) {
   const { t } = useTranslation();
+  // A Planning trip owns tractor/trailer/driver (backend PATCH refuses them
+  // with 400 trip_locked); they change only by unlinking on the Truck Board.
+  const isTripLinked = !!shipment.trip_id && !shipment.is_gapy_satys;
+  const transportReadOnly = readOnly || isTripLinked;
 
   const timestamps: [string, string | null][] = [
     ['shipment_detail.border_crossed', shipment.border_crossed_at],
@@ -67,7 +72,7 @@ export function ShipmentTransportBody({
         // scroll-jump target (#detail-field-truck_plate, used by
         // OtherTasksRow / ShipmentDetailHelpers.jumpToField) still resolves.
         <div id="detail-field-truck_plate">
-          <ShipmentTruckSelector shipment={shipment} readOnly={readOnly} />
+          <ShipmentTruckSelector shipment={shipment} readOnly={transportReadOnly} />
         </div>
       )}
       {shipment.is_gapy_satys ? (
@@ -83,7 +88,7 @@ export function ShipmentTransportBody({
         // Same id-wrapper reason as truck_plate above — the selector has no
         // built-in id, and jumpToField targets #detail-field-driver_name.
         <div id="detail-field-driver_name">
-          <ShipmentDriverSelector shipment={shipment} readOnly={readOnly} />
+          <ShipmentDriverSelector shipment={shipment} readOnly={transportReadOnly} />
         </div>
       )}
       <ShipmentFieldGroup
@@ -94,6 +99,7 @@ export function ShipmentTransportBody({
         onOpenComments={onOpenComments}
         commentCountsByField={commentCountsByField}
         excludeKeys={[TRUCK_PLATE_FIELD.key, DRIVER_NAME_FIELD.key]}
+        lockedKeys={isTripLinked ? [...TRIP_LOCKED_FIELDS] : undefined}
       />
       <div style={{ marginTop: 12 }}>
         {timestamps.map(([labelKey, value]) => (

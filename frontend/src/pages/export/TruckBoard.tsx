@@ -51,7 +51,7 @@ export default function TruckBoard() {
           setTripId(null);
         },
         onError: (err) => {
-          const detail = isAxiosError(err) ? err.response?.data?.detail : undefined;
+          const detail = isAxiosError(err) ? err.response?.data?.error : undefined;
           toast.error(t(`truck_board.error.${detail ?? 'generic'}`));
         },
       },

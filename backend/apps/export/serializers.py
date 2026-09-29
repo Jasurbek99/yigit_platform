@@ -516,6 +516,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'harvest_status',
             'documents_status',
             'truck_head_id',
+            'trip_id',
             'driver_id',
             'price_per_kg',
             'total_amount_usd',

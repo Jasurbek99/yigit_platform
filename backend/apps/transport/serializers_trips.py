@@ -1,12 +1,13 @@
 from rest_framework import serializers
 
 from apps.transport.models import ExternalTrip
-from apps.transport.services.trip_parsing import visa_country_codes
+from apps.transport.services.trip_parsing import has_unrecognised_visa, visa_country_codes
 
 
 class ExternalTripSerializer(serializers.ModelSerializer):
     visas = serializers.SerializerMethodField()
     visa_country_codes = serializers.SerializerMethodField()
+    has_unrecognised_visa = serializers.SerializerMethodField()
     shipment_code = serializers.CharField(source='shipment.shipment_code', read_only=True, default=None)
     position = serializers.SerializerMethodField()
 
@@ -18,7 +19,7 @@ class ExternalTripSerializer(serializers.ModelSerializer):
             'tractor_plate', 'tractor_brand', 'tractor_model', 'tractor_company', 'tractor_source',
             'trailer_plate', 'trailer_brand', 'trailer_model', 'trailer_company', 'trailer_source',
             'driver_full_name', 'driver_phone', 'driver_passport_number', 'driver_passport_expiry',
-            'driver_source', 'visas', 'visa_country_codes',
+            'driver_source', 'visas', 'visa_country_codes', 'has_unrecognised_visa',
             'shipment', 'shipment_code', 'conflict_note', 'last_push_status', 'last_push_error', 'position',
         ]
 
@@ -28,6 +29,9 @@ class ExternalTripSerializer(serializers.ModelSerializer):
 
     def get_visa_country_codes(self, trip) -> list[str]:
         return visa_country_codes(trip.driver_visas)
+
+    def get_has_unrecognised_visa(self, trip) -> bool:
+        return has_unrecognised_visa(trip.driver_visas)
 
     def get_position(self, trip) -> dict | None:
         position = self.context.get('positions', {}).get(trip.tractor_plate)

@@ -45,7 +45,7 @@ class TripLockPatchTests(TestCase):
     def test_patch_driver_on_linked_shipment_is_refused(self):
         response = self._patch({'driver_name': 'Typed Driver'})
         self.assertEqual(response.status_code, 400, response.content)
-        self.assertEqual(response.json(), {'detail': 'trip_locked', 'fields': ['driver_name']})
+        self.assertEqual(response.json(), {'error': 'trip_locked', 'fields': ['driver_name']})
 
     def test_patch_driver_without_trip_is_allowed(self):
         Shipment.objects.filter(pk=self.shipment.pk).update(trip_id=None)
@@ -59,3 +59,8 @@ class TripLockPatchTests(TestCase):
     def test_sheet_payload_exposes_trip_id(self):
         from apps.export.serializers import ShipmentSheetSerializer
         self.assertEqual(ShipmentSheetSerializer(self.shipment).data['trip_id'], 7)
+
+    def test_detail_payload_exposes_trip_id(self):
+        from apps.export.serializers import ShipmentDetailSerializer
+        self.shipment.refresh_from_db()
+        self.assertEqual(ShipmentDetailSerializer(self.shipment).data['trip_id'], 7)
