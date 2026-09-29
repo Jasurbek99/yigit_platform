@@ -42,6 +42,8 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('export.assign',           'Assignment Board'),
     # Pallet manifest (Finding #4 / Phase 2)
     ('export.pallet_manifest',  'Pallet Manifest'),
+    # Gate guard screen (garawul, 2026-09-29): trucks due at / inside one greenhouse.
+    ('export.gate',             'Gate (truck arrival / exit)'),
     # Personal workspace
     ('me.board',                'My Tasks'),
     # Task Rules — the read-only catalog behind My Tasks: which status opens
@@ -189,6 +191,9 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # FK, so rows are deactivated, never removed), which is why the seeded
     # defaults are view+create+edit for every role that holds it.
     ('fleet',                 'Fleet catalog (truck heads, trailers, drivers)'),
+    # Gate marks (arrival / exit at a greenhouse gate). All-or-nothing, so absent
+    # from RESOURCE_FIELDS. can_view = read the lists, can_edit = mark / undo.
+    ('gate',                  'Gate (truck arrival / exit marks)'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────

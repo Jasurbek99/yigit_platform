@@ -25,6 +25,7 @@ ROLES = [
     'director',
     'document_team',
     'finansist',
+    'garawul',
     'greenhouse_manager',
     'loading_dept_head',
     'loading_dept_head_deputy',
@@ -62,6 +63,9 @@ class Command(BaseCommand):
                 is_active=True,
             )
             user.set_password(PASSWORD)
+            if role == 'garawul':
+                from apps.core.models import LoadingLocation
+                user.loading_location = LoadingLocation.objects.filter(name='Dusak').first()
             user.save()
             self.stdout.write(self.style.SUCCESS(f'  created  {username} ({role})'))
 
