@@ -109,7 +109,12 @@ from apps.export.services import (
     transition_to,
     write_block_sources,
 )
-from apps.export.services.packaging import PRE_LOADING, assert_can_move_packing, packaging_weight
+from apps.export.services.packaging import (
+    PRE_LOADING,
+    assert_can_move_packing,
+    net_update,
+    packaging_weight,
+)
 from apps.export.services.shipment import _cancel_open_tasks
 from apps.export.services.weightmaster_import import (
     WeightmasterParseError,
@@ -2474,7 +2479,9 @@ class ShipmentViewSet(ModelViewSet):
         - variety and export_code are copied from source if target has none.
         - harvest_date, harvest_status and weight_to_load_kg are copied from source
           if target has none (F25 — before this they were lost with the source row).
-        - target.weight_net is recomputed from all its block_sources.
+        - target.weight_net is recomputed from all its block_sources only for a
+          draft target; for a later pre-loading target it is only filled when
+          empty (spec 2026-09-29).
         - A ShipmentStatusLog audit row is written on target (status unchanged).
         - The source creator is notified via an action_required Notification.
         - Source is hard-deleted.
@@ -2485,7 +2492,7 @@ class ShipmentViewSet(ModelViewSet):
         Returns:
             200 with full ShipmentDetailSerializer payload on success.
             400 if validation fails (same draft, wrong status, missing blocks, etc.)
-            403 if caller is not a superuser and role not in PRIVILEGED_ROLES | {boss}.
+            403 if caller is not a superuser and role not in JOIN_ROLES.
             404 if target or source not found.
         """
         # --- Permission gate ---
@@ -2678,8 +2685,8 @@ class ShipmentViewSet(ModelViewSet):
                 else:
                     agg = target.block_sources.aggregate(total=Sum('weight_kg'))
                     update_fields['weight_net'] = agg['total'] or Decimal('0')
-            elif target.weight_net is None and source_packing_weight is not None:
-                update_fields['weight_net'] = source_packing_weight
+            else:
+                update_fields.update(net_update(target, source_packing_weight))
             update_fields['updated_by_id'] = user.pk
 
             # Use .update() to bypass the task engine: save() runs auto_advance_if_ready,
