@@ -241,7 +241,7 @@ class LifecycleRoleGateTests(LifecycleBase):
 
 
 class DraftGuardTests(LifecycleBase):
-    """A half-built draft must be joined before it can advance."""
+    """A draft needs a destination (country + customer) before it can advance; packing is checked at loading (spec 2026-09-29)."""
 
     def _bare_draft(self, code, country=None, customer=None, blocks=False):
         s = Shipment.objects.create(

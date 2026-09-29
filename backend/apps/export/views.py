@@ -109,6 +109,7 @@ from apps.export.services import (
     transition_to,
     write_block_sources,
 )
+from apps.export.services.packaging import PRE_LOADING, assert_can_move_packing, packaging_weight
 from apps.export.services.shipment import _cancel_open_tasks
 from apps.export.services.weightmaster_import import (
     WeightmasterParseError,
@@ -182,6 +183,11 @@ def _scan_recorded_by(shipment, field_name: str) -> str | None:
         return None
     full = f'{row.user.first_name} {row.user.last_name}'.strip()
     return full or row.user.username
+
+
+def _can_move_packing(user) -> bool:
+    """Join / unjoin / swap-packaging gate: JOIN_ROLES or superuser."""
+    return getattr(user, 'is_superuser', False) or getattr(user, 'role', None) in JOIN_ROLES
 
 
 class ShipmentViewSet(ModelViewSet):
@@ -329,13 +335,14 @@ class ShipmentViewSet(ModelViewSet):
             # now agrees with it instead of contradicting it.
             return [IsAuthenticated(), SeasonNotClosed(),
                     resource_write_permission('shipment_comment')()]
-        if action == 'join':
+        if action in ('join', 'unjoin', 'swap_packaging'):
             # Same class of bug as `transition`/`swap` (F12/F19): a join MERGES two
             # existing drafts — it creates no Shipment — but the class-level
             # DynamicResourcePermission maps POST to shipment.can_create, which is 0
             # for document_team in the seed. Every role the in-body JOIN_ROLES
             # allowlist admits holds can_edit, so this coarse gate now agrees with
             # the fine one instead of 403ing document_team before the body runs.
+            # unjoin and swap_packaging (spec 2026-09-29) edit rows the same way.
             return [IsAuthenticated(), SeasonNotClosed(),
                     resource_edit_permission('shipment')()]
         if action == 'transition':
@@ -2455,7 +2462,8 @@ class ShipmentViewSet(ModelViewSet):
     def join(self, request, pk=None):
         """POST /api/v1/export/shipments/{target_id}/join/
 
-        Merges a supply draft (source) into a destination draft (target).
+        Moves a supply plan's packing (source) onto a destination plan (target)
+        that has not started loading (draft, gumruk_girish, gumruk_chykysh).
 
         The target is identified by the URL pk and SURVIVES. The source is
         identified by source_id in the request body and is DELETED (cascade).
@@ -2487,11 +2495,10 @@ class ShipmentViewSet(ModelViewSet):
         # halves while preparing the CMR packet, so they join drafts from the Sheet
         # and the Shipments list themselves instead of queueing behind a manager.
         # Superusers bypass, as in /cancel.
-        is_super = getattr(request.user, 'is_superuser', False)
-        if not is_super and getattr(request.user, 'role', None) not in JOIN_ROLES:
+        if not _can_move_packing(request.user):
             return Response(
-                {'error': 'Only admin, export_manager, director, boss or document_team '
-                          'can join shipments in Preparation'},
+                {'error': 'Only admin, export_manager, director, boss, document_team or the '
+                          'loading department can join packing'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -2546,8 +2553,10 @@ class ShipmentViewSet(ModelViewSet):
         """
         if target.pk == source.pk:
             return 'Source and target must be different shipments'
-        if target.status.code != 'draft':
-            return 'Target shipment is not in Preparation'
+        if target.status.code not in PRE_LOADING:
+            return 'Target shipment has started loading — packing can no longer be joined'
+        if target.pallets.exists() or source.pallets.exists():
+            return 'Pallets are recorded — packing can no longer be joined'
         if source.status.code != 'draft':
             return 'Source shipment is not in Preparation'
         if not target.country_id or not target.customer_id:
@@ -2598,10 +2607,10 @@ class ShipmentViewSet(ModelViewSet):
 
             # Re-assert status + block gates on the now-locked rows.
             # (Cheap identity check already passed in _validate_join; no need to repeat.)
-            if target.status.code != 'draft':
-                raise ValueError('Target shipment is no longer in Preparation')
+            assert_can_move_packing(target)
             if source.status.code != 'draft':
                 raise ValueError('Source shipment is no longer in Preparation')
+            assert_can_move_packing(source)
             if not source.block_sources.exists():
                 raise ValueError('Source shipment has no supply blocks')
             if target.block_sources.exists():
@@ -2616,6 +2625,7 @@ class ShipmentViewSet(ModelViewSet):
             # below removes the row — the weight_net recompute needs it as a
             # fallback when the moved blocks aren't fully weighed yet.
             source_weight_net = source.weight_net
+            source_packing_weight = packaging_weight(source)
 
             # Move block sources from source → target.
             source.block_sources.update(shipment=target)
@@ -2658,25 +2668,25 @@ class ShipmentViewSet(ModelViewSet):
             if target.weight_to_load_kg is None and source.weight_to_load_kg is not None:
                 update_fields['weight_to_load_kg'] = source.weight_to_load_kg
 
-            # Recompute weight_net from all block_sources now on target.
-            # If any moved block is still unweighed (supply draft not yet
-            # detailed), the block Sum understates the truck — fall back to
-            # the supply draft's declared total (source_weight_net, captured
-            # above before the source was deleted).
-            has_null_weight = target.block_sources.filter(weight_kg__isnull=True).exists()
-            if has_null_weight and source_weight_net is not None:
-                update_fields['weight_net'] = source_weight_net
-            else:
-                agg = target.block_sources.aggregate(total=Sum('weight_kg'))
-                update_fields['weight_net'] = agg['total'] or Decimal('0')
+            # Weight rule (spec 2026-09-29). Draft target: today's recompute from
+            # the moved blocks, falling back to the supply plan's declared total
+            # while blocks are unweighed. Later target: fill an empty net only.
+            if target.status.code == 'draft':
+                has_null_weight = target.block_sources.filter(weight_kg__isnull=True).exists()
+                if has_null_weight and source_weight_net is not None:
+                    update_fields['weight_net'] = source_weight_net
+                else:
+                    agg = target.block_sources.aggregate(total=Sum('weight_kg'))
+                    update_fields['weight_net'] = agg['total'] or Decimal('0')
+            elif target.weight_net is None and source_packing_weight is not None:
+                update_fields['weight_net'] = source_packing_weight
             update_fields['updated_by_id'] = user.pk
 
-            # Use .update() to bypass the task engine (save() runs auto_advance_if_ready
-            # which could promote target out of draft — violating the "target stays draft"
-            # invariant documented in AD-join).
+            # Use .update() to bypass the task engine: save() runs auto_advance_if_ready,
+            # and a packing move must never move the truck (spec 2026-09-29).
             Shipment.objects.filter(pk=target.pk).update(**update_fields)
 
-            # Audit log on target (status unchanged — still draft).
+            # Audit log on target (status unchanged).
             source_creator_label = (
                 source.created_by.username if source.created_by_id else 'unknown'
             )
