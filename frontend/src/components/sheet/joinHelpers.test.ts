@@ -7,6 +7,7 @@ import {
   canUserJoin,
   hasPacking,
   isPreLoading,
+  isJoinSelectable,
   explainSwapBlockers,
   type IJoinClassifiable,
 } from './joinHelpers';
@@ -136,6 +137,18 @@ describe('packing helpers', () => {
   it('hasPacking', () => {
     expect(hasPacking({ status_code: 'draft', country: null, customer: null, block_sources: [{ block_id: 1 }] })).toBe(true);
     expect(hasPacking({ status_code: 'draft', country: null, customer: null, block_sources: [] })).toBe(false);
+  });
+});
+
+describe('isJoinSelectable (Sheet join-mode column pick — final-fix-brief item 1)', () => {
+  it('a destination plan in any pre-loading status is selectable, not only draft', () => {
+    expect(isJoinSelectable('draft')).toBe(true);
+    expect(isJoinSelectable('gumruk_girish')).toBe(true);
+    expect(isJoinSelectable('gumruk_chykysh')).toBe(true);
+  });
+  it('a column that has started loading is not selectable', () => {
+    expect(isJoinSelectable('yuklenme')).toBe(false);
+    expect(isJoinSelectable('yola_chykdy')).toBe(false);
   });
 });
 

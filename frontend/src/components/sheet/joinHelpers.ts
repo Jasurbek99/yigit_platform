@@ -48,6 +48,18 @@ export function isPreLoading(statusCode: string): boolean {
   return (PRE_LOADING_STATUSES as readonly string[]).includes(statusCode);
 }
 
+// ─── Sheet Join column selectability (final-fix-brief item 1) ───────────────
+// A Sheet column is clickable/highlighted in join mode when its status is
+// still pre-loading: the join bar accepts a destination plan anywhere up to
+// gumruk_chykysh, not only a draft (spec Part 3 §2) — the source side is
+// still gated to draft by isSupplyDraft/explainJoinBlockers. Kept as its own
+// name (not a bare isPreLoading call at the SheetGrid call sites) so the
+// join-mode condition there reads as "may this column take part in a join"
+// and stays testable without rendering the grid.
+export function isJoinSelectable(statusCode: string): boolean {
+  return isPreLoading(statusCode);
+}
+
 export function hasPacking(s: IJoinClassifiable): boolean {
   return s.block_sources != null && s.block_sources.length > 0;
 }

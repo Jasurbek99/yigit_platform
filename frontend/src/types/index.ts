@@ -1898,15 +1898,6 @@ export interface ISupplyDraftPayload {
   notes?: string;
 }
 
-export interface IDraftAssignPayload {
-  country: number | null;
-  city: number | null;
-  customer: number | null;
-  import_firm: number | null;
-  firm_splits?: { export_firm_id: number; weight_kg: number }[];
-  border_point?: number | null;
-}
-
 // ─── Gaplama Board ────────────────────────────────────────────────────────────
 
 /** One live carry-over bucket contributing to a day's carried_in_kg, oldest first. */

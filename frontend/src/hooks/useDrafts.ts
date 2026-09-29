@@ -10,7 +10,6 @@ import type {
   IShipmentDraft,
   IDraftCreatePayload,
   ISupplyDraftPayload,
-  IDraftAssignPayload,
   IForecastRemaining,
   IForecastSubmitPayload,
   IForecastSubmitResult,
@@ -151,41 +150,6 @@ export function useCreateDraft() {
       // immediately, or a second truck can be opened against capacity
       // that's already been claimed by the first.
       queryClient.invalidateQueries({ queryKey: ['gaplama-board'] });
-    },
-  });
-}
-
-// ─── useAssignDraft ───────────────────────────────────────────────────────
-
-interface IAssignDraftArgs {
-  draftId: number;
-  payload: IDraftAssignPayload;
-}
-
-/**
- * Assigns a draft to a destination (triggers draft → yuklenme lifecycle transition).
- * Returns the updated shipment detail.
- */
-export function useAssignDraft() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ draftId, payload }: IAssignDraftArgs): Promise<{ id: number }> => {
-      if (USE_MOCK) {
-        // No-op in mock mode.
-        return { id: draftId };
-      }
-
-      const { data } = await api.post<{ id: number }>(
-        `/export/shipments/${draftId}/assign/`,
-        payload,
-      );
-      return data;
-    },
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['drafts'] });
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
-      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.draftId) });
     },
   });
 }
