@@ -23,12 +23,14 @@ export const SUPPLY_ROLES = new Set(['loading_dept_head', 'loading_dept_head_dep
 // IShipmentSheetItem and IShipmentDetail satisfy this directly — both declare
 // status_code plus required (non-optional) country/customer, so the Sheet and
 // the Detail page can pass their shipment objects straight through.
-// IShipmentDraft does NOT satisfy it: it has no status_code field at all, and
-// it carries no raw country/customer FK ids whatsoever — only
-// country_name/customer_name (the backend's ShipmentDraftListSerializer never
-// sends the ids). A caller working from a raw IShipmentDraft must supply
-// status_code itself and derive country/customer some other way; *_name
-// alone isn't enough to build an IJoinClassifiable.
+// IShipmentDraft does not satisfy it directly: status_code, country and
+// customer are declared optional there (mock literals in mock/drafts.ts don't
+// set them), so TypeScript won't accept a raw IShipmentDraft where this
+// interface is required. Since Task 5/6, ShipmentDraftListSerializer DOES send
+// the raw status_code, country and customer FK ids alongside country_name/
+// customer_name — see pages/export/assignment/boardHelpers.ts's classify(),
+// which narrows a IShipmentDraft into an IJoinClassifiable with `?? null` /
+// `?? 'draft'` fallbacks for the cases those fields are genuinely absent.
 export interface IJoinClassifiable {
   status_code: string;
   country: number | null;

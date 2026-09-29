@@ -69,3 +69,15 @@ export function nextSelection(current: number[], clicked: number): number[] {
   if (current.length >= 2) return [clicked];
   return [...current, clicked];
 }
+
+/**
+ * Drops ids whose row is no longer on the board (another user joined/swapped/
+ * unjoined it since the last selection). Without this, a picked card that
+ * disappears on refetch still counts toward the "2 already picked" branch of
+ * `nextSelection`, so the next click on a live card silently resets the
+ * selection instead of adding to it. Order of the surviving ids is preserved.
+ */
+export function pruneSelection(ids: number[], onBoard: IShipmentDraft[]): number[] {
+  const boardIds = new Set(onBoard.map((r) => r.id));
+  return ids.filter((id) => boardIds.has(id));
+}

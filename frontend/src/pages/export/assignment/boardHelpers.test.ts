@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { IShipmentDraft } from '@/types';
-import { decideBoardAction, nextSelection, splitBoardColumns } from './boardHelpers';
+import { decideBoardAction, nextSelection, pruneSelection, splitBoardColumns } from './boardHelpers';
 
 function row(id: number, over: Partial<IShipmentDraft> = {}): IShipmentDraft {
   return {
@@ -52,5 +52,14 @@ describe('nextSelection', () => {
     expect(nextSelection([1], 2)).toEqual([1, 2]);
     expect(nextSelection([1, 2], 2)).toEqual([1]);
     expect(nextSelection([1, 2], 3)).toEqual([3]);
+  });
+});
+
+describe('pruneSelection', () => {
+  it('drops an id whose row is no longer on the board, keeping order', () => {
+    expect(pruneSelection([1, 2, 3], [free, waiting])).toEqual([1, 2]);
+  });
+  it('an empty board drops every id', () => {
+    expect(pruneSelection([1, 2], [])).toEqual([]);
   });
 });

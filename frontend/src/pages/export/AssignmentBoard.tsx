@@ -14,7 +14,7 @@ import { BoardColumn } from './assignment/BoardColumn';
 import { SupplyCard } from './assignment/SupplyCard';
 import { ExportPartCard } from './assignment/ExportPartCard';
 import { PackingActionPanel } from './assignment/PackingActionPanel';
-import { decideBoardAction, nextSelection, splitBoardColumns } from './assignment/boardHelpers';
+import { decideBoardAction, nextSelection, pruneSelection, splitBoardColumns } from './assignment/boardHelpers';
 
 const { Text, Title } = Typography;
 
@@ -37,6 +37,7 @@ export default function AssignmentBoard() {
   }, [searchParams]);
 
   const { free, waiting, joined } = splitBoardColumns(rows);
+  const onBoard = [...free, ...waiting, ...joined];
   const selected = selectedIds
     .map((id) => rows.find((r) => r.id === id))
     .filter((r): r is IShipmentDraft => r !== undefined);
@@ -44,7 +45,13 @@ export default function AssignmentBoard() {
   const canAct = canUserJoin(user) && !isReadOnly;
   const isPending = joinMutation.isPending || unjoinMutation.isPending || swapMutation.isPending;
 
-  const toggle = (id: number) => setSelectedIds((current) => nextSelection(current, id));
+  // Prune before toggling: a picked card can vanish from `rows` on refetch
+  // (another user joined/swapped/unjoined it elsewhere). Without pruning, its
+  // stale id still occupies a selection slot, so the next click on a live
+  // card hits nextSelection's "2 already picked" branch and silently resets
+  // instead of adding to it.
+  const toggle = (id: number) =>
+    setSelectedIds((current) => nextSelection(pruneSelection(current, onBoard), id));
   const onError = (err: unknown) => toast.error(extractPatchError(err, t('packing.toast_error')));
   const done = () => setSelectedIds([]);
 
