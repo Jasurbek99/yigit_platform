@@ -1015,6 +1015,18 @@
   font-size: 11px;
 }
 
+/* Harvest status + variety share one row, half each, so the variety
+   dropdown is wide enough for full names. */
+.sera-page .sera-gaplama-form-pickers {
+  display: flex;
+  gap: 8px;
+}
+
+.sera-page .sera-gaplama-form-pickers > .ant-select {
+  flex: 1;
+  min-width: 0;
+}
+
 .sera-page .sera-gaplama-form-total {
   margin: 12px 0;
   color: var(--sera-text);

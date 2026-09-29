@@ -227,8 +227,8 @@ point-in-time figure, so a second truck opened the same day can still show the s
 leftover's full remaining kg even after a first truck already drew from it — the
 block-level SUM cap is the actual backstop that stops the block from being oversold, per
 `blockCapFor`'s own comment. The card header shows the block's own carry window
-(`carry_days`). `+ Blok goş` adds another block; an export-code field, harvest-status select
-and variety select sit below the block cards. Submitting
+(`carry_days`). `+ Blok goş` adds another block; an export-code field, then the harvest-status select
+and variety select side by side in one row (half width each, so full variety names show), sit below the block cards. Submitting
 creates a draft the same
 way the Sheet's own supply composer does —
 `{ is_draft: true, date: <the day being viewed>, skip_forecast_check: true,

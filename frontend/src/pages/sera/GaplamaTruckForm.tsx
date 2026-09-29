@@ -535,20 +535,22 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
       {props.mode === 'create' && (
         <>
           <OfficialCodeEditor value={exportCode} onChange={setExportCode} platformId={null} />
-          <Select
-            allowClear
-            placeholder={t('tir_takip.gaplama.form.harvest_status_ph')}
-            value={harvestStatus}
-            onChange={setHarvestStatus}
-            options={harvestStatusOptions
-              .filter((o) => o.is_active)
-              .map((o) => ({
-                value: o.code,
-                label: lang.startsWith('ru') && o.label_ru ? o.label_ru
-                  : lang.startsWith('en') && o.label_en ? o.label_en : o.label_tk,
-              }))}
-          />
-          <VarietySelect value={variety} onChange={(v) => setVariety(v ?? undefined)} />
+          <div className="sera-gaplama-form-pickers">
+            <Select
+              allowClear
+              placeholder={t('tir_takip.gaplama.form.harvest_status_ph')}
+              value={harvestStatus}
+              onChange={setHarvestStatus}
+              options={harvestStatusOptions
+                .filter((o) => o.is_active)
+                .map((o) => ({
+                  value: o.code,
+                  label: lang.startsWith('ru') && o.label_ru ? o.label_ru
+                    : lang.startsWith('en') && o.label_en ? o.label_en : o.label_tk,
+                }))}
+            />
+            <VarietySelect value={variety} onChange={(v) => setVariety(v ?? undefined)} />
+          </div>
         </>
       )}
 
