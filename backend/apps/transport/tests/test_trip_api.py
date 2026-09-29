@@ -69,3 +69,38 @@ class TripApiTests(TestCase):
     def test_sync_state_reports_mock(self):
         self._as('export_manager')
         self.assertTrue(self.client.get('/api/v1/transport/external-trips/sync-state/').json()['is_mock'])
+
+    def test_move_to_another_draft(self):
+        self._as('export_manager')
+        other = _make_shipment(code='T-2', country=self.kz)
+        base = f'/api/v1/transport/external-trips/{self.trip.pk}/'
+        self.client.post(base + 'assign/', {'shipment_id': self.shipment.pk}, format='json')
+        response = self.client.post(base + 'move/', {'shipment_id': other.pk}, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['shipment'], other.pk)
+
+    def test_accept_change_without_conflict_is_a_no_op(self):
+        self._as('export_manager')
+        response = self.client.post(f'/api/v1/transport/external-trips/{self.trip.pk}/accept-change/')
+        self.assertEqual(response.status_code, 200, response.content)
+
+
+class SimulateTripChangeTests(TestCase):
+    def test_edits_driver_and_bumps_changed_at_in_a_copy_of_the_fixture(self):
+        import json
+        import shutil
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        from apps.transport.services import trips_client
+        tmp = Path(tempfile.mkdtemp()) / 'trips.json'
+        shutil.copy(trips_client.FIXTURE_PATH, tmp)
+        uuid = '89f2783b-e7e9-47ba-9884-8fe7bf34f1bd'
+        with mock.patch.object(trips_client, 'FIXTURE_PATH', tmp), \
+                mock.patch('apps.transport.management.commands.simulate_trip_change.FIXTURE_PATH', tmp, create=True):
+            call_command('simulate_trip_change', uuid, '--driver', 'Täze Sürüji', '--cancel', stdout=open(tmp.parent / 'out', 'w'))
+        item = next(i for i in json.loads(tmp.read_text(encoding='utf-8'))['items'] if i['integrationTripId'] == uuid)
+        self.assertEqual(item['driver']['fullName'], 'Täze Sürüji')
+        self.assertEqual(item['status'], 'CANCELLED')
+        self.assertGreater(item['changedAt'], '2026-09-29')

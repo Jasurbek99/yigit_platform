@@ -4,6 +4,8 @@ from celery import shared_task
 
 from apps.transport.services.sync import sync_devices, sync_geofences, sync_positions
 from apps.transport.services.traccar_client import TraccarUnavailable
+from apps.transport.services.sync_user import get_sync_user
+from apps.transport.services.trip_assignment import apply_trip_change, release_cancelled_shipments
 from apps.transport.services.trip_sync import sync_external_trips
 from apps.transport.services.trips_client import TripsApiUnavailable
 
@@ -37,10 +39,22 @@ def poll_traccar():
 
 @shared_task(time_limit=110, soft_time_limit=100)
 def poll_external_trips():
-    """Pull changed Planning trips. Change handling is wired in Task 8."""
+    """Pull changed Planning trips and react to real changes (spec §4, §6).
+
+    Trips of shipments we cancelled are freed first; then every linked trip
+    whose truck/driver changed or that Planning cancelled goes through
+    apply_trip_change. One bad shipment must not stop the rest.
+    """
     try:
         changed = sync_external_trips()
     except TripsApiUnavailable as exc:
         logger.warning('Planning trips poll failed: %s', exc)
         return {'ok': False, 'changed': 0}
+    release_cancelled_shipments()
+    user = get_sync_user()
+    for trip in changed:
+        try:
+            apply_trip_change(trip, user)
+        except Exception:
+            logger.exception('apply_trip_change failed for trip %s', trip.integration_trip_id)
     return {'ok': True, 'changed': len(changed)}

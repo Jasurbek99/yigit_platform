@@ -1,9 +1,11 @@
 """Join Planning trips to shipments (spec §5) and react to their changes (spec §6)."""
 import logging
 
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 
-from apps.export.models import AuditLog, Shipment
+from apps.export.models import AuditLog, Notification, Shipment, ShipmentComment
+from apps.export.services.rollback import is_transport_locked, reopen_rule_task, rollback_to_draft
 from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 from apps.transport.models import ExternalTrip, Trailer, TruckHead
 from apps.transport.services.matching import normalize_plate
@@ -99,12 +101,106 @@ def _release(trip: ExternalTrip, shipment: Shipment, user) -> None:
     write_transport_fields(shipment, dict(EMPTY_VALUES), user)
 
 
+NOTIFY_ROLES = ('export_manager',)
+NOTIFY_ROLES_ON_ROLLBACK = ('export_manager', 'document_team')
+
+
+def _describe(values: dict) -> str:
+    return f"{values.get('truck_plate') or '—'}, {values.get('driver_name') or '—'}"
+
+
+def _notify(shipment: Shipment, roles: tuple[str, ...], message: str) -> None:
+    users = get_user_model().objects.filter(role__in=roles, is_active=True).values_list('pk', flat=True)
+    Notification.objects.bulk_create(
+        [Notification(user_id=uid, kind='action_required', message=message[:500],
+                      link=f'/shipments/{shipment.pk}') for uid in users],
+        batch_size=500,
+    )
+
+
+def _record(shipment: Shipment, user, message: str, roles: tuple[str, ...]) -> None:
+    ShipmentComment.objects.create(shipment=shipment, user=user, content=message[:2000], is_system=True)
+    _notify(shipment, roles, f'{shipment.shipment_code}: {message}')
+
+
+def _current_values(shipment: Shipment) -> dict:
+    return {field: getattr(shipment, field) for field in TRANSPORT_FIELDS}
+
+
+def _fresh(trip: ExternalTrip) -> ExternalTrip:
+    return ExternalTrip.objects.select_related('shipment__status').get(pk=trip.pk)
+
+
+def apply_trip_change(trip: ExternalTrip, user) -> str:
+    """React to a real Planning change on a linked trip (spec §6 table)."""
+    trip = _fresh(trip)
+    shipment = trip.shipment
+    if shipment is None:
+        return 'unlinked'
+    cancelled = trip.status == 'CANCELLED'
+    old = _current_values(shipment)
+    new = dict(EMPTY_VALUES) if cancelled else trip_values(trip)
+    what = 'Planning cancelled the trip' if cancelled else 'Planning changed the truck'
+    message = f'{what}: {_describe(old)} → {_describe(new)}'
+    if is_transport_locked(shipment):
+        trip.conflict_note = message
+        trip.save(update_fields=['conflict_note'])
+        _record(shipment, user, f'Not applied (shipment locked). {message}', NOTIFY_ROLES)
+        return 'conflict'
+    rolled_back = shipment.status.code != 'draft'
+    with transaction.atomic():
+        if rolled_back:
+            rollback_to_draft(shipment, user, message)
+        if cancelled:
+            _release(trip, shipment, user)
+            reopen_rule_task(shipment, 'tasks.choose_truck')
+        else:
+            write_transport_fields(shipment, new, user)
+    _record(shipment, user, message, NOTIFY_ROLES_ON_ROLLBACK if rolled_back else NOTIFY_ROLES)
+    if cancelled:
+        return 'unlinked_rollback' if rolled_back else 'unlinked'
+    return 'applied_rollback' if rolled_back else 'applied'
+
+
+def accept_trip_change(trip: ExternalTrip, user) -> None:
+    """Export manager overrides a conflict: take Planning's values, no status change."""
+    trip = _fresh(trip)
+    shipment = trip.shipment
+    if shipment is None or not trip.conflict_note:
+        return
+    values = dict(EMPTY_VALUES) if trip.status == 'CANCELLED' else trip_values(trip)
+    with transaction.atomic():
+        if trip.status == 'CANCELLED':
+            _release(trip, shipment, user)
+        else:
+            write_transport_fields(shipment, values, user)
+            trip.conflict_note = None
+            trip.save(update_fields=['conflict_note'])
+    _record(shipment, user, f'Accepted despite lock: {_describe(values)}', NOTIFY_ROLES)
+
+
 def unassign_trip(trip: ExternalTrip, user) -> None:
-    trip = ExternalTrip.objects.select_related('shipment__status').get(pk=trip.pk)
+    trip = _fresh(trip)
     shipment = trip.shipment
     if shipment is None:
         return
-    if shipment.status.code != 'draft':
+    if is_transport_locked(shipment):
         raise AssignmentError('locked')
     with transaction.atomic():
+        if shipment.status.code != 'draft':
+            rollback_to_draft(shipment, user, f'Truck unassigned by {user.username}')
         _release(trip, shipment, user)
+        reopen_rule_task(shipment, 'tasks.choose_truck')
+
+
+def move_trip(trip: ExternalTrip, to_shipment: Shipment, user) -> None:
+    with transaction.atomic():
+        unassign_trip(trip, user)
+        assign_trip(_fresh(trip), to_shipment, user)
+
+
+def release_cancelled_shipments() -> int:
+    """Free trips whose shipment we cancelled; Planning is not told (no such operation)."""
+    return ExternalTrip.objects.filter(shipment__status__code='cancelled').update(
+        shipment=None, conflict_note=None, last_pushed_export_code=None,
+    )

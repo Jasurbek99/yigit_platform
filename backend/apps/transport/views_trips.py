@@ -9,7 +9,9 @@ from apps.transport.models import ExternalTrip, ExternalTripSyncState
 from apps.transport.permissions import CanAssignTrips, CanViewTruckBoard
 from apps.transport.serializers_trips import CandidateShipmentSerializer, ExternalTripSerializer
 from apps.transport.services.matching import device_for_plate
-from apps.transport.services.trip_assignment import AssignmentError, assign_trip, unassign_trip
+from apps.transport.services.trip_assignment import (
+    AssignmentError, accept_trip_change, assign_trip, move_trip, unassign_trip,
+)
 from apps.transport.services.trips_client import TripsApiUnavailable, get_trips_client
 
 
@@ -74,6 +76,22 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
         trip = self.get_object()
         try:
             unassign_trip(trip, request.user)
+        except AssignmentError as exc:
+            return Response({'detail': exc.code}, status=status.HTTP_409_CONFLICT)
+        return Response(ExternalTripSerializer(ExternalTrip.objects.get(pk=trip.pk)).data)
+
+    @action(detail=True, methods=['post'], url_path='accept-change')
+    def accept_change(self, request, pk=None):
+        trip = self.get_object()
+        accept_trip_change(trip, request.user)
+        return Response(ExternalTripSerializer(ExternalTrip.objects.get(pk=trip.pk)).data)
+
+    @action(detail=True, methods=['post'])
+    def move(self, request, pk=None):
+        trip = self.get_object()
+        target = Shipment.objects.select_related('status', 'country').get(pk=request.data['shipment_id'])
+        try:
+            move_trip(trip, target, request.user)
         except AssignmentError as exc:
             return Response({'detail': exc.code}, status=status.HTTP_409_CONFLICT)
         return Response(ExternalTripSerializer(ExternalTrip.objects.get(pk=trip.pk)).data)
