@@ -385,6 +385,8 @@ export interface ISheetBlockSource {
 
 export interface IShipmentSheetItem {
   id: number;
+  /** ExternalTrip pk when a Planning trip is linked — transport cells go read-only. */
+  trip_id?: number | null;
   shipment_code: string;
   date: string;
   // Status

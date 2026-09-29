@@ -634,7 +634,7 @@ export function SheetGrid({
         // already selected, Enter mounted the editor while the header read
         // "Просмотр". A season switch to a closed one is blocked here too —
         // the cell may have been selected before the switch.
-        if (rowConfig && isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly)) {
+        if (rowConfig && isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly, shipments[shipmentIdx])) {
           state.setEditingCell({
             shipmentId: active.shipmentId,
             rowKey: active.rowKey,
@@ -650,7 +650,7 @@ export function SheetGrid({
       if (isPrintable) {
         const rowConfig = rows[rowIdx];
         // Same predicate as the Enter path above and the click path below.
-        if (rowConfig && isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly)) {
+        if (rowConfig && isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly, shipments[shipmentIdx])) {
           state.setEditingCell(
             { shipmentId: active.shipmentId, rowKey: active.rowKey },
             e.key,
@@ -785,7 +785,7 @@ export function SheetGrid({
 
       // Shared with the clipboard hook so cut / paste / Delete obey the same
       // gate as inline editing (backend v2 decision, else legacy field check).
-      const isEditable = isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly);
+      const isEditable = isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly, shipment);
 
       // Comment / task badge for this specific cell
       const cellCounts = commentCounts[shipment.id] ?? {};

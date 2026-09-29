@@ -789,7 +789,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'packing_template', 'packing_template_name',
             # Transport
             'vehicle_responsible', 'vehicle_responsible_display',
-            'truck_head_id', 'trailer_id', 'driver_id',
+            'truck_head_id', 'trailer_id', 'driver_id', 'trip_id',
             # Operator-entered transport details — sheet R23, R27, R28
             'truck_plate', 'driver_name', 'driver_phone',
             # Second rig — no Sheet row of their own; the R23/R27 overlays
