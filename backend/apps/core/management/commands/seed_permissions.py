@@ -112,6 +112,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'loading_dept_head': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         'export.drafts',
+        'export.assign',  # Assignment board: join / detach / swap packing (spec 2026-09-29).
         'export.pallet_manifest',
         'export.plan',
         _BOARD,

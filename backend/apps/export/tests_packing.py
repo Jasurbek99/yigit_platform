@@ -438,3 +438,31 @@ class SwapPackingTests(PackingFixtures):
             f'/api/v1/export/shipments/{a.pk}/swap/', {'other_id': a.pk, 'fields': ['truck_plate']},
             format='json')
         self.assertEqual(resp.status_code, 404)
+
+
+class BoardListTests(PackingFixtures):
+    """Spec Part 2 §4 — the board's one query."""
+
+    def test_status_code_in_returns_pre_loading_rows_with_ids(self):
+        wanted = [self.make(code, destination=True) for code in ('draft', 'gumruk_girish', 'gumruk_chykysh')]
+        self.make('yuklenme', destination=True)
+        # The exact query useJoinBoard() sends.
+        resp = self.client_for(self.manager).get(
+            '/api/v1/export/shipments/?status_code__in=draft,gumruk_girish,gumruk_chykysh'
+            f'&page_size=200&ordering=harvest_age_desc&season={self.season.pk}')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        rows = {r['id']: r for r in resp.data['results']}
+        self.assertEqual(set(rows), {s.pk for s in wanted})
+        row = rows[wanted[1].pk]
+        self.assertEqual(row['country'], self.country.pk)
+        self.assertEqual(row['customer'], self.customer.pk)
+        self.assertEqual(row['status_code'], 'gumruk_girish')
+        self.assertIn('block_sources', row)
+        self.assertIn('truck_plate', row)
+
+    def test_plain_draft_list_unchanged(self):
+        self.make('draft')
+        resp = self.client_for(self.manager).get(
+            f'/api/v1/export/shipments/?status_code=draft&page_size=200&season={self.season.pk}')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('block_sources', resp.data['results'][0])

@@ -609,6 +609,8 @@ class ShipmentDraftListSerializer(ShipmentListSerializer):
             'block_sources',
             'previous_platform_id',
             'variety_confidence',
+            # FK ids — the join board classifies rows by them (spec 2026-09-29).
+            'country', 'customer',
         ]
 
 

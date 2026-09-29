@@ -412,9 +412,9 @@ class ShipmentViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ShipmentDetailSerializer
-        if (
-            self.action == 'list'
-            and self.request.query_params.get('status_code') == 'draft'
+        if self.action == 'list' and (
+            self.request.query_params.get('status_code') == 'draft'
+            or self.request.query_params.get('status_code__in')
         ):
             return ShipmentDraftListSerializer
         return ShipmentListSerializer
@@ -596,6 +596,12 @@ class ShipmentViewSet(ModelViewSet):
             # Draft list serializer needs created_by + block_sources; pre-load
             # them here so the DraftPool render avoids per-row queries.
             if status_code == 'draft' and getattr(self, 'action', None) == 'list':
+                qs = qs.select_related('created_by').prefetch_related('block_sources__block')
+        # Join board (spec 2026-09-29): several statuses at once, same draft
+        # shape (block_sources prefetched) as ?status_code=draft.
+        if status_codes := self.request.query_params.get('status_code__in'):
+            qs = qs.filter(status__code__in=[c for c in status_codes.split(',') if c])
+            if getattr(self, 'action', None) == 'list':
                 qs = qs.select_related('created_by').prefetch_related('block_sources__block')
         # The ShipmentList serializer's export_firms_display column joins firm
         # codes from the firm_splits junction. Prefetch once per page so the
