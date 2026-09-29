@@ -46,6 +46,14 @@ TRACCAR_BASE_URL = os.environ.get('TRACCAR_BASE_URL', '')
 TRACCAR_TOKEN = os.environ.get('TRACCAR_TOKEN', '')
 TRACCAR_STALE_MINUTES = int(os.environ.get('TRACCAR_STALE_MINUTES') or '15')
 
+# Planning (transport department) trips API — spec 2026-09-29-transport-trips-design.md
+TRANSPORT_API_URL = os.environ.get('TRANSPORT_API_URL', 'https://10.10.11.79:8444/api/v1/external')
+TRANSPORT_API_KEY = os.environ.get('TRANSPORT_API_KEY', '')
+TRANSPORT_API_MODE = os.environ.get('TRANSPORT_API_MODE', 'live')  # live | mock
+# Path to a CA bundle, or 'false' to skip verification (self-signed internal cert).
+_transport_verify = os.environ.get('TRANSPORT_API_VERIFY_TLS', 'false')
+TRANSPORT_API_VERIFY_TLS = False if _transport_verify.lower() == 'false' else _transport_verify
+
 # TIR fleet DB (Z_TIRWEB) — read-only, used ONLY by the one-time import_tir_fleet
 # command (apps/transport/management/commands/import_tir_fleet.py). No default:
 # must be set in the environment (see backend/.env.example). Never hardcode
