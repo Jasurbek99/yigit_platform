@@ -202,6 +202,13 @@ for _role in PAGE_DEFAULTS:
 for _role in ('greenhouse_manager', 'seller'):
     PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | {'export.task_rules'}
 
+# Truck Board (registered 2026-09-29) — joins Planning trips to regular
+# shipments. admin / director / export_manager / boss hold it via _ALL_PAGES and
+# document_team via its copy of export_manager's set; transport sees the board
+# read-only (writes are gated on shipment_assign.can_edit, which it lacks).
+# Must stay in step with VISIBLE_ROLES in core/0066_truck_board_page_perms.
+PAGE_DEFAULTS['transport'] = PAGE_DEFAULTS['transport'] | {'export.truck_board'}
+
 
 # Fleet Management (truck-head / trailer / driver CRUD) — mirrors the old
 # SHIPMENT_EDITOR_ROLES set in apps/transport/permissions.py: management

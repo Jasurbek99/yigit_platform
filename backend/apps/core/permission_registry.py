@@ -83,6 +83,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # role arrays (AppLayout.tsx + transport/permissions.py) that the permission
     # matrix could not reach, so an admin could not grant or revoke either one.
     ('transport.map',           'Fleet Map (live GPS)'),
+    ('export.truck_board',      'Truck Board (Planning trips ↔ shipments)'),
     ('transport.fleet',         'Fleet Management (trucks, trailers, drivers)'),
     # Tır Takip (Maşyn Yzarlamasy) — the sera-design page. One container code
     # plus one code per tab, so an admin can grant or revoke each tab
