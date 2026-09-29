@@ -140,16 +140,65 @@ class RollbackPathTests(TestCase):
 
 
 class PollWiringTests(TestCase):
-    def test_poll_releases_cancelled_then_applies_each_change(self):
+    def test_poll_releases_cancelled_then_applies_every_pending_change(self):
         from unittest import mock
 
         from apps.transport import tasks
         trip = make_trip()
-        with mock.patch.object(tasks, 'sync_external_trips', return_value=[trip]), \
+        with mock.patch.object(tasks, 'sync_external_trips', return_value=[]), \
+                mock.patch.object(tasks, 'find_pending_changes', return_value=[trip]), \
                 mock.patch.object(tasks, 'release_cancelled_shipments') as release, \
                 mock.patch.object(tasks, 'apply_trip_change') as apply_change:
             result = tasks.poll_external_trips()
         release.assert_called_once()
-        apply_change.assert_called_once()
         self.assertEqual(apply_change.call_args.args[0], trip)
         self.assertEqual(result, {'ok': True, 'changed': 1})
+
+    def test_poll_401_alerts_admin_once_per_hour(self):
+        from unittest import mock
+
+        from apps.transport import tasks
+        from apps.transport.services.trips_client import TripsApiUnavailable
+        User.objects.create_user(username='adm', password='x', role='admin')
+        with mock.patch.object(tasks, 'sync_external_trips', side_effect=TripsApiUnavailable('401', 401)):
+            tasks.poll_external_trips()
+            tasks.poll_external_trips()
+        self.assertEqual(Notification.objects.filter(user__username='adm').count(), 1)
+
+
+class PendingChangeTests(TestCase):
+    """I-1: a change whose apply was lost (crash, closed season...) is found again next tick."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username='em', password='x', role='export_manager')
+        kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
+        self.shipment = _make_shipment(country=kz)
+        self.trip = make_trip()
+        assign_trip(self.trip, self.shipment, self.user)
+
+    def test_snapshot_ahead_of_shipment_is_pending_until_applied(self):
+        from apps.transport.services.trip_assignment import find_pending_changes
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(driver_full_name='Taze Suruji')
+        self.assertEqual([t.pk for t in find_pending_changes()], [self.trip.pk])
+        apply_trip_change(self.trip, self.user)
+        self.assertEqual(find_pending_changes(), [])
+
+    def test_recorded_conflict_is_not_pending_again(self):
+        from apps.transport.services.trip_assignment import find_pending_changes
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(driver_full_name='X', conflict_note='locked')
+        self.assertEqual(find_pending_changes(), [])
+
+    def test_cancelled_linked_trip_is_pending(self):
+        from apps.transport.services.trip_assignment import find_pending_changes
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(status='CANCELLED')
+        self.assertEqual(len(find_pending_changes()), 1)
+
+    def test_move_of_unknown_country_trip_needs_confirm(self):
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(destination_country_code=None)
+        other = _make_shipment(code='T-2', country=self.shipment.country)
+        with self.assertRaises(AssignmentError) as ctx:
+            move_trip(self.trip, other, self.user)
+        self.assertEqual(ctx.exception.code, 'country_unknown')
+        move_trip(self.trip, other, self.user, confirm_unknown_country=True)
+        other.refresh_from_db()
+        self.assertEqual(other.trip_id, self.trip.pk)

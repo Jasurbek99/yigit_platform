@@ -197,10 +197,33 @@ def unassign_trip(trip: ExternalTrip, user) -> None:
         reopen_rule_task(shipment, 'tasks.choose_truck')
 
 
-def move_trip(trip: ExternalTrip, to_shipment: Shipment, user) -> None:
+def move_trip(trip: ExternalTrip, to_shipment: Shipment, user, confirm_unknown_country: bool = False) -> None:
     with transaction.atomic():
         unassign_trip(trip, user)
-        assign_trip(_fresh(trip), to_shipment, user)
+        assign_trip(_fresh(trip), to_shipment, user, confirm_unknown_country=confirm_unknown_country)
+
+
+# What a Planning change can alter on the shipment; the matched fleet ids are
+# left out so a fleet-table edit on our side never reads as a Planning change.
+COMPARED_FIELDS = ('truck_plate', 'driver_name', 'driver_passport_serial')
+
+
+def find_pending_changes() -> list[ExternalTrip]:
+    """Linked trips whose Planning state is not yet reflected on the shipment.
+
+    Compares state, not events: a change whose reaction failed (crash, closed
+    season, time limit) is still visible here on the next tick. A trip with a
+    recorded conflict waits for the export manager (Accept / Unlink).
+    """
+    pending = []
+    trips = ExternalTrip.objects.filter(shipment__isnull=False, conflict_note__isnull=True).select_related('shipment')
+    for trip in trips:
+        wanted = trip_values(trip)
+        if trip.status == 'CANCELLED' or any(
+            getattr(trip.shipment, field) != wanted[field] for field in COMPARED_FIELDS
+        ):
+            pending.append(trip)
+    return pending
 
 
 def release_cancelled_shipments() -> int:

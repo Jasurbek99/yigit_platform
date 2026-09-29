@@ -49,13 +49,17 @@ def parse_trip(item: dict) -> dict:
 
 
 def visa_country_codes(visas_csv: str) -> list[str]:
-    """Codes of countries the driver holds a visa for; unknown names are dropped."""
+    """Codes of countries the driver holds a VALID visa for; expired and unknown names are dropped."""
     from apps.core.models import Country
 
     by_name = {_norm(c.name_tk): c.code for c in Country.objects.exclude(code__isnull=True)}
+    today = date.today()
     codes: list[str] = []
     for chunk in filter(None, (visas_csv or '').split(';')):
-        name = chunk.rsplit(':', 1)[0]
+        name, _, expiry = chunk.rpartition(':')
+        expires = parse_date(expiry) if expiry else None
+        if expires is not None and expires < today:
+            continue
         code = VISA_NAME_ALIASES.get(_norm(name)) or by_name.get(_norm(name))
         if code:
             codes.append(code)

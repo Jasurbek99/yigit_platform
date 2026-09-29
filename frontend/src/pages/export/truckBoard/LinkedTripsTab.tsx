@@ -78,10 +78,18 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
         title={t('truck_board.move')}
         okButtonProps={{ disabled: target === null, loading: move.isPending }}
         onCancel={() => setMoving(null)}
-        onOk={() => moving && target !== null && move.mutate(
-          { tripId: moving.id, shipmentId: target },
-          { onSuccess: () => setMoving(null), onError },
-        )}
+        onOk={() => {
+          if (!moving || target === null) return;
+          const doMove = (confirmUnknownCountry: boolean) => move.mutate(
+            { tripId: moving.id, shipmentId: target, confirmUnknownCountry },
+            { onSuccess: () => setMoving(null), onError },
+          );
+          if (moving.destination_country_code === null) {
+            Modal.confirm({ title: t('truck_board.unknown_country_confirm'), onOk: () => doMove(true) });
+          } else {
+            doMove(false);
+          }
+        }}
       >
         <Select
           style={{ width: '100%' }}

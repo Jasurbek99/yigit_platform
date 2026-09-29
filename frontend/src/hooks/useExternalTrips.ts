@@ -60,9 +60,9 @@ export function useAcceptTripChange() {
 }
 
 export function useMoveTrip() {
-  return useTripAction<{ tripId: number; shipmentId: number }>(
+  return useTripAction<{ tripId: number; shipmentId: number; confirmUnknownCountry?: boolean }>(
     (v) => `${BASE}${v.tripId}/move/`,
-    (v) => ({ shipment_id: v.shipmentId }),
+    (v) => ({ shipment_id: v.shipmentId, confirm_unknown_country: !!v.confirmUnknownCountry }),
   );
 }
 

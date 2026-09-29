@@ -104,3 +104,24 @@ class SimulateTripChangeTests(TestCase):
         self.assertEqual(item['driver']['fullName'], 'Täze Sürüji')
         self.assertEqual(item['status'], 'CANCELLED')
         self.assertGreater(item['changedAt'], '2026-09-29')
+
+
+class MoveUnknownCountryApiTests(TestCase):
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.client.force_authenticate(User.objects.create_user(username='em2', password='x', role='export_manager'))
+        kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
+        self.a = _make_shipment(code='A', country=kz)
+        self.b = _make_shipment(code='B', country=kz)
+        self.trip = make_trip(destination_country_code=None)
+        self.base = f'/api/v1/transport/external-trips/{self.trip.pk}/'
+        self.client.post(self.base + 'assign/', {'shipment_id': self.a.pk, 'confirm_unknown_country': True}, format='json')
+
+    def test_move_passes_the_confirm_through(self):
+        refused = self.client.post(self.base + 'move/', {'shipment_id': self.b.pk}, format='json')
+        self.assertEqual((refused.status_code, refused.json()['detail']), (409, 'country_unknown'))
+        moved = self.client.post(self.base + 'move/', {'shipment_id': self.b.pk, 'confirm_unknown_country': True}, format='json')
+        self.assertEqual(moved.status_code, 200, moved.content)
+        self.assertEqual(moved.json()['shipment'], self.b.pk)

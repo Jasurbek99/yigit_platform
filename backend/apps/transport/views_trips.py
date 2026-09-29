@@ -91,7 +91,8 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
         trip = self.get_object()
         target = Shipment.objects.select_related('status', 'country').get(pk=request.data['shipment_id'])
         try:
-            move_trip(trip, target, request.user)
+            move_trip(trip, target, request.user,
+                      confirm_unknown_country=bool(request.data.get('confirm_unknown_country')))
         except AssignmentError as exc:
             return Response({'detail': exc.code}, status=status.HTTP_409_CONFLICT)
         return Response(ExternalTripSerializer(ExternalTrip.objects.get(pk=trip.pk)).data)

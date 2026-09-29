@@ -10,7 +10,8 @@ straight back to where the shipment was.
 """
 from django.utils import timezone
 
-from apps.export.models import Shipment, Task, TaskState
+from apps.export.models import AuditLog, Shipment, Task, TaskState
+from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 from apps.export.services.shipment import transition_to
 from apps.export.services.task_rules import parse_deadline_rule
 
@@ -60,9 +61,14 @@ def rollback_to_draft(shipment: Shipment, user, reason: str) -> None:
     regate = {'documents_status': 'in_progress'}
     for step in passed:
         regate[STEP_GATES[step][1]] = None
+    before = snapshot_fields(shipment, list(regate))
     Shipment.objects.filter(pk=shipment.pk).update(**regate)
     for name, value in regate.items():
         setattr(shipment, name, value)
+    # queryset.update() skips the save-time audit; record the cleared values here.
+    rows = diff_audit_rows(shipment, before, snapshot_fields(shipment, list(regate)), user)
+    if rows:
+        AuditLog.objects.bulk_create(rows, batch_size=500)
     reopen_rule_task(shipment, 'tasks.start_documents_prep')
     for step in passed:
         reopen_rule_task(shipment, STEP_GATES[step][0])

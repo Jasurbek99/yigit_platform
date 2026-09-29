@@ -107,3 +107,39 @@ class AssignEnqueuesPushesTests(TestCase):
         with mock.patch('apps.transport.services.trip_assignment.enqueue_push') as enqueue:
             assign_trip(make_trip(), shipment, user)
         self.assertEqual([c.args[1] for c in enqueue.call_args_list], ['export-code', 'loading'])
+
+
+class PushFailureTests(TestCase):
+    def setUp(self):
+        self.trip = make_trip()
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(last_pushed_export_code='04AP034/26')
+
+    def _run(self, client, op, key):
+        with mock.patch('apps.transport.tasks.get_trips_client', return_value=client):
+            push_trip_update.apply(args=(self.trip.pk, op, {'eventId': key}, key))
+        self.trip.refresh_from_db()
+
+    def test_exhausted_retries_forget_the_pushed_code_so_the_next_tick_resends(self):
+        from apps.transport.services.trips_client import TripsApiUnavailable
+        client = mock.Mock(is_mock=False)
+        client.post_op.side_effect = TripsApiUnavailable('down')
+        self._run(client, 'export-code', 'k')
+        self.assertIsNone(self.trip.last_pushed_export_code)
+        self.assertEqual(self.trip.last_push_status, 'error')
+
+    def test_loading_ok_does_not_wipe_an_export_code_error(self):
+        client = mock.Mock(is_mock=False)
+        client.post_op.return_value = (409, {'code': 'DUPLICATE_EXPORT_CODE'})
+        self._run(client, 'export-code', 'a')
+        client.post_op.return_value = (200, {})
+        self._run(client, 'loading', 'b')
+        self.assertEqual(self.trip.last_push_status, 'error')
+        self.assertIn('DUPLICATE_EXPORT_CODE', self.trip.last_push_error)
+
+    def test_duplicate_code_notifies_export_managers(self):
+        from apps.export.models import Notification
+        get_user_model().objects.create_user(username='em', password='x', role='export_manager')
+        client = mock.Mock(is_mock=False)
+        client.post_op.return_value = (409, {'code': 'DUPLICATE_EXPORT_CODE'})
+        self._run(client, 'export-code', 'a')
+        self.assertTrue(Notification.objects.filter(user__username='em').exists())

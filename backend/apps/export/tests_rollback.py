@@ -123,3 +123,11 @@ class RollbackTests(TestCase):
 
     def test_reopen_rule_task_returns_false_when_absent(self):
         self.assertFalse(reopen_rule_task(self.shipment, 'tasks.no_such_task'))
+
+    def test_rollback_audits_the_cleared_fields(self):
+        from apps.export.models import AuditLog
+        self._save(customs_exit_at=timezone.now())
+        rollback_to_draft(self.shipment, self.user, 'x')
+        fields = set(AuditLog.objects.filter(object_id=self.shipment.pk).values_list('field_name', flat=True))
+        self.assertIn('customs_exit_at', fields)
+        self.assertIn('documents_status', fields)

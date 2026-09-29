@@ -44,6 +44,9 @@ class VisaCountryTests(TestCase):
             ['KZ', 'UZ', 'RU'],
         )
 
+    def test_expired_visa_does_not_count(self):
+        self.assertEqual(visa_country_codes('Russiýa:2000-01-01;Gazagystan:2999-01-01'), ['KZ'])
+
     def test_unknown_name_is_skipped_not_guessed(self):
         self.assertEqual(visa_country_codes('Eýran Yslam Respublikasy:2026-12-18'), [])
 
