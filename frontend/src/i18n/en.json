@@ -130,7 +130,8 @@
     "documents": "Documents",
     "pomidor_dukany": "Pomidor Dükany",
     "tir_takip": "Truck Tracking",
-    "gaplama": "Packing"
+    "gaplama": "Packing",
+    "truck_board": "Truck Board"
   },
   "expense_template": {
     "title": "Expense Category Template",
@@ -3063,7 +3064,8 @@
     "submit_sales_report": "Submit sales report",
     "fill_weekly_plan": "Fill the weekly plan",
     "fill_local_sell_plan": "Fill the local sell plan",
-    "fill_truck_allocation": "Fill the truck allocation"
+    "fill_truck_allocation": "Fill the truck allocation",
+    "choose_truck": "Choose a truck (Planning trip)"
   },
   "me": {
     "board": {
@@ -3973,5 +3975,49 @@
     "error_forbidden": "You do not have access to this truck.",
     "error_not_found": "This truck no longer exists.",
     "error_generic": "Something went wrong. Try again."
+  },
+  "truck_board": {
+    "title": "Truck Board",
+    "subtitle": "Join Planning trips to regular shipments",
+    "col_shipments": "Shipments without a truck",
+    "col_trips": "Planned trucks",
+    "no_country": "No country",
+    "no_gps": "No GPS",
+    "garage": "Own fleet",
+    "third_party": "Third party",
+    "no_visa": "No visa",
+    "details": "Details",
+    "documents_pdf": "Trip documents (PDF)",
+    "assign": "Assign",
+    "clear": "Clear",
+    "assigned": "Truck assigned to {{code}}",
+    "country_mismatch": "Countries do not match",
+    "unknown_country_group": "Trip country not set",
+    "unknown_country_confirm": "The trip's country is not set. Assign anyway?",
+    "synced_ago": "Synced {{minutes}} min ago",
+    "never_synced": "Not synced yet",
+    "sync_error": "Planning is not responding — showing the last received trips",
+    "trip": "Trip",
+    "awaiting_code": "awaiting code",
+    "planned_departure": "Planned departure",
+    "country": "Country",
+    "tractor": "Tractor",
+    "trailer": "Trailer",
+    "driver": "Driver",
+    "phone": "Phone",
+    "passport": "Passport",
+    "valid_until": "valid until",
+    "visas": "Visas",
+    "error": {
+      "trip_taken": "This truck is already assigned",
+      "country_mismatch": "Countries do not match",
+      "country_unknown": "Trip country not set",
+      "not_draft": "Shipment is past Preparation",
+      "has_trip": "Shipment already has a truck",
+      "trip_closed": "Trip is closed or cancelled",
+      "gapy": "Gate-sale shipments keep their own driver",
+      "locked": "Shipment is locked — loading started",
+      "generic": "Could not save"
+    }
   }
 }

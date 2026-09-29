@@ -130,7 +130,8 @@
     "documents": "Документы",
     "pomidor_dukany": "Pomidor Dükany",
     "tir_takip": "Отслеживание машин",
-    "gaplama": "Упаковка"
+    "gaplama": "Упаковка",
+    "truck_board": "Машины ↔ Отгрузки"
   },
   "expense_template": {
     "title": "Шаблон категорий расходов",
@@ -3063,7 +3064,8 @@
     "submit_sales_report": "Отправить отчёт о продажах",
     "fill_weekly_plan": "Заполните недельный план",
     "fill_local_sell_plan": "Заполните план местных продаж",
-    "fill_truck_allocation": "Заполните распределение машин"
+    "fill_truck_allocation": "Заполните распределение машин",
+    "choose_truck": "Выбрать машину (рейс)"
   },
   "me": {
     "board": {
@@ -3975,5 +3977,49 @@
     "error_forbidden": "У вас нет доступа к этой фуре.",
     "error_not_found": "Такой фуры больше нет.",
     "error_generic": "Что-то пошло не так. Попробуйте ещё раз."
+  },
+  "truck_board": {
+    "title": "Машины ↔ Отгрузки",
+    "subtitle": "Связать рейсы Planning с обычными отгрузками",
+    "col_shipments": "Отгрузки без машины",
+    "col_trips": "Запланированные машины",
+    "no_country": "Страна не указана",
+    "no_gps": "Нет GPS",
+    "garage": "Свой парк",
+    "third_party": "Сторонний",
+    "no_visa": "Нет визы",
+    "details": "Подробнее",
+    "documents_pdf": "Документы рейса (PDF)",
+    "assign": "Привязать",
+    "clear": "Сбросить",
+    "assigned": "Машина привязана к {{code}}",
+    "country_mismatch": "Страны не совпадают",
+    "unknown_country_group": "Страна рейса не указана",
+    "unknown_country_confirm": "Страна рейса не указана. Всё равно привязать?",
+    "synced_ago": "Синхронизация {{minutes}} мин назад",
+    "never_synced": "Ещё не синхронизировано",
+    "sync_error": "Planning не отвечает — показаны последние полученные рейсы",
+    "trip": "Рейс",
+    "awaiting_code": "ожидает кода",
+    "planned_departure": "Плановый выезд",
+    "country": "Страна",
+    "tractor": "Тягач",
+    "trailer": "Прицеп",
+    "driver": "Водитель",
+    "phone": "Телефон",
+    "passport": "Паспорт",
+    "valid_until": "действителен до",
+    "visas": "Визы",
+    "error": {
+      "trip_taken": "Эта машина уже привязана",
+      "country_mismatch": "Страны не совпадают",
+      "country_unknown": "Страна рейса не указана",
+      "not_draft": "Отгрузка уже прошла подготовку",
+      "has_trip": "У отгрузки уже есть машина",
+      "trip_closed": "Рейс закрыт или отменён",
+      "gapy": "У gapy satyş свой водитель",
+      "locked": "Отгрузка заблокирована — погрузка началась",
+      "generic": "Не удалось сохранить"
+    }
   }
 }

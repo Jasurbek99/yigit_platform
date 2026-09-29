@@ -130,7 +130,8 @@
     "documents": "Resminamalar",
     "pomidor_dukany": "Pomidor Dükany",
     "tir_takip": "Maşyn Yzarlamasy",
-    "gaplama": "Gaplama"
+    "gaplama": "Gaplama",
+    "truck_board": "Maşynlar ↔ Ugratmalar"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -3066,7 +3067,8 @@
     "submit_sales_report": "Satyş hasabatyny tabşyr",
     "fill_weekly_plan": "Hepdelik plany dolduryň",
     "fill_local_sell_plan": "Ýerli satuw planyny dolduryň",
-    "fill_truck_allocation": "Maşyn paýlanyşyny dolduryň"
+    "fill_truck_allocation": "Maşyn paýlanyşyny dolduryň",
+    "choose_truck": "Maşyn saýla (reýs)"
   },
   "me": {
     "board": {
@@ -3976,5 +3978,49 @@
     "error_forbidden": "Bu tıra girmäge hukugyňyz ýok.",
     "error_not_found": "Beýle tır indi ýok.",
     "error_generic": "Bir zat ýalňyş gitdi. Ýene synanyşyň."
+  },
+  "truck_board": {
+    "title": "Maşynlar ↔ Ugratmalar",
+    "subtitle": "Planning reýslerini adaty ugratmalara birikdir",
+    "col_shipments": "Maşynsyz ugratmalar",
+    "col_trips": "Meýilleşdirilen maşynlar",
+    "no_country": "Ýurt görkezilmedik",
+    "no_gps": "GPS ýok",
+    "garage": "Öz parkymyz",
+    "third_party": "Daşary",
+    "no_visa": "Wiza ýok",
+    "details": "Jikme-jik",
+    "documents_pdf": "Reýs resminamalary (PDF)",
+    "assign": "Birikdir",
+    "clear": "Arassala",
+    "assigned": "Maşyn {{code}} bilen birikdirildi",
+    "country_mismatch": "Ýurtlar gabat gelmeýär",
+    "unknown_country_group": "Reýsiň ýurdy görkezilmedik",
+    "unknown_country_confirm": "Reýsiň ýurdy görkezilmedik. Şonda-da birikdirilsinmi?",
+    "synced_ago": "{{minutes}} min öň sinhronlandy",
+    "never_synced": "Entek sinhronlanmady",
+    "sync_error": "Planning jogap bermeýär — soňky alnan reýsler görkezilýär",
+    "trip": "Reýs",
+    "awaiting_code": "kod garaşylýar",
+    "planned_departure": "Meýilleşdirilen ugraýyş",
+    "country": "Ýurt",
+    "tractor": "Çekiji",
+    "trailer": "Tirkeg",
+    "driver": "Sürüji",
+    "phone": "Telefon",
+    "passport": "Pasport",
+    "valid_until": "möhleti",
+    "visas": "Wizalar",
+    "error": {
+      "trip_taken": "Bu maşyn eýýäm birikdirilen",
+      "country_mismatch": "Ýurtlar gabat gelmeýär",
+      "country_unknown": "Reýsiň ýurdy görkezilmedik",
+      "not_draft": "Ugratma taýýarlykdan geçdi",
+      "has_trip": "Ugratmanyň eýýäm maşyny bar",
+      "trip_closed": "Reýs ýapyk ýa-da ýatyryldy",
+      "gapy": "Gapy satyşyň öz sürüjisi bar",
+      "locked": "Ugratma gulplandy — ýükleme başlady",
+      "generic": "Ýatda saklap bolmady"
+    }
   }
 }

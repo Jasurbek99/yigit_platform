@@ -95,7 +95,7 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks',
   '/export/weightmaster',
   '/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard',
-  '/transport/map', '/tir-takip', '/export/gaplama',
+  '/transport/map', '/export/truck-board', '/tir-takip', '/export/gaplama',
   '/documents', '/admin/packing-templates',
   '/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices',
   '/export/advances', '/export/overdue', '/admin/expense-template',
@@ -118,7 +118,7 @@ const EXPECTED_STAFF_ORDERED_KEYS = [
   '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
   '/export/task-rules',
   '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-  '/export/my-reports', '/export/advances', '/transport/map',
+  '/export/my-reports', '/export/advances', '/transport/map', '/export/truck-board',
   '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
   '/contracts', '/sales', '/documents',
   '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
@@ -262,7 +262,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('staff and boss reach the same 49-key set, grouped differently, and neither surfaces the removed pages', () => {
+  it('staff and boss reach the same 50-key set, grouped differently, and neither surfaces the removed pages', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -281,8 +281,10 @@ describe('AppLayout menu composition', () => {
     // `/export/task-rules` (Task Rules reference) and `/tir-takip` (Tır Takip).
     // 49 as of 2026-09-23: `/export/gaplama` (Gaplama standalone page) added
     // right after `/tir-takip` in both compositions.
-    expect(bossKeys).toHaveLength(49);
-    expect(staffKeys).toHaveLength(49);
+    // 50 as of 2026-09-29: `/export/truck-board` (Planning trips ↔ shipments)
+    // after `/transport/map` in both compositions.
+    expect(bossKeys).toHaveLength(50);
+    expect(staffKeys).toHaveLength(50);
     for (const key of REMOVED_EVERYWHERE) {
       expect(staffKeys).not.toContain(key);
       expect(bossKeys).not.toContain(key);

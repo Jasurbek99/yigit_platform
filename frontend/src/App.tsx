@@ -46,6 +46,7 @@ const ShipmentSheet = lazy(() => import('@/pages/export/ShipmentSheet'));
 const ShipmentDashboard = lazy(() => import('@/pages/export/ShipmentDashboard'));
 const DraftPool = lazy(() => import('@/pages/export/DraftPool'));
 const AssignmentBoard = lazy(() => import('@/pages/export/AssignmentBoard'));
+const TruckBoard = lazy(() => import('@/pages/export/TruckBoard'));
 const PalletManifest = lazy(() => import('@/pages/export/PalletManifest'));
 const WeightmasterPage = lazy(() => import('@/pages/export/WeightmasterPage'));
 const BossDashboard = lazy(() => import('@/pages/boss/BossDashboard'));
@@ -196,6 +197,9 @@ export default function App() {
                   } />
                   <Route path="export/assign" element={
                     <ProtectedRoute pageCode="export.assign"><AssignmentBoard /></ProtectedRoute>
+                  } />
+                  <Route path="export/truck-board" element={
+                    <ProtectedRoute pageCode="export.truck_board"><TruckBoard /></ProtectedRoute>
                   } />
                   <Route path="shipments/:id/manifest" element={
                     <ProtectedRoute pageCode="export.pallet_manifest"><PalletManifest /></ProtectedRoute>
