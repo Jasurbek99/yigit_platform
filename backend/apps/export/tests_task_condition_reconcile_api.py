@@ -7,7 +7,7 @@ and that doing so never moves the shipment's status.
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from apps.core.models import Season, ShipmentStatusType, User
+from apps.core.models import Customer, Season, ShipmentStatusType, User
 from apps.export.models import (
     Shipment,
     ShipmentStatusLog,
@@ -84,6 +84,8 @@ class PatchReconcilesTests(TestCase):
             season=_make_season(),
             status=_make_status('draft', 0),
             is_gapy_satys=False,
+            # A destination, or it is a packing part with no draft tasks.
+            customer=Customer.objects.create(name='cond-api customer'),
         )
         self.regular_task = Task.objects.create(
             shipment=self.shipment, step='draft', rule=self.regular_rule,
@@ -215,6 +217,8 @@ class TwoConditionFieldsInOnePatchTests(TestCase):
             shipment_code='0301002/26', date='2026-01-15',
             season=_make_season(), status=_make_status('draft', 0),
             is_gapy_satys=False, has_peregruz=False,
+            # A destination, or it is a packing part with no draft tasks.
+            customer=Customer.objects.create(name='cond-api customer 2'),
         )
         old_tasks = [
             Task.objects.create(

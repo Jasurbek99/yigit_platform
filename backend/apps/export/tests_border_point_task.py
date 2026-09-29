@@ -14,7 +14,7 @@ drops ``condition_field`` from the seed row, that test fails and says why.
 """
 from django.test import TestCase
 
-from apps.core.models import BorderPoint, Season, ShipmentStatusType, User
+from apps.core.models import BorderPoint, Customer, Season, ShipmentStatusType, User
 from apps.export.management.commands.seed_task_rules import (
     Command as SeedTaskRulesCommand,
 )
@@ -54,6 +54,8 @@ class BorderPointTaskTests(TestCase):
             },
         )
         cls.farap = BorderPoint.objects.create(name='Farap', name_ru='Фарап')
+        # Draft-step tasks need a destination (packing-part rule, 2026-09-29).
+        cls.customer = Customer.objects.create(name='BP customer')
 
     def _draft(self, code: str, *, gapy: bool = False) -> Shipment:
         shipment = Shipment.objects.create(
@@ -62,6 +64,7 @@ class BorderPointTaskTests(TestCase):
             season=self.season,
             status=ShipmentStatusType.objects.get(code='draft'),
             is_gapy_satys=gapy,
+            customer=self.customer,
             created_by=self.user,
             updated_by=self.user,
         )
@@ -99,6 +102,7 @@ class BorderPointTaskTests(TestCase):
             season=self.season,
             status=ShipmentStatusType.objects.get(code='draft'),
             border_point=self.farap,
+            customer=self.customer,
             created_by=self.user,
             updated_by=self.user,
         )

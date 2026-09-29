@@ -1476,6 +1476,10 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         status_code = obj.status.code if obj.status_id else None
         if status_code != 'draft':
             return False
+        # A packing part carries no tasks (task_rules._rule_applies), so the
+        # empty-task branch below would call it ready. It has nowhere to go yet.
+        if obj.country_id is None and obj.customer_id is None:
+            return False
 
         tasks = self._get_tasks_prefetched(obj)
         # Only consider auto-resolving (target-field-driven) draft tasks.

@@ -76,6 +76,7 @@ class DraftCreationGeneratesTasksTests(TestCase):
         cls.user = _make_user('soltanmyrat', 'warehouse_chief')
         cls.season = _make_season()
         cls.block = GreenhouseBlock.objects.create(code='F-A', name='Test block A')
+        cls.customer = Customer.objects.create(name='DraftTasksCustomer')
 
         # The forecast-first model requires a forecast entry for a block+date
         # before a draft with block_sources can be created against it.
@@ -102,13 +103,26 @@ class DraftCreationGeneratesTasksTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    def test_draft_creation_generates_tasks(self):
-        """A POST with is_draft=True spawns the draft-step tasks."""
+    def test_packing_part_gets_no_tasks(self):
+        """A draft with blocks and no destination is the packing part (Gaplama /
+        supply truck). Owner, 2026-09-29: it must not appear in anyone's tasks."""
         resp = self.client.post('/api/v1/export/shipments/', {
             'shipment_code': '0101001/25',
             'date': '2025-01-01',
             'is_draft': True,
             'block_sources': [{'block_id': self.block.id, 'weight_kg': 1000}],
+        }, format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertFalse(Task.objects.filter(shipment_id=resp.data['id']).exists())
+
+    def test_draft_with_a_destination_generates_tasks(self):
+        """A POST with is_draft=True and a destination spawns the draft-step tasks."""
+        resp = self.client.post('/api/v1/export/shipments/', {
+            'shipment_code': '0101003/25',
+            'date': '2025-01-01',
+            'is_draft': True,
+            'customer': self.customer.id,
+            'block_sources': [],
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.data)
         ship_id = resp.data['id']
@@ -136,12 +150,9 @@ class DraftCreationGeneratesTasksTests(TestCase):
             'block_sources': [],
         }, format='json')
         self.assertEqual(resp.status_code, 201, resp.data)
-        # Tasks still generate even without block_sources.
+        # No destination either, so it is a packing part: no tasks.
         ship_id = resp.data['id']
-        self.assertEqual(
-            Task.objects.filter(shipment_id=ship_id, step='draft').count(),
-            6,
-        )
+        self.assertFalse(Task.objects.filter(shipment_id=ship_id).exists())
 
     def test_draft_creation_without_shipment_code_auto_generates(self):
         """Stream F-followup: shipment_code is optional. Server generates one
@@ -211,6 +222,7 @@ class CanPromoteFromDraftTests(TestCase):
             date=dt.date(2025, 1, 1),
             season=self.season,
             status=ShipmentStatusType.objects.get(code='draft'),
+            customer=self.customer,
             created_by=self.user,
         )
 

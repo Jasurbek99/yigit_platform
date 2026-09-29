@@ -18,7 +18,7 @@ import datetime
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.core.models import Season, ShipmentStatusType
+from apps.core.models import Customer, Season, ShipmentStatusType
 from apps.export.models import (
     QualityDocument,
     Shipment,
@@ -74,6 +74,9 @@ def _make_status(code: str = 'yuklenme', step_order: int = 1) -> ShipmentStatusT
 def _make_shipment(shipment_code: str = 'ENG0001', status_code: str = 'yuklenme') -> Shipment:
     """Create a minimal shipment without triggering task generation (no rules exist yet)."""
     status = _make_status(status_code)
+    # A customer, because a draft with no destination is a packing part and
+    # gets no draft-step tasks (task_rules._rule_applies, 2026-09-29).
+    customer, _ = Customer.objects.get_or_create(name='engine customer')
     # Bypass Shipment.save() override (no rules seeded in most tests so it's fine,
     # but using get_or_create avoids re-creating on each call in the same test).
     ship, _ = Shipment.objects.get_or_create(
@@ -82,6 +85,7 @@ def _make_shipment(shipment_code: str = 'ENG0001', status_code: str = 'yuklenme'
             'date': '2026-01-15',
             'season': _make_season(),
             'status': status,
+            'customer': customer,
         },
     )
     return ship

@@ -114,6 +114,16 @@ class MeTaskListView(APIView):
             Q(shipment__isnull=True) | Q(shipment__deleted_at__isnull=True)
         )
 
+        # Hide packing parts (a draft with no destination yet) in every column,
+        # History included — owner, 2026-09-29. Their pre-rule tasks were
+        # cancelled, not deleted, so they would otherwise sit in History.
+        qs = qs.exclude(
+            Q(shipment__isnull=False)
+            & Q(shipment__status__code='draft')
+            & Q(shipment__country__isnull=True)
+            & Q(shipment__customer__isnull=True)
+        )
+
         # Season read scope (§4.8). Kept as its own .filter() rather than folded
         # into the soft-delete clause above: OR-ing the two would let a
         # soft-deleted row back in through the null-anchor branch.

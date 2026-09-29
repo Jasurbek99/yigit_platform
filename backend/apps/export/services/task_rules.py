@@ -157,6 +157,27 @@ def _condition_matches(rule: TaskRule, shipment) -> bool:
     return str(actual) == rule.condition_value
 
 
+# Setting or clearing either one decides whether a draft is a packing part.
+DESTINATION_FIELDS = frozenset({'country', 'customer'})
+
+
+def has_destination(shipment) -> bool:
+    """True once a country or customer is set on the shipment."""
+    return shipment.country_id is not None or shipment.customer_id is not None
+
+
+def _rule_applies(rule: TaskRule, shipment) -> bool:
+    """A rule's condition, plus the packing-part rule.
+
+    A draft with no destination is the packing part — a Gaplama / supply truck
+    or a composer draft. Owner, 2026-09-29: it must not show up in anyone's
+    tasks, so no draft-step rule applies to it until a destination is set.
+    """
+    if rule.step == 'draft' and not has_destination(shipment):
+        return False
+    return _condition_matches(rule, shipment)
+
+
 UNIQUE_RULE_TASK = 'export_task_one_per_shipment_rule'
 
 
@@ -217,7 +238,7 @@ def generate_tasks_for_status(
     for rule in rules:
         if rule.id in existing_rule_ids:
             continue
-        if not _condition_matches(rule, shipment):
+        if not _rule_applies(rule, shipment):
             continue
         deadline = parse_deadline_rule(rule.deadline_rule, reference=now)
         task = create_rule_task(
@@ -257,6 +278,79 @@ def _empty_reconcile_result() -> dict:
     return {'created': [], 'cancelled': [], 'reopened': []}
 
 
+def _reopen_task(task: Task, now: datetime) -> None:
+    """Reopen a RULE_MISMATCH-cancelled task with a fresh deadline.
+
+    Recompute the deadline from now and clear started_at. A task cancelled
+    days ago would otherwise come back already overdue, putting work nobody
+    could have done on the overdue board and the owning role's KPI.
+    """
+    task.state = TaskState.OPEN
+    task.cancelled_reason = ''
+    task.deadline = parse_deadline_rule(task.deadline_rule, reference=now)
+    task.started_at = None
+    task.save(update_fields=['state', 'cancelled_reason', 'deadline', 'started_at'])
+
+
+def _cancel_mismatched_task(task: Task) -> None:
+    from apps.export.models import TaskCancelReason
+    task.state = TaskState.CANCELLED
+    task.cancelled_reason = TaskCancelReason.RULE_MISMATCH
+    task.save(update_fields=['state', 'cancelled_reason'])
+
+
+def sync_draft_tasks_with_destination(shipment) -> dict:
+    """Apply the packing-part rule (see _rule_applies) after a destination edit.
+
+    - Destination cleared (or never set): cancel the active draft-step tasks,
+      reason RULE_MISMATCH, so they can come back. DONE is untouched.
+    - Destination set on a draft with no draft-step task rows at all (a
+      packing part since birth): generate them now.
+    - Destination set on a draft whose draft-step tasks were cancelled by this
+      rule: reopen those.
+
+    A draft that already has its draft-step tasks gets nothing new here — so a
+    country edit on a legacy draft cannot emit a rule it was exempted from
+    (tasks.set_border_point, 2026-09-23).
+
+    Returns the reconcile result shape.
+    """
+    from apps.export.models import TaskCancelReason
+
+    result = _empty_reconcile_result()
+    if not shipment.status_id or shipment.status.code != 'draft':
+        return result
+
+    draft_tasks = list(shipment.tasks.filter(step='draft').select_related('rule'))
+    if not has_destination(shipment):
+        for task in draft_tasks:
+            if task.state in _ACTIVE_TASK_STATES:
+                _cancel_mismatched_task(task)
+                result['cancelled'].append(task)
+        return result
+
+    if not draft_tasks:
+        result['created'] = generate_tasks_for_status(shipment, 'draft')
+        return result
+
+    now = timezone.now()
+    for task in draft_tasks:
+        if (
+            task.state == TaskState.CANCELLED
+            and task.cancelled_reason == TaskCancelReason.RULE_MISMATCH
+            and task.rule is not None
+            and task.rule.is_active
+            and _rule_applies(task.rule, shipment)
+        ):
+            _reopen_task(task, now)
+            result['reopened'].append(task)
+    if result['reopened']:
+        resolve_for_shipment(shipment)
+        for task in result['reopened']:
+            task.refresh_from_db()
+    return result
+
+
 def reconcile_shipment_tasks(
     shipment,
     changed_fields: Iterable[str] | None = None,
@@ -278,7 +372,8 @@ def reconcile_shipment_tasks(
     opt-out: it would emit a Task for every active rule with no row, which is
     exactly what the 2026-09-23 `tasks.set_border_point` decision forbids (see
     the comment in seed_task_rules.py — the 69 non-gapy drafts open when that
-    gating rule shipped must stay unblocked).
+    gating rule shipped must stay unblocked). One exception: a changed country
+    or customer first runs sync_draft_tasks_with_destination (packing parts).
 
     Per active rule in scope, exactly one outcome:
       - matches, no Task for (shipment, rule)              -> create
@@ -349,17 +444,23 @@ def reconcile_shipment_tasks(
                 .values_list('condition_field', flat=True)
                 .distinct()
             )
-        if not condition_fields.intersection(set(changed_fields)):
+        if not (condition_fields | DESTINATION_FIELDS).intersection(set(changed_fields)):
             return _empty_reconcile_result()
 
     # Closed seasons are frozen (D1).
     if shipment.season_id and shipment.season.closed_at is not None:
         return _empty_reconcile_result()
 
+    # A destination set or cleared decides whether the draft is a packing part.
+    # Runs first so the condition pass below sees the tasks it created/reopened.
+    destination_result = _empty_reconcile_result()
+    if changed_fields is not None and DESTINATION_FIELDS.intersection(changed_fields):
+        destination_result = sync_draft_tasks_with_destination(shipment)
+
     if active_rules is None:
         active_rules = list(TaskRule.objects.filter(is_active=True))
     if not active_rules:
-        return _empty_reconcile_result()
+        return destination_result
 
     if steps is None:
         step_set = set(
@@ -383,7 +484,7 @@ def reconcile_shipment_tasks(
         changed = set(changed_fields)
         rules = [r for r in rules if r.condition_field in changed]
     if not rules:
-        return _empty_reconcile_result()
+        return destination_result
 
     # At most one Task per (shipment, rule) — the export_task_one_per_shipment_rule
     # constraint enforces it (migration 0080). Order by id anyway so rows from
@@ -402,7 +503,7 @@ def reconcile_shipment_tasks(
 
     for rule in rules:
         task = tasks_by_rule.get(rule.id)
-        matches = _condition_matches(rule, shipment)
+        matches = _rule_applies(rule, shipment)
 
         if matches:
             if task is None:
@@ -427,23 +528,10 @@ def reconcile_shipment_tasks(
                 task.state == TaskState.CANCELLED
                 and task.cancelled_reason == TaskCancelReason.RULE_MISMATCH
             ):
-                # Recompute the deadline from now and clear started_at. A task
-                # cancelled days ago would otherwise come back already overdue,
-                # putting work nobody could have done on the overdue board and
-                # the owning role's KPI. Created tasks get a fresh deadline
-                # (above), so this keeps the two branches consistent.
-                task.state = TaskState.OPEN
-                task.cancelled_reason = ''
-                task.deadline = parse_deadline_rule(task.deadline_rule, reference=now)
-                task.started_at = None
-                task.save(update_fields=[
-                    'state', 'cancelled_reason', 'deadline', 'started_at',
-                ])
+                _reopen_task(task, now)
                 reopened.append(task)
         elif task is not None and task.state in _ACTIVE_TASK_STATES:
-            task.state = TaskState.CANCELLED
-            task.cancelled_reason = TaskCancelReason.RULE_MISMATCH
-            task.save(update_fields=['state', 'cancelled_reason'])
+            _cancel_mismatched_task(task)
             cancelled.append(task)
 
     # Per step, not globally: a step can lose its last open auto-task while a
@@ -472,6 +560,9 @@ def reconcile_shipment_tasks(
         for task in created + reopened:
             task.refresh_from_db()
 
+    created = destination_result['created'] + created
+    cancelled = destination_result['cancelled'] + cancelled
+    reopened = destination_result['reopened'] + reopened
     if created or cancelled or reopened:
         logger.info(
             'reconcile_shipment_tasks: shipment %s: created %d, cancelled %d, reopened %d',
@@ -619,7 +710,7 @@ def _plan_condition_changes(
     plan: dict = {'created': [], 'cancelled': [], 'reopened': []}
     for rule in rules:
         task = tasks_by_rule.get(rule.id)
-        matches = _condition_matches(rule, shipment)
+        matches = _rule_applies(rule, shipment)
         if matches:
             if task is None:
                 if create_missing:

@@ -17,7 +17,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.core.models import Season, ShipmentStatusType
+from apps.core.models import Customer, Season, ShipmentStatusType
 from apps.export.models import (
     Shipment,
     Task,
@@ -54,12 +54,16 @@ def _make_status(code: str = 'draft', step_order: int = 0) -> ShipmentStatusType
 def _make_shipment(shipment_code: str, status_code: str = 'draft') -> Shipment:
     """Create a minimal shipment without triggering auto-advance (no rules seeded)."""
     status = _make_status(status_code)
+    # A customer, because a draft with no destination is a packing part and
+    # gets no draft-step tasks (task_rules._rule_applies, 2026-09-29).
+    customer, _ = Customer.objects.get_or_create(name='reconcile customer')
     ship, _ = Shipment.objects.get_or_create(
         shipment_code=shipment_code,
         defaults={
             'date': '2026-01-15',
             'season': _make_season(),
             'status': status,
+            'customer': customer,
         },
     )
     return ship

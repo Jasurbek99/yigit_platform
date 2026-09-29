@@ -86,6 +86,31 @@ department's tasks.
 tasks on the step, so *Give documents*, *Submit sales report* and *Quality inspection* are reminders — a shipment moves on
 without them. See [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]].
 
+## Packing parts get no tasks
+
+Owner, 2026-09-29: a draft with **no destination** (country and customer both empty) is the
+packing part — a Gaplama «Tır Aç» / supply truck, or a composer draft not yet assigned. It
+must not show up in anyone's tasks, so **no draft-step rule applies to it**
+(`task_rules._rule_applies`). Every task path goes through that check: creation
+(`generate_tasks_for_status`, so also `transition_to` and `backfill_tasks`) and the
+condition reconciler (a Gapy flip on a packing part creates nothing).
+
+- **Destination set** (Sheet/Detail PATCH or a swap of `country`/`customer`):
+  `sync_draft_tasks_with_destination()` runs from `reconcile_shipment_tasks`. A draft with no
+  draft-step task rows gets them generated; one whose tasks this rule cancelled gets them
+  reopened. A draft that already has its tasks gets nothing new, so a country edit cannot
+  emit a rule it was exempted from (see Border point below).
+- **Destination cleared**: the active draft-step tasks are cancelled with `rule_mismatch`, so
+  they come back when a destination is set again. DONE is never touched.
+- **Join**: nothing to do — the supply row is deleted and its tasks with it.
+- **My Tasks** (`GET /me/tasks/`, `core/views_me.py`) excludes every task on a packing part, in
+  every state — the pre-rule tasks were cancelled, and SelfBoard's History column lists cancelled.
+- **Promote**: `can_promote_from_draft` is False for a packing part; with zero tasks the
+  "all auto tasks done" check would otherwise call it ready.
+- **Before 2026-09-29** every draft got the tasks at creation. `python manage.py
+  cancel_packing_part_tasks [--dry-run]` cancels the active ones on no-destination drafts
+  (196 on 39 trucks on the dev DB). Run it once after deploy.
+
 ## Border point (Serhet nokady)
 
 `Set border point` is a **gating** draft task: `border_point` feeds the TIR carnet and the

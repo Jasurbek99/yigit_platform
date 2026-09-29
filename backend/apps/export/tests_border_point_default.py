@@ -64,6 +64,8 @@ class CountryBorderPointDefaultTests(TestCase):
         cls.uzbekistan = Country.objects.create(
             name_tk='Ozbegistan', name_en='Uzbekistan', code='UZ',
         )
+        # Draft-step tasks need a destination (packing-part rule, 2026-09-29).
+        cls.customer = Customer.objects.create(name='BPD customer')
 
     def _draft(self, code: str, **extra) -> Shipment:
         return Shipment.objects.create(
@@ -132,7 +134,7 @@ class CountryBorderPointDefaultTests(TestCase):
         self.assertEqual(shipment.border_point_id, self.farap.id)
 
     def test_the_fill_closes_the_transport_task(self):
-        shipment = self._draft('BPD-7')
+        shipment = self._draft('BPD-7', customer=self.customer)
         generate_tasks_for_status(shipment, 'draft')
         task = Task.objects.get(shipment=shipment, title_key='tasks.set_border_point')
         self.assertEqual(task.state, TaskState.OPEN)
