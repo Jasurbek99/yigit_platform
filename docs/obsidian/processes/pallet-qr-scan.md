@@ -4,9 +4,8 @@ A printed label on each pallet — QR code on top, the shipment's `export_code`
 underneath. Scanning it abroad is meant to record the next transit step of the
 shipment (border crossed, destination customs, arrived, …).
 
-**Status:** label PDF + scan endpoint + the `/scan/:id` phone page shipped. The "Print label"
-button on the shipment screen — NOT built yet, so the PDF is currently reachable only by
-opening `/api/v1/export/shipments/{id}/label/` directly.
+**Status:** shipped end to end — label PDF, the **Print label** button on the shipment
+screen, the scan endpoint and the `/scan/:id` phone page.
 
 ## Decisions (2026-09-27, with the user)
 
@@ -37,6 +36,16 @@ opening `/api/v1/export/shipments/{id}/label/` directly.
 - Gate: normal `shipment.can_view` (GET on the shipment viewset).
 - Builder: `backend/apps/export/exports/shipment_label.py` (reportlab, no extra dependency).
 - Tests: `backend/apps/export/tests_shipment_label.py`.
+
+### Printing it
+
+**Print label** sits in the shipment detail header, beside the pallet-manifest link. It is
+shown only when the shipment has an `export_code` — that is what the label prints and what a
+scanner reads back, and the endpoint 400s without one, so offering the button earlier would
+be a dead download. No extra role gate: the label carries nothing beyond the code already on
+that page, and the scan page behind the QR runs its own per-field check. Downloads through
+`downloadFile()`, so a 400 surfaces as the server's own message instead of opening raw JSON
+in a tab. One page per PDF — the operator prints as many copies as the truck has pallets.
 
 ## Duplicate scans
 

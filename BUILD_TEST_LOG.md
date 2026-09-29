@@ -1,7 +1,10 @@
+- [ ] 2026-09-29 — Sidebar: Draft Shipment (`/export/drafts`) and Assignment Board (`/export/assign`) restored to the staff Export group and the boss Prep group — NEEDS TEST
 - [ ] 2026-09-29 — Pallet QR: phone scan page with confirmation, duplicate scan refused, QR address settable in admin — NEEDS TEST
   To test: (1) Settings -> Shipment Settings -> **Pallet QR**: set the base address, check the
-  preview line shows it, Save; (2) open `/api/v1/export/shipments/<id>/label/` for a shipment that
-  has an export code — an A5 PDF downloads; print or open it and scan the QR with a phone camera;
+  preview line shows it, Save; (2) open a shipment that has an
+  export code — **Print label** is in the header; click it, an A5 PDF downloads; on a shipment
+  with NO export code the button must not be there at all; print or open the PDF and scan the
+  QR with a phone camera;
   (3) the phone should ask to log in, then show the truck code, current status and ONE button —
   **nothing must be recorded just by opening the page**; (4) tap the button — a dialog names the
   step and the truck; press Cancel — nothing changes; press Yes — the step is recorded and the

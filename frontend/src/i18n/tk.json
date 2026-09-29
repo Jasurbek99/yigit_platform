@@ -2984,7 +2984,9 @@
       "overdue": "möhleti geçdi",
       "stage_not_reached": "bu tapgyr entek gelmedi",
       "stage_missing": "{{count}} doldurylmadyk",
-      "stage_complete": "doly"
+      "stage_complete": "doly",
+      "print_label": "Bellik çap et",
+      "label_failed": "Bellik döretmek başartmady."
     },
     "cancel_button": "Ýüki ýatyrmak",
     "cancel_modal_title": "Bu ýüki ýatyrmalydymy?",

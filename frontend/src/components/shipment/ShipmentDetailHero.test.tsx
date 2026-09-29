@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
@@ -7,6 +8,8 @@ import { ShipmentDetailHero } from './ShipmentDetailHero';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasons } from '@/hooks/useAdmin';
 import { useUiStore } from '@/stores/uiStore';
+import { downloadFile } from '@/utils/fileDownload';
+import { toast } from 'sonner';
 import type { ICurrentUser, ISeason, IShipmentDetail, UserRole } from '@/types';
 
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
@@ -15,6 +18,10 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
 // about the transition-button role gate and never about season status,
 // doesn't need a real QueryClient-backed network call.
 vi.mock('@/hooks/useAdmin', () => ({ useSeasons: vi.fn() }));
+// The label button downloads through this helper; mocked so the suite asserts
+// the gate and the call, not axios.
+vi.mock('@/utils/fileDownload', () => ({ downloadFile: vi.fn() }));
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 // TransitionButton owns its own mutation + API client. Replaced with a marker so
 // this test asserts only whether the hero RENDERS it, which is the gate under test.
@@ -307,5 +314,43 @@ describe('ShipmentDetailHero — join supply gate', () => {
     });
     renderHero(shipment);
     expect(screen.queryByText('Join supply')).not.toBeInTheDocument();
+  });
+});
+
+describe('ShipmentDetailHero — pallet label button', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    vi.mocked(useAuth).mockReset();
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser() } as ReturnType<typeof useAuth>);
+    vi.mocked(useSeasons).mockReturnValue({ data: [] as ISeason[] } as ReturnType<typeof useSeasons>);
+    useUiStore.setState({ bossEditMode: false });
+    vi.mocked(downloadFile).mockReset();
+    vi.mocked(downloadFile).mockResolvedValue(undefined);
+  });
+
+  it('offers the label when the shipment has an export code', async () => {
+    renderHero();
+    const button = screen.getByRole('button', { name: /print label/i });
+    await userEvent.click(button);
+    expect(downloadFile).toHaveBeenCalledWith('/export/shipments/1/label/');
+  });
+
+  /** The endpoint 400s without an export_code — the label prints that code and
+   *  scanners read it back, so offering the button would be a dead download. */
+  it('hides the label button when there is no export code', () => {
+    renderHero({ ...shipment, export_code: null } as unknown as IShipmentDetail);
+    expect(screen.queryByRole('button', { name: /print label/i })).toBeNull();
+  });
+
+  it('surfaces the server message when the label cannot be generated', async () => {
+    vi.mocked(downloadFile).mockRejectedValue(new Error('Shipment has no export code yet.'));
+    renderHero();
+    await userEvent.click(screen.getByRole('button', { name: /print label/i }));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Shipment has no export code yet.'),
+    );
   });
 });

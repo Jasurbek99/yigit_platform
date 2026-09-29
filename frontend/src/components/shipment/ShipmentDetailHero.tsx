@@ -5,6 +5,7 @@ import {
   DeleteOutlined,
   ExclamationCircleFilled,
   MessageOutlined,
+  PrinterOutlined,
   RocketOutlined,
   StopOutlined,
 } from '@ant-design/icons';
@@ -21,6 +22,7 @@ import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import { useCancelShipment, useHardDeleteDraftShipment } from '@/hooks/useShipments';
 import { extractPatchError } from '@/hooks/useShipmentPatch';
 import { canDo } from '@/utils/permissions';
+import { downloadFile } from '@/utils/fileDownload';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import type { IShipmentDetail } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
@@ -38,6 +40,7 @@ interface IShipmentDetailHeroProps {
  * origin → destination route line, and a manifest button.
  */
 export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetailHeroProps) {
+  const [printingLabel, setPrintingLabel] = useState(false);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -66,6 +69,25 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
   const canSeeManifest =
     (user?.role != null && MANIFEST_ROLES.includes(user.role)) ||
     user?.is_superuser === true;
+
+  // Pallet QR label. Gated on export_code because that is what the label
+  // prints and scanners read back — the endpoint 400s without one, so showing
+  // the button then would offer a download that cannot work. Anyone who can
+  // open the shipment may print: the label carries no more than the code
+  // already on this page, and the scan page behind the QR does its own
+  // per-field permission check.
+  const canPrintLabel = Boolean(shipment.export_code);
+
+  async function handlePrintLabel() {
+    setPrintingLabel(true);
+    try {
+      await downloadFile(`/export/shipments/${shipment.id}/label/`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('shipment.detail.label_failed'));
+    } finally {
+      setPrintingLabel(false);
+    }
+  }
 
   // Cancel shipment: admin / export_manager / director (or any superuser),
   // and only when the shipment is not already cancelled or fully completed.
@@ -225,6 +247,15 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
             <Link to={`/shipments/${shipment.id}/manifest`}>
               <Button>{t('pallet.title')}</Button>
             </Link>
+          )}
+          {canPrintLabel && (
+            <Button
+              icon={<PrinterOutlined />}
+              loading={printingLabel}
+              onClick={handlePrintLabel}
+            >
+              {t('shipment.detail.print_label')}
+            </Button>
           )}
           {canPromote && (
             <Button

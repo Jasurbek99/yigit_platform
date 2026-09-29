@@ -2981,7 +2981,9 @@
       "overdue": "просрочено",
       "stage_not_reached": "этап ещё не наступил",
       "stage_missing": "{{count}} не заполнено",
-      "stage_complete": "готово"
+      "stage_complete": "готово",
+      "print_label": "Печать наклейки",
+      "label_failed": "Не удалось создать наклейку."
     },
     "cancel_button": "Отменить отгрузку",
     "cancel_modal_title": "Отменить эту отгрузку?",
