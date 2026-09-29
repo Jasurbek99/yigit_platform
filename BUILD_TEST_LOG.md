@@ -1,5 +1,5 @@
 - [ ] 2026-09-29 — Sidebar: Draft Shipment (`/export/drafts`) and Assignment Board (`/export/assign`) restored to the staff Export group and the boss Prep group — NEEDS TEST
-- [ ] 2026-09-29 — Pallet QR: phone scan page with confirmation, duplicate scan refused, QR address settable in admin — NEEDS TEST
+- [x] 2026-09-29 — Pallet QR: phone scan page with confirmation, duplicate scan refused, QR address settable in admin — TESTED
   To test: (1) Settings -> Shipment Settings -> **Pallet QR**: set the base address, check the
   preview line shows it, Save; (2) open a shipment that has an
   export code — **Print label** is in the header; click it, an A5 PDF downloads; on a shipment
