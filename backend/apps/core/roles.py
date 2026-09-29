@@ -172,3 +172,9 @@ def manageable_roles(user) -> frozenset:
 def can_manage_users(user) -> bool:
     """Whether ``user`` may manage at least one other role."""
     return bool(manageable_roles(user))
+
+
+# The gate guard. Bound to one LoadingLocation (User.loading_location); the gate
+# endpoint and My Tasks scope him to it. Identity, not a permission gate — access
+# itself is the `gate` resource in the matrix.
+GATE_GUARD_ROLE = 'garawul'
