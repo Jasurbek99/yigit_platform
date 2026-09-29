@@ -534,7 +534,9 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
 
       {props.mode === 'create' && (
         <>
-          <OfficialCodeEditor value={exportCode} onChange={setExportCode} platformId={null} />
+          <div className="sera-gaplama-form-code">
+            <OfficialCodeEditor value={exportCode} onChange={setExportCode} platformId={null} />
+          </div>
           <div className="sera-gaplama-form-pickers">
             <Select
               allowClear
