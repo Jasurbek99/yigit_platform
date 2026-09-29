@@ -230,6 +230,10 @@ class Shipment(models.Model):
     customs_entry_at = models.DateTimeField(null=True, blank=True)
     customs_exit_at = models.DateTimeField(null=True, blank=True)
     departed_at = models.DateTimeField(null=True, blank=True)
+    # Gate arrival (garawul, 2026-09-29): stamped with server time by the gate
+    # service; admin / loading head correct it on the Sheet («Ýyladyşhana geldi»).
+    # Exit reuses departed_at (R21 «Ýyladyşhanadan çykdy»).
+    greenhouse_arrived_at = models.DateTimeField(null=True, blank=True)
     border_crossed_at = models.DateTimeField(null=True, blank=True)
     # R31 — operator-entered datetime when truck entered destination country
     # (between border_crossed_at and customs_entry_at). NOT AD-1: no transition

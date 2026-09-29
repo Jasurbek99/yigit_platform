@@ -52,6 +52,8 @@ class Notification(models.Model):
         ('stuck_8d', 'Stuck shipment — 8 days'),
         ('stuck_15d', 'Stuck shipment — 15 days'),
         ('stuck_30d', 'Stuck shipment — 30+ days'),
+        # Gate guard marked a truck in at a greenhouse (services/gate.py).
+        ('gate_arrival', 'Truck arrived at greenhouse'),
         # Deprecated — removed in approval-flow drop, kept for old rows
         ('plan_submitted', 'Plan submitted (deprecated)'),
         ('plan_approved', 'Plan approved (deprecated)'),
