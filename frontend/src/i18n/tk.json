@@ -4021,6 +4021,13 @@
       "gapy": "Gapy satyşyň öz sürüjisi bar",
       "locked": "Ugratma gulplandy — ýükleme başlady",
       "generic": "Ýatda saklap bolmady"
-    }
+    },
+    "accept_change": "Üýtgetmäni kabul et",
+    "accepted": "Üýtgetme kabul edildi",
+    "tab_join": "Birikdir",
+    "tab_linked": "Birikdirilenler",
+    "unlink": "Aýyr",
+    "move": "Göçür",
+    "unlink_confirm": "Ugratma taýýarlyga gaýdyp biler. Dowam etmelimi?"
   }
 }

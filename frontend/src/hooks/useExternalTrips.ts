@@ -55,6 +55,22 @@ export function useUnassignTrip() {
   return useTripAction<{ tripId: number }>((v) => `${BASE}${v.tripId}/unassign/`, () => ({}));
 }
 
+export function useAcceptTripChange() {
+  return useTripAction<{ tripId: number }>((v) => `${BASE}${v.tripId}/accept-change/`, () => ({}));
+}
+
+export function useMoveTrip() {
+  return useTripAction<{ tripId: number; shipmentId: number }>(
+    (v) => `${BASE}${v.tripId}/move/`,
+    (v) => ({ shipment_id: v.shipmentId }),
+  );
+}
+
+export function useShipmentTrip(shipmentId: number) {
+  const query = useExternalTrips({ linked: true });
+  return { ...query, data: query.data?.find((trip) => trip.shipment === shipmentId) ?? null };
+}
+
 export function tripDocumentUrl(tripId: number): string {
   const base = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
   return `${base}${BASE}${tripId}/document/`;

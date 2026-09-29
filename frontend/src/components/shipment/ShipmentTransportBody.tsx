@@ -3,6 +3,7 @@ import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { ShipmentTruckSelector } from '@/components/shipment/ShipmentTruckSelector';
 import { ShipmentDriverSelector } from '@/components/shipment/ShipmentDriverSelector';
+import { ShipmentTripBanner } from '@/components/shipment/ShipmentTripBanner';
 import { TRUCK_PLATE_FIELD, DRIVER_NAME_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
 import { fmt } from '@/pages/export/ShipmentDetailHelpers.helpers';
@@ -49,6 +50,7 @@ export function ShipmentTransportBody({
 
   return (
     <>
+      {!shipment.is_gapy_satys && <ShipmentTripBanner shipmentId={shipment.id} canEdit={!readOnly} />}
       {shipment.is_gapy_satys ? (
         // DetailFieldRow assigns its own `#detail-field-truck_plate` id —
         // no wrapper needed, and one would create a duplicate id in the DOM.

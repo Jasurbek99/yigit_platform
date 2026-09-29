@@ -4018,6 +4018,13 @@
       "gapy": "Gate-sale shipments keep their own driver",
       "locked": "Shipment is locked — loading started",
       "generic": "Could not save"
-    }
+    },
+    "accept_change": "Accept change",
+    "accepted": "Change accepted",
+    "tab_join": "Join",
+    "tab_linked": "Linked",
+    "unlink": "Unlink",
+    "move": "Move",
+    "unlink_confirm": "The shipment may return to Preparation. Continue?"
   }
 }
