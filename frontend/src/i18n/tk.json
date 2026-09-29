@@ -2058,8 +2058,7 @@
       "cancel": "Ýatyr",
       "kept": "Galýar",
       "removed": "Öçüriler",
-      "need_pair": "Bir üpjünçilik + bir eksport bölegini saýlaň",
-      "only_drafts": "Diňe taýýarlykdaky sütünler birleşdirilip bilner"
+      "need_pair": "Bir üpjünçilik + bir eksport bölegini saýlaň"
     },
     "supply_column_legend": {
       "label": "Üpjünçilik bölegi",
@@ -2101,31 +2100,11 @@
     },
     "swap": {
       "btn": "Çalyş",
-      "tooltip": "Çalyş etmek üçin iki sütüni saýla"
+      "tooltip": "Iki sütüniň üpjünçiligini çalyş"
     },
     "swap_bar": {
-      "instruction": "Çalyş etmek üçin iki sütüne basyň",
-      "need_pair": "Iki sütün saýlaň",
-      "cancel": "Ýatyr",
-      "swap": "Çalyş"
-    },
-    "swap_modal": {
-      "title": "Meýdanlary çalyş",
-      "subtitle": "Çalyşmaly meýdanlary saýla",
-      "cancel": "Ýatyr",
-      "confirm": "Çalyş ({{count}})",
-      "select_all": "Hemmesini saýla",
-      "deselect_all": "Saýlawy aýyr",
-      "field_label": "Meýdan",
-      "n_selected": "{{count}} meýdan saýlandy",
-      "toast_success": "{{count}} meýdan çalşyldy",
-      "toast_error": "Çalyşmak başartmady",
-      "group_soltanmyrat": "Soltanmyrat",
-      "group_transport": "Transport / Sürüji",
-      "group_gadam": "Gadam (Eksport)",
-      "group_sirin": "Şirin (Resminamalar)",
-      "group_arap": "Arap (Barmaly ýer)",
-      "group_other": "Beýleki"
+      "instruction": "Üpjünçiligini çalyşmak üçin iki sütüne basyň",
+      "cancel": "Ýatyr"
     },
     "role_block": {
       "mine": "Siziň setirleriňiz"
@@ -2290,7 +2269,6 @@
     "col_supply": "Üpjünçilik bölegi",
     "supply_empty": "Boş üpjünçilik bölegi ýok",
     "btn_clear": "Ret",
-    "toast_error": "Belgilemek başa barmady",
     "age_today_with_hours": "bu gün · {{hours}}s",
     "age_yesterday": "düýn",
     "age_old": "2+ gün öň",

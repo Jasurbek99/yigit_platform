@@ -2060,8 +2060,7 @@
       "cancel": "Отмена",
       "kept": "Сохраняется",
       "removed": "Удаляется",
-      "need_pair": "Выберите один план поставки + один план назначения",
-      "only_drafts": "Объединять можно только колонки в подготовке"
+      "need_pair": "Выберите один план поставки + один план назначения"
     },
     "supply_column_legend": {
       "label": "План поставки",
@@ -2103,31 +2102,11 @@
     },
     "swap": {
       "btn": "Обмен",
-      "tooltip": "Выберите две колонки для обмена"
+      "tooltip": "Поменять упаковку двух колонок"
     },
     "swap_bar": {
-      "instruction": "Нажмите на две колонки для обмена",
-      "need_pair": "Выберите две колонки",
-      "cancel": "Отмена",
-      "swap": "Обмен"
-    },
-    "swap_modal": {
-      "title": "Обмен полей",
-      "subtitle": "Выберите поля для обмена",
-      "cancel": "Отмена",
-      "confirm": "Обмен ({{count}})",
-      "select_all": "Выбрать все",
-      "deselect_all": "Снять выбор",
-      "field_label": "Поле",
-      "n_selected": "{{count}} полей выбрано",
-      "toast_success": "{{count}} полей обменено",
-      "toast_error": "Не удалось выполнить обмен",
-      "group_soltanmyrat": "Soltanmyrat",
-      "group_transport": "Транспорт / Водитель",
-      "group_gadam": "Gadam (Экспорт)",
-      "group_sirin": "Şirin (Документы)",
-      "group_arap": "Arap (Назначение)",
-      "group_other": "Прочее"
+      "instruction": "Нажмите на две колонки, чтобы поменять упаковку",
+      "cancel": "Отмена"
     },
     "role_block": {
       "mine": "Ваши строки"
@@ -2292,7 +2271,6 @@
     "col_supply": "План поставки",
     "supply_empty": "Свободных планов поставки нет",
     "btn_clear": "Отмена",
-    "toast_error": "Ошибка назначения",
     "age_today_with_hours": "сегодня · {{hours}}ч",
     "age_yesterday": "вчера",
     "age_old": "2+ дней",

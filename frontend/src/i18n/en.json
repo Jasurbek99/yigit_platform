@@ -2058,8 +2058,7 @@
       "cancel": "Cancel",
       "kept": "Kept",
       "removed": "Removed",
-      "need_pair": "Select one supply plan + one destination plan",
-      "only_drafts": "Only columns in Preparation can be joined"
+      "need_pair": "Select one supply plan + one destination plan"
     },
     "supply_column_legend": {
       "label": "Supply plan",
@@ -2101,31 +2100,11 @@
     },
     "swap": {
       "btn": "Swap",
-      "tooltip": "Select two columns to swap"
+      "tooltip": "Swap the supply of two columns"
     },
     "swap_bar": {
-      "instruction": "Click two columns to swap",
-      "need_pair": "Select two columns",
-      "cancel": "Cancel",
-      "swap": "Swap"
-    },
-    "swap_modal": {
-      "title": "Swap fields",
-      "subtitle": "Select fields to swap",
-      "cancel": "Cancel",
-      "confirm": "Swap ({{count}})",
-      "select_all": "Select all",
-      "deselect_all": "Deselect all",
-      "field_label": "Field",
-      "n_selected": "{{count}} fields selected",
-      "toast_success": "{{count}} fields swapped",
-      "toast_error": "Swap failed",
-      "group_soltanmyrat": "Soltanmyrat",
-      "group_transport": "Transport / Driver",
-      "group_gadam": "Gadam (Export)",
-      "group_sirin": "Şirin (Documents)",
-      "group_arap": "Arap (Destination)",
-      "group_other": "Other"
+      "instruction": "Click two columns to swap their supply",
+      "cancel": "Cancel"
     },
     "role_block": {
       "mine": "Your rows"
@@ -2290,7 +2269,6 @@
     "col_supply": "Supply plans",
     "supply_empty": "No free supply plans",
     "btn_clear": "Clear",
-    "toast_error": "Assignment failed",
     "age_today_with_hours": "today · {{hours}}h",
     "age_yesterday": "yesterday",
     "age_old": "2+ days",

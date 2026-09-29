@@ -21,7 +21,7 @@ import { applyTopicOrder, sectionAlignedFreeze } from './sheetTopicOrder';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useCreateEmptyColumn } from '@/hooks/useDrafts';
-import { canDo, canDoBackendGated } from '@/utils/permissions';
+import { canDoBackendGated } from '@/utils/permissions';
 import type { IRowConfig, ISheetTaskCounts, IShipmentSheetItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { JoinActionBar } from './JoinActionBar';
@@ -159,19 +159,17 @@ export function SheetToolbar({
   const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
 
   // Join flow: gate mirrors the backend join endpoint via the shared JOIN_ROLES
-  // helper (admin / export_manager / director / boss / document_team + superuser). This list
-  // used to be a local ['export_manager','director'] literal, which hid the
-  // Sheet's Join button from admin and boss even though the API accepts them.
+  // helper (admin / export_manager / director / boss / document_team + the
+  // loading department [loading_dept_head, loading_dept_head_deputy] + superuser).
+  // This list used to be a local ['export_manager','director'] literal, which hid
+  // the Sheet's Join button from admin and boss even though the API accepts them.
   // (canCreateSupply removed when the "Ýük goş" button was commented out — the
   // primary "New Shipment" button now covers supply create via canDo('shipment','create').)
   const canJoin = canUserJoin(user) && !isReadOnly;
 
-  // Swap: mirrors the backend gate, which is `shipment.can_edit` (F19). The
-  // button used to carry no role check at all — only `isReadOnly`, which is the
-  // closed-season freeze — so weight_master and accountant saw it and always got
-  // a bare 403. Which FIELDS a permitted user may exchange is still decided
-  // server-side, per field, by can_edit_sheet_field.
-  const canSwap = canDo(user, 'shipment', 'edit') && !isReadOnly;
+  // Swap exchanges packing only (spec 2026-09-29) and the backend gates it on
+  // JOIN_ROLES, exactly like Join.
+  const canSwap = canUserJoin(user) && !isReadOnly;
   const shipmentCount = shipments.length;
 
   // ─── Column filters ─────────────────────────────────────────────────────
