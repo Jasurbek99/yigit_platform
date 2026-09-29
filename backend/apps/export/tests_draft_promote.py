@@ -132,7 +132,8 @@ class DraftCreationGeneratesTasksTests(TestCase):
         title_keys = set(tasks.values_list('title_key', flat=True))
         self.assertIn('tasks.set_destination', title_keys)
         self.assertIn('tasks.pick_export_firms', title_keys)
-        self.assertIn('tasks.assign_driver', title_keys)
+        self.assertIn('tasks.choose_truck', title_keys)
+        self.assertNotIn('tasks.assign_driver', title_keys)  # retired for regular shipments
         self.assertIn('tasks.give_documents', title_keys)
         self.assertIn('tasks.set_border_point', title_keys)
         self.assertIn('tasks.start_documents_prep', title_keys)

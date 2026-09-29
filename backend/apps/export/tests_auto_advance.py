@@ -125,8 +125,9 @@ class DraftAutoAdvanceTests(TestCase):
 
     def test_field_equals_ready_fires_advance(self):
         shipment = self._make_draft_with_destination()
-        # Satisfy the assign_driver task (ALL_FIELDS_FILLED on
-        # driver_name + driver_phone + truck_plate, condition is_gapy_satys=False).
+        # Satisfy tasks.choose_truck (trip_id, non-gapy) — the truck now comes
+        # from a Planning trip; the driver fields ride along with it.
+        shipment.trip_id = 1
         shipment.driver_name = 'Test Driver'
         shipment.driver_phone = '+99363391774'
         shipment.truck_plate = 'AB1234'
@@ -149,31 +150,26 @@ class DraftAutoAdvanceTests(TestCase):
         self.assertIsNotNone(last_log)
         self.assertTrue(last_log.is_auto, 'Status log must be flagged is_auto=True')
 
-    def test_blank_driver_phone_does_not_satisfy_the_assign_driver_gate(self):
-        """`''` must read as unfilled, the way `None` does.
-
-        The driver picker writes an empty `driver_phone` when it swaps in a
-        driver the registry has no phone for, so this value now arrives in
-        normal operation. `_is_filled()` tests truthiness rather than
-        `is None`; were it the other way round, blanking the phone would
-        resolve the assign_driver task and walk the shipment out of draft on a
-        field nobody filled.
+    def test_missing_trip_keeps_the_choose_truck_gate_shut(self):
+        """Typed driver fields no longer open the draft gate for a regular
+        shipment: since 2026-09-29 the truck comes from a Planning trip
+        (tasks.choose_truck on trip_id), and assign_driver is retired.
         """
         shipment = self._make_draft_with_destination()
         shipment.driver_name = 'Test Driver'
         shipment.truck_plate = 'AB1234'
-        shipment.driver_phone = ''
+        shipment.driver_phone = '+99363391774'
+        shipment.border_point = BorderPoint.objects.create(name='Farap')
         shipment.documents_status = 'ready'
         shipment.save()
 
         shipment.refresh_from_db()
         self.assertEqual(
             shipment.status.code, 'draft',
-            'A blank driver_phone must leave the draft gate shut',
+            'Without a Planning trip the draft gate must stay shut',
         )
-        assign = shipment.tasks.filter(rule__target_fields__contains='driver_phone').first()
-        self.assertIsNotNone(assign)
-        self.assertNotEqual(assign.state, TaskState.DONE)
+        choose = shipment.tasks.get(rule__title_key='tasks.choose_truck')
+        self.assertNotEqual(choose.state, TaskState.DONE)
 
     def test_field_equals_intermediate_value_does_not_fire(self):
         shipment = self._make_draft_with_destination()
