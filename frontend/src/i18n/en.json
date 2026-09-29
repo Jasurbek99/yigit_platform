@@ -2238,13 +2238,16 @@
     "toast_error": "Failed to join supply plan"
   },
   "join_blockers": {
-    "need_two": "Select exactly 2 columns in Preparation",
+    "need_two": "Select exactly 2 columns",
     "same_shipment": "Select two different columns",
-    "not_draft": "{{code}} is not in Preparation — only shipments in Preparation can be joined",
     "both_supply": "Both columns have supply blocks. One of them must be a destination plan: country + customer filled, no blocks",
     "no_supply": "Neither column has supply blocks. One of them must be a supply plan with at least one block",
     "target_no_country": "{{code}}: fill in the Country",
-    "target_no_customer": "{{code}}: fill in the Customer"
+    "target_no_customer": "{{code}}: fill in the Customer",
+    "source_not_draft": "{{code}} — the supply plan must be in Preparation",
+    "target_loading": "{{code}} — loading has started, supply can no longer be joined",
+    "swap_loading": "{{code}} — loading has started, supply can no longer be swapped",
+    "swap_no_packing": "{{code}} — has no supply"
   },
   "firm_selector": {
     "saved": "Export firms updated",

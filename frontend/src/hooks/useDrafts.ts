@@ -5,6 +5,7 @@ import { getShipmentDetailKey } from './useShipmentDetail';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { MOCK_DRAFTS } from '@/mock/drafts';
+import { PRE_LOADING_STATUSES } from '@/components/sheet/joinHelpers';
 import type {
   IShipmentDraft,
   IDraftCreatePayload,
@@ -25,6 +26,18 @@ function sortOldestFirst(drafts: IShipmentDraft[]): IShipmentDraft[] {
   return [...drafts].sort(
     (a, b) => dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf(),
   );
+}
+
+// block_sources[].weight_kg is a DecimalField — arrives as a string ("8000.00").
+// Coerced once, at the fetch boundary.
+function normalizeDraft(d: IShipmentDraft): IShipmentDraft {
+  return {
+    ...d,
+    block_sources: (d.block_sources ?? []).map((s) => ({
+      ...s,
+      weight_kg: s.weight_kg != null ? Number(s.weight_kg) : null,
+    })),
+  };
 }
 
 // ─── useDrafts ────────────────────────────────────────────────────────────
@@ -49,14 +62,34 @@ export function useDrafts() {
       // field. Coerced here, at the fetch boundary, not at any usage site
       // (GaplamaTruckForm's edit-mode seeding sums it — see
       // task-7-report.md) — DraftPool's own defensive `Number(b.weight_kg)`
-      // wrapping is evidence this was never coerced before.
-      return (data.results ?? []).map((d) => ({
-        ...d,
-        block_sources: (d.block_sources ?? []).map((s) => ({
-          ...s,
-          weight_kg: s.weight_kg != null ? Number(s.weight_kg) : null,
-        })),
-      }));
+      // wrapping is evidence this was never coerced before. See
+      // normalizeDraft() above.
+      return (data.results ?? []).map(normalizeDraft);
+    },
+    enabled: USE_MOCK || isReady,
+    staleTime: 30_000,
+  });
+}
+
+// ─── useJoinBoard ─────────────────────────────────────────────────────────
+
+/**
+ * Every row the Assignment board shows: all shipments before loading
+ * (draft, gumruk_girish, gumruk_chykysh) in the browsed season. Keyed under
+ * ['drafts'] so every join / unjoin / swap invalidation refreshes it.
+ */
+export function useJoinBoard() {
+  const { seasonId, isReady } = useSelectedSeason();
+  return useQuery({
+    queryKey: ['drafts', 'join-board', seasonId],
+    queryFn: async (): Promise<IShipmentDraft[]> => {
+      if (USE_MOCK) return sortOldestFirst(MOCK_DRAFTS);
+      const seasonParam = seasonId != null ? `&season=${seasonId}` : '';
+      const { data } = await api.get<{ results: IShipmentDraft[] }>(
+        `/export/shipments/?status_code__in=${PRE_LOADING_STATUSES.join(',')}`
+          + `&page_size=200&ordering=harvest_age_desc${seasonParam}`,
+      );
+      return (data.results ?? []).map(normalizeDraft);
     },
     enabled: USE_MOCK || isReady,
     staleTime: 30_000,
@@ -390,10 +423,9 @@ interface IJoinShipmentsArgs {
  * Merges a supply draft (source, gets DELETED) into a destination draft
  * (target, SURVIVES). Returns the updated target shipment detail.
  *
- * Gates (enforced server-side):
- * - Caller must be export_manager / director
- * - Both must be draft; target has country+customer; target has NO blocks;
- *   source has ≥1 block source.
+ * Gates (enforced server-side): Caller must hold JOIN_ROLES (incl. the loading
+ * department). Target: country+customer, no packing, before loading
+ * (draft / gumruk_girish / gumruk_chykysh). Source: draft with ≥1 block.
  */
 export function useJoinShipments() {
   const queryClient = useQueryClient();
@@ -460,6 +492,47 @@ export function useSwapShipments() {
       queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.aId) });
       queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.otherId) });
     },
+  });
+}
+
+// ─── Packing moves (spec 2026-09-29) ──────────────────────────────────────
+
+function invalidatePackingQueries(
+  queryClient: ReturnType<typeof useQueryClient>, ids: number[],
+): void {
+  queryClient.invalidateQueries({ queryKey: ['drafts'] });
+  queryClient.invalidateQueries({ queryKey: ['shipments'] });
+  queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+  ids.forEach((id) => queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(id) }));
+}
+
+export interface IUnjoinResult {
+  id: number;
+  new_supply_id: number;
+  new_supply_code: string;
+}
+
+/** POST /export/shipments/{id}/unjoin/ — packing goes to a new supply plan. */
+export function useUnjoinPackaging() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number): Promise<IUnjoinResult> => {
+      const { data } = await api.post<IUnjoinResult>(`/export/shipments/${id}/unjoin/`, {});
+      return data;
+    },
+    onSuccess: (data, id) => invalidatePackingQueries(queryClient, [id, data.new_supply_id]),
+  });
+}
+
+/** POST /export/shipments/{aId}/swap-packaging/ — the two rows exchange packing. */
+export function useSwapPackaging() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ aId, otherId }: { aId: number; otherId: number }) => {
+      const { data } = await api.post(`/export/shipments/${aId}/swap-packaging/`, { other_id: otherId });
+      return data;
+    },
+    onSuccess: (_data, vars) => invalidatePackingQueries(queryClient, [vars.aId, vars.otherId]),
   });
 }
 

@@ -2238,13 +2238,16 @@
     "toast_error": "Üpjünçilik bölegini birleşdirip bolmady"
   },
   "join_blockers": {
-    "need_two": "Taýýarlykdaky takyk 2 sany sütüni saýlaň",
+    "need_two": "Takyk 2 sütün saýlaň",
     "same_shipment": "Iki dürli sütün saýlaň",
-    "not_draft": "{{code}} taýýarlykda däl — diňe taýýarlykdaky ýükler birleşdirilip bilner",
     "both_supply": "Iki sütünde-de üpjünçilik bloklary bar. Olaryň biri eksport bölegi bolmaly: ýurt + müşderi doldurylan, bloksuz",
     "no_supply": "Hiç bir sütünde üpjünçilik bloky ýok. Olaryň biri azyndan bir bloky bolan üpjünçilik bölegi bolmaly",
     "target_no_country": "{{code}}: Ýurdy dolduryň",
-    "target_no_customer": "{{code}}: Müşderini dolduryň"
+    "target_no_customer": "{{code}}: Müşderini dolduryň",
+    "source_not_draft": "{{code}} — üpjünçilik bölegi taýýarlykda bolmaly",
+    "target_loading": "{{code}} — ýükleme başlady, birleşdirip bolmaýar",
+    "swap_loading": "{{code}} — ýükleme başlady, çalşyp bolmaýar",
+    "swap_no_packing": "{{code}} — üpjünçilik ýok"
   },
   "firm_selector": {
     "saved": "Eksport firmalary täzelendi",

@@ -16,7 +16,7 @@ import { StatusTag } from '@/components/StatusTag';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import { TransitionButton } from '@/components/TransitionButton';
 import { JoinSupplyModal } from '@/components/shipment/JoinSupplyModal';
-import { isDestinationDraft, canUserJoin } from '@/components/sheet/joinHelpers';
+import { isJoinTarget, canUserJoin } from '@/components/sheet/joinHelpers';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromoteFromDraft } from '@/hooks/useDrafts';
 import { useCancelShipment, useHardDeleteDraftShipment } from '@/hooks/useShipments';
@@ -147,10 +147,11 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
 
   const promote = usePromoteFromDraft();
 
-  // Join supply: only on a destination draft (has destination, no blocks yet).
-  // Role gate comes from the shared canUserJoin() so the Sheet, the list bulk
-  // bar and this hero can never drift apart again.
-  const canJoinSupply = isDestinationDraft(shipment) && canUserJoin(user) && !isReadOnly;
+  // Join supply: only on a plan that may still receive packing — before
+  // loading (draft / gumruk_girish / gumruk_chykysh), has destination, no
+  // blocks yet. Role gate comes from the shared canUserJoin() so the Sheet,
+  // the list bulk bar and this hero can never drift apart again.
+  const canJoinSupply = isJoinTarget(shipment) && canUserJoin(user) && !isReadOnly;
 
   const [joinOpen, setJoinOpen] = useState(false);
 

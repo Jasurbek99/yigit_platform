@@ -1829,16 +1829,18 @@ export interface IShipmentDraft {
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
   variety_confidence: 'high' | 'low' | 'none';
-  // Join-supply candidate fields (Phase A, 2026-08-14). The backend's
-  // ShipmentDraftListSerializer never emits raw `country`/`customer` FK ids —
-  // only `country_name`/`customer_name` (inherited from
-  // ShipmentListSerializer.Meta.fields; verified against
-  // backend/apps/export/serializers.py). Optional because existing object
-  // literals (mock/drafts.ts, useDrafts.ts mock stubs) don't set them. A
-  // destination-vs-supply filter must key off *_name — there are no raw ids
-  // to key off of here.
+  // Destination names, and (since 2026-09-29) the raw FK ids plus status and
+  // truck — ShipmentDraftListSerializer sends all of these; the join board
+  // (status_code__in=…) classifies rows by them. Optional because mock literals
+  // (mock/drafts.ts) don't set them.
   country_name?: string | null;
   customer_name?: string | null;
+  country?: number | null;
+  customer?: number | null;
+  status_code?: string;
+  status_display?: string;
+  truck_plate?: string | null;
+  driver_name?: string | null;
 }
 
 export interface IDraftFirmSplitInput {
