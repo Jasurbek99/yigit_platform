@@ -1133,7 +1133,18 @@
     "category_border_point": "Gümrük geçelgesi",
     "category_block": "Blok",
     "name_ru_missing": "bellenmedik",
-    "name_ru_extra": "TIR depderçesinde çap edilýär. Boş bolsa ýokarky ady çap edilýär."
+    "name_ru_extra": "TIR depderçesinde çap edilýär. Boş bolsa ýokarky ady çap edilýär.",
+    "tab_pallet_qr": "Palet QR",
+    "pallet_qr": {
+      "intro": "Palet QR belliklerine çap edilýän esasy salgy. Telefonyň kamerasy ony gönüden açýar; skan sahypasy girmegi talap edýär.",
+      "printed_warning": "Bu salgy bellige çap edilýär we tır bilen gidýär — eýýäm çap edilen bellik täzeden ugrukdyrylyp bilmeýär. Çap etmezden ozal soňky salgyny giriziň.",
+      "field_label": "Esasy salgy",
+      "field_hint": "Boş goýsaňyz, serweriň sazlanan salgysy, soňra haýyş gelen salgy ulanylar.",
+      "preview_label": "Täze bellikde şu bolar",
+      "preview_fallback": "(serwer salgysy)",
+      "saved": "Saklandy. Şu wagtdan çap edilýän bellikler bu salgyny ulanar.",
+      "save_failed": "Saklamak başartmady."
+    }
   },
   "sheet_rows": {
     "placeholder_field_key": "kz_remarks",
@@ -3943,5 +3954,25 @@
         "insufficient_harvest": "Bu blokda ýeterlik hasyl ýok, ýyladyşhananyň müdiri bilen habarlaşyň egerde artykmaç hasyl bolsa programmada üýtgetsin"
       }
     }
+  },
+  "scan": {
+    "truck_label": "Tır",
+    "status_label": "Häzirki ýagdaý",
+    "record_button": "Belle: {{step}}",
+    "confirm_title": "Bu ädimi tassyklaýarsyňyzmy?",
+    "confirm_ok": "Hawa, belle",
+    "confirm_body": "Bu {{truck}} tırynda ýazylar we ony indiki ýagdaýa geçirip biler.",
+    "already_title": "Eýýäm bellenen: {{step}}",
+    "already_by": "Kim: {{name}}",
+    "already_at": "Haçan: {{when}}",
+    "nothing_to_record": "Häzir bu tır üçin bellemeli zat ýok.",
+    "toast_recorded": "Bellenildi: {{step}}",
+    "toast_already": "Bu ädim eýýäm bellenipdi.",
+    "toast_forbidden": "Siziň rolyňyz bu ädimi belläp bilmeýär.",
+    "toast_failed": "Bellemek başartmady. Ýene synanyşyň.",
+    "error_title": "Tıry açmak başartmady",
+    "error_forbidden": "Bu tıra girmäge hukugyňyz ýok.",
+    "error_not_found": "Beýle tır indi ýok.",
+    "error_generic": "Bir zat ýalňyş gitdi. Ýene synanyşyň."
   }
 }

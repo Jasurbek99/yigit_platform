@@ -8,6 +8,7 @@ import OptionListsTab from './shipment-settings/OptionListsTab';
 import TruckSplitsTab from './shipment-settings/TruckSplitsTab';
 import SheetRowsTab from './shipment-settings/SheetRowsTab';
 import RowAccessTab from './shipment-settings/RowAccessTab';
+import PalletQrTab from './shipment-settings/PalletQrTab';
 
 const { Title, Text } = Typography;
 
@@ -43,6 +44,11 @@ export default function ShipmentSettingsPage() {
       key: 'sheet_rows',
       label: t('shipment_settings.tab_sheet_rows'),
       children: <SheetRowsTab canWrite={canWrite} />,
+    },
+    {
+      key: 'pallet_qr',
+      label: t('shipment_settings.tab_pallet_qr'),
+      children: <PalletQrTab canWrite={canWrite} />,
     },
     ...(canEditRowAccess
       ? [{

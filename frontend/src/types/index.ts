@@ -856,6 +856,8 @@ export interface IGreenhouseConfig {
   gaplama_carry_days: number;           // default 2 — see GreenhouseConfig.gaplama_carry_days
   operating_days_bitmask: number;       // bits 0â€“6 = Monâ€“Sun
   timezone_name: string;
+  /** Base URL printed into pallet QR labels; '' = PLATFORM_URL, then request host. */
+  scan_base_url: string;
   updated_by: number | null;
   updated_by_name: string | null;
   updated_at: string | null;

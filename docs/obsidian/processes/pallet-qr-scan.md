@@ -4,7 +4,9 @@ A printed label on each pallet — QR code on top, the shipment's `export_code`
 underneath. Scanning it abroad is meant to record the next transit step of the
 shipment (border crossed, destination customs, arrived, …).
 
-**Status:** label PDF + scan endpoint shipped (backend). Frontend `/scan/:id` page and the "Print label" button — NOT built yet.
+**Status:** label PDF + scan endpoint + the `/scan/:id` phone page shipped. The "Print label"
+button on the shipment screen — NOT built yet, so the PDF is currently reachable only by
+opening `/api/v1/export/shipments/{id}/label/` directly.
 
 ## Decisions (2026-09-27, with the user)
 
@@ -21,13 +23,47 @@ shipment (border crossed, destination customs, arrived, …).
 
 - A5 portrait PDF, one page: 120 mm QR (error-correction level Q) + `export_code` in
   large bold text, shrunk to fit long codes.
-- QR encodes `{PLATFORM_URL or request origin}/scan/{shipment id}`. Production serves
-  the SPA and `/api` from one origin, so the request origin is the frontend host;
-  set `PLATFORM_URL` if it is not.
+- QR encodes `{base}/scan/{shipment id}`, where `base` is, most explicit first:
+  **`GreenhouseConfig.scan_base_url`** (Shipment Settings → Pallet QR, migration `core/0065`),
+  then `settings.PLATFORM_URL`, then the requesting origin. Production serves the SPA and
+  `/api` from one origin, so the request origin is the frontend host — enough for a LAN
+  install with nothing configured.
+- **Set the base address before a print run.** The value is printed onto the label and
+  travels with the truck; an already-printed label cannot be re-pointed when the host
+  changes. That is why it is an admin setting and not only an env var. The settings tab
+  previews the exact URL a fresh label would encode, and the serializer refuses a relative
+  value or a bare host — a typo here is not a 500, it is a print run no phone can open.
 - `400 {error}` when the shipment has no `export_code` yet.
 - Gate: normal `shipment.can_view` (GET on the shipment viewset).
 - Builder: `backend/apps/export/exports/shipment_label.py` (reportlab, no extra dependency).
 - Tests: `backend/apps/export/tests_shipment_label.py`.
+
+## Duplicate scans
+
+Every pallet of one truck carries the **same** QR target, so two operators scanning
+together is the normal case, not an edge one. The POST locks the shipment row and re-reads
+the trigger field under the lock before writing: a real step is hours long, so a second
+scan inside that window is always a duplicate. It is refused and answered `200
+{recorded: false, already: {field, occurred_at, recorded_by}}` — `recorded_by` comes from
+the `AuditLog` row every write path already leaves, so it also names an operator who filled
+the cell on the Sheet instead of scanning. The phone page shows that banner instead of a
+button.
+
+## Phone page — `/scan/:id`
+
+Outside `AppLayout` on purpose: a driver in a yard gets the truck code, the current status
+and one button. Behind `ProtectedRoute`, so an unauthenticated scan lands on `/login` and
+returns here after signing in.
+
+**It never records on load.** Tapping the button opens a confirm dialog naming the step and
+the truck; only "Yes" writes. A status step is a real-world event, and a mis-tap would
+otherwise advance the truck silently. Field labels are reused from
+`shipment_edit_drawer.field.*` so the same event is not named two different ways here and on
+the Sheet.
+
+- Page: `frontend/src/pages/scan/ScanPage.tsx`, hook `frontend/src/hooks/useShipmentScan.ts`.
+- Tests: `frontend/src/pages/scan/ScanPage.test.tsx` (6 — including "records nothing on
+  load", "cancelling writes nothing", and the already-recorded banner).
 
 ## Scan — `GET | POST /api/v1/export/shipments/{id}/scan/`
 

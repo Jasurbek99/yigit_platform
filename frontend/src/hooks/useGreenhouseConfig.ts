@@ -22,6 +22,7 @@ const DEFAULT_CONFIG: IGreenhouseConfig = {
   gaplama_carry_days: 2,
   operating_days_bitmask: 0b0111111,
   timezone_name: 'Asia/Ashgabat',
+  scan_base_url: '',
   updated_by: null,
   updated_by_name: null,
   updated_at: null,

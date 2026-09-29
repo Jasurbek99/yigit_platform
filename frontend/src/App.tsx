@@ -13,6 +13,7 @@ import { COLORS, FONT } from '@/constants/styles';
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const UnauthorizedPage = lazy(() => import('@/pages/auth/UnauthorizedPage'));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const ScanPage = lazy(() => import('@/pages/scan/ScanPage'));
 const ShipmentList = lazy(() => import('@/pages/export/ShipmentList'));
 const ShipmentDetail = lazy(() => import('@/pages/export/ShipmentDetail'));
 const WeeklyPlanGrid = lazy(() => import('@/pages/export/WeeklyPlanGrid'));
@@ -344,6 +345,18 @@ export default function App() {
                     </ProtectedRoute>
                   } />
                 </Route>
+                {/* Pallet QR target. Outside AppLayout on purpose: a phone in
+                    the yard gets the truck, the step and one button — no nav.
+                    Still behind ProtectedRoute, so an unauthenticated scan lands
+                    on /login and returns here after signing in. */}
+                <Route
+                  path="/scan/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ScanPage />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/unauthorized" element={<UnauthorizedPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

@@ -1,3 +1,15 @@
+- [ ] 2026-09-29 — Pallet QR: phone scan page with confirmation, duplicate scan refused, QR address settable in admin — NEEDS TEST
+  To test: (1) Settings -> Shipment Settings -> **Pallet QR**: set the base address, check the
+  preview line shows it, Save; (2) open `/api/v1/export/shipments/<id>/label/` for a shipment that
+  has an export code — an A5 PDF downloads; print or open it and scan the QR with a phone camera;
+  (3) the phone should ask to log in, then show the truck code, current status and ONE button —
+  **nothing must be recorded just by opening the page**; (4) tap the button — a dialog names the
+  step and the truck; press Cancel — nothing changes; press Yes — the step is recorded and the
+  status advances; (5) scan a SECOND pallet of the same truck — it must show a green "already
+  recorded" banner with who and when, no button, and the status must NOT move again;
+  (6) as a role that cannot edit that field (e.g. finansist), the Yes must be refused with a clear
+  message; (7) as greenhouse_manager or seller, opening the page must be refused entirely.
+
 - [ ] 2026-09-27 — Pallet QR scan endpoint: `GET|POST /api/v1/export/shipments/{id}/scan/` — NEEDS TEST
   To test (API, no page yet): on a test shipment in «yola_chykdy», log in as transport → GET shows `field: border_crossed_at`; POST `{"field":"border_crossed_at"}` → status becomes serhet_gechdi; POST again → `recorded:false`, nothing changes. Check a sales_rep can record dest_entry_at / customs_entry_at / arrived_at (depends on the Sheet field grants on the live DB).
 - [ ] 2026-09-27 — Pallet QR label PDF: `GET /api/v1/export/shipments/{id}/label/` (A5, QR + export code) — NEEDS TEST
