@@ -22,11 +22,12 @@ duplicate task for the same (manager, block, week). Re-running generation is
 otherwise idempotent; the cleanup path de-dupes if it ever happens.
 """
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from django.utils import timezone
 
 from apps.export.models import Task, TaskState, TaskKind, TaskCompletionRule
+from apps.export.services.plan_task_common import end_of_local_day, iso_monday
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,19 @@ def _build_link(year: int, week: int, block_id: int | None = None) -> str:
     if block_id is not None:
         link += f'&block={block_id}'
     return link
+
+
+def plan_deadline(year: int, week: int) -> datetime:
+    """End of the plan-deadline day (Friday by default) in the week BEFORE (year, week).
+
+    GreenhouseConfig.plan_deadline_weekday is a Python weekday (Mon=0, Fri=4),
+    despite its help_text saying "ISO". Red from Saturday; the manager may still
+    fill until Sunday (docs/Tasks.md item 1).
+    """
+    from apps.core.models import GreenhouseConfig
+
+    weekday = GreenhouseConfig.get_solo().plan_deadline_weekday
+    return end_of_local_day(iso_monday(year, week) - timedelta(days=7 - weekday))
 
 
 def generate_weekly_plan_tasks(year: int, week: int, user=None) -> list[Task]:
@@ -79,6 +93,7 @@ def generate_weekly_plan_tasks(year: int, week: int, user=None) -> list[Task]:
         .values_list('assignee_user_id', 'scope_block_id')
     )
 
+    deadline = plan_deadline(year, week)
     created: list[Task] = []
     for manager_id, block_id in pairs:
         if (manager_id, block_id) in already:
@@ -96,6 +111,7 @@ def generate_weekly_plan_tasks(year: int, week: int, user=None) -> list[Task]:
             link=_build_link(year, week, block_id),
             scope_year=year,
             scope_week=week,
+            deadline=deadline,
             state=TaskState.OPEN,
         ))
 
