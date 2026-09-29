@@ -9,7 +9,7 @@ from collections.abc import Iterable
 
 TRIP_LOCKED_FIELDS = (
     'truck_plate', 'driver_name', 'driver_phone', 'driver_passport_serial',
-    'driver_passport_issue_date', 'truck_head_id', 'trailer_id', 'trip_id',
+    'driver_passport_issue_date', 'driver_passport_expiry', 'truck_head_id', 'trailer_id', 'trip_id',
 )
 
 

@@ -46,8 +46,8 @@ flowchart LR
 ## What assigning writes on the shipment
 
 `truck_plate = "{tractor}/{trailer}"`, `driver_name`, `driver_phone`, `driver_passport_serial`,
-`driver_passport_issue_date` (**= Planning's passport EXPIRY date** — Planning does not send an issue
-date; spec D3), `truck_head_id` / `trailer_id` (our fleet row matched by normalised plate — keeps GPS
+`driver_passport_expiry` (Planning sends the passport's expiry, never its issue date, so
+`driver_passport_issue_date` stays empty and keeps its gapy meaning — migration `export/0090`), `truck_head_id` / `trailer_id` (our fleet row matched by normalised plate — keeps GPS
 matching working), `trip_id` (= `ExternalTrip.pk`). `driver_id` stays null — external drivers are not
 `transport.Driver` rows; documents read `driver_passport_serial`.
 
@@ -103,7 +103,7 @@ The next poll (≤ 2 min) runs the full reaction. The command edits a tracked fi
 
 1. Server `.env`: `TRANSPORT_API_URL`, `TRANSPORT_API_KEY`, `TRANSPORT_API_MODE=live`,
    `TRANSPORT_API_VERIFY_TLS` (CA path or `false`).
-2. `python manage.py migrate core transport` (core 0066, transport 0009).
+2. `python manage.py migrate core transport export` (core 0066, transport 0009, export 0090 — export 0090 sits after 0081 on this branch; main has other 0082–0089, so add a `makemigrations --merge` at integration).
 3. `python manage.py seed_task_rules` — only now. Deactivating the regular `assign_driver` cancels its
    open tasks, and a cancelled task counts as satisfied, so open regular drafts lose the driver gate
    (accepted by the owner 2026-09-29).

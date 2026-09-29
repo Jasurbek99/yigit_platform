@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 TRANSPORT_FIELDS = (
     'truck_plate', 'driver_name', 'driver_phone', 'driver_passport_serial',
-    'driver_passport_issue_date', 'truck_head_id', 'trailer_id', 'trip_id',
+    'driver_passport_expiry', 'truck_head_id', 'trailer_id', 'trip_id',
 )
 
 
@@ -39,8 +39,7 @@ def trip_values(trip: ExternalTrip) -> dict:
         'driver_name': trip.driver_full_name,
         'driver_phone': trip.driver_phone,
         'driver_passport_serial': trip.driver_passport_number,
-        # Spec D3: Planning has no issue date; expiry stands in until it does.
-        'driver_passport_issue_date': trip.driver_passport_expiry,
+        'driver_passport_expiry': trip.driver_passport_expiry,
         'truck_head_id': _match_id(TruckHead, trip.tractor_plate),
         'trailer_id': _match_id(Trailer, trip.trailer_plate),
         'trip_id': trip.pk,

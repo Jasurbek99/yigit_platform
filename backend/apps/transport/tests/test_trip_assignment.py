@@ -38,7 +38,9 @@ class AssignTripTests(TestCase):
         self.assertEqual(self.shipment.driver_name, 'Amandurdyyew Atajan')
         self.assertEqual(self.shipment.driver_phone, '99361202698')
         self.assertEqual(self.shipment.driver_passport_serial, 'A2510574')
-        self.assertEqual(str(self.shipment.driver_passport_issue_date), '2029-04-08')
+        # Planning sends no issue date: expiry gets its own column, issue date stays empty.
+        self.assertEqual(str(self.shipment.driver_passport_expiry), '2029-04-08')
+        self.assertIsNone(self.shipment.driver_passport_issue_date)
         self.assertEqual(self.shipment.trip_id, self.trip.pk)
         self.assertIsNone(self.shipment.driver_id)
         self.assertEqual(self.trip.shipment_id, self.shipment.pk)
