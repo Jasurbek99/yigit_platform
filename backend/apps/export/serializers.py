@@ -1714,6 +1714,16 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         fields = list(_ALL_PATCHABLE_FIELDS)
 
     def validate(self, attrs: dict) -> dict:
+        # Packing guard for loading (spec 2026-09-29): refuse to record the start
+        # of loading on a pre-loading row with no packing. Without this the write
+        # lands, auto_advance_if_ready swallows transition_to's ValueError, and
+        # the truck silently stays at gumruk_chykysh. Runs before the role
+        # early-return: it is a data rule, not a permission.
+        if attrs.get('loading_started_at') and self.instance is not None:
+            from apps.export.services.packaging import PACKING_NOT_JOINED, needs_packing_for_loading
+            if needs_packing_for_loading(self.instance):
+                raise serializers.ValidationError({'loading_started_at': PACKING_NOT_JOINED})
+
         role = self.context.get('role')
         if role in PRIVILEGED_ROLES:
             return attrs
