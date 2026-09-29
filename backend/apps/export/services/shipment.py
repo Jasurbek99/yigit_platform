@@ -127,6 +127,16 @@ TRANSITIONS: dict[Optional[str], list[tuple]] = {
     # 'cancelled' key intentionally absent — no outgoing edges; terminal status.
 }
 
+# System-only backward edges (spec 2026-09-29-transport-trips §6.1): a Planning
+# truck change after documents/customs work sends the shipment back to
+# Preparation. Kept OUT of TRANSITIONS on purpose — that table feeds the manual
+# /transition/ UI and auto-advance edge selection; neither may offer a step back.
+ROLLBACK_TRANSITIONS: dict[str, str] = {
+    'gumruk_girish': 'draft',
+    'gumruk_chykysh': 'draft',
+    'yuklenme': 'draft',
+}
+
 # When a shipment transitions TO this status, notify these roles to fill their fields.
 STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
     # N1: was ['warehouse_chief'], whose sole account has never logged in, so
@@ -228,6 +238,7 @@ def transition_to(
     comment: str = '',
     is_auto: bool = False,
     notify: bool = True,
+    rollback: bool = False,
 ) -> None:
     """Execute a validated status transition with role enforcement.
 
@@ -249,6 +260,8 @@ def transition_to(
                 steps don't warrant a notification (the role's data is already
                 filled, otherwise the cascade would have stopped). The caller
                 fires the final-step notification once after the cascade ends.
+        rollback: System-only step back along ROLLBACK_TRANSITIONS. Requires
+                  is_auto=True; only apps.export.services.rollback calls it.
 
     Raises:
         SeasonClosedError: If this shipment belongs to a closed season (D1).
@@ -268,21 +281,25 @@ def transition_to(
     assert_season_open(shipment.season)
 
     current_code = shipment.status.code if shipment.status_id else None
-    edges = TRANSITIONS.get(current_code, [])
-    predicates_are_advisory = current_code in PREDICATE_ADVISORY_STEPS
-    allowed_codes = [
-        _edge_to(edge)
-        for edge in edges
-        if predicates_are_advisory
-        or _edge_predicate(edge) is None
-        or _edge_predicate(edge)(shipment)
-    ]
-
-    if new_status_code not in allowed_codes:
-        raise ValueError(
-            f'Cannot transition from {current_code!r} to {new_status_code!r}. '
-            f'Allowed: {allowed_codes}'
-        )
+    if rollback:
+        if not is_auto or ROLLBACK_TRANSITIONS.get(current_code) != new_status_code:
+            raise ValueError(f'No system rollback from {current_code!r} to {new_status_code!r}')
+        edges = []
+    else:
+        edges = TRANSITIONS.get(current_code, [])
+        predicates_are_advisory = current_code in PREDICATE_ADVISORY_STEPS
+        allowed_codes = [
+            _edge_to(edge)
+            for edge in edges
+            if predicates_are_advisory
+            or _edge_predicate(edge) is None
+            or _edge_predicate(edge)(shipment)
+        ]
+        if new_status_code not in allowed_codes:
+            raise ValueError(
+                f'Cannot transition from {current_code!r} to {new_status_code!r}. '
+                f'Allowed: {allowed_codes}'
+            )
 
     # Two-row join guard: a draft must carry BOTH the supply half
     # (block_sources) and the destination half (country + customer) before
@@ -364,6 +381,8 @@ def transition_to(
     detail = f'{current_code} → {new_status_code}'
     if is_auto:
         detail += ' (auto)'
+    if rollback:
+        detail += ' (rollback)'
     AuditLog.objects.create(
         user=user,
         action='transition',
