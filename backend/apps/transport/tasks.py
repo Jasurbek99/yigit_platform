@@ -6,8 +6,10 @@ from apps.transport.services.sync import sync_devices, sync_geofences, sync_posi
 from apps.transport.services.traccar_client import TraccarUnavailable
 from apps.transport.services.sync_user import get_sync_user
 from apps.transport.services.trip_assignment import apply_trip_change, release_cancelled_shipments
+from apps.transport.models import ExternalTrip
+from apps.transport.services.trip_push import push_pending_corrections
 from apps.transport.services.trip_sync import sync_external_trips
-from apps.transport.services.trips_client import TripsApiUnavailable
+from apps.transport.services.trips_client import TripsApiUnavailable, get_trips_client
 
 logger = logging.getLogger(__name__)
 
@@ -57,4 +59,31 @@ def poll_external_trips():
             apply_trip_change(trip, user)
         except Exception:
             logger.exception('apply_trip_change failed for trip %s', trip.integration_trip_id)
+    try:
+        push_pending_corrections()
+    except Exception:
+        logger.exception('push_pending_corrections failed')
     return {'ok': True, 'changed': len(changed)}
+
+
+# Planning error codes after which a retry can never succeed.
+GIVE_UP_CODES = {'TRIP_CLOSED': 'closed'}
+
+
+@shared_task(bind=True, max_retries=6, time_limit=60)
+def push_trip_update(self, trip_id: int, op: str, body: dict, event_id: str):
+    """POST one operation to Planning. Retries keep the same event_id (= Idempotency-Key)."""
+    trip = ExternalTrip.objects.get(pk=trip_id)
+    try:
+        status_code, payload = get_trips_client().post_op(str(trip.integration_trip_id), op, body, event_id)
+    except TripsApiUnavailable as exc:
+        raise self.retry(exc=exc, countdown=min(30 * 2 ** self.request.retries, 1800))
+    if status_code < 300:
+        trip.last_push_status, trip.last_push_error = 'ok', None
+    else:
+        code = payload.get('code', str(status_code))
+        trip.last_push_status = GIVE_UP_CODES.get(code, 'error')
+        trip.last_push_error = None if code == 'TRIP_CLOSED' else f'{op}: {code} {payload.get("detail", "")}'.strip()
+        if code == 'UNAUTHORIZED':
+            logger.error('Planning rejected our key on %s', op)
+    trip.save(update_fields=['last_push_status', 'last_push_error'])

@@ -9,6 +9,7 @@ from apps.export.services.rollback import is_transport_locked, reopen_rule_task,
 from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 from apps.transport.models import ExternalTrip, Trailer, TruckHead
 from apps.transport.services.matching import normalize_plate
+from apps.transport.services.trip_push import enqueue_push
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,9 @@ def assign_trip(trip: ExternalTrip, shipment: Shipment, user, confirm_unknown_co
             write_transport_fields(shipment, trip_values(trip), user)
     except IntegrityError as exc:  # OneToOne race: another assign won
         raise AssignmentError('trip_taken') from exc
+    linked = ExternalTrip.objects.select_related('shipment__loading_location').get(pk=trip.pk)
+    enqueue_push(linked, 'export-code')
+    enqueue_push(linked, 'loading')
 
 
 def _release(trip: ExternalTrip, shipment: Shipment, user) -> None:
