@@ -56,8 +56,8 @@ describe('nextSelection', () => {
 });
 
 describe('pruneSelection', () => {
-  it('drops an id whose row is no longer on the board, keeping order', () => {
-    expect(pruneSelection([1, 2, 3], [free, waiting])).toEqual([1, 2]);
+  it('drops an id whose row is no longer on the board, keeping pick order', () => {
+    expect(pruneSelection([2, 9, 1], [free, waiting])).toEqual([2, 1]);
   });
   it('an empty board drops every id', () => {
     expect(pruneSelection([1, 2], [])).toEqual([]);
