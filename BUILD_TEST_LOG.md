@@ -1,4 +1,4 @@
-- [ ] 2026-09-29 — Packing parts (Gaplama/supply trucks, drafts with no destination) get no tasks; tasks appear once a destination is set; `cancel_packing_part_tasks` cancels the 196 old ones (ran on dev DB: 196 on 39 trucks; run once on beta after deploy); My Tasks hides packing parts in every column — NEEDS TEST
+- [x] 2026-09-29 — Packing parts (Gaplama/supply trucks, drafts with no destination) get no tasks; tasks appear once a destination is set; `cancel_packing_part_tasks` cancels the 196 old ones (ran on dev DB: 196 on 39 trucks; run once on beta after deploy); My Tasks hides packing parts in every column — TESTED
 - [x] 2026-09-29 — Export code is now one plain text field (Draft composer, Supply draft modal, Gaplama truck form); old 5-box editor commented out; Gaplama form adds 12px space above and below it — TESTED
 - [x] 2026-09-29 — Gaplama truck form: harvest status + variety dropdowns share one row (half each) so full variety names show — TESTED
 - [ ] 2026-09-29 — Sidebar: Draft Shipment (`/export/drafts`) and Assignment Board (`/export/assign`) restored to the staff Export group and the boss Prep group — NEEDS TEST
