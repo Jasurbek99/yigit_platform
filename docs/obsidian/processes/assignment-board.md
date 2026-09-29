@@ -118,4 +118,4 @@ keeps its own `?status_code=draft` query.
 - [[draft-shipments]] — two-phase creation and the "Late join, detach, swap (2026-09-29)" section
   this board is built on.
 - [[shipment-lifecycle]] — where the packing barrier sits now (`gumruk_chykysh → yuklenme`).
-- ADR-0014 (`docs/DECISIONS.md`) — the packing move model and why the barrier moved.
+- `docs/DECISIONS.md` ADR-0014 — the packing move model and why the barrier moved.
