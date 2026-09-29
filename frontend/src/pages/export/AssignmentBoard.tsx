@@ -1,308 +1,130 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Alert, Modal, Spin, Tag, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Spin, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { useDrafts, useAssignDraft } from '@/hooks/useDrafts';
+import { useJoinBoard, useJoinShipments, useSwapPackaging, useUnjoinPackaging } from '@/hooks/useDrafts';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
-import { MOCK_DEMAND } from '@/mock/demand';
-import { SupplyCard } from './assignment/SupplyCard';
-import { DemandCard } from './assignment/DemandCard';
-import { MatchPanel } from './assignment/MatchPanel';
-import { getDemandGroups } from './assignment/assignmentHelpers';
 import { useAuth } from '@/hooks/useAuth';
-import { canDo } from '@/utils/permissions';
+import { extractPatchError } from '@/hooks/useShipmentPatch';
+import { canUserJoin } from '@/components/sheet/joinHelpers';
 import { COLORS } from '@/constants/styles';
+import type { IShipmentDraft } from '@/types';
+import { BoardColumn } from './assignment/BoardColumn';
+import { SupplyCard } from './assignment/SupplyCard';
+import { ExportPartCard } from './assignment/ExportPartCard';
+import { PackingActionPanel } from './assignment/PackingActionPanel';
+import { decideBoardAction, nextSelection, splitBoardColumns } from './assignment/boardHelpers';
 
 const { Text, Title } = Typography;
 
+/** Assignment board (spec 2026-09-29): join, detach and swap packing before loading. */
 export default function AssignmentBoard() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-
   const { user } = useAuth();
-  const { data: drafts = [], isLoading: draftsLoading } = useDrafts();
-  const assignDraft = useAssignDraft();
-  // `useDrafts()` reads whatever season is browsed (Task 14); the assign
-  // mutation targets `selectedDraft.id`, a real shipment in that same
-  // browsed season — unlike Initialize Week / Add Shipment, this CAN 409.
   const isReadOnly = useSeasonReadOnly();
+  const { data: rows = [], isLoading } = useJoinBoard();
+  const joinMutation = useJoinShipments();
+  const unjoinMutation = useUnjoinPackaging();
+  const swapMutation = useSwapPackaging();
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  // Assigning a draft promotes it to `yuklenme` through the state machine, so
-  // the boss's view/edit toggle must cover it. The backend accepts boss on
-  // /assign/ (2026-08-05) — this only decides whether the button is offered.
-  const canAssign = canDo(user, 'shipment_assign', 'edit');
-
-  const [selectedDraftId, setSelectedDraftId] = useState<number | null>(null);
-  const [selectedDemandId, setSelectedDemandId] = useState<number | null>(null);
-
+  // Deep link from the supply-plan pool: /export/assign?draftId=123 preselects it.
   useEffect(() => {
-    const draftIdParam = searchParams.get('draftId');
-    if (draftIdParam) {
-      setSelectedDraftId(Number(draftIdParam));
-    }
+    const draftId = searchParams.get('draftId');
+    if (draftId) setSelectedIds([Number(draftId)]);
   }, [searchParams]);
 
-  const selectedDraft = drafts.find((d) => d.id === selectedDraftId) ?? null;
-  const selectedDemand = MOCK_DEMAND.find((d) => d.id === selectedDemandId) ?? null;
+  const { free, waiting, joined } = splitBoardColumns(rows);
+  const selected = selectedIds
+    .map((id) => rows.find((r) => r.id === id))
+    .filter((r): r is IShipmentDraft => r !== undefined);
+  const action = decideBoardAction(selected);
+  const canAct = canUserJoin(user) && !isReadOnly;
+  const isPending = joinMutation.isPending || unjoinMutation.isPending || swapMutation.isPending;
 
-  const demandGroups = getDemandGroups(MOCK_DEMAND, t);
+  const toggle = (id: number) => setSelectedIds((current) => nextSelection(current, id));
+  const onError = (err: unknown) => toast.error(extractPatchError(err, t('packing.toast_error')));
+  const done = () => setSelectedIds([]);
 
-  function handleConfirm() {
-    if (!selectedDraft || !selectedDemand) return;
-
-    // MOCK_DEMAND does not yet carry real country/customer IDs (mock data only).
-    // Send null for fields we can't resolve — backend accepts null (destination
-    // is optional at assign-time; it can be edited later). Once demand is wired
-    // to real contract/quota endpoints, selectedDemand.country_id / customer_id
-    // should be used here.
-    assignDraft.mutate(
-      {
-        draftId: selectedDraft.id,
-        payload: {
-          country: null,
-          city: null,
-          customer: null,
-          import_firm: null,
-        },
-      },
-      {
-        onSuccess: (result) => {
-          toast.success(
-            t('assign.toast_confirmed', {
-              code: selectedDraft.shipment_code,
-              country: selectedDemand.country,
-            }),
-          );
-          Modal.confirm({
-            title: t('assign.confirm_navigate_title'),
-            content: t('assign.confirm_navigate_body'),
-            okText: t('assign.confirm_navigate_ok'),
-            cancelText: t('assign.confirm_navigate_cancel'),
-            onOk: () => navigate(`/shipments/${result.id}`),
-          });
-          setSelectedDraftId(null);
-          setSelectedDemandId(null);
-        },
-        onError: () => toast.error(t('assign.toast_error')),
-      },
-    );
+  function run() {
+    if (action.kind === 'join') {
+      joinMutation.mutate(
+        { targetId: action.targetId, sourceId: action.sourceId },
+        { onSuccess: () => { toast.success(t('packing.toast_joined')); done(); }, onError },
+      );
+    } else if (action.kind === 'unjoin') {
+      unjoinMutation.mutate(action.id, {
+        onSuccess: (res) => { toast.success(t('packing.toast_unjoined', { code: res.new_supply_code })); done(); },
+        onError,
+      });
+    } else if (action.kind === 'swap') {
+      swapMutation.mutate(
+        { aId: action.aId, otherId: action.bId },
+        { onSuccess: () => { toast.success(t('packing.toast_swapped')); done(); }, onError },
+      );
+    }
   }
+
+  const groupHeader = (label: string, count: number) => (
+    <div style={{ padding: '7px 14px', fontSize: 10, fontWeight: 600, color: COLORS.textSecondary,
+      textTransform: 'uppercase', letterSpacing: '0.06em', background: COLORS.bgLayout,
+      borderBottom: '1px solid #f0f0f0', margin: '8px -10px 6px' }}>
+      {label} · {count}
+    </div>
+  );
+  const empty = (key: string) => (
+    <Text type="secondary" style={{ fontSize: 12, padding: 12, display: 'block', textAlign: 'center' }}>
+      {t(key)}
+    </Text>
+  );
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 16,
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <Title level={4} style={{ margin: 0 }}>
-            {t('assign.page_title')}
-          </Title>
-          <Text type="secondary" style={{ fontSize: 13 }}>
-            {t('assign.page_subtitle')}
-          </Text>
-        </div>
-        <Tag color="blue">{t('assign.role_label')}</Tag>
+      <div style={{ marginBottom: 16 }}>
+        <Title level={4} style={{ margin: 0 }}>{t('assign.page_title')}</Title>
+        <Text type="secondary" style={{ fontSize: 13 }}>{t('assign.page_subtitle')}</Text>
       </div>
 
-      <Alert
-        type="warning"
-        showIcon
-        message={
-          <span>
-            <strong>{t('assign.banner_title')}</strong> {t('assign.banner_body')}
-          </span>
-        }
-        style={{ marginBottom: 16 }}
-      />
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: 48 }}><Spin /></div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr 340px', gap: 14 }}>
+          <BoardColumn title={t('assign.col_supply')} dotColor="#13c2c2" count={free.length}>
+            {free.length === 0 ? empty('assign.supply_empty') : free.map((d) => (
+              <SupplyCard key={d.id} draft={d} selected={selectedIds.includes(d.id)} onSelect={() => toggle(d.id)} />
+            ))}
+          </BoardColumn>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '320px 1fr 340px',
-          gap: 14,
-        }}
-      >
-        {/* Left: supply */}
-        <div
-          style={{
-            background: COLORS.white,
-            border: '1px solid #f0f0f0',
-            borderRadius: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 600,
-          }}
-        >
-          <div
-            style={{
-              padding: '12px 16px',
-              borderBottom: '1px solid #f0f0f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#13c2c2', display: 'inline-block' }} />
-              {t('assign.col_supply')}
-            </div>
-            <div
-              style={{
-                background: COLORS.border,
-                padding: '2px 9px',
-                borderRadius: 12,
-                fontSize: 12,
-                fontWeight: 600,
-                color: COLORS.textTertiary,
-              }}
-            >
-              {drafts.length}
-            </div>
-          </div>
+          <BoardColumn title={t('assign.col_action')}>
+            <PackingActionPanel
+              selected={selected}
+              action={action}
+              canAct={canAct}
+              isPending={isPending}
+              onRun={run}
+              onClear={done}
+            />
+            {isReadOnly && <Tag style={{ margin: 16 }}>{t('assign.read_only')}</Tag>}
+          </BoardColumn>
 
-          <div style={{ padding: 10, flex: 1, overflowY: 'auto', maxHeight: 680 }}>
-            {draftsLoading ? (
-              <div style={{ textAlign: 'center', padding: 24 }}>
-                <Spin />
-              </div>
-            ) : drafts.length === 0 ? (
-              <Text type="secondary" style={{ fontSize: 12, padding: 12, display: 'block', textAlign: 'center' }}>
-                {t('assign.supply_empty')}
-              </Text>
-            ) : (
-              drafts.map((d) => (
-                <SupplyCard
-                  key={d.id}
-                  draft={d}
-                  selected={d.id === selectedDraftId}
-                  onSelect={() =>
-                    setSelectedDraftId(d.id === selectedDraftId ? null : d.id)
-                  }
-                />
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Center: match panel */}
-        <div
-          style={{
-            background: COLORS.white,
-            border: '1px solid #f0f0f0',
-            borderRadius: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 600,
-          }}
-        >
-          <div
-            style={{
-              padding: '12px 16px',
-              borderBottom: '1px solid #f0f0f0',
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{t('assign.col_match')}</div>
-          </div>
-          <MatchPanel
-            draft={selectedDraft}
-            demand={selectedDemand}
-            onConfirm={handleConfirm}
-            isReadOnly={isReadOnly}
-            onClear={() => {
-              setSelectedDraftId(null);
-              setSelectedDemandId(null);
-            }}
-            isLoading={assignDraft.isPending}
-            canConfirm={canAssign}
-          />
-        </div>
-
-        {/* Right: demand */}
-        <div
-          style={{
-            background: COLORS.white,
-            border: '1px solid #f0f0f0',
-            borderRadius: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 600,
-          }}
-        >
-          <div
-            style={{
-              padding: '12px 16px',
-              borderBottom: '1px solid #f0f0f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#d4380d', display: 'inline-block' }} />
-              {t('assign.col_demand')}
-            </div>
-            <div
-              style={{
-                background: COLORS.border,
-                padding: '2px 9px',
-                borderRadius: 12,
-                fontSize: 12,
-                fontWeight: 600,
-                color: COLORS.textTertiary,
-              }}
-            >
-              {MOCK_DEMAND.length}
-            </div>
-          </div>
-
-          <div style={{ padding: 10, flex: 1, overflowY: 'auto', maxHeight: 680 }}>
-            {demandGroups.length === 0 ? (
-              <Text type="secondary" style={{ fontSize: 12, padding: 12, display: 'block', textAlign: 'center' }}>
-                {t('assign.demand_empty')}
-              </Text>
-            ) : (
-              demandGroups.map((group) => (
-              <div key={group.label}>
-                <div
-                  style={{
-                    padding: '7px 14px',
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: COLORS.textSecondary,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    background: COLORS.bgLayout,
-                    borderBottom: '1px solid #f0f0f0',
-                    margin: '8px -10px 6px',
-                  }}
-                >
-                  {group.label} · {group.items.length}
-                </div>
-                {group.items.map((item) => (
-                  <DemandCard
-                    key={item.id}
-                    item={item}
-                    selected={item.id === selectedDemandId}
-                    onSelect={() =>
-                      setSelectedDemandId(item.id === selectedDemandId ? null : item.id)
-                    }
-                  />
+          <BoardColumn title={t('assign.col_export')} dotColor="#d4380d" count={waiting.length + joined.length}>
+            {waiting.length + joined.length === 0 ? empty('assign.export_empty') : (
+              <>
+                {groupHeader(t('assign.group_waiting'), waiting.length)}
+                {waiting.map((d) => (
+                  <ExportPartCard key={d.id} part={d} selected={selectedIds.includes(d.id)} onSelect={() => toggle(d.id)} />
                 ))}
-              </div>
-              ))
+                {groupHeader(t('assign.group_joined'), joined.length)}
+                {joined.map((d) => (
+                  <ExportPartCard key={d.id} part={d} selected={selectedIds.includes(d.id)} onSelect={() => toggle(d.id)} />
+                ))}
+              </>
             )}
-          </div>
+          </BoardColumn>
         </div>
-      </div>
+      )}
     </div>
   );
 }

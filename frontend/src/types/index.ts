@@ -1999,23 +1999,6 @@ export interface IForecastSubmitResult {
   errors?: string[];
 }
 
-//â”€â”€â”€ Assignment Board (mock demand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-export type DemandType = 'contract' | 'quota' | 'queue';
-
-export interface IDemandItem {
-  id: number;
-  type: DemandType;
-  label: string;
-  customer: string;
-  country: string;
-  firm: string;
-  remaining: string;
-  due_days: number;
-  pref: string;
-  strict: boolean;
-}
-
 // â”€â”€â”€ Pallet Manifest (Phase 2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface ICrateType {
