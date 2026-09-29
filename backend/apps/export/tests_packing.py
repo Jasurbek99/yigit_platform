@@ -339,3 +339,102 @@ class UnjoinTests(PackingFixtures):
     def test_sales_rep_may_not_unjoin(self):
         ship = self.make('gumruk_girish', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
         self.assertEqual(self._unjoin(ship, _user('rep_pk_unjoin', 'sales_rep')).status_code, 403)
+
+
+class SwapPackingTests(PackingFixtures):
+    """Spec §1.4."""
+
+    def _swap(self, a: Shipment, other_id: int, user: User | None = None):
+        return self.client_for(user or self.manager).post(
+            f'/api/v1/export/shipments/{a.pk}/swap-packaging/', {'other_id': other_id}, format='json',
+        )
+
+    def _blocks(self, ship: Shipment):
+        return sorted(ship.block_sources.values_list('block_id', 'weight_kg', 'harvest_date'))
+
+    def test_swap_exchanges_packing_only(self):
+        a = self.make('gumruk_girish', destination=True, blocks=[(self.block_a, Decimal('9000'), None)])
+        b = self.make('draft', destination=True, blocks=[(self.block_b, Decimal('7000'), None)])
+        Shipment.objects.filter(pk=a.pk).update(export_code='A-CODE', truck_plate='AA 1111')
+        Shipment.objects.filter(pk=b.pk).update(export_code='B-CODE', truck_plate='BB 2222')
+        resp = self._swap(a, b.pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        a.refresh_from_db(); b.refresh_from_db()
+        self.assertEqual(self._blocks(a), [(self.block_b.pk, Decimal('7000.00'), None)])
+        self.assertEqual(self._blocks(b), [(self.block_a.pk, Decimal('9000.00'), None)])
+        self.assertEqual((a.export_code, b.export_code), ('B-CODE', 'A-CODE'))
+        self.assertEqual((a.truck_plate, b.truck_plate), ('AA 1111', 'BB 2222'))  # not packing
+        self.assertEqual(a.country_id, self.country.pk)
+
+    def test_swap_same_block_same_date_on_both_sides(self):
+        day = datetime.date(2026, 9, 28)
+        a = self.make('gumruk_girish', destination=True, blocks=[(self.block_a, Decimal('9000'), day)])
+        b = self.make('gumruk_girish', destination=True, blocks=[(self.block_a, Decimal('4000'), day)])
+        resp = self._swap(a, b.pk)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(self._blocks(a), [(self.block_a.pk, Decimal('4000.00'), day)])
+        self.assertEqual(self._blocks(b), [(self.block_a.pk, Decimal('9000.00'), day)])
+
+    def test_swap_weight_rule_per_side(self):
+        a = self.make('draft', destination=True, blocks=[(self.block_a, Decimal('9000'), None)],
+                      weight_net=Decimal('9000'))
+        b = self.make('gumruk_girish', destination=True, blocks=[(self.block_b, Decimal('7000'), None)],
+                      weight_net=Decimal('17500'))
+        self._swap(a, b.pk)
+        a.refresh_from_db(); b.refresh_from_db()
+        self.assertEqual(a.weight_net, Decimal('7000'))   # draft follows packing
+        self.assertEqual(b.weight_net, Decimal('17500'))  # documents started, entered net kept
+
+    def test_swap_unweighed_packing_into_draft_carries_total(self):
+        free = self.make('draft', blocks=[(self.block_a, None, None)], weight_net=Decimal('18000'))
+        truck = self.make('draft', destination=True, blocks=[(self.block_b, Decimal('7000'), None)],
+                          weight_net=Decimal('7000'))
+        self._swap(truck, free.pk)
+        truck.refresh_from_db()
+        self.assertEqual(truck.weight_net, Decimal('18000'))
+
+    def test_swap_with_a_free_supply_plan_replaces_the_truck_packing(self):
+        truck = self.make('gumruk_chykysh', destination=True, blocks=[(self.block_a, Decimal('9000'), None)])
+        free = self.make('draft', blocks=[(self.block_b, Decimal('7000'), None)])
+        self.assertEqual(self._swap(truck, free.pk).status_code, 200)
+        truck.refresh_from_db()
+        self.assertEqual(self._blocks(truck), [(self.block_b.pk, Decimal('7000.00'), None)])
+
+    def test_swap_refused(self):
+        from apps.export.models import Pallet
+        full = self.make('gumruk_girish', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+        empty = self.make('gumruk_girish', destination=True)
+        loading = self.make('yuklenme', destination=True, blocks=[(self.block_b, Decimal('1'), None)])
+        palleted = self.make('gumruk_chykysh', destination=True, blocks=[(self.block_b, Decimal('1'), None)])
+        Pallet.objects.create(**_pallet_kwargs(palleted, self.block_b))
+        for other in (empty, loading, palleted):
+            with self.subTest(other=other.shipment_code):
+                self.assertEqual(self._swap(full, other.pk).status_code, 400)
+        self.assertEqual(self._swap(full, full.pk).status_code, 400)
+
+    def test_swap_with_consumed_source_returns_404(self):
+        target = self.make('gumruk_girish', destination=True)
+        source = self.make('draft', blocks=[(self.block_a, Decimal('9000'), None)])
+        other = self.make('gumruk_girish', destination=True, blocks=[(self.block_b, Decimal('1'), None)])
+        source_id = source.pk
+        self.client_for(self.manager).post(
+            f'/api/v1/export/shipments/{target.pk}/join/', {'source_id': source_id}, format='json')
+        self.assertEqual(self._swap(other, source_id).status_code, 404)
+        other.refresh_from_db()
+        self.assertEqual(other.block_sources.count(), 1)
+
+    def test_swap_logs_and_notifies(self):
+        solt = _user('solt_pk_swap', 'loading_dept_head')
+        a = self.make('draft', destination=True, blocks=[(self.block_a, Decimal('1'), None)])
+        b = self.make('draft', blocks=[(self.block_b, Decimal('1'), None)])
+        self._swap(a, b.pk)
+        for ship in (a, b):
+            self.assertTrue(ShipmentStatusLog.objects.filter(shipment=ship, comment__contains='swapped').exists())
+        self.assertTrue(Notification.objects.filter(user=solt).exists())
+
+    def test_old_swap_endpoint_is_gone(self):
+        a = self.make('draft', destination=True)
+        resp = self.client_for(self.manager).post(
+            f'/api/v1/export/shipments/{a.pk}/swap/', {'other_id': a.pk, 'fields': ['truck_plate']},
+            format='json')
+        self.assertEqual(resp.status_code, 404)

@@ -167,3 +167,68 @@ def unjoin_packing(shipment: Shipment, user) -> Shipment:
     # b318f0d8 a row with no destination gets no draft-step tasks.
     generate_tasks_for_status(new, 'draft')
     return new
+
+
+def swap_packing(a: Shipment, b: Shipment, user) -> tuple[Shipment, Shipment]:
+    """Exchange the packing of two rows (either may be a free supply plan).
+
+    block_sources are re-created rather than re-pointed: the same block with
+    the same harvest_date on both rows would collide on
+    unique_together (shipment, block, harvest_date) mid-way, and there is no
+    holder row to park them on (the FK is not nullable).
+
+    Raises:
+        ValueError: same row, a row without packing, loading started, pallets.
+    """
+    if a.pk == b.pk:
+        raise ValueError('Cannot swap packing of a shipment with itself')
+    with transaction.atomic():
+        locked = {
+            s.pk: s for s in (
+                Shipment.objects.select_for_update().select_related('status')
+                .filter(pk__in=[a.pk, b.pk]).order_by('pk')
+            )
+        }
+        a, b = locked[a.pk], locked[b.pk]
+        for row in (a, b):
+            assert_can_move_packing(row)
+            if not has_packing(row):
+                raise ValueError(f'{row.shipment_code}: has no packing to swap')
+
+        a_weight, b_weight = packaging_weight(a), packaging_weight(b)
+        a_blocks = list(a.block_sources.values('block_id', 'weight_kg', 'harvest_date'))
+        b_blocks = list(b.block_sources.values('block_id', 'weight_kg', 'harvest_date'))
+        a_varieties = list(a.varieties_dominant.values_list('pk', flat=True))
+        b_varieties = list(b.varieties_dominant.values_list('pk', flat=True))
+
+        ShipmentBlockSource.objects.filter(shipment_id__in=[a.pk, b.pk]).delete()
+        # Per-row .create(), not bulk_create: a batch mixing None and Decimal
+        # weight_kg trips a pyodbc/MSSQL type-inference bug ("Arithmetic
+        # overflow error converting nvarchar to data type numeric", 8115) —
+        # same quirk already documented in tests_supply_draft.py. At most a
+        # handful of rows per swap, so there is no batching cost to lose.
+        for row in a_blocks:
+            ShipmentBlockSource.objects.create(shipment_id=b.pk, **row)
+        for row in b_blocks:
+            ShipmentBlockSource.objects.create(shipment_id=a.pk, **row)
+        a.varieties_dominant.set(b_varieties)
+        b.varieties_dominant.set(a_varieties)
+
+        a_update = {field: getattr(b, field) for field in PACKING_FIELDS}
+        b_update = {field: getattr(a, field) for field in PACKING_FIELDS}
+        a_update.update(net_update(a, b_weight), updated_by_id=user.pk)
+        b_update.update(net_update(b, a_weight), updated_by_id=user.pk)
+        # .update(): a packing move must never run auto-advance.
+        Shipment.objects.filter(pk=a.pk).update(**a_update)
+        Shipment.objects.filter(pk=b.pk).update(**b_update)
+
+        for row, other in ((a, b), (b, a)):
+            ShipmentStatusLog.objects.create(
+                shipment=row, status=row.status, changed_by=user,
+                comment=f'Packing swapped with {other.shipment_code}',
+            )
+        _notify_packing_change(
+            [a, b], user,
+            f'Packing was swapped between {a.shipment_code} and {b.shipment_code} by {user.username}.',
+        )
+    return a, b

@@ -332,8 +332,8 @@ class ShipmentBulkFreezeTests(SeasonFreezeFixture):
 
     def test_swap_with_a_closed_season_partner_returns_409(self):
         response = self.client_as().post(
-            f'/api/v1/export/shipments/{self.live.pk}/swap/',
-            {'other_id': self.frozen.pk, 'fields': ['truck_plate']}, format='json',
+            f'/api/v1/export/shipments/{self.live.pk}/swap-packaging/',
+            {'other_id': self.frozen.pk}, format='json',
         )
         self.assert_season_closed_409(response)
 

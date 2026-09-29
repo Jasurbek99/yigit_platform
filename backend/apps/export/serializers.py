@@ -2066,20 +2066,10 @@ class ShipmentJoinSerializer(serializers.Serializer):
     source_id = serializers.IntegerField(min_value=1)
 
 
-class ShipmentSwapSerializer(serializers.Serializer):
-    """Request body for POST /api/v1/export/shipments/{a_id}/swap/.
-
-    Exchanges the values of selected scalar (and FK) fields between two
-    shipments.  ``other_id`` identifies the second shipment; ``fields`` is
-    a non-empty list of field names drawn from SWAPPABLE_FIELDS.
-    """
+class ShipmentSwapPackagingSerializer(serializers.Serializer):
+    """Request body for POST /api/v1/export/shipments/{a_id}/swap-packaging/."""
 
     other_id = serializers.IntegerField(min_value=1)
-    fields = serializers.ListField(
-        child=serializers.CharField(max_length=80),
-        min_length=1,
-        allow_empty=False,
-    )
 
 
 # ---------------------------------------------------------------------------
