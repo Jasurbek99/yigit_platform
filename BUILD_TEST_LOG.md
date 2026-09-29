@@ -1,3 +1,4 @@
+- [ ] 2026-09-29 — Backend: late join, /unjoin/, /swap-packaging/ (old /swap/ removed), loading dept roles + board list — NEEDS TEST
 - [ ] 2026-09-29 — Loading needs packing; documents may start before it (barrier moved) — NEEDS TEST
 - [x] 2026-09-29 — Packing parts (Gaplama/supply trucks, drafts with no destination) get no tasks; tasks appear once a destination is set; `cancel_packing_part_tasks` cancels the 196 old ones (ran on dev DB: 196 on 39 trucks; run once on beta after deploy); My Tasks hides packing parts in every column — TESTED
 - [x] 2026-09-29 — Export code is now one plain text field (Draft composer, Supply draft modal, Gaplama truck form); old 5-box editor commented out; Gaplama form adds 12px space above and below it — TESTED
