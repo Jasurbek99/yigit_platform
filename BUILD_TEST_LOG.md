@@ -1,3 +1,7 @@
+- [ ] 2026-09-27 — Pallet QR scan endpoint: `GET|POST /api/v1/export/shipments/{id}/scan/` — NEEDS TEST
+  To test (API, no page yet): on a test shipment in «yola_chykdy», log in as transport → GET shows `field: border_crossed_at`; POST `{"field":"border_crossed_at"}` → status becomes serhet_gechdi; POST again → `recorded:false`, nothing changes. Check a sales_rep can record dest_entry_at / customs_entry_at / arrived_at (depends on the Sheet field grants on the live DB).
+- [ ] 2026-09-27 — Pallet QR label PDF: `GET /api/v1/export/shipments/{id}/label/` (A5, QR + export code) — NEEDS TEST
+  To test: open the URL for a shipment that has an export code → A5 PDF downloads; print on the office printer; scan with a phone camera → opens `<site>/scan/{id}` (page itself not built yet, 404 in SPA is expected). Shipment without export code → 400.
 - [ ] 2026-09-26 — Board phases: `dest_entry` / `transshipment` now in TRANSIT, `cancelled` explicitly CLOSE (were falling into CLOSE by default) — NEEDS TEST
   To test: move a test shipment to «Въезд в страну назначения» (or «Перегрузка») → on the Shipment board / SelfBoard it sits in the TRANSIT column, not CLOSE; dashboard active-shipments tag shows TRANSIT. Live DB has 0 shipments in those two statuses today, so use a test shipment.
 - [ ] 2026-09-26 — Sidebar «Gaplama» page (/export/gaplama) restyled to the platform look: white panel, antd blue, white header; the Gaplama tab inside Tır Takip stays green — NEEDS TEST

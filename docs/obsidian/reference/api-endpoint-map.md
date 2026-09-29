@@ -90,6 +90,10 @@ A few models reach their season through neither a `season` FK nor a `shipment` F
 
 **Set column color** (`POST /shipments/{id}/set-column-color/`) — **any authenticated user**, body `{"color": "#RRGGBB" | null | ""}`. Dedicated endpoint listed in `_OPEN_ACTIONS` so column tint works for every Sheet viewer regardless of their `shipment.can_edit` grant — column_color is a UI decoration, not domain data. Rejects edits to deleted/archived shipments (403). Defensively truncates `color` to 7 chars (`#RRGGBB`); `null` or empty clears the tint. Writes one `AuditLog` row only when the value actually changes (diff-audit, mirrors `partial_update`). Returns the full detail response. Frontend hook: `useSetColumnColor` — reuses `useShipmentPatch`'s exported `applyOptimistic` / `reconcileFromServer` / `rollback` for instant paint + rollback-on-error.
 
+**Pallet QR scan** (`GET | POST /shipments/{id}/scan/`) — GET `{id, code, export_code, status, field}`; POST `{field, occurred_at?}` fills the current step's trigger timestamp via `ShipmentPatchSerializer` (field grant + audit) and auto-advances; already-filled → `200 recorded:false`. See [[../processes/pallet-qr-scan]].
+
+**Pallet label PDF** (`GET /shipments/{id}/label/`) — A5 PDF, QR to `/scan/{id}` + `export_code` underneath; `400` when `export_code` is blank. Normal `shipment.can_view` gate. See [[../processes/pallet-qr-scan]].
+
 ### Pallet Manifest (weightmaster loading detail)
 
 Per-pallet weighing data filled during loading (`Pallet` model: gross, crate_type, crate_count, pallet_weight, additions, `variety`, `sub_block`, `created_by`). Source of truth for `Shipment.weight_net`/`weight_gross`. Screen: `PalletManifest.tsx`.
