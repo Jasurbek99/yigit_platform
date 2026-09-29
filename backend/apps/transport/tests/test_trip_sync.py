@@ -1,6 +1,23 @@
-from django.test import TestCase
+from datetime import timedelta
+from unittest import mock
 
+from django.test import TestCase
+from django.utils import timezone
+
+from apps.core.models import Season, ShipmentStatusType
+from apps.export.models import Shipment
 from apps.transport.models import ExternalTrip, ExternalTripSyncState
+from apps.transport.services.trip_sync import OVERLAP, sync_external_trips
+from apps.transport.services.trips_client import MockTripsClient, TripsApiUnavailable
+
+
+def _make_shipment(code='T-1', status_code='draft', **fields):
+    status, _ = ShipmentStatusType.objects.get_or_create(
+        code=status_code, defaults={'name_tk': status_code, 'step_order': 99},
+    )
+    season = Season.objects.filter(is_active=True).first() or Season.objects.create(
+        name='S', start_date='2026-09-01', end_date='2027-06-30', is_active=True)
+    return Shipment.objects.create(shipment_code=code, date='2026-10-01', season=season, status=status, **fields)
 
 
 class ExternalTripModelTests(TestCase):
@@ -15,3 +32,121 @@ class ExternalTripModelTests(TestCase):
             ExternalTrip.SNAPSHOT_FIELDS,
             ('tractor_plate', 'trailer_plate', 'driver_full_name', 'driver_passport_number'),
         )
+
+
+
+class FakeClient(MockTripsClient):
+    """MockTripsClient whose items the test controls."""
+
+    def __init__(self, items):
+        self.items = items
+        self.detail_calls = []
+        self.since_seen = []
+
+    def _items(self):
+        return self.items
+
+    def list_trips(self, changed_since, page, page_size=200):
+        self.since_seen.append(changed_since)
+        return super().list_trips(changed_since, page, page_size)
+
+    def get_trip(self, trip_uuid):
+        self.detail_calls.append(trip_uuid)
+        return {**next(i for i in self.items if i['integrationTripId'] == trip_uuid),
+                'destinationCountryCode': 'KZ'}
+
+
+def _fixture_items():
+    return MockTripsClient()._items()
+
+
+class SyncTests(TestCase):
+    def test_first_sync_creates_all_and_moves_cursor(self):
+        sync_external_trips(FakeClient(_fixture_items()))
+        self.assertEqual(ExternalTrip.objects.count(), 6)
+        state = ExternalTripSyncState.load()
+        self.assertEqual(state.cursor.isoformat(), '2026-09-29T11:02:11.137529+00:00')
+        self.assertIsNotNone(state.last_success_at)
+
+    def test_second_sync_asks_with_overlap_and_is_idempotent(self):
+        client = FakeClient(_fixture_items())
+        sync_external_trips(client)
+        sync_external_trips(client)
+        cursor = ExternalTripSyncState.load().cursor
+        self.assertEqual(client.since_seen[-1], cursor - OVERLAP)
+        self.assertEqual(ExternalTrip.objects.count(), 6)
+
+    def test_paging_reads_every_page(self):
+        client = FakeClient(_fixture_items())
+        with mock.patch('apps.transport.services.trip_sync.PAGE_SIZE', 4):
+            sync_external_trips(client)
+        self.assertEqual(ExternalTrip.objects.count(), 6)
+
+    def test_missing_country_is_filled_from_detail_once(self):
+        items = [{**i, 'destinationCountryCode': None} for i in _fixture_items()[:1]]
+        client = FakeClient(items)
+        sync_external_trips(client)
+        sync_external_trips(client)
+        self.assertEqual(ExternalTrip.objects.get().destination_country_code, 'KZ')
+        self.assertEqual(len(client.detail_calls), 1)
+
+    def test_failure_keeps_cursor_and_records_error(self):
+        client = FakeClient(_fixture_items())
+        sync_external_trips(client)
+        cursor = ExternalTripSyncState.load().cursor
+        client.list_trips = mock.Mock(side_effect=TripsApiUnavailable('down'))
+        with self.assertRaises(TripsApiUnavailable):
+            sync_external_trips(client)
+        state = ExternalTripSyncState.load()
+        self.assertEqual(state.cursor, cursor)
+        self.assertIn('down', state.last_error)
+
+
+class ChangeDetectionTests(TestCase):
+    """Review Focus 5: status-only bumps are not changes."""
+
+    def _linked(self, client):
+        sync_external_trips(client)
+        trip = ExternalTrip.objects.get(tractor_plate='2563AHF')
+        # Linking needs a shipment; a bare id is enough for detection.
+        ExternalTrip.objects.filter(pk=trip.pk).update(shipment_id=_make_shipment().pk)
+        return trip
+
+    def _bump(self, items, **changes):
+        item = items[0]
+        item['changedAt'] = (timezone.now() + timedelta(minutes=1)).isoformat()
+        for path, value in changes.items():
+            block, _, key = path.partition('.')
+            if key:
+                item[block][key] = value
+            else:
+                item[block] = value
+
+    def test_status_only_bump_is_not_a_change(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        self._linked(client)
+        self._bump(items, status='PLANNED')
+        self.assertEqual(sync_external_trips(client), [])
+        self.assertEqual(ExternalTrip.objects.get(tractor_plate='2563AHF').status, 'PLANNED')
+
+    def test_driver_swap_is_a_change(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        self._linked(client)
+        self._bump(items, **{'driver.fullName': 'Täze Sürüji'})
+        self.assertEqual(len(sync_external_trips(client)), 1)
+
+    def test_cancel_is_a_change(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        self._linked(client)
+        self._bump(items, status='CANCELLED')
+        self.assertEqual(len(sync_external_trips(client)), 1)
+
+    def test_unlinked_trip_change_is_not_reported(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        sync_external_trips(client)
+        self._bump(items, **{'driver.fullName': 'X'})
+        self.assertEqual(sync_external_trips(client), [])

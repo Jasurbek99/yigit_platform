@@ -4,6 +4,8 @@ from celery import shared_task
 
 from apps.transport.services.sync import sync_devices, sync_geofences, sync_positions
 from apps.transport.services.traccar_client import TraccarUnavailable
+from apps.transport.services.trip_sync import sync_external_trips
+from apps.transport.services.trips_client import TripsApiUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -31,3 +33,14 @@ def poll_traccar():
         logger.warning('Traccar unavailable, kept last-known: %s', exc)
         return {'devices': 0, 'geofences': 0, 'positions': 0, 'ok': False}
     return {'devices': devices, 'geofences': geofences, 'positions': positions, 'ok': True}
+
+
+@shared_task(time_limit=110, soft_time_limit=100)
+def poll_external_trips():
+    """Pull changed Planning trips. Change handling is wired in Task 8."""
+    try:
+        changed = sync_external_trips()
+    except TripsApiUnavailable as exc:
+        logger.warning('Planning trips poll failed: %s', exc)
+        return {'ok': False, 'changed': 0}
+    return {'ok': True, 'changed': len(changed)}

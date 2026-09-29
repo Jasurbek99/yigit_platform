@@ -472,6 +472,11 @@ CELERY_TASK_ALWAYS_EAGER = RUNNING_TESTS
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
+    'poll-external-trips': {
+        'task': 'apps.transport.tasks.poll_external_trips',
+        'schedule': 120.0,
+        'options': {'expires': 110},
+    },
     'poll-traccar-positions': {
         'task': 'apps.transport.tasks.poll_traccar',
         'schedule': 120.0,
