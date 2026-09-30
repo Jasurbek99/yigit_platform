@@ -132,7 +132,8 @@
     "documents": "Документы",
     "pomidor_dukany": "Pomidor Dükany",
     "tir_takip": "Отслеживание машин",
-    "gaplama": "Упаковка"
+    "gaplama": "Упаковка",
+    "truck_board": "Машины ↔ Отгрузки"
   },
   "expense_template": {
     "title": "Шаблон категорий расходов",
@@ -3055,7 +3056,7 @@
     "deadline_at": "Срок: {{time}}",
     "weekly_plan_late_until_sunday": "Просрочено — можно дозаполнить до воскресенья",
     "join_supply": "Присоедините упаковку",
-    "choose_truck": "Выберите машину",
+    "choose_truck": "Выбрать машину (рейс)",
     "prepare_contract": "Выберите или создайте контракт и скачайте",
     "fill_gross_net": "Брутто/нетто: выберите упаковку",
     "prepare_transport_docs": "Подготовьте транспортные документы",
@@ -4063,5 +4064,91 @@
       "no_location": "Вам не назначена площадка — обратитесь к администратору.",
       "generic": "Не сохранилось — попробуйте ещё раз."
     }
+  },
+  "truck_board": {
+    "title": "Машины ↔ Отгрузки",
+    "subtitle": "Связать рейсы Planning с обычными отгрузками",
+    "col_shipments": "Отгрузки без машины",
+    "col_trips": "Запланированные машины",
+    "no_country": "Страна не указана",
+    "no_gps": "Нет GPS",
+    "garage": "Свой парк",
+    "third_party": "Сторонний",
+    "no_visa": "Нет визы",
+    "details": "Подробнее",
+    "documents_pdf": "Документы рейса (PDF)",
+    "assign": "Привязать",
+    "clear": "Сбросить",
+    "assigned": "Машина привязана к {{code}}",
+    "country_mismatch": "Страны не совпадают",
+    "unknown_country_group": "Страна рейса не указана",
+    "unknown_country_confirm": "Страна рейса не указана. Всё равно привязать?",
+    "synced_ago": "Синхронизация {{minutes}} мин назад",
+    "never_synced": "Ещё не синхронизировано",
+    "sync_error": "Planning не отвечает — показаны последние полученные рейсы",
+    "trip": "Рейс",
+    "awaiting_code": "ожидает кода",
+    "planned_departure": "Плановый выезд",
+    "country": "Страна",
+    "tractor": "Тягач",
+    "trailer": "Прицеп",
+    "driver": "Водитель",
+    "phone": "Телефон",
+    "passport": "Паспорт",
+    "valid_until": "действителен до",
+    "visas": "Визы",
+    "error": {
+      "trip_taken": "Эта машина уже привязана",
+      "country_mismatch": "Страны не совпадают",
+      "country_unknown": "Страна рейса не указана",
+      "not_draft": "Отгрузка уже прошла подготовку",
+      "has_trip": "У отгрузки уже есть машина",
+      "trip_closed": "Рейс закрыт или отменён",
+      "gapy": "У gapy satyş свой водитель",
+      "locked": "Отгрузка заблокирована — погрузка началась",
+      "generic": "Не удалось сохранить",
+      "pdf": "Не удалось открыть документы рейса",
+      "season_closed": "Сезон закрыт",
+      "shipment_not_found": "Отгрузка не найдена",
+      "shipment_id_required": "Сначала выберите отгрузку"
+    },
+    "accept_change": "Принять изменение",
+    "accepted": "Изменение принято",
+    "tab_join": "Связать",
+    "tab_linked": "Привязанные",
+    "unlink": "Отвязать",
+    "move": "Перенести",
+    "unlink_confirm": "Отгрузка может вернуться в подготовку. Продолжить?",
+    "status": {
+      "CREATED": "Создан",
+      "PLANNED": "Запланирован",
+      "DOCUMENTS_READY": "Документы готовы",
+      "ON_THE_WAY": "В пути",
+      "ARRIVED_FOR_LOADING": "Прибыл на погрузку",
+      "LOADED": "Загружен",
+      "BORDER_CROSSING": "На границе",
+      "ARRIVED": "Прибыл",
+      "UNLOADED": "Выгружен",
+      "CLOSED": "Закрыт",
+      "CANCELLED": "Отменён",
+      "ARCHIVED": "В архиве"
+    },
+    "minutes_ago": "{{minutes}} мин назад",
+    "load_error": "Не удалось загрузить рейсы",
+    "conflict": {
+      "changed": "Planning сменил машину: {{from}} → {{to}}",
+      "cancelled": "Planning отменил рейс: {{from}} → {{to}}"
+    },
+    "push_op": {
+      "export-code": "код экспорта",
+      "loading": "место погрузки"
+    },
+    "push_error": {
+      "DUPLICATE_EXPORT_CODE": "Planning отклонил код экспорта: он уже у другого рейса",
+      "CITY_COUNTRY_MISMATCH": "Planning отклонил место погрузки: город не в стране рейса",
+      "PLANNING_UNAVAILABLE": "Planning не ответил — данные будут отправлены повторно автоматически",
+      "generic": "Planning отклонил {{op}} ({{code}})"
+    },
+    "passport_valid_until": "Паспорт действителен до"
   }
 }

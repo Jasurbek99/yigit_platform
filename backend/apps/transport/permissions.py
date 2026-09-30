@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 from apps.core.permissions import (
     get_page_permissions, get_resource_perm, resource_write_permission,
@@ -118,3 +118,33 @@ class CanAccessFleetDocuments(BasePermission):
 
     def has_permission(self, request, view) -> bool:
         return can_edit_fleet(request.user)
+
+
+class CanViewTruckBoard(BasePermission):
+    """Read gate for the Truck Board: the export.truck_board page grant."""
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if user.is_superuser:
+            return True
+        role = getattr(user, 'role', None)
+        if not role:
+            return False
+        return get_page_permissions(role).get('export.truck_board', False)
+
+
+class CanAssignTrips(BasePermission):
+    """Write gate: RoleResourcePermission shipment_assign.can_edit — the same
+    grant the frontend reads with canDo(user, 'shipment_assign', 'edit')."""
+
+    def has_permission(self, request, view) -> bool:
+        if request.method in SAFE_METHODS:
+            return True
+        user = request.user
+        if user.is_superuser:
+            return True
+        role = getattr(user, 'role', None)
+        if not role:
+            return False
+        perm = get_resource_perm(role, 'shipment_assign')
+        return bool(perm and perm['can_edit'])

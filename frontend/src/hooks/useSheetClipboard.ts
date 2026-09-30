@@ -123,7 +123,7 @@ export function useSheetClipboard(
     writeClipboard(shipment, rowConfig);
     toast.success(t('sheet.cell_cut'));
     // Clear only when the cell is editable and clearable and not already empty.
-    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly) || !isClearableField(rowConfig)) return;
+    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly, shipment) || !isClearableField(rowConfig)) return;
     const value = getCellValue(shipment, rowConfig, options);
     if (value && value !== '—') clearCell(shipment, rowConfig);
   }, [resolveActiveCell, writeClipboard, t, rowSettings, user, isSeasonReadOnly, options, clearCell]);
@@ -132,7 +132,7 @@ export function useSheetClipboard(
     const ctx = resolveActiveCell();
     if (!ctx) return;
     const { shipment, rowConfig } = ctx;
-    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly) || !isClearableField(rowConfig)) return;
+    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly, shipment) || !isClearableField(rowConfig)) return;
     const value = getCellValue(shipment, rowConfig, options);
     if (!value || value === '—') return;
     clearCell(shipment, rowConfig);
@@ -143,7 +143,7 @@ export function useSheetClipboard(
     if (!ctx) return;
     const { shipment, rowConfig } = ctx;
 
-    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly)) {
+    if (!isCellEditable(rowConfig, rowSettings, user, isSeasonReadOnly, shipment)) {
       toast.warning(t('sheet.paste_readonly'));
       return;
     }

@@ -30,6 +30,8 @@ interface IShipmentFieldGroupProps {
    * generic multi-group edit drawer) — only this render skips it.
    */
   excludeKeys?: readonly string[];
+  /** Field keys rendered read-only even when the group is editable. */
+  lockedKeys?: readonly string[];
 }
 
 /**
@@ -44,6 +46,7 @@ export function ShipmentFieldGroup({
   onOpenComments,
   commentCountsByField,
   excludeKeys,
+  lockedKeys,
 }: IShipmentFieldGroupProps) {
   const fields = excludeKeys
     ? groupByKey(groupKey).fields.filter((f) => !excludeKeys.includes(f.key))
@@ -56,7 +59,7 @@ export function ShipmentFieldGroup({
           key={config.key}
           shipment={shipment}
           config={config}
-          readOnly={readOnly}
+          readOnly={readOnly || !!lockedKeys?.includes(config.key)}
           isMissing={missingKeys.has(config.key)}
           onOpenComments={onOpenComments ? () => onOpenComments(config.key) : undefined}
           commentCount={commentCountsByField?.[config.key] ?? 0}

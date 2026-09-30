@@ -128,9 +128,9 @@ class DraftAutoAdvanceTests(TestCase):
 
     def test_choosing_the_truck_fires_advance(self):
         shipment = self._make_draft_with_destination()
-        # tasks.choose_truck (ALL_FIELDS_FILLED truck_head_id, non-gapy) is the
-        # last open PREP task; join_supply is already closed by block_sources.
-        shipment.truck_head_id = 7
+        # tasks.choose_truck (ALL_FIELDS_FILLED trip_id, non-gapy — a Planning
+        # trip) is the last open PREP task; join_supply is closed by block_sources.
+        shipment.trip_id = 1
         shipment.save()
 
         shipment.refresh_from_db()
@@ -146,6 +146,26 @@ class DraftAutoAdvanceTests(TestCase):
         self.assertIsNotNone(last_log)
         self.assertTrue(last_log.is_auto, 'Status log must be flagged is_auto=True')
 
+    def test_missing_trip_keeps_the_choose_truck_gate_shut(self):
+        """Typed driver fields do not open the draft gate for a regular
+        shipment: since 2026-09-29 the truck comes from a Planning trip
+        (tasks.choose_truck on trip_id), and the transport assign_driver is
+        retired.
+        """
+        shipment = self._make_draft_with_destination()
+        shipment.driver_name = 'Test Driver'
+        shipment.truck_plate = 'AB1234'
+        shipment.driver_phone = '+99363391774'
+        shipment.save()
+
+        shipment.refresh_from_db()
+        self.assertEqual(
+            shipment.status.code, 'draft',
+            'Without a Planning trip the draft gate must stay shut',
+        )
+        choose = shipment.tasks.get(rule__title_key='tasks.choose_truck')
+        self.assertNotEqual(choose.state, TaskState.DONE)
+
     def test_blank_driver_phone_does_not_satisfy_the_assign_driver_gate(self):
         """`''` must read as unfilled, the way `None` does.
 
@@ -153,7 +173,8 @@ class DraftAutoAdvanceTests(TestCase):
         driver the registry has no phone for, so this value now arrives in
         normal operation. `_is_filled()` tests truthiness rather than
         `is None`; were it the other way round, blanking the phone would
-        resolve the assign_driver task and walk the shipment out of draft on a
+        resolve the gapy assign_driver task (driver_name + truck_plate +
+        driver_phone since 2026-09-30) and walk the shipment out of draft on a
         field nobody filled.
         """
         shipment = self._make_draft_with_destination(gapy=True)

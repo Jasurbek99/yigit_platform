@@ -79,11 +79,14 @@ TASK_RULES: list[dict] = [
         'new_in_catalog': True,
     },
     {
-        # 8.1 «Maşyn saýla» — regular trucks: a TIR fleet tractor is chosen.
+        # 8.1 «Maşyn saýla» — regular shipments: the export manager joins a
+        # Planning trip on the Truck Board (spec 2026-09-29-transport-trips-design.md).
+        # Joining writes Shipment.trip_id, which closes this task. After 5b
+        # since 2026-09-30 (PREP chain).
         'step': 'draft',
         'title_key': 'tasks.choose_truck',
         'assignee_role': 'export_manager',
-        'target_fields': 'truck_head_id',
+        'target_fields': 'trip_id',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': '',
@@ -93,9 +96,10 @@ TASK_RULES: list[dict] = [
         'new_in_catalog': True,
     },
     {
-        # Non-gapy shipments: transport team fills name + phone + plate.
-        # All three must be present for the task to auto-resolve (ALL_FIELDS_FILLED).
-        # The Sheet writes these at R23 (truck_plate), R27 (driver_name), R28 (driver_phone).
+        # Retired 2026-09-29: regular shipments get their truck from a Planning
+        # trip (tasks.choose_truck above). Kept as an inactive row so the upsert
+        # key still matches the existing DB row and deactivates it.
+        # Was: transport team fills name + phone + plate (R23/R27/R28).
         'step': 'draft',
         'title_key': 'tasks.assign_driver',
         'assignee_role': 'transport',

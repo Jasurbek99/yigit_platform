@@ -40,9 +40,11 @@ export function isCellEditable(
   rowSettings: Record<string, ISheetRowSettingForUser>,
   user: ICurrentUser | null,
   isSeasonReadOnly: boolean,
+  shipment?: ITripLockSubject,
 ): boolean {
   if (isSeasonReadOnly) return false;
   if (rowConfig.input_type === 'readonly') return false;
+  if (shipment && isTripLockedCell(shipment, rowConfig.field_key)) return false;
   // Boss view/edit toggle. MUST sit ABOVE the v2EditDecision read: the backend
   // emits can_current_user_edit as a bool for EVERY row (export/views.py:1418
   // and :1440) and knows nothing about bossEditMode, so the `??` fallback below
@@ -52,4 +54,21 @@ export function isCellEditable(
   if (isBossInViewMode(user)) return false;
   const v2EditDecision = rowSettings[rowConfig.field_key]?.can_current_user_edit;
   return v2EditDecision ?? canEditCell(user, rowConfig.field_key);
+}
+
+// Transport cells of a regular shipment that carries a Planning trip: the trip
+// is the source of truth, so they change only by unlinking the trip on the
+// Truck Board (spec 2026-09-29-transport-trips D10). Mirrors the backend guard
+// apps/export/services/trip_lock.py; gapy keeps its typed driver.
+export const TRIP_LOCKED_FIELDS = new Set([
+  'truck_plate', 'driver_name', 'driver_phone', 'driver_passport_serial', 'driver_passport_issue_date',
+]);
+
+export interface ITripLockSubject {
+  trip_id?: number | null;
+  is_gapy_satys?: boolean;
+}
+
+export function isTripLockedCell(shipment: ITripLockSubject, fieldKey: string): boolean {
+  return !!shipment.trip_id && !shipment.is_gapy_satys && TRIP_LOCKED_FIELDS.has(fieldKey);
 }

@@ -186,6 +186,10 @@ class Shipment(models.Model):
     driver_passport_issue_date = models.DateField(null=True, blank=True)
     driver_2_passport_serial = models.CharField(max_length=50, blank=True, null=True)
     driver_2_passport_issue_date = models.DateField(null=True, blank=True)
+    # Planning-trip drivers (2026-09-29): Planning sends the foreign passport's
+    # EXPIRY, never its issue date, so it gets its own column instead of being
+    # stored in driver_passport_issue_date (which keeps its gapy meaning).
+    driver_passport_expiry = models.DateField(null=True, blank=True)
     transport_temp_c = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     transit_days = models.IntegerField(null=True, blank=True)
     shelf_life_days = models.IntegerField(null=True, blank=True)
