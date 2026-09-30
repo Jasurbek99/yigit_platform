@@ -196,6 +196,8 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       scope_week: null,
       scope_block: null,
       scope_block_code: null,
+      scope_date: null,
+      cancelled_reason: '',
     },
     {
       id: 3,
@@ -223,6 +225,8 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
       scope_week: null,
       scope_block: null,
       scope_block_code: null,
+      scope_date: null,
+      cancelled_reason: '',
     },
   ],
   in_phase_seconds: 14400,

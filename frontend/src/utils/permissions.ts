@@ -82,6 +82,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/expense-template':    'export.expense_template',
   '/admin/packing-templates':   'export.packing_presets',
   '/transport/map':             'transport.map',
+  '/transport/plan':            'transport.plan',
   '/admin/fleet':               'transport.fleet',
   '/tir-takip':                 'tir_takip',
   '/export/gaplama':            'tir_takip.gaplama',

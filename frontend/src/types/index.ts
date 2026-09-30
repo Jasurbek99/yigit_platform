@@ -1768,9 +1768,11 @@ export interface ICancelShipmentResponse extends IShipmentDetail {
 
 export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 
-export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'manual_done';
+export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'manual_done';
 
-export type TaskKind = 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation';
+export type TaskKind =
+  | 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation'
+  | 'alloc_review' | 'transport_plan' | 'daily_loading' | 'daily_export';
 
 export interface ITaskListItem {
   id: number;
@@ -1804,6 +1806,10 @@ export interface ITaskListItem {
   scope_block: number | null;
   /** Block code (e.g. "K") a weekly_plan task covers; null for shipment tasks. */
   scope_block_code: string | null;
+  /** Local day (YYYY-MM-DD) a daily_loading / daily_export task covers; null otherwise. */
+  scope_date: string | null;
+  /** Why a cancelled task was cancelled; 'missed' = a daily task nobody did. '' otherwise. */
+  cancelled_reason: string;
 }
 
 export interface ITaskDetail extends ITaskListItem {
@@ -1811,6 +1817,39 @@ export interface ITaskDetail extends ITaskListItem {
   blocked_by: number[];
   rule: number | null;
   duration_seconds: number | null;
+}
+
+/** GET /export/truck-allocations/review/ — the /export/plan «Tanyşdym» banner. */
+export interface ITruckAllocationReview {
+  year: number;
+  week: number;
+  open_task_id: number | null;
+  changes: { day_of_week: number; was: number; now: number }[];
+  /** What «Tanyşdym» records — posted back so a later change is refused (409). */
+  snapshot: string;
+  /** Only the assignee role family may acknowledge. */
+  can_acknowledge: boolean;
+}
+
+/** GET /export/truck-allocations/transport-plan/ — the /transport/plan page. */
+export interface ITransportPlan {
+  year: number;
+  week: number;
+  days: { day_of_week: number; date: string }[];
+  destinations: { id: number; name: string }[];
+  cells: {
+    day_of_week: number;
+    destination_id: number;
+    truck_count: number;
+    /** null = transport never acknowledged this week. */
+    acknowledged_count: number | null;
+  }[];
+  open_task_id: number | null;
+  acknowledged_at: string | null;
+  /** What «Tanyşdym» records — posted back so a later change is refused (409). */
+  snapshot: string;
+  /** Only the assignee role family may acknowledge. */
+  can_acknowledge: boolean;
 }
 
 

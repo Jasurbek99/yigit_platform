@@ -63,6 +63,7 @@
     "overdue": "Möhleti geçen",
     "advances": "Awanslar",
     "fleet_map": "Ulaglaryň kartasy",
+    "transport_plan": "Transport maşyn planlamasy",
     "trucks": "Ulaglar",
     "blocks": "Bloklar",
     "domestic_sales": "Içerki satuw",
@@ -270,6 +271,7 @@
     "today": "Şu gün"
   },
   "plan": {
+    "review_title": "Hepdelik plan üýtgedi: gerek maşyn sany üýtgedi",
     "title": "Hepdäniň hasyly meýilnamasy",
     "week": "Hepde",
     "prev_week": "Öňki hepde",
@@ -2346,6 +2348,13 @@
     "col_customer": "Müşderi",
     "col_status": "Ýagdaýy"
   },
+  "transport_plan": {
+    "title": "Transport maşyn planlamasy",
+    "destination": "Ugur",
+    "was": "Öň: {{n}}",
+    "acknowledged_at": "Soňky tanyşlyk: {{time}}",
+    "empty": "Bu hepde üçin maşyn paýlanyşy ýok"
+  },
   "fleet_map": {
     "last_sync": "Soňky sinhronizasiýa",
     "never": "entek maglumat ýok",
@@ -3018,7 +3027,18 @@
     "submit_sales_report": "Satyş hasabatyny tabşyr",
     "fill_weekly_plan": "Hepdelik plany dolduryň",
     "fill_local_sell_plan": "Ýerli satuw planyny dolduryň",
-    "fill_truck_allocation": "Maşyn paýlanyşyny dolduryň"
+    "fill_truck_allocation": "Maşyn paýlanyşyny dolduryň",
+    "review_truck_allocation": "Hepdelik plan üýtgedi — maşyn paýlanyşyny gözden geçir",
+    "transport_plan": "Transport maşyn planlamasy",
+    "transport_plan_changed": "Maşyn paýlanyşy üýtgedi — tanyş boluň",
+    "daily_loading_plan": "Şu güne ýük, maşyn planla",
+    "daily_export_plan": "Eksport planla",
+    "acknowledge": "Tanyşdym",
+    "ack_stale": "Maglumat sahypa açylandan soň üýtgedi — täzeden serediň.",
+    "ack_failed": "«Tanyşdym» ýatda saklanmady.",
+    "missed": "Ýerine ýetirilmedi",
+    "deadline_at": "Möhlet: {{time}}",
+    "weekly_plan_late_until_sunday": "Gijä galdy — ýekşenbä çenli doldurup bolýar"
   },
   "me": {
     "board": {
@@ -3761,22 +3781,34 @@
     "inactive": "Işjeň däl",
     "load_error": "Ýumuş düzgünleri ýüklenmedi.",
     "other_kinds_title": "Ýüke degişli däl ýumuşlar",
-    "other_kinds_intro": "Üç görnüş ýumuş ýokardaky düzgünden däl-de, öz kody we öz tertibi boýunça döreýär. Kaýbir rollar üçin diňe şular bar — ýyladyşhana müdiriniň ähli nobaty birinji setir.",
+    "other_kinds_intro": "Sekiz görnüş ýumuş ýokardaky düzgünden däl-de, öz kody we öz tertibi boýunça döreýär. Kaýbir rollar üçin diňe şular bar — ýyladyşhana müdiriniň ähli nobaty birinji setir, garawulyňky soňky setir.",
     "value_yes": "Hawa",
     "value_no": "Ýok",
     "other_kinds_col_task": "Ýumuş",
     "other_kinds_col_role": "Jogapkär rol",
     "other_kinds_col_trigger": "Kim döredýär",
     "kind_weekly_plan_name": "Hepdelik ýygym meýilnamasyny dolduryň",
-    "kind_weekly_plan_trigger": "Bir hepde üçin her (müdir, blok) jübütine bir ýumuş — Hepdelik meýilnama sahypasyndaky döretmek düwmesi ýa-da `run_weekly_plan_setup`. Taýmer boýunça däl: hepde döredilmese, ýumuş hem ýok.",
+    "kind_weekly_plan_trigger": "Her anna güni — indiki hepde üçin, her (müdir, blok) jübütine bir ýumuş (`run_weekly_plan_setup`, Celery beat 06:00). Şenbeden gyzyl; ýekşenbä çenli doldurup bolýar.",
     "kind_weekly_plan_completes": "Şol blogyň duşenbe–şenbe meýilnama öýjikleri dolanda. Ýekşenbe ölçenmeýär. Her blok öz başyna ýapylýar.",
     "kind_local_sell_plan_name": "Ýerli satuw meýilnamasyny dolduryň",
     "kind_local_sell_plan_trigger": "Hepdede «satyjy» roly üçin bir umumy ýumuş (roldaky islendik adam ýapyp bilýär), müdir hepdäni başlanda; `generate_local_sell_plan_tasks` ätiýaçlyk.",
     "kind_local_sell_plan_completes": "Hepdäniň her firma setiri iberilende, tassyklananda ýa-da ählisi nol bolan çyzgy bolanda. Ret edilen ýa-da başlanyp iberilmedik setir ýumuşy açyk goýýar.",
     "kind_truck_allocation_name": "Maşyn paýlanyşyny dolduryň",
-    "kind_truck_allocation_trigger": "Her şenbe sagat 09:00-da, indiki hepdäniň meýilnamasy üçin. Üçüsinden diňe şu taýmer boýunça (Celery beat).",
+    "kind_truck_allocation_trigger": "Her şenbe sagat 09:00-da — indiki hepde üçin (Celery beat). Möhleti şenbe; ýekşenbeden gyzyl.",
     "kind_truck_allocation_completes": "Maşyn gerek her günde (meýilnama ≥ 18 500 kg ýuguň ýarysy) iň azyndan bir maşynly ugur bolanda. Boş hepde ony ýapyp bilmeýär.",
-    "other_kinds_note": "Bu üçüsi düzgün däl-de kod, şonuň üçin olary bu sahypadan-da, hukuk matrisasyndan-da üýtgetmek bolmýar — deploý gerek.",
+    "kind_alloc_review_name": "Maşyn paýlanyşyny gözden geçir (plan üýtgedi)",
+    "kind_alloc_review_trigger": "Paýlanyş edilenden soň ýyladyşhana müdiri plany haýsydyr bir günde gerek maşyn sany üýtgär ýaly üýtgetdi. Her 30 minutda we paýlanyş ýatda saklananda barlanýar.",
+    "kind_alloc_review_completes": "Hepdelik plan sahypasyndaky «Tanyşdym» düwmesi.",
+    "kind_transport_plan_name": "Transport maşyn planlamasy",
+    "kind_transport_plan_trigger": "Hepdäniň maşyn paýlanyşy taýýar bolanda, we «Tanyşdym»-dan soň üýtgedilse täzeden. Möhleti — günüň ahyry.",
+    "kind_transport_plan_completes": "«Transport maşyn planlamasy» sahypasyndaky «Tanyşdym» düwmesi.",
+    "kind_daily_loading_name": "Şu güne ýük, maşyn planla",
+    "kind_daily_loading_trigger": "Ýekşenbeden başga her gün 06:05-de (Celery beat). Möhleti — günüň ahyry. Ertire çenli edilmese — «Ýerine ýetirilmedi».",
+    "kind_daily_loading_completes": "Şu günüň senesine Gaplamada iň azyndan bir maşyn açylanda.",
+    "kind_daily_export_name": "Eksport planla",
+    "kind_daily_export_trigger": "Ýekşenbeden başga her gün 06:05-de (Celery beat). Möhleti — günüň ahyry. Ertire çenli edilmese — «Ýerine ýetirilmedi».",
+    "kind_daily_export_completes": "Şu günüň senesine ýurdy we müşderisi bolan ýükleme bar bolanda.",
+    "other_kinds_note": "Bular düzgün däl-de kod bilen döredilýär, şonuň üçin olary bu sahypadan-da, hukuk matrisasyndan-da üýtgetmek bolmýar — deploý gerek.",
     "retired_rule_note": "Bu ýerde düzgüni ýok rol üçin hem açyk ýumuş bolup biler. Düzgünler diňe ädime girilende işleýär, şonuň üçin düzgün başga rola berilmezden ýa-da öçürilmezden öň döredilen ýumuş öňki rolunda galýar."
   },
   "tir_takip": {

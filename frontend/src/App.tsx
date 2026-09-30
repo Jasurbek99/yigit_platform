@@ -73,6 +73,7 @@ const SalesRepCoveragePage = lazy(() => import('@/pages/admin/SalesRepCoveragePa
 const ExpenseTemplatePage = lazy(() => import('@/pages/admin/ExpenseTemplatePage'));
 const PackingTemplatePage = lazy(() => import('@/pages/admin/PackingTemplatePage'));
 const FleetMap = lazy(() => import('@/pages/transport/FleetMap'));
+const TransportPlanPage = lazy(() => import('@/pages/transport/TransportPlanPage'));
 const TirTakip = lazy(() => import('@/pages/sera/TirTakip'));
 const GaplamaPage = lazy(() => import('@/pages/sera/GaplamaPage'));
 const FleetAdminPage = lazy(() => import('@/pages/admin/FleetAdminPage'));
@@ -320,6 +321,11 @@ export default function App() {
                       closes the endpoint behind it. */}
                   <Route path="transport/map" element={
                     <ProtectedRoute pageCode="transport.map"><FleetMap /></ProtectedRoute>
+                  } />
+                  {/* Transport truck planning (docs/Tasks.md item 3) — page_code
+                      transport.plan; the data endpoint needs truck_allocation view. */}
+                  <Route path="transport/plan" element={
+                    <ProtectedRoute pageCode="transport.plan"><TransportPlanPage /></ProtectedRoute>
                   } />
                   {/* Tır Takip (Maşyn Yzarlamasy) — the sera-design tab shell.
                       Guarded by the container code, which `canSeePage` grants

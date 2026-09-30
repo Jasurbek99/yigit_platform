@@ -86,13 +86,13 @@ function renderedMenuGroupLabels(): string[] {
   );
 }
 
-// The exact 48 route keys BOSS_MENU_GROUPS produces, in group + item order,
+// The exact 49 route keys BOSS_MENU_GROUPS produces, in group + item order,
 // transcribed from AppLayout.tsx. Exists so a future edit to the boss
 // composition (its whole reason for staying untouched by this refactor) has
 // a hard failure to trip, not just "still non-empty".
 const EXPECTED_BOSS_ORDERED_KEYS = [
   '/', '/boss/dashboard', '/me/board', '/export/task-rules', '/director/stuck-shipments',
-  '/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks',
+  '/export/plan', '/transport/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks',
   '/export/weightmaster',
   '/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard',
   '/transport/map', '/tir-takip', '/export/gaplama',
@@ -105,7 +105,7 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
 
-// The exact 48 route keys STAFF_MENU_GROUPS produces, in group + item order,
+// The exact 49 route keys STAFF_MENU_GROUPS produces, in group + item order,
 // transcribed directly from STAFF_MENU_GROUPS in AppLayout.tsx (not from the
 // task brief). Symmetric to EXPECTED_BOSS_ORDERED_KEYS above: an ordered
 // per-composition check is the only guard that catches an item landing in
@@ -118,7 +118,7 @@ const EXPECTED_STAFF_ORDERED_KEYS = [
   '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
   '/export/task-rules',
   '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-  '/export/my-reports', '/export/advances', '/transport/map',
+  '/export/my-reports', '/export/advances', '/transport/map', '/transport/plan',
   '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
   '/contracts', '/sales', '/documents',
   '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
@@ -237,12 +237,12 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss menu renders exactly the expected 48 route keys, in order', () => {
+  it('boss menu renders exactly the expected 49 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_BOSS_ORDERED_KEYS);
   });
 
-  it('staff menu renders exactly the expected 48 route keys, in order', () => {
+  it('staff menu renders exactly the expected 49 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_STAFF_ORDERED_KEYS);
   });
@@ -262,7 +262,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('staff and boss reach the same 49-key set, grouped differently, and neither surfaces the removed pages', () => {
+  it('staff and boss reach the same 50-key set, grouped differently, and neither surfaces the removed pages', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -281,8 +281,9 @@ describe('AppLayout menu composition', () => {
     // `/export/task-rules` (Task Rules reference) and `/tir-takip` (Tır Takip).
     // 49 as of 2026-09-23: `/export/gaplama` (Gaplama standalone page) added
     // right after `/tir-takip` in both compositions.
-    expect(bossKeys).toHaveLength(49);
-    expect(staffKeys).toHaveLength(49);
+    // 50 with /transport/plan (planning tasks, 2026-09-29).
+    expect(bossKeys).toHaveLength(50);
+    expect(staffKeys).toHaveLength(50);
     for (const key of REMOVED_EVERYWHERE) {
       expect(staffKeys).not.toContain(key);
       expect(bossKeys).not.toContain(key);

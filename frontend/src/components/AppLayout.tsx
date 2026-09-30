@@ -199,6 +199,7 @@ export default function AppLayout() {
     '/admin/expense-template': t('nav.admin_expense_template'),
     '/admin/packing-templates': t('nav.admin_packing_templates'),
     '/transport/map': t('nav.fleet_map'),
+    '/transport/plan': t('nav.transport_plan'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -325,6 +326,8 @@ export default function AppLayout() {
     // stays server-side: GET /transport/live-positions/ reads the same row via
     // CanViewFleetMap (backend/apps/transport/permissions.py).
     '/transport/map': { key: '/transport/map', icon: <IconMapPin size={15} />, label: t('nav.fleet_map') },
+    // page_code `transport.plan` — transport truck planning, «Tanyşdym» (docs/Tasks.md item 3).
+    '/transport/plan': { key: '/transport/plan', icon: <IconTruck size={15} />, label: t('nav.transport_plan') },
     // Tır Takip (Maşyn Yzarlamasy) — the sera-design tab shell.
     // Deliberately NO `roles` array: the filter below short-circuits on
     // `item.roles` BEFORE consulting canSeePage, so a roles list would make
@@ -364,7 +367,7 @@ export default function AppLayout() {
   // the boss sees — it affects nobody else.
   const BOSS_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/export/task-rules', '/director/stuck-shipments']),
-    group('nav.group_planning', ['/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks']),
+    group('nav.group_planning', ['/export/plan', '/transport/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks']),
     // `/export/drafts` (Draft Shipment) and `/export/assign` (Assignment Board)
     // were dropped from BOTH sidebars by owner request, 2026-08-24 — same
     // treatment as `/export/trucks` below: no top-level nav entry for any role.
@@ -404,7 +407,7 @@ export default function AppLayout() {
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/task-rules',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-      '/export/my-reports', '/export/advances', '/transport/map',
+      '/export/my-reports', '/export/advances', '/transport/map', '/transport/plan',
       '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
