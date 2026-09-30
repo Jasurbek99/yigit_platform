@@ -219,3 +219,14 @@ class CountryDetailOnceTests(TestCase):
         items[0]['changedAt'] = (timezone.now() + timedelta(minutes=1)).isoformat()
         sync_external_trips(client)
         self.assertEqual(client.get_trip.call_count, 2)
+
+
+class CountryDetailRetryTests(TestCase):
+    def test_failed_lookup_is_asked_again_next_poll(self):
+        items = [{**i, 'destinationCountryCode': None} for i in _fixture_items()[:1]]
+        client = FakeClient(items)
+        client.get_trip = mock.Mock(side_effect=[TripsApiUnavailable('timeout'), {'destinationCountryCode': 'RU'}])
+        sync_external_trips(client)
+        self.assertIsNone(ExternalTrip.objects.get().destination_country_code)
+        sync_external_trips(client)
+        self.assertEqual(ExternalTrip.objects.get().destination_country_code, 'RU')

@@ -210,7 +210,7 @@ class PendingChangeTests(TestCase):
 
 
 class AcceptCancelledTripTests(TestCase):
-    def test_accepting_a_cancelled_trip_reopens_choose_truck(self):
+    def test_accepting_a_cancelled_trip_on_a_departed_shipment_keeps_choose_truck_closed(self):
         from apps.export.models import Task, TaskState
         from apps.export.services.task_rules import generate_tasks_for_status
         from apps.export.tests_auto_advance import _ensure_statuses, _seed_rules
@@ -230,4 +230,8 @@ class AcceptCancelledTripTests(TestCase):
         self.assertEqual(apply_trip_change(trip, user), 'conflict')
         accept_trip_change(trip, user)
         task.refresh_from_db()
-        self.assertEqual(task.state, TaskState.OPEN)
+        # The shipment already left: the board lists drafts only, so a reopened
+        # choose_truck could never be done — it stays closed.
+        self.assertEqual(task.state, TaskState.DONE)
+        shipment.refresh_from_db()
+        self.assertIsNone(shipment.trip_id)

@@ -139,6 +139,12 @@ class PushFailureTests(TestCase):
         self.assertEqual(self.trip.last_push_status, 'error')
         self.assertIn('DUPLICATE_EXPORT_CODE', self.trip.last_push_error)
 
+    def test_refusal_keeps_the_marker_so_it_is_not_resent_every_tick(self):
+        client = mock.Mock(is_mock=False)
+        client.post_op.return_value = (409, {'code': 'DUPLICATE_EXPORT_CODE'})
+        self._run(client, 'export-code', 'a')
+        self.assertEqual(self.trip.last_pushed_export_code, '04AP034/26')
+
     def test_duplicate_code_notifies_export_managers(self):
         from apps.export.models import Notification
         get_user_model().objects.create_user(username='em', password='x', role='export_manager')
@@ -178,3 +184,20 @@ class LoadingCorrectionTests(TestCase):
             enqueue_push(trip, 'loading')
         trip.refresh_from_db()
         self.assertEqual(trip.last_pushed_loading, loading_signature(self.shipment))
+
+
+class CorrectionQueryCountTests(TestCase):
+    def test_query_count_does_not_grow_with_trips(self):
+        from apps.transport.services.trip_push import loading_signature, push_pending_corrections
+        location = LoadingLocation.objects.create(name='Ahal')
+        block = GreenhouseBlock.objects.create(code='A1', name='Blok A1')
+        uuids = ['89f2783b-e7e9-47ba-9884-8fe7bf34f1bd', 'b242b4de-a941-4dba-899e-3b0235e9f4ec',
+                 '052752a7-a810-4c69-8d3b-dc1d02f925ce']
+        for n, uuid in enumerate(uuids):
+            shipment = _make_shipment(code=f'Q-{n}', loading_location=location, export_code=f'C{n}')
+            ShipmentBlockSource.objects.create(shipment=shipment, block=block, weight_kg=100)
+            make_trip(integration_trip_id=uuid)
+            ExternalTrip.objects.filter(integration_trip_id=uuid).update(
+                shipment=shipment, last_pushed_export_code=f'C{n}', last_pushed_loading=loading_signature(shipment))
+        with self.assertNumQueries(3):  # trips+shipments, block_sources, blocks
+            self.assertEqual(push_pending_corrections(), 0)

@@ -26,3 +26,31 @@ describe('useShipmentTrip', () => {
     expect(result.current.data).toBeNull();
   });
 });
+
+describe('openTripDocument', () => {
+  it('opens the tab inside the click, then points it at the PDF and frees the blob URL', async () => {
+    vi.useFakeTimers();
+    const tab = { location: { href: '' }, close: vi.fn() };
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    const revoke = vi.fn();
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:x'), revokeObjectURL: revoke });
+    vi.mocked(api.get).mockResolvedValueOnce({ data: new Blob(['%PDF']) });
+    const { openTripDocument } = await import('./useExternalTrips');
+    const pending = openTripDocument(3);
+    expect(open).toHaveBeenCalledTimes(1); // synchronous: before the await resolves
+    await pending;
+    expect(tab.location.href).toBe('blob:x');
+    vi.advanceTimersByTime(60_000);
+    expect(revoke).toHaveBeenCalledWith('blob:x');
+    vi.useRealTimers();
+  });
+
+  it('closes the empty tab when the PDF cannot be fetched', async () => {
+    const tab = { location: { href: '' }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    vi.mocked(api.get).mockRejectedValueOnce(new Error('502'));
+    const { openTripDocument } = await import('./useExternalTrips');
+    await expect(openTripDocument(3)).rejects.toThrow();
+    expect(tab.close).toHaveBeenCalled();
+  });
+});

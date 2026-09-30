@@ -111,7 +111,10 @@ def release_trip(trip: ExternalTrip, shipment: Shipment, user: User) -> None:
         setattr(trip, column, value)
     trip.save(update_fields=list(RELEASED_TRIP_COLUMNS))
     write_transport_fields(shipment, dict(EMPTY_VALUES), user)
-    reopen_rule_task(shipment, 'tasks.choose_truck')
+    # Only a Preparation shipment can get a new truck (the board lists drafts only);
+    # on a departed one a reopened task could never be done.
+    if shipment.status.code == 'draft':
+        reopen_rule_task(shipment, 'tasks.choose_truck')
 
 
 def fresh_trip(trip: ExternalTrip) -> ExternalTrip:

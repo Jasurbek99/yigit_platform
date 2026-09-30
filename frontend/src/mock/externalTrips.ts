@@ -26,6 +26,15 @@ export const MOCK_EXTERNAL_TRIPS: IExternalTrip[] = [
     driver_passport_expiry: '2028-02-08', visas: [{ country: 'Russiýa', expiry_date: '2027-06-07' }],
     visa_country_codes: ['RU'],
   },
+  {
+    ...base, id: 3, integration_trip_id: '89f2783b-e7e9-47ba-9884-8fe7bf34f1bd', planned_departure: '2026-10-11',
+    trip_number: 'X-TEST-0001', status: 'PLANNED', destination_country_code: 'RU',
+    tractor_plate: '2563AHF', trailer_plate: '2251TAH', driver_full_name: 'Amandurdyyew Atajan',
+    driver_phone: '99361202698', driver_passport_number: 'A2510574', driver_passport_expiry: '2029-04-08',
+    visas: [{ country: 'Russiýa', expiry_date: '2026-10-28' }], visa_country_codes: ['RU'],
+    shipment: 102, shipment_code: '0210002/26', conflict_kind: 'changed',
+    conflict_from: '2563AHF/2251TAH, Amandurdyyew Atajan', conflict_to: '2563AHF/2251TAH, Täze Sürüji',
+  },
 ];
 
 export const MOCK_CANDIDATE_SHIPMENTS: ICandidateShipment[] = [

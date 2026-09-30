@@ -4111,6 +4111,7 @@
       "CITY_COUNTRY_MISMATCH": "Planning отклонил место погрузки: город не в стране рейса",
       "PLANNING_UNAVAILABLE": "Planning не ответил — данные будут отправлены повторно автоматически",
       "generic": "Planning отклонил {{op}} ({{code}})"
-    }
+    },
+    "passport_valid_until": "Паспорт действителен до"
   }
 }

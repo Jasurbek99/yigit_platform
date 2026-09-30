@@ -86,6 +86,11 @@ class TripApiTests(TestCase):
         other = _make_shipment(code='T-9', country=self.kz)
         self.assertEqual(self.client.get(f'/api/v1/transport/shipments/{other.pk}/trip/').status_code, 404)
 
+    def test_role_without_shipment_view_cannot_read_driver_data(self):
+        self._as('garawul')
+        response = self.client.get(f'/api/v1/transport/shipments/{self.shipment.pk}/trip/')
+        self.assertEqual(response.status_code, 403)
+
     def test_sync_state_reports_mock(self):
         self._as('export_manager')
         self.assertTrue(self.client.get('/api/v1/transport/external-trips/sync-state/').json()['is_mock'])

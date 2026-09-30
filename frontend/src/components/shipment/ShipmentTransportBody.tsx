@@ -101,6 +101,9 @@ export function ShipmentTransportBody({
         excludeKeys={[TRUCK_PLATE_FIELD.key, DRIVER_NAME_FIELD.key]}
         lockedKeys={isTripLinked ? [...TRIP_LOCKED_FIELDS] : undefined}
       />
+      {isTripLinked && shipment.driver_passport_expiry && (
+        <InfoRow label={t('truck_board.passport_valid_until')} value={shipment.driver_passport_expiry} />
+      )}
       <div style={{ marginTop: 12 }}>
         {timestamps.map(([labelKey, value]) => (
           <InfoRow key={labelKey} label={t(labelKey)} value={fmt(value)} />

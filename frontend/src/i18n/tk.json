@@ -4112,6 +4112,7 @@
       "CITY_COUNTRY_MISMATCH": "Planning ýükleme ýerini kabul etmedi: şäher reýsiň ýurdunda däl",
       "PLANNING_UNAVAILABLE": "Planning jogap bermedi — maglumat awtomatik gaýtadan iberiler",
       "generic": "Planning {{op}} kabul etmedi ({{code}})"
-    }
+    },
+    "passport_valid_until": "Pasportyň möhleti"
   }
 }

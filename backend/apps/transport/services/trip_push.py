@@ -26,7 +26,8 @@ def export_code_body(shipment: Shipment) -> dict | None:
 
 def loading_body(shipment: Shipment) -> dict | None:
     """LoadingUpdate body: city = our loading location; place = the blocks (names), first code as ref."""
-    sources = list(shipment.block_sources.select_related('block').order_by('id'))
+    # .all() + sort in Python so a prefetch (push_pending_corrections) is reused.
+    sources = sorted(shipment.block_sources.all(), key=lambda source: source.id)
     if not sources or not shipment.loading_location_id:
         return None
     names = [s.block.name or s.block.code for s in sources]
@@ -78,7 +79,8 @@ def push_pending_corrections() -> int:
     """
     pushed = 0
     trips = ExternalTrip.objects.filter(shipment__isnull=False).exclude(
-        status__in=ExternalTrip.CLOSED_STATUSES).select_related('shipment__loading_location')
+        status__in=ExternalTrip.CLOSED_STATUSES,
+    ).select_related('shipment__loading_location').prefetch_related('shipment__block_sources__block')
     for trip in trips:
         for op, (_, signature, marker) in PUSH_OPS.items():
             current = signature(trip.shipment)

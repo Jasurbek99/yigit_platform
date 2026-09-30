@@ -527,6 +527,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'documents_status',
             'truck_head_id',
             'trip_id',
+            'driver_passport_expiry',
             'driver_id',
             'price_per_kg',
             'total_amount_usd',

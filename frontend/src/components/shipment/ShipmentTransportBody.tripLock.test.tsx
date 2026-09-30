@@ -18,8 +18,10 @@ vi.mock('@/components/shipment/ShipmentFieldGroup', () => ({
   ),
 }));
 
-function renderBody(tripId: number | null) {
-  const shipment = { id: 1, is_gapy_satys: false, trip_id: tripId } as unknown as IShipmentDetail;
+function renderBody(tripId: number | null, expiry: string | null = null) {
+  const shipment = {
+    id: 1, is_gapy_satys: false, trip_id: tripId, driver_passport_expiry: expiry,
+  } as unknown as IShipmentDetail;
   render(<ShipmentTransportBody shipment={shipment} missingKeys={new Set()} readOnly={false} />);
 }
 
@@ -34,5 +36,13 @@ describe('ShipmentTransportBody with a Planning trip', () => {
   it('leaves them editable without a trip', () => {
     renderBody(null);
     expect(screen.getByText('truck-selector readOnly=false')).toBeInTheDocument();
+  });
+
+  it('shows the Planning passport expiry of a linked trip', async () => {
+    const i18n = (await import('@/i18n')).default;
+    await i18n.changeLanguage('en');
+    renderBody(5, '2029-04-08');
+    expect(screen.getByText('2029-04-08')).toBeInTheDocument();
+    expect(screen.getByText('Passport valid until')).toBeInTheDocument();
   });
 });

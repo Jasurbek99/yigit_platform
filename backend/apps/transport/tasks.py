@@ -93,15 +93,19 @@ def poll_external_trips() -> dict:
     return {'ok': True, 'changed': changed}
 
 
-def _record_push(trip: ExternalTrip, op: str, error: str | None, status: str) -> None:
-    """One trip carries two ops; an ok on one must not wipe the other's error."""
+def _record_push(trip: ExternalTrip, op: str, error: str | None, status: str, *, resend: bool = False) -> None:
+    """One trip carries two ops; an ok on one must not wipe the other's error.
+
+    `resend` forgets what we "sent" so the next poll tick enqueues it again —
+    only when Planning never got it. A refusal keeps the marker: re-sending the
+    same value would be refused again every tick; a real change re-sends it.
+    """
     if error:
         trip.last_push_status, trip.last_push_error = status, error
     elif not trip.last_push_error or trip.last_push_error.startswith(f'{op}:'):
         trip.last_push_status, trip.last_push_error = status, None
     fields = ['last_push_status', 'last_push_error']
-    if status == 'error':
-        # Forget what we "sent" so the next poll tick enqueues it again.
+    if resend:
         marker = PUSH_OPS[op][2]
         setattr(trip, marker, None)
         fields.append(marker)
@@ -132,7 +136,7 @@ def push_trip_update(self, trip_id: int, op: str, body: dict, event_id: str) -> 
         # With exc= given, Celery re-raises exc itself (not MaxRetriesExceededError)
         # once retries run out, so the limit is checked by hand.
         if self.request.retries >= self.max_retries:
-            _record_push(trip, op, f'{op}: PLANNING_UNAVAILABLE', 'error')
+            _record_push(trip, op, f'{op}: PLANNING_UNAVAILABLE', 'error', resend=True)
             return
         raise self.retry(exc=exc, countdown=min(30 * 2 ** self.request.retries, 1800))
     if status_code < 300:

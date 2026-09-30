@@ -12,7 +12,9 @@ export function useExternalTrips(params: { free?: boolean; linked?: boolean } = 
   return useQuery({
     queryKey: [...TRIPS_KEY, params],
     queryFn: async (): Promise<IExternalTrip[]> => {
-      if (USE_MOCK) return MOCK_EXTERNAL_TRIPS.filter((trip) => (params.linked ? trip.shipment : !trip.shipment));
+      if (USE_MOCK) {
+        return MOCK_EXTERNAL_TRIPS.filter((trip) => (params.linked ? !!trip.shipment : !params.free || !trip.shipment));
+      }
       const { data } = await api.get<IExternalTrip[]>(BASE, {
         params: { free: params.free ? 1 : undefined, linked: params.linked ? 1 : undefined },
       });
@@ -88,8 +90,21 @@ export function useShipmentTrip(shipmentId: number) {
   });
 }
 
-/** Fetch the trip's A4 PDF and open it; throws so the caller can show the translated error. */
+const BLOB_URL_LIFETIME_MS = 60_000;
+
+/** Fetch the trip's A4 PDF and show it; throws so the caller can show the translated error.
+ *
+ * The tab is opened synchronously, inside the click, and pointed at the PDF
+ * once it arrives — opening it after the await gets it popup-blocked. */
 export async function openTripDocument(tripId: number): Promise<void> {
-  const { data } = await api.get<Blob>(`${BASE}${tripId}/document/`, { responseType: 'blob' });
-  window.open(URL.createObjectURL(data), '_blank');
+  const tab = window.open('', '_blank');
+  try {
+    const { data } = await api.get<Blob>(`${BASE}${tripId}/document/`, { responseType: 'blob' });
+    const url = URL.createObjectURL(data);
+    if (tab) tab.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), BLOB_URL_LIFETIME_MS);
+  } catch (err) {
+    tab?.close();
+    throw err;
+  }
 }

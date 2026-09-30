@@ -33,12 +33,13 @@ def is_real_change(old: dict, new: dict) -> bool:
     return any(old[f] != new[f] for f in ExternalTrip.SNAPSHOT_FIELDS)
 
 
-def _country_from_detail(client, trip_uuid: str) -> str | None:
+def _country_from_detail(client, trip_uuid: str) -> tuple[str | None, bool]:
+    """(country code, whether Planning answered)."""
     try:
-        return client.get_trip(trip_uuid).get('destinationCountryCode')
+        return client.get_trip(trip_uuid).get('destinationCountryCode'), True
     except TripsApiUnavailable as exc:
         logger.warning('Planning trip detail %s failed: %s', trip_uuid, exc)
-        return None
+        return None, False
 
 
 def _upsert(item: dict, client) -> ExternalTrip | None:
@@ -54,7 +55,12 @@ def _upsert(item: dict, client) -> ExternalTrip | None:
     # Ask the detail endpoint once per trip version, not on every overlapping poll.
     is_new_version = trip is None or trip.changed_at != fields['changed_at']
     if fields['destination_country_code'] is None and is_new_version:
-        fields['destination_country_code'] = _country_from_detail(client, item['integrationTripId'])
+        code, answered = _country_from_detail(client, item['integrationTripId'])
+        fields['destination_country_code'] = code
+        if not answered:
+            # Store a stamp just older than Planning's so the next poll sees a
+            # "new version" and asks again (the cursor uses Planning's own stamp).
+            fields['changed_at'] = fields['changed_at'] - KEYSET_STEP
     if trip is None:
         ExternalTrip.objects.create(**fields)
         return None

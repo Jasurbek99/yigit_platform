@@ -4109,6 +4109,7 @@
       "CITY_COUNTRY_MISMATCH": "Planning refused the loading place: the city is not in the trip country",
       "PLANNING_UNAVAILABLE": "Planning did not answer — the data will be sent again automatically",
       "generic": "Planning refused {{op}} ({{code}})"
-    }
+    },
+    "passport_valid_until": "Passport valid until"
   }
 }

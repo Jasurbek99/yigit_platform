@@ -9,6 +9,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.permissions import DynamicResourcePermission
 from apps.core.seasons import SeasonClosedError
 from apps.export.models import Shipment
 from apps.transport.models import ExternalTrip, ExternalTripSyncState
@@ -141,11 +142,13 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
 class ShipmentTripView(APIView):
     """GET /transport/shipments/{id}/trip/ — the Planning trip on one shipment.
 
-    Open to every signed-in user (the shipment page shows it to all roles);
-    the Truck Board page permission gates only the board itself.
+    Gated like the shipment itself (`shipment` resource, view): the payload
+    carries driver passport, phone and the truck's live position. The Truck
+    Board page permission gates only the board.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'shipment'
 
     def get(self, request: Request, shipment_id: int) -> Response:
         trip = ExternalTrip.objects.filter(shipment_id=shipment_id).first()

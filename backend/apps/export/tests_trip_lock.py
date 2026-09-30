@@ -64,3 +64,9 @@ class TripLockPatchTests(TestCase):
         from apps.export.serializers import ShipmentDetailSerializer
         self.shipment.refresh_from_db()
         self.assertEqual(ShipmentDetailSerializer(self.shipment).data['trip_id'], 7)
+
+    def test_detail_payload_exposes_passport_expiry(self):
+        from apps.export.serializers import ShipmentDetailSerializer
+        Shipment.objects.filter(pk=self.shipment.pk).update(driver_passport_expiry='2029-04-08')
+        self.shipment.refresh_from_db()
+        self.assertEqual(ShipmentDetailSerializer(self.shipment).data['driver_passport_expiry'], '2029-04-08')
