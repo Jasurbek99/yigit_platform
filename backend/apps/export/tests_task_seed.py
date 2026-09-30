@@ -90,10 +90,11 @@ class SeedTaskRulesTests(TestCase):
         actual_keys = set(TaskRule.objects.values_list('title_key', flat=True))
         self.assertEqual(actual_keys, expected_keys)
 
-    def test_all_active_by_default(self) -> None:
+    def test_only_retired_rules_are_inactive(self) -> None:
         call_command('seed_task_rules', stdout=StringIO())
-        inactive = TaskRule.objects.filter(is_active=False).count()
-        self.assertEqual(inactive, 0)
+        inactive = set(TaskRule.objects.filter(is_active=False).values_list('title_key', 'condition_value'))
+        # Regular-shipment assign_driver retired 2026-09-29 (tasks.choose_truck replaces it).
+        self.assertEqual(inactive, {('tasks.assign_driver', 'False')})
 
 
 # ---------------------------------------------------------------------------

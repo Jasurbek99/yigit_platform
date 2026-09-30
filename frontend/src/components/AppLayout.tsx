@@ -167,6 +167,7 @@ export default function AppLayout() {
     '/export/harvest-board': t('nav.harvest_board'),
     '/export/drafts': t('nav.drafts'),
     '/export/assign': t('nav.assign'),
+    '/export/truck-board': t('nav.truck_board'),
     '/export/overdue': t('nav.overdue'),
     '/export/advances': t('nav.advances'),
     '/export/plan': t('nav.plan'),
@@ -330,6 +331,7 @@ export default function AppLayout() {
     // stays server-side: GET /transport/live-positions/ reads the same row via
     // CanViewFleetMap (backend/apps/transport/permissions.py).
     '/transport/map': { key: '/transport/map', icon: <IconMapPin size={15} />, label: t('nav.fleet_map') },
+    '/export/truck-board': { key: '/export/truck-board', icon: <IconTruck size={15} />, label: t('nav.truck_board') },
     // page_code `transport.plan` — transport truck planning, «Tanyşdym» (docs/Tasks.md item 3).
     '/transport/plan': { key: '/transport/plan', icon: <IconTruck size={15} />, label: t('nav.transport_plan') },
     // Tır Takip (Maşyn Yzarlamasy) — the sera-design tab shell.
@@ -386,7 +388,8 @@ export default function AppLayout() {
     group('nav.group_prep', ['/export/drafts', '/export/assign', '/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
-      '/export/shipments/dashboard', '/transport/map', '/tir-takip', '/export/gaplama', '/export/gate',
+      '/export/shipments/dashboard', '/transport/map', '/export/truck-board', '/tir-takip', '/export/gaplama',
+      '/export/gate',
     ]),
     group('nav.group_docs', ['/documents', '/admin/packing-templates']),
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
@@ -410,7 +413,7 @@ export default function AppLayout() {
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/task-rules',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-      '/export/my-reports', '/export/advances', '/transport/map', '/transport/plan',
+      '/export/my-reports', '/export/advances', '/transport/map', '/export/truck-board', '/transport/plan',
       '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),

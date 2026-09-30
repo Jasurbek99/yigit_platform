@@ -132,7 +132,8 @@
     "documents": "Resminamalar",
     "pomidor_dukany": "Pomidor Dükany",
     "tir_takip": "Maşyn Yzarlamasy",
-    "gaplama": "Gaplama"
+    "gaplama": "Gaplama",
+    "truck_board": "Maşynlar ↔ Ugratmalar"
   },
   "expense_template": {
     "title": "Çykdajy kategoriýalarynyň şablony",
@@ -3052,7 +3053,8 @@
     "ack_failed": "«Tanyşdym» ýatda saklanmady.",
     "missed": "Ýerine ýetirilmedi",
     "deadline_at": "Möhlet: {{time}}",
-    "weekly_plan_late_until_sunday": "Gijä galdy — ýekşenbä çenli doldurup bolýar"
+    "weekly_plan_late_until_sunday": "Gijä galdy — ýekşenbä çenli doldurup bolýar",
+    "choose_truck": "Maşyn saýla (reýs)"
   },
   "me": {
     "board": {
@@ -4026,5 +4028,91 @@
       "no_location": "Size ýer berilmedi — admin bilen habarlaşyň",
       "generic": "Ýazdyrylmady — gaýtadan synanyşyň."
     }
+  },
+  "truck_board": {
+    "title": "Maşynlar ↔ Ugratmalar",
+    "subtitle": "Planning reýslerini adaty ugratmalara birikdir",
+    "col_shipments": "Maşynsyz ugratmalar",
+    "col_trips": "Meýilleşdirilen maşynlar",
+    "no_country": "Ýurt görkezilmedik",
+    "no_gps": "GPS ýok",
+    "garage": "Öz parkymyz",
+    "third_party": "Daşary",
+    "no_visa": "Wiza ýok",
+    "details": "Jikme-jik",
+    "documents_pdf": "Reýs resminamalary (PDF)",
+    "assign": "Birikdir",
+    "clear": "Arassala",
+    "assigned": "Maşyn {{code}} bilen birikdirildi",
+    "country_mismatch": "Ýurtlar gabat gelmeýär",
+    "unknown_country_group": "Reýsiň ýurdy görkezilmedik",
+    "unknown_country_confirm": "Reýsiň ýurdy görkezilmedik. Şonda-da birikdirilsinmi?",
+    "synced_ago": "{{minutes}} min öň sinhronlandy",
+    "never_synced": "Entek sinhronlanmady",
+    "sync_error": "Planning jogap bermeýär — soňky alnan reýsler görkezilýär",
+    "trip": "Reýs",
+    "awaiting_code": "kod garaşylýar",
+    "planned_departure": "Meýilleşdirilen ugraýyş",
+    "country": "Ýurt",
+    "tractor": "Çekiji",
+    "trailer": "Tirkeg",
+    "driver": "Sürüji",
+    "phone": "Telefon",
+    "passport": "Pasport",
+    "valid_until": "möhleti",
+    "visas": "Wizalar",
+    "error": {
+      "trip_taken": "Bu maşyn eýýäm birikdirilen",
+      "country_mismatch": "Ýurtlar gabat gelmeýär",
+      "country_unknown": "Reýsiň ýurdy görkezilmedik",
+      "not_draft": "Ugratma taýýarlykdan geçdi",
+      "has_trip": "Ugratmanyň eýýäm maşyny bar",
+      "trip_closed": "Reýs ýapyk ýa-da ýatyryldy",
+      "gapy": "Gapy satyşyň öz sürüjisi bar",
+      "locked": "Ugratma gulplandy — ýükleme başlady",
+      "generic": "Ýatda saklap bolmady",
+      "pdf": "Reýs resminamalaryny açyp bolmady",
+      "season_closed": "Möwsüm ýapyk",
+      "shipment_not_found": "Ugratma tapylmady",
+      "shipment_id_required": "Ilki ugratmany saýlaň"
+    },
+    "accept_change": "Üýtgetmäni kabul et",
+    "accepted": "Üýtgetme kabul edildi",
+    "tab_join": "Birikdir",
+    "tab_linked": "Birikdirilenler",
+    "unlink": "Aýyr",
+    "move": "Göçür",
+    "unlink_confirm": "Ugratma taýýarlyga gaýdyp biler. Dowam etmelimi?",
+    "status": {
+      "CREATED": "Döredildi",
+      "PLANNED": "Meýilleşdirildi",
+      "DOCUMENTS_READY": "Resminamalar taýýar",
+      "ON_THE_WAY": "Ýolda",
+      "ARRIVED_FOR_LOADING": "Ýüklemä geldi",
+      "LOADED": "Ýüklendi",
+      "BORDER_CROSSING": "Serhetde",
+      "ARRIVED": "Bardy",
+      "UNLOADED": "Düşürildi",
+      "CLOSED": "Ýapyldy",
+      "CANCELLED": "Ýatyryldy",
+      "ARCHIVED": "Arhiwde"
+    },
+    "minutes_ago": "{{minutes}} min öň",
+    "load_error": "Reýsleri ýükläp bolmady",
+    "conflict": {
+      "changed": "Planning maşyny çalyşdy: {{from}} → {{to}}",
+      "cancelled": "Planning reýsi ýatyrdy: {{from}} → {{to}}"
+    },
+    "push_op": {
+      "export-code": "eksport kody",
+      "loading": "ýükleme ýeri"
+    },
+    "push_error": {
+      "DUPLICATE_EXPORT_CODE": "Planning eksport koduny kabul etmedi: ol başga reýsde bar",
+      "CITY_COUNTRY_MISMATCH": "Planning ýükleme ýerini kabul etmedi: şäher reýsiň ýurdunda däl",
+      "PLANNING_UNAVAILABLE": "Planning jogap bermedi — maglumat awtomatik gaýtadan iberiler",
+      "generic": "Planning {{op}} kabul etmedi ({{code}})"
+    },
+    "passport_valid_until": "Pasportyň möhleti"
   }
 }

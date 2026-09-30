@@ -116,6 +116,7 @@ from apps.export.services.packaging import (
     packaging_weight,
 )
 from apps.export.services.shipment import _cancel_open_tasks
+from apps.export.services.trip_lock import trip_locked_fields
 from apps.export.services.weightmaster_import import (
     WeightmasterParseError,
     parse_weightmaster_workbook,
@@ -725,6 +726,15 @@ class ShipmentViewSet(ModelViewSet):
             return Response(
                 {'error': 'Deleted shipments are read-only. Restore first.'},
                 status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # A Planning trip owns the transport fields (spec 2026-09-29-transport-
+        # trips D10); they change only by unlinking the trip on the Truck Board.
+        locked = trip_locked_fields(shipment, request.data.keys())
+        if locked:
+            return Response(
+                {'error': 'trip_locked', 'fields': locked},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         user_role = getattr(request.user, 'role', None)

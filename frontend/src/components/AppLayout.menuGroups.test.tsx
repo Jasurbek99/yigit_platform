@@ -86,7 +86,7 @@ function renderedMenuGroupLabels(): string[] {
   );
 }
 
-// The exact 53 route keys BOSS_MENU_GROUPS produces, in group + item order,
+// The exact 54 route keys BOSS_MENU_GROUPS produces, in group + item order,
 // transcribed from AppLayout.tsx. Exists so a future edit to the boss
 // composition (its whole reason for staying untouched by this refactor) has
 // a hard failure to trip, not just "still non-empty".
@@ -95,7 +95,7 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/export/plan', '/transport/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks',
   '/export/drafts', '/export/assign', '/export/weightmaster',
   '/export/shipments', '/export/shipments/sheet', '/export/shipments/board', '/export/shipments/dashboard',
-  '/transport/map', '/tir-takip', '/export/gaplama', '/export/gate',
+  '/transport/map', '/export/truck-board', '/tir-takip', '/export/gaplama', '/export/gate',
   '/documents', '/admin/packing-templates',
   '/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices',
   '/export/advances', '/export/overdue', '/admin/expense-template',
@@ -105,11 +105,11 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
 
-// The exact 53 route keys STAFF_MENU_GROUPS produces, in group + item order,
+// The exact 54 route keys STAFF_MENU_GROUPS produces, in group + item order,
 // transcribed directly from STAFF_MENU_GROUPS in AppLayout.tsx (not from the
 // task brief). Symmetric to EXPECTED_BOSS_ORDERED_KEYS above: an ordered
 // per-composition check is the only guard that catches an item landing in
-// the wrong group while the overall label list and the unordered 53-key set
+// the wrong group while the overall label list and the unordered 54-key set
 // both stay correct (e.g. moving /me/board into nav.group_main while moving
 // something else out of it to keep group_export's count unchanged).
 const EXPECTED_STAFF_ORDERED_KEYS = [
@@ -119,7 +119,7 @@ const EXPECTED_STAFF_ORDERED_KEYS = [
   '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
   '/export/task-rules',
   '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-  '/export/my-reports', '/export/advances', '/transport/map', '/transport/plan',
+  '/export/my-reports', '/export/advances', '/transport/map', '/export/truck-board', '/transport/plan',
   '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
   '/contracts', '/sales', '/documents',
   '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
@@ -263,7 +263,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('staff and boss reach the same 53-key set, grouped differently, and both surface Draft Shipments + Assignment Board', () => {
+  it('staff and boss reach the same 54-key set, grouped differently, and both surface Draft Shipments + Assignment Board', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -284,8 +284,9 @@ describe('AppLayout menu composition', () => {
     // 50 with /transport/plan (planning tasks, 2026-09-29).
     // 51 as of 2026-09-30: /export/gate (garawul gate guard screen) added.
     // 53 as of 2026-09-30: the two RESTORED pages back in both sidebars (owner request 2026-09-29).
-    expect(bossKeys).toHaveLength(53);
-    expect(staffKeys).toHaveLength(53);
+    // 54 as of 2026-09-30: /export/truck-board (Planning trips ↔ shipments) after /transport/map.
+    expect(bossKeys).toHaveLength(54);
+    expect(staffKeys).toHaveLength(54);
     for (const key of RESTORED) {
       expect(staffKeys).toContain(key);
       expect(bossKeys).toContain(key);

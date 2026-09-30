@@ -255,6 +255,10 @@ export interface IApiError {
 export type VehicleCondition = 'OK' | 'ISSUE' | 'BREAKDOWN' | 'RETURNED';
 
 export interface IShipmentListItem {
+  /** ExternalTrip pk when a Planning trip is linked — transport fields go read-only. */
+  trip_id?: number | null;
+  /** Passport expiry sent by Planning for a trip-linked driver (it sends no issue date). */
+  driver_passport_expiry?: string | null;
   id: number;
   shipment_code: string;
   date: string;             // ISO date
@@ -387,6 +391,8 @@ export interface ISheetBlockSource {
 
 export interface IShipmentSheetItem {
   id: number;
+  /** ExternalTrip pk when a Planning trip is linked — transport cells go read-only. */
+  trip_id?: number | null;
   shipment_code: string;
   date: string;
   // Status

@@ -3,8 +3,10 @@ import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { ShipmentTruckSelector } from '@/components/shipment/ShipmentTruckSelector';
 import { ShipmentDriverSelector } from '@/components/shipment/ShipmentDriverSelector';
+import { ShipmentTripBanner } from '@/components/shipment/ShipmentTripBanner';
 import { TRUCK_PLATE_FIELD, DRIVER_NAME_FIELD } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
+import { TRIP_LOCKED_FIELDS } from '@/utils/sheetPermissions';
 import { fmt } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import type { IShipmentDetail } from '@/types';
 
@@ -41,6 +43,10 @@ export function ShipmentTransportBody({
   commentCountsByField,
 }: IShipmentTransportBodyProps) {
   const { t } = useTranslation();
+  // A Planning trip owns tractor/trailer/driver (backend PATCH refuses them
+  // with 400 trip_locked); they change only by unlinking on the Truck Board.
+  const isTripLinked = !!shipment.trip_id && !shipment.is_gapy_satys;
+  const transportReadOnly = readOnly || isTripLinked;
 
   const timestamps: [string, string | null][] = [
     ['shipment_detail.border_crossed', shipment.border_crossed_at],
@@ -49,6 +55,7 @@ export function ShipmentTransportBody({
 
   return (
     <>
+      {!shipment.is_gapy_satys && <ShipmentTripBanner shipmentId={shipment.id} canEdit={!readOnly} />}
       {shipment.is_gapy_satys ? (
         // DetailFieldRow assigns its own `#detail-field-truck_plate` id —
         // no wrapper needed, and one would create a duplicate id in the DOM.
@@ -65,7 +72,7 @@ export function ShipmentTransportBody({
         // scroll-jump target (#detail-field-truck_plate, used by
         // OtherTasksRow / ShipmentDetailHelpers.jumpToField) still resolves.
         <div id="detail-field-truck_plate">
-          <ShipmentTruckSelector shipment={shipment} readOnly={readOnly} />
+          <ShipmentTruckSelector shipment={shipment} readOnly={transportReadOnly} />
         </div>
       )}
       {shipment.is_gapy_satys ? (
@@ -81,7 +88,7 @@ export function ShipmentTransportBody({
         // Same id-wrapper reason as truck_plate above — the selector has no
         // built-in id, and jumpToField targets #detail-field-driver_name.
         <div id="detail-field-driver_name">
-          <ShipmentDriverSelector shipment={shipment} readOnly={readOnly} />
+          <ShipmentDriverSelector shipment={shipment} readOnly={transportReadOnly} />
         </div>
       )}
       <ShipmentFieldGroup
@@ -92,7 +99,11 @@ export function ShipmentTransportBody({
         onOpenComments={onOpenComments}
         commentCountsByField={commentCountsByField}
         excludeKeys={[TRUCK_PLATE_FIELD.key, DRIVER_NAME_FIELD.key]}
+        lockedKeys={isTripLinked ? [...TRIP_LOCKED_FIELDS] : undefined}
       />
+      {isTripLinked && shipment.driver_passport_expiry && (
+        <InfoRow label={t('truck_board.passport_valid_until')} value={shipment.driver_passport_expiry} />
+      )}
       <div style={{ marginTop: 12 }}>
         {timestamps.map(([labelKey, value]) => (
           <InfoRow key={labelKey} label={t(labelKey)} value={fmt(value)} />

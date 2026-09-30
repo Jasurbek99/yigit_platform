@@ -55,13 +55,29 @@ TASK_RULES: list[dict] = [
         'condition_value': '',
     },
     {
-        # Non-gapy shipments: transport team fills name + phone + plate.
-        # All three must be present for the task to auto-resolve (ALL_FIELDS_FILLED).
-        # The Sheet writes these at R23 (truck_plate), R27 (driver_name), R28 (driver_phone).
+        # Retired 2026-09-29: regular shipments get their truck from a Planning
+        # trip (tasks.choose_truck below). Kept as an inactive row so the upsert
+        # key still matches the existing DB row and deactivates it.
+        # Was: transport team fills name + phone + plate (R23/R27/R28).
         'step': 'draft',
         'title_key': 'tasks.assign_driver',
         'assignee_role': 'transport',
         'target_fields': 'driver_name,driver_phone,truck_plate',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': 'is_gapy_satys',
+        'condition_value': 'False',
+        'is_active': False,
+    },
+    {
+        # Regular shipments: the export manager joins a Planning trip on the
+        # Truck Board (spec 2026-09-29-transport-trips-design.md). Joining writes
+        # Shipment.trip_id, which closes this task.
+        'step': 'draft',
+        'title_key': 'tasks.choose_truck',
+        'assignee_role': 'export_manager',
+        'target_fields': 'trip_id',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': '24h_after_status',

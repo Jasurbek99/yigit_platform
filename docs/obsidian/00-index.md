@@ -65,6 +65,7 @@ flowchart LR
 | [[weekly-harvest-planning]] | Block managers plan Mon-Sat harvest per block | WeeklyPlanGrid |
 | [[pomidor-dukany]] | Planned vs achieved production per block (week/month/season, kg/m², domestic vs export) | PomidorDukany |
 | [[truck-allocation]] | Trucks allocated per day per destination | TruckForecast, TruckAllocationTable |
+| [[truck-board]] | Join trips planned in the transport department's Planning system to regular shipments; Planning changes roll the shipment back or raise a conflict | TruckBoard (`/export/truck-board`), ShipmentTripBanner |
 | [[quota-management]] | Government quota issuance, allocation, FIFO usage | QuotaDashboard (7 tabs) |
 | [[local-sell-plan]] | Domestic sale basis for quota calculation | LocalSellPlanGrid |
 | [[price-monitoring]] | Track tomato prices across 8 cities | PricePanel |
