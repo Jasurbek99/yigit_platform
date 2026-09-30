@@ -40,12 +40,14 @@ class PushBodyTests(TestCase):
     def test_loading_body_joins_blocks_in_source_order(self):
         body = loading_body(self.shipment)
         self.assertEqual(body['city'], 'Ahal')
-        self.assertEqual(body['place'], {'ref': 'B3', 'name': 'B3, A1'})
+        self.assertEqual(body['place'], {'ref': 'B3', 'name': 'Blok B3, Blok A1'})
 
 
     def test_pending_correction_pushes_once_per_code(self):
-        from apps.transport.services.trip_push import push_pending_corrections
-        ExternalTrip.objects.filter(pk=self.trip.pk).update(shipment=self.shipment)
+        from apps.transport.services.trip_push import loading_signature, push_pending_corrections
+        # Loading already sent: this test is about the export-code op alone.
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(
+            shipment=self.shipment, last_pushed_loading=loading_signature(self.shipment))
         with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay, \
                 self.captureOnCommitCallbacks(execute=True):
             self.assertEqual(push_pending_corrections(), 1)
@@ -53,9 +55,10 @@ class PushBodyTests(TestCase):
         self.assertEqual(delay.call_count, 1)
 
     def test_corrected_code_is_pushed_again(self):
-        from apps.transport.services.trip_push import push_pending_corrections
+        from apps.transport.services.trip_push import loading_signature, push_pending_corrections
         ExternalTrip.objects.filter(pk=self.trip.pk).update(
-            shipment=self.shipment, last_pushed_export_code='OLD')
+            shipment=self.shipment, last_pushed_export_code='OLD',
+            last_pushed_loading=loading_signature(self.shipment))
         with mock.patch('apps.transport.services.trip_push.enqueue_push') as enqueue:
             self.assertEqual(push_pending_corrections(), 1)
         enqueue.assert_called_once()
@@ -143,3 +146,35 @@ class PushFailureTests(TestCase):
         client.post_op.return_value = (409, {'code': 'DUPLICATE_EXPORT_CODE'})
         self._run(client, 'export-code', 'a')
         self.assertTrue(Notification.objects.filter(user__username='em').exists())
+
+
+class LoadingCorrectionTests(TestCase):
+    def setUp(self):
+        self.shipment = _make_shipment(loading_location=LoadingLocation.objects.create(name='Ahal'))
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=GreenhouseBlock.objects.create(code='A1', name='Blok A1'), weight_kg=1000)
+        self.trip = make_trip()
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(shipment=self.shipment)
+
+    def _ops_pushed(self):
+        from apps.transport.services.trip_push import push_pending_corrections
+        with mock.patch('apps.transport.services.trip_push.enqueue_push') as enqueue:
+            push_pending_corrections()
+        return [c.args[1] for c in enqueue.call_args_list]
+
+    def test_changed_blocks_are_pushed_once(self):
+        from apps.transport.services.trip_push import loading_signature
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(
+            last_pushed_loading=loading_signature(self.shipment))
+        self.assertEqual(self._ops_pushed(), [])
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=GreenhouseBlock.objects.create(code='B2', name='Blok B2'), weight_kg=500)
+        self.assertEqual(self._ops_pushed(), ['loading'])
+
+    def test_enqueue_records_the_loading_signature(self):
+        from apps.transport.services.trip_push import enqueue_push, loading_signature
+        trip = ExternalTrip.objects.select_related('shipment').get(pk=self.trip.pk)
+        with mock.patch('apps.transport.tasks.push_trip_update.delay'), self.captureOnCommitCallbacks(execute=True):
+            enqueue_push(trip, 'loading')
+        trip.refresh_from_db()
+        self.assertEqual(trip.last_pushed_loading, loading_signature(self.shipment))

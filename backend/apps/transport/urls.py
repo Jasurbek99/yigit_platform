@@ -11,7 +11,7 @@ from apps.transport.views import (
     TransportDeviceViewSet,
     TruckHeadViewSet,
 )
-from apps.transport.views_trips import ExternalTripViewSet
+from apps.transport.views_trips import ExternalTripViewSet, ShipmentTripView
 
 router = DefaultRouter()
 router.register('live-positions', LivePositionViewSet, basename='live-positions')
@@ -25,5 +25,6 @@ urlpatterns = [
     path('geofences/current/', CurrentGeofencesView.as_view()),
     path('shipments/<int:shipment_id>/position/', ShipmentTruckPositionView.as_view()),
     path('shipments/<int:shipment_id>/device/', ShipmentDeviceLinkView.as_view()),
+    path('shipments/<int:shipment_id>/trip/', ShipmentTripView.as_view()),
     *router.urls,
 ]

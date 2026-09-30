@@ -51,7 +51,9 @@ def _upsert(item: dict, client) -> ExternalTrip | None:
     trip = ExternalTrip.objects.filter(integration_trip_id=fields['integration_trip_id']).first()
     if fields['destination_country_code'] is None:
         fields['destination_country_code'] = trip.destination_country_code if trip else None
-    if fields['destination_country_code'] is None:
+    # Ask the detail endpoint once per trip version, not on every overlapping poll.
+    is_new_version = trip is None or trip.changed_at != fields['changed_at']
+    if fields['destination_country_code'] is None and is_new_version:
         fields['destination_country_code'] = _country_from_detail(client, item['integrationTripId'])
     if trip is None:
         ExternalTrip.objects.create(**fields)
@@ -79,33 +81,39 @@ def _sync_page(items: list[dict], client, changed: list, errors: list) -> dateti
     return newest
 
 
+def _pull_pages(client, since: datetime | None, changed: list, errors: list) -> datetime | None:
+    """Read every page (keyset on changedAt); return the newest changedAt seen."""
+    newest = None
+    page = 1
+    while True:
+        items = client.list_trips(since, page=page, page_size=PAGE_SIZE).get('items') or []
+        page_newest = _sync_page(items, client, changed, errors)
+        if page_newest and (newest is None or page_newest > newest):
+            newest = page_newest
+        if len(items) < PAGE_SIZE:
+            return newest
+        next_since = page_newest - KEYSET_STEP if page_newest else None
+        # A full page sharing one timestamp cannot move the keyset forward.
+        if next_since is not None and (since is None or next_since > since):
+            since, page = next_since, 1
+        else:
+            page += 1
+
+
 def sync_external_trips(client=None) -> list[ExternalTrip]:
+    """One poll: upsert changed trips, advance the cursor; raises TripsApiUnavailable on outage."""
     client = client or get_trips_client()
     state = ExternalTripSyncState.load()
-    since = state.cursor - OVERLAP if state.cursor else None
     changed: list[ExternalTrip] = []
     errors: list[str] = []
-    newest = state.cursor
-    page = 1
     try:
-        while True:
-            items = client.list_trips(since, page=page, page_size=PAGE_SIZE).get('items') or []
-            page_newest = _sync_page(items, client, changed, errors)
-            if page_newest and (newest is None or page_newest > newest):
-                newest = page_newest
-            if len(items) < PAGE_SIZE:
-                break
-            next_since = page_newest - KEYSET_STEP if page_newest else None
-            # A full page sharing one timestamp cannot move the keyset forward.
-            if next_since is not None and (since is None or next_since > since):
-                since, page = next_since, 1
-            else:
-                page += 1
+        newest = _pull_pages(client, state.cursor - OVERLAP if state.cursor else None, changed, errors)
     except TripsApiUnavailable as exc:
         state.last_error = str(exc)[:2000]
         state.save(update_fields=['last_error'])
         raise
-    state.cursor = newest
+    if newest and (state.cursor is None or newest > state.cursor):
+        state.cursor = newest
     state.last_success_at = timezone.now()
     state.last_error = '; '.join(errors)[:2000]
     state.save()

@@ -50,11 +50,18 @@ class ExternalTrip(models.Model):
         related_name='external_trip',
     )
     conflict_note = models.TextField(null=True, blank=True, **cyrillic_collation())
+    # Structured copy of the conflict so the frontend can word it per language:
+    # kind = 'changed' | 'cancelled'; from/to = "plate, driver" snapshots.
+    conflict_kind = models.CharField(max_length=20, null=True, blank=True)
+    conflict_from = models.CharField(max_length=300, null=True, blank=True, **cyrillic_collation())
+    conflict_to = models.CharField(max_length=300, null=True, blank=True, **cyrillic_collation())
     last_push_status = models.CharField(max_length=20, null=True, blank=True)
     last_push_error = models.TextField(null=True, blank=True)
     # What we last enqueued for export-code — compared on every poll tick so a
     # correction is pushed once, not every 2 minutes until Planning echoes it.
     last_pushed_export_code = models.CharField(max_length=30, null=True, blank=True)
+    # "city|place" last enqueued for `loading` — same once-per-change rule.
+    last_pushed_loading = models.CharField(max_length=500, null=True, blank=True, **cyrillic_collation())
     synced_at = models.DateTimeField(auto_now=True)
 
     class Meta:

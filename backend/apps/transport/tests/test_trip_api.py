@@ -68,6 +68,24 @@ class TripApiTests(TestCase):
         self.assertIn('customer', rows[0])
         self.assertNotIn('code', rows[0])
 
+    def test_date_filter(self):
+        self._as('export_manager')
+        make_trip(integration_trip_id='b242b4de-a941-4dba-899e-3b0235e9f4ec', planned_departure='2026-10-01')
+        rows = self.client.get('/api/v1/transport/external-trips/?date=2026-10-11').json()
+        self.assertEqual([r['planned_departure'] for r in rows], ['2026-10-11'])
+
+    def test_any_role_reads_the_trip_of_a_shipment(self):
+        self._as('export_manager')
+        self.client.post(f'/api/v1/transport/external-trips/{self.trip.pk}/assign/',
+                         {'shipment_id': self.shipment.pk}, format='json')
+        self._as('sales_rep')
+        url = f'/api/v1/transport/shipments/{self.shipment.pk}/trip/'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['id'], self.trip.pk)
+        other = _make_shipment(code='T-9', country=self.kz)
+        self.assertEqual(self.client.get(f'/api/v1/transport/shipments/{other.pk}/trip/').status_code, 404)
+
     def test_sync_state_reports_mock(self):
         self._as('export_manager')
         self.assertTrue(self.client.get('/api/v1/transport/external-trips/sync-state/').json()['is_mock'])

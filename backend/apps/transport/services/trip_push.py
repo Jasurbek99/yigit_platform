@@ -18,55 +18,71 @@ def build_event(trip: ExternalTrip, op: str, now_ms: int) -> tuple[str, str]:
 
 
 def export_code_body(shipment: Shipment) -> dict | None:
+    """ExportCodeUpdate body, or None while the shipment has no export code."""
     if not shipment.export_code:
         return None
     return {'exportCode': shipment.export_code}
 
 
 def loading_body(shipment: Shipment) -> dict | None:
-    """City = our loading location; place = the shipment's blocks, first one as ref."""
+    """LoadingUpdate body: city = our loading location; place = the blocks (names), first code as ref."""
     sources = list(shipment.block_sources.select_related('block').order_by('id'))
     if not sources or not shipment.loading_location_id:
         return None
-    codes = [s.block.code for s in sources]
-    return {'city': shipment.loading_location.name, 'place': {'ref': codes[0], 'name': ', '.join(codes)}}
+    names = [s.block.name or s.block.code for s in sources]
+    return {'city': shipment.loading_location.name, 'place': {'ref': sources[0].block.code, 'name': ', '.join(names)}}
 
 
-BODY_BUILDERS = {'export-code': export_code_body, 'loading': loading_body}
+def export_code_signature(shipment: Shipment) -> str | None:
+    return shipment.export_code or None
+
+
+def loading_signature(shipment: Shipment) -> str | None:
+    """What a `loading` push would say, as one comparable string."""
+    body = loading_body(shipment)
+    return f"{body['city']}|{body['place']['name']}" if body else None
+
+
+# op → (body builder, signature of what was sent, ExternalTrip column holding it)
+PUSH_OPS = {
+    'export-code': (export_code_body, export_code_signature, 'last_pushed_export_code'),
+    'loading': (loading_body, loading_signature, 'last_pushed_loading'),
+}
 
 
 def enqueue_push(trip: ExternalTrip, op: str) -> None:
-    """Build the body now (frozen occurredAt/eventId) and send after commit."""
+    """Build the body now (frozen occurredAt/eventId), remember what was sent, POST after commit."""
     from apps.transport.tasks import push_trip_update
 
-    body = BODY_BUILDERS[op](trip.shipment)
+    build_body, signature, marker = PUSH_OPS[op]
+    body = build_body(trip.shipment)
     if body is None:
         return
     now_ms = int(datetime.now(tz=dt_tz.utc).timestamp() * 1000)
     event_id, occurred_at = build_event(trip, op, now_ms)
     body = {'eventId': event_id, 'occurredAt': occurred_at, 'source': 'EXTERNAL', **body}
-    if op == 'export-code':
-        trip.last_pushed_export_code = trip.shipment.export_code
-        trip.save(update_fields=['last_pushed_export_code'])
+    setattr(trip, marker, signature(trip.shipment))
+    trip.save(update_fields=[marker])
     trip_id = trip.pk
     transaction.on_commit(lambda: push_trip_update.delay(trip_id, op, body, event_id))
 
 
 def push_pending_corrections() -> int:
-    """Linked trips whose export code changed since our last push get one new push.
+    """Linked trips whose export code or loading place changed since our last push get one new push.
 
-    Runs every poll tick, so an export-code edit on the Sheet reaches Planning
-    within ~2 minutes without export importing transport. Compares against
-    last_pushed_export_code (set by enqueue_push), NOT trip_number: mock never
-    echoes, and live echoes late — comparing to trip_number would re-push forever.
-    A DUPLICATE_EXPORT_CODE error recovers by itself once the manager fixes the code.
+    Runs every poll tick, so an edit on the Sheet reaches Planning within ~2
+    minutes without export importing transport. Compares against what we last
+    enqueued (last_pushed_*), NOT against Planning's echo: mock never echoes and
+    live echoes late — that comparison would re-push forever. A refused push
+    recovers by itself once the manager fixes the value.
     """
     pushed = 0
     trips = ExternalTrip.objects.filter(shipment__isnull=False).exclude(
-        status__in=ExternalTrip.CLOSED_STATUSES).select_related('shipment')
+        status__in=ExternalTrip.CLOSED_STATUSES).select_related('shipment__loading_location')
     for trip in trips:
-        code = trip.shipment.export_code
-        if code and code != trip.last_pushed_export_code:
-            enqueue_push(trip, 'export-code')
-            pushed += 1
+        for op, (_, signature, marker) in PUSH_OPS.items():
+            current = signature(trip.shipment)
+            if current and current != getattr(trip, marker):
+                enqueue_push(trip, op)
+                pushed += 1
     return pushed

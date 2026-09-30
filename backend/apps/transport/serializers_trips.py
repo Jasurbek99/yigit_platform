@@ -1,10 +1,14 @@
 from rest_framework import serializers
 
 from apps.transport.models import ExternalTrip
-from apps.transport.services.trip_parsing import has_unrecognised_visa, visa_country_codes
+from apps.transport.services.trip_parsing import (
+    country_codes_by_name, has_unrecognised_visa, visa_country_codes, visa_entries,
+)
 
 
 class ExternalTripSerializer(serializers.ModelSerializer):
+    """A Planning trip with its link, conflict and live position (Truck Board card/drawer)."""
+
     visas = serializers.SerializerMethodField()
     visa_country_codes = serializers.SerializerMethodField()
     has_unrecognised_visa = serializers.SerializerMethodField()
@@ -20,20 +24,26 @@ class ExternalTripSerializer(serializers.ModelSerializer):
             'trailer_plate', 'trailer_brand', 'trailer_model', 'trailer_company', 'trailer_source',
             'driver_full_name', 'driver_phone', 'driver_passport_number', 'driver_passport_expiry',
             'driver_source', 'visas', 'visa_country_codes', 'has_unrecognised_visa',
-            'shipment', 'shipment_code', 'conflict_note', 'last_push_status', 'last_push_error', 'position',
+            'shipment', 'shipment_code', 'conflict_note', 'conflict_kind', 'conflict_from', 'conflict_to',
+            'last_push_status', 'last_push_error', 'position',
         ]
 
-    def get_visas(self, trip) -> list[dict]:
-        pairs = [c.rsplit(':', 1) for c in filter(None, trip.driver_visas.split(';'))]
-        return [{'country': name, 'expiry_date': expiry} for name, expiry in pairs]
+    def _country_map(self) -> dict[str, str]:
+        # One Country query per response, not per trip.
+        if '_country_map' not in self.context:
+            self.context['_country_map'] = country_codes_by_name()
+        return self.context['_country_map']
 
-    def get_visa_country_codes(self, trip) -> list[str]:
-        return visa_country_codes(trip.driver_visas)
+    def get_visas(self, trip: ExternalTrip) -> list[dict]:
+        return [{'country': name, 'expiry_date': expiry} for name, expiry in visa_entries(trip.driver_visas)]
 
-    def get_has_unrecognised_visa(self, trip) -> bool:
-        return has_unrecognised_visa(trip.driver_visas)
+    def get_visa_country_codes(self, trip: ExternalTrip) -> list[str]:
+        return visa_country_codes(trip.driver_visas, self._country_map())
 
-    def get_position(self, trip) -> dict | None:
+    def get_has_unrecognised_visa(self, trip: ExternalTrip) -> bool:
+        return has_unrecognised_visa(trip.driver_visas, self._country_map())
+
+    def get_position(self, trip: ExternalTrip) -> dict | None:
         position = self.context.get('positions', {}).get(trip.tractor_plate)
         if position is None:
             return None
@@ -45,6 +55,8 @@ class ExternalTripSerializer(serializers.ModelSerializer):
 
 
 class CandidateShipmentSerializer(serializers.Serializer):
+    """A Preparation shipment still waiting for a truck (Truck Board left column)."""
+
     id = serializers.IntegerField()
     shipment_code = serializers.CharField()
     date = serializers.DateField()

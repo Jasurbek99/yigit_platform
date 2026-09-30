@@ -5,9 +5,8 @@ from django.utils import timezone
 from apps.core.models import Country, ShipmentStatusType
 from apps.export.models import Notification, ShipmentComment
 from apps.transport.models import ExternalTrip
-from apps.transport.services.trip_assignment import (
-    AssignmentError, accept_trip_change, apply_trip_change, assign_trip, move_trip, unassign_trip,
-)
+from apps.transport.services.trip_assignment import AssignmentError, assign_trip, move_trip, unassign_trip
+from apps.transport.services.trip_changes import accept_trip_change, apply_trip_change
 from apps.transport.tests.test_trip_assignment import make_trip
 from apps.transport.tests.test_trip_sync import _make_shipment
 
@@ -51,6 +50,9 @@ class ApplyTripChangeTests(TestCase):
         self.trip.refresh_from_db()
         self.assertEqual(self.shipment.driver_name, 'Amandurdyyew Atajan')
         self.assertIn('Täze Sürüji', self.trip.conflict_note)
+        self.assertEqual(self.trip.conflict_kind, 'changed')
+        self.assertEqual(self.trip.conflict_from, '2563AHF/2251TAH, Amandurdyyew Atajan')
+        self.assertEqual(self.trip.conflict_to, '2563AHF/2251TAH, Täze Sürüji')
 
     def test_loading_started_is_a_conflict(self):
         self._set_status('yuklenme', loading_started_at=timezone.now())
@@ -73,6 +75,7 @@ class ApplyTripChangeTests(TestCase):
         self.assertEqual(apply_trip_change(self.trip, self.user), 'conflict')
         self.trip.refresh_from_db()
         self.assertEqual(self.trip.shipment_id, self.shipment.pk)
+        self.assertEqual(self.trip.conflict_kind, 'cancelled')
 
     def test_accept_applies_despite_lock_and_clears_conflict(self):
         self._set_status('yola_chykdy')
@@ -179,19 +182,19 @@ class PendingChangeTests(TestCase):
         assign_trip(self.trip, self.shipment, self.user)
 
     def test_snapshot_ahead_of_shipment_is_pending_until_applied(self):
-        from apps.transport.services.trip_assignment import find_pending_changes
+        from apps.transport.services.trip_changes import find_pending_changes
         ExternalTrip.objects.filter(pk=self.trip.pk).update(driver_full_name='Taze Suruji')
         self.assertEqual([t.pk for t in find_pending_changes()], [self.trip.pk])
         apply_trip_change(self.trip, self.user)
         self.assertEqual(find_pending_changes(), [])
 
     def test_recorded_conflict_is_not_pending_again(self):
-        from apps.transport.services.trip_assignment import find_pending_changes
-        ExternalTrip.objects.filter(pk=self.trip.pk).update(driver_full_name='X', conflict_note='locked')
+        from apps.transport.services.trip_changes import find_pending_changes
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(driver_full_name='X', conflict_kind='changed', conflict_note='locked')
         self.assertEqual(find_pending_changes(), [])
 
     def test_cancelled_linked_trip_is_pending(self):
-        from apps.transport.services.trip_assignment import find_pending_changes
+        from apps.transport.services.trip_changes import find_pending_changes
         ExternalTrip.objects.filter(pk=self.trip.pk).update(status='CANCELLED')
         self.assertEqual(len(find_pending_changes()), 1)
 

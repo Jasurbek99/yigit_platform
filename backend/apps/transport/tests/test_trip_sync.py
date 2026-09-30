@@ -206,3 +206,16 @@ class SyncRobustnessTests(TestCase):
         fourth = sorted(i['changedAt'] for i in client.items)[3]
         self.assertEqual(client.since_seen[1], parse_datetime(fourth) - timedelta(microseconds=1))
         self.assertEqual(pages_seen, [1, 1])
+
+
+class CountryDetailOnceTests(TestCase):
+    def test_null_country_is_not_re_asked_until_the_trip_changes(self):
+        items = [{**i, 'destinationCountryCode': None} for i in _fixture_items()[:1]]
+        client = FakeClient(items)
+        client.get_trip = mock.Mock(return_value={'destinationCountryCode': None})
+        sync_external_trips(client)
+        sync_external_trips(client)
+        self.assertEqual(client.get_trip.call_count, 1)
+        items[0]['changedAt'] = (timezone.now() + timedelta(minutes=1)).isoformat()
+        sync_external_trips(client)
+        self.assertEqual(client.get_trip.call_count, 2)

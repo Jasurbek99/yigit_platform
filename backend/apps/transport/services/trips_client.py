@@ -36,12 +36,16 @@ def tls_verify(value: str) -> bool | str:
 
 
 class TripsApiUnavailable(Exception):
+    """Planning could not be reached or answered 5xx/401 on a read."""
+
     def __init__(self, message: str, status_code: int | None = None):
         super().__init__(message)
         self.status_code = status_code
 
 
 class TripsClient:
+    """HTTP client for Planning's /api/v1/external API (Bearer key, 15 s timeout)."""
+
     is_mock = False
 
     def __init__(self) -> None:
@@ -94,6 +98,8 @@ class TripsClient:
 
 
 class MockTripsClient:
+    """Same surface as TripsClient, served from fixtures/external_trips.json; pushes are only logged."""
+
     is_mock = True
 
     def _items(self) -> list[dict]:
@@ -120,4 +126,5 @@ class MockTripsClient:
 
 
 def get_trips_client() -> TripsClient | MockTripsClient:
+    """The client TRANSPORT_API_MODE selects."""
     return MockTripsClient() if settings.TRANSPORT_API_MODE == 'mock' else TripsClient()

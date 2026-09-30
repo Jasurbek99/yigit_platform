@@ -19,6 +19,7 @@ def _date_or_none(value: str | None) -> date | None:
 
 
 def parse_trip(item: dict) -> dict:
+    """One Planning trip (contract TripListItem) as ExternalTrip field values."""
     tractor, trailer, driver = item['tractor'], item['trailer'], item['driver']
     passport = driver.get('foreignPassport') or {}
     visas = ';'.join(f"{v['country']}:{v['expiryDate']}" for v in driver.get('visas') or [])
@@ -48,7 +49,7 @@ def parse_trip(item: dict) -> dict:
     }
 
 
-def _visa_entries(visas_csv: str) -> list[tuple[str, date | None]]:
+def visa_entries(visas_csv: str) -> list[tuple[str, date | None]]:
     """(name, expiry) pairs from the stored "Name:YYYY-MM-DD;..." string."""
     entries = []
     for chunk in filter(None, (visas_csv or '').split(';')):
@@ -57,27 +58,28 @@ def _visa_entries(visas_csv: str) -> list[tuple[str, date | None]]:
     return entries
 
 
-def _country_codes_by_name() -> dict[str, str]:
+def country_codes_by_name() -> dict[str, str]:
+    """Normalised Turkmen country name → code; pass it in when checking many trips."""
     from apps.core.models import Country
 
     return {_norm(c.name_tk): c.code for c in Country.objects.exclude(code__isnull=True)}
 
 
-def has_unrecognised_visa(visas_csv: str) -> bool:
+def has_unrecognised_visa(visas_csv: str, by_name: dict[str, str] | None = None) -> bool:
     """True when a visa name maps to no country — the ⚠ check must then stay quiet."""
-    by_name = _country_codes_by_name()
+    by_name = by_name if by_name is not None else country_codes_by_name()
     return any(
         not (VISA_NAME_ALIASES.get(_norm(name)) or by_name.get(_norm(name)))
-        for name, _ in _visa_entries(visas_csv)
+        for name, _ in visa_entries(visas_csv)
     )
 
 
-def visa_country_codes(visas_csv: str) -> list[str]:
+def visa_country_codes(visas_csv: str, by_name: dict[str, str] | None = None) -> list[str]:
     """Codes of countries the driver holds a VALID visa for; expired and unknown names are dropped."""
-    by_name = _country_codes_by_name()
+    by_name = by_name if by_name is not None else country_codes_by_name()
     today = date.today()
     codes: list[str] = []
-    for name, expires in _visa_entries(visas_csv):
+    for name, expires in visa_entries(visas_csv):
         if expires is not None and expires < today:
             continue
         code = VISA_NAME_ALIASES.get(_norm(name)) or by_name.get(_norm(name))

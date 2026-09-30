@@ -10,6 +10,7 @@ straight back to where the shipment was.
 """
 from django.utils import timezone
 
+from apps.core.models import User
 from apps.export.models import AuditLog, Shipment, Task, TaskState
 from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 from apps.export.services.shipment import transition_to
@@ -53,7 +54,8 @@ def reopen_rule_task(shipment: Shipment, title_key: str) -> bool:
     return bool(tasks)
 
 
-def rollback_to_draft(shipment: Shipment, user, reason: str) -> None:
+def rollback_to_draft(shipment: Shipment, user: User, reason: str) -> None:
+    """Send a shipment back to Preparation, re-gating every step it already passed."""
     code = shipment.status.code
     if code == 'draft':
         return

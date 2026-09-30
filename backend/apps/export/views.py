@@ -110,6 +110,7 @@ from apps.export.services import (
     write_block_sources,
 )
 from apps.export.services.shipment import _cancel_open_tasks
+from apps.export.services.trip_lock import trip_locked_fields
 from apps.export.services.weightmaster_import import (
     WeightmasterParseError,
     parse_weightmaster_workbook,
@@ -723,7 +724,6 @@ class ShipmentViewSet(ModelViewSet):
 
         # A Planning trip owns the transport fields (spec 2026-09-29-transport-
         # trips D10); they change only by unlinking the trip on the Truck Board.
-        from apps.export.services.trip_lock import trip_locked_fields
         locked = trip_locked_fields(shipment, request.data.keys())
         if locked:
             return Response(

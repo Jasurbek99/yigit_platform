@@ -37,7 +37,9 @@ flowchart LR
 | Mirror model | `apps/transport/models/external_trip.py` — `ExternalTrip` (one row per Planning trip, `shipment` OneToOne = our link), `ExternalTripSyncState` (cursor + health) |
 | API client + mock | `apps/transport/services/trips_client.py` — `TripsClient`, `MockTripsClient`, `get_trips_client()` |
 | Poller | `apps/transport/services/trip_sync.py` + Celery `poll_external_trips` (beat, 120 s). Polls from `cursor − 5 min` (strictly-after + same-timestamp safety), all pages; fills `destinationCountryCode` from `GET /trips/{id}` when the list lacks it |
-| Assign / unassign / move / accept / react | `apps/transport/services/trip_assignment.py` |
+| Assign / unassign / move | `apps/transport/services/trip_assignment.py` |
+| React to Planning changes, Accept | `apps/transport/services/trip_changes.py` (`find_pending_changes`, `apply_trip_change`) |
+| Notifications | `apps/transport/services/trip_notify.py` |
 | Rollback | `apps/export/services/rollback.py` + `transition_to(..., rollback=True)` (system-only `ROLLBACK_TRANSITIONS`, never in `TRANSITIONS`) |
 | Pushes to Planning | `apps/transport/services/trip_push.py` + Celery `push_trip_update` |
 | Sheet / Detail lock | `apps/export/services/trip_lock.py` (PATCH guard) + `isTripLockedCell` in `frontend/src/utils/sheetPermissions.ts`; Detail: `ShipmentTransportBody` locks the truck/driver selectors and `lockedKeys` rows |
@@ -74,11 +76,27 @@ Our shipment cancelled → the next poll frees its trip (Planning is not told; n
 | Op | When | Body |
 |---|---|---|
 | `export-code` | on assign; again whenever `export_code` differs from `last_pushed_export_code` (checked every poll) | `exportCode` |
-| `loading` | on assign only | `city` = loading location name, `place` = block codes |
+| `loading` | on assign; again whenever loading location or blocks differ from `last_pushed_loading` (checked every poll) | `city` = loading location name, `place.name` = block names, `place.ref` = first block code |
 
 `Idempotency-Key` = `eventId` = `ygt-{uuid}-{op}-{enqueue ms}`; retries reuse it. `TRIP_CLOSED` →
-give up. `DUPLICATE_EXPORT_CODE` / 4xx → error shown on the shipment banner. Loading corrections after
-assignment are **not** re-sent (out of MVP).
+give up. Any other refusal → stored as `"<op>: <CODE>"` in `last_push_error`, shown (translated) on the
+shipment banner, export managers notified. Retries running out clear the op's `last_pushed_*` marker, so
+the next poll sends it again.
+
+## Where conflicts and statuses are worded
+
+The backend stores conflicts structured — `conflict_kind` (`changed` / `cancelled`), `conflict_from`,
+`conflict_to` (migration `transport/0010`) — and the frontend words them per language
+(`truck_board.conflict.*`, `truck_board.status.*`, `truck_board.push_error.*`,
+`pages/export/truckBoard/useTripMessages.ts`). `conflict_note` is the English line kept for the shipment's
+comment trail.
+
+## Endpoints
+
+`/api/v1/transport/external-trips/` (filters `free`, `linked`, `country`, `date`), `…/{id}/`,
+`…/{id}/document/`, `…/{id}/assign|unassign|move|accept-change/`, `…/sync-state/`,
+`…/candidate-shipments/`; `/api/v1/transport/shipments/{id}/trip/` (any signed-in user — the shipment
+page banner). Errors: `{"error": "<code>"}`.
 
 ## Tasks & permissions
 
