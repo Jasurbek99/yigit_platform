@@ -3,12 +3,15 @@
 Contract: planning-integration-api.v1.yaml, ExportCodeUpdate / LoadingUpdate
 (both extend EventEnvelope: eventId, occurredAt, source=EXTERNAL).
 """
+import logging
 from datetime import datetime, timezone as dt_tz
 
 from django.db import transaction
 
 from apps.export.models import Shipment
 from apps.transport.models import ExternalTrip
+
+logger = logging.getLogger(__name__)
 
 
 def build_event(trip: ExternalTrip, op: str, now_ms: int) -> tuple[str, str]:
@@ -65,7 +68,19 @@ def enqueue_push(trip: ExternalTrip, op: str) -> None:
     setattr(trip, marker, signature(trip.shipment))
     trip.save(update_fields=[marker])
     trip_id = trip.pk
-    transaction.on_commit(lambda: push_trip_update.delay(trip_id, op, body, event_id))
+
+    def send() -> None:
+        # Runs after the caller's commit: the join is already saved, so a broker
+        # outage must not fail the request. Forget the marker instead — the next
+        # poll tick (which itself runs on the broker) enqueues it again.
+        try:
+            push_trip_update.delay(trip_id, op, body, event_id)
+        except Exception:  # kombu/redis raise different types; any failure means "not queued"
+            logger.warning('Could not queue Planning %s push for trip %s; retried next poll', op, trip_id,
+                           exc_info=True)
+            ExternalTrip.objects.filter(pk=trip_id).update(**{marker: None})
+
+    transaction.on_commit(send)
 
 
 def push_pending_corrections() -> int:

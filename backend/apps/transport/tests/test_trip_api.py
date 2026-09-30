@@ -183,3 +183,31 @@ class MoveUnknownCountryApiTests(TestCase):
         moved = self.client.post(self.base + 'move/', {'shipment_id': self.b.pk, 'confirm_unknown_country': True}, format='json')
         self.assertEqual(moved.status_code, 200, moved.content)
         self.assertEqual(moved.json()['shipment'], self.b.pk)
+
+
+@override_settings(TRANSPORT_API_MODE='mock')
+class AssignWithoutBrokerTests(TestCase):
+    """The join is committed before the push is queued; a broker outage must not turn it into an error."""
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.client.force_authenticate(User.objects.create_user(username='em3', password='x', role='export_manager'))
+        kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
+        self.shipment = _make_shipment(country=kz, export_code='2909001/26')
+        self.trip = make_trip()
+
+    def test_assign_succeeds_and_the_push_is_retried_later(self):
+        from unittest import mock
+
+        from kombu.exceptions import OperationalError
+        with mock.patch('apps.transport.tasks.push_trip_update.delay', side_effect=OperationalError('redis down')), \
+                self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(f'/api/v1/transport/external-trips/{self.trip.pk}/assign/',
+                                        {'shipment_id': self.shipment.pk}, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.trip.refresh_from_db()
+        self.assertEqual(self.trip.shipment_id, self.shipment.pk)
+        # Not queued → marker cleared, so the next poll tick enqueues it again.
+        self.assertIsNone(self.trip.last_pushed_export_code)
