@@ -47,6 +47,13 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+      # Planning (transport dept) trips API — the Truck Board. Listed explicitly:
+      # this service gets ONLY the variables named here, so a value in .env that
+      # is not listed never reaches the container.
+      - TRANSPORT_API_URL=${TRANSPORT_API_URL:-https://10.10.11.79:8444/api/v1/external}
+      - TRANSPORT_API_KEY=${TRANSPORT_API_KEY:-}
+      - TRANSPORT_API_MODE=${TRANSPORT_API_MODE:-live}
+      - TRANSPORT_API_VERIFY_TLS=${TRANSPORT_API_VERIFY_TLS:-false}
     # Do NOT publish backend:8000 to the host in production. The dev compose maps
     # "8000:8000" for direct API access, but in prod that bypasses the frontend
     # nginx — exposing the Django admin and letting a client spoof the X-Real-IP
@@ -101,6 +108,13 @@ services:
       - TRACCAR_BASE_URL=${TRACCAR_BASE_URL:-}
       - TRACCAR_TOKEN=${TRACCAR_TOKEN:-}
       - TRACCAR_STALE_MINUTES=${TRACCAR_STALE_MINUTES:-15}
+      # Planning (transport dept) trips API — the Truck Board. Listed explicitly:
+      # this service gets ONLY the variables named here, so a value in .env that
+      # is not listed never reaches the container.
+      - TRANSPORT_API_URL=${TRANSPORT_API_URL:-https://10.10.11.79:8444/api/v1/external}
+      - TRANSPORT_API_KEY=${TRANSPORT_API_KEY:-}
+      - TRANSPORT_API_MODE=${TRANSPORT_API_MODE:-live}
+      - TRANSPORT_API_VERIFY_TLS=${TRANSPORT_API_VERIFY_TLS:-false}
     restart: unless-stopped
     # !reset (not a plain `[]`) to actually clear the base's `./backend:/app`
     # bind mount — a plain empty list is a no-op in Compose's merge, same
