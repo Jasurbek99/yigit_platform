@@ -218,7 +218,10 @@ class AcceptCancelledTripTests(TestCase):
         _seed_rules()
         user = User.objects.create_user(username='em', password='x', role='export_manager')
         kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
-        shipment = _make_shipment(country=kz)
+        # A full destination closes 5b, so choose_truck exists (PREP chain, 2026-09-30).
+        from apps.core.models import Customer, ImportFirm
+        shipment = _make_shipment(country=kz, customer=Customer.objects.create(name='C'),
+                                  import_firm=ImportFirm.objects.create(name_company='IF', country=kz))
         generate_tasks_for_status(shipment, 'draft')
         trip = make_trip()
         assign_trip(trip, shipment, user)

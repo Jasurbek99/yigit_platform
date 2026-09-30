@@ -50,6 +50,33 @@ def make_advanced_shipment(user) -> Shipment:
     return shipment
 
 
+TRUCK_DOCS = (
+    'tasks.prepare_transport_docs', 'tasks.print_cmr', 'tasks.print_tir', 'tasks.print_ct1',
+    'tasks.print_phyto', 'tasks.ct1_phyto_sent', 'tasks.print_customs_request', 'tasks.docs_to_stamp',
+    'tasks.docs_from_stamp', 'tasks.prepare_declaration', 'tasks.docs_to_customs',
+)
+
+
+def walk_customs_docs(shipment, user):
+    """Close the DOCS chain of gumruk_girish in order, as the buttons would,
+    until the shipment is at gumruk_chykysh."""
+    from apps.export.services.task_chain import after_task_done
+    for _ in range(20):
+        open_tasks = list(shipment.tasks.filter(step='gumruk_girish',
+                                                state__in=[TaskState.OPEN, TaskState.IN_PROGRESS]))
+        if not open_tasks:
+            break
+        Task.objects.filter(pk__in=[t.pk for t in open_tasks]).update(
+            state=TaskState.DONE, completed_at=timezone.now())
+        after_task_done(shipment, user, open_tasks)
+        shipment.refresh_from_db()
+    assert shipment.status.code == 'gumruk_chykysh', shipment.status.code
+
+
+def state_of(shipment, title_key):
+    return Task.objects.get(shipment=shipment, rule__title_key=title_key).state
+
+
 class RollbackTests(TestCase):
     """Builds a shipment that auto-advanced out of draft, then rolls it back."""
 
@@ -89,10 +116,10 @@ class RollbackTests(TestCase):
         self.shipment.refresh_from_db()
         self._save(driver_phone='99365000000')
         self.assertEqual(self.shipment.status.code, 'draft')
-        task = Task.objects.get(shipment=self.shipment, rule__title_key='tasks.start_documents_prep')
-        self.assertEqual(task.state, TaskState.OPEN)
+        self.assertEqual(state_of(self.shipment, 'tasks.prepare_transport_docs'), TaskState.OPEN)
 
     def test_rollback_from_customs_exit_clears_customs_exit(self):
+        walk_customs_docs(self.shipment, self.user)
         self._save(customs_exit_at=timezone.now())
         self.assertEqual(self.shipment.status.code, 'gumruk_chykysh')
         rollback_to_draft(self.shipment, self.user, 'x')
@@ -102,14 +129,68 @@ class RollbackTests(TestCase):
 
     def test_redone_documents_stop_at_customs_after_rollback_from_customs_exit(self):
         """The cascade must not replay gumruk_girish → gumruk_chykysh on stale DONE tasks."""
+        walk_customs_docs(self.shipment, self.user)
         self._save(customs_exit_at=timezone.now())
-        self.assertEqual(self.shipment.status.code, 'gumruk_chykysh')
         rollback_to_draft(self.shipment, self.user, 'x')
         self.shipment.refresh_from_db()
+        transition_to(self.shipment, 'gumruk_girish', self.user)        # Promote
         self._save(documents_status='ready')
         self.assertEqual(self.shipment.status.code, 'gumruk_girish')
-        task = Task.objects.get(shipment=self.shipment, rule__title_key='tasks.trigger_customs_exit')
-        self.assertEqual(task.state, TaskState.OPEN)
+        self.assertEqual(state_of(self.shipment, 'tasks.docs_to_customs'), TaskState.OPEN)
+
+    def test_rollback_reopens_the_truck_documents_and_the_advance(self):
+        """Owner, 2026-09-30: 11 and everything after it, 22 and the advance are
+        redone; the contract (9) and gross/net (10) do not depend on the truck."""
+        walk_customs_docs(self.shipment, self.user)
+        self._save(customs_exit_at=timezone.now())
+        rollback_to_draft(self.shipment, self.user, 'x')
+        self.shipment.refresh_from_db()
+        for title in TRUCK_DOCS + ('tasks.give_advance', 'tasks.docs_from_customs'):
+            self.assertEqual(state_of(self.shipment, title), TaskState.OPEN, title)
+        for title in ('tasks.prepare_contract', 'tasks.fill_gross_net'):
+            self.assertEqual(state_of(self.shipment, title), TaskState.DONE, title)
+        self.assertIsNotNone(self.shipment.documents_reset_at)
+
+    def test_a_download_from_before_the_rollback_does_not_count(self):
+        from apps.export.services.task_chain import record_document_download
+        walk_customs_docs(self.shipment, self.user)
+        record_document_download(self.shipment, ['cmr'], self.user)     # the old truck's CMR
+        rollback_to_draft(self.shipment, self.user, 'x')
+        self.shipment.refresh_from_db()
+        transition_to(self.shipment, 'gumruk_girish', self.user)
+        self.shipment.refresh_from_db()
+        self.assertEqual(state_of(self.shipment, 'tasks.print_cmr'), TaskState.OPEN)
+        record_document_download(self.shipment, ['cmr'], self.user)     # the new truck's CMR
+        self.assertEqual(state_of(self.shipment, 'tasks.print_cmr'), TaskState.DONE)
+
+    def test_the_old_advance_is_kept_and_a_second_one_is_needed(self):
+        from apps.export.models import FinansistAdvance, FinansistAdvanceShipment
+        from apps.export.services.task_chain import refresh_tasks_after_write
+
+        def give_advance():
+            advance = FinansistAdvance.objects.create(
+                advance_date='2026-01-15', total_amount=1000, currency='USD', issued_by=self.user)
+            FinansistAdvanceShipment.objects.create(advance=advance, shipment=self.shipment)
+            refresh_tasks_after_write(self.shipment, self.user)
+
+        give_advance()
+        self.assertEqual(state_of(self.shipment, 'tasks.give_advance'), TaskState.DONE)
+        rollback_to_draft(self.shipment, self.user, 'x')
+        self.shipment.refresh_from_db()
+        refresh_tasks_after_write(self.shipment, self.user)
+        self.assertEqual(state_of(self.shipment, 'tasks.give_advance'), TaskState.OPEN)
+        give_advance()
+        self.assertEqual(state_of(self.shipment, 'tasks.give_advance'), TaskState.DONE)
+        self.assertEqual(self.shipment.advance_links.count(), 2)
+
+    def test_sending_the_documents_to_customs_again_clears_the_mark(self):
+        walk_customs_docs(self.shipment, self.user)
+        rollback_to_draft(self.shipment, self.user, 'x')
+        self.shipment.refresh_from_db()
+        transition_to(self.shipment, 'gumruk_girish', self.user)
+        self.shipment.refresh_from_db()
+        walk_customs_docs(self.shipment, self.user)
+        self.assertIsNone(self.shipment.documents_reset_at)
 
     def test_locked_rules(self):
         self.assertFalse(is_transport_locked(self.shipment))
@@ -126,7 +207,8 @@ class RollbackTests(TestCase):
 
     def test_rollback_audits_the_cleared_fields(self):
         from apps.export.models import AuditLog
-        self._save(customs_exit_at=timezone.now())
+        walk_customs_docs(self.shipment, self.user)
+        self._save(customs_exit_at=timezone.now(), documents_status='ready')
         rollback_to_draft(self.shipment, self.user, 'x')
         fields = set(AuditLog.objects.filter(object_id=self.shipment.pk).values_list('field_name', flat=True))
         self.assertIn('customs_exit_at', fields)

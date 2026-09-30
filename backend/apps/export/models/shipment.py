@@ -264,6 +264,11 @@ class Shipment(models.Model):
     # Shipment Board's time-in-phase calculation. Backfilled from
     # ShipmentStatusLog by migration 0011.
     status_changed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Set when a truck change rolls the shipment back to Preparation
+    # (services/rollback.py): documents downloaded and advances given before it
+    # no longer count, and the Sheet / task cards mark the shipment. Cleared
+    # when «Gümrüge ugradyldy» (tasks.docs_to_customs) closes again.
+    documents_reset_at = models.DateTimeField(null=True, blank=True)
 
     # Operator-entered timestamp for when the warehouse finished loading the
     # truck (Sheet R20). NOT AD-1 — no transition writes this; warehouse staff
@@ -415,6 +420,15 @@ class Shipment(models.Model):
         update_fields = kwargs.get('update_fields')
         if update_fields is not None:
             kwargs['update_fields'] = list(update_fields) + ['border_point']
+
+    @property
+    def has_current_advance(self) -> bool:
+        """tasks.give_advance target: an advance is linked — after a truck-change
+        rollback, a NEW one (created after documents_reset_at). The old link stays."""
+        links = self.advance_links.all()
+        if self.documents_reset_at:
+            links = links.filter(advance__created_at__gte=self.documents_reset_at)
+        return links.exists()
 
     def save(self, *args, **kwargs):
         """Save, trigger task auto-resolution, then attempt status auto-advance.

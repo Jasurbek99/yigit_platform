@@ -30,6 +30,16 @@ STEP_GATES = {
     'gumruk_girish': ('tasks.trigger_customs_exit', 'customs_exit_at'),
     'gumruk_chykysh': ('tasks.trigger_loading_start', 'loading_started_at'),
 }
+# PREP/DOCS chain (owner, 2026-09-30): the truck is printed on the transport
+# documents (11) and everything built on them, so a truck change redoes 11–21b,
+# 22 and the advance (a second one — the first stays linked). The contract (9)
+# and gross/net (10) do not depend on the truck.
+REDO_TASKS = (
+    'tasks.prepare_transport_docs', 'tasks.print_cmr', 'tasks.print_tir', 'tasks.print_ct1',
+    'tasks.print_phyto', 'tasks.ct1_phyto_sent', 'tasks.print_customs_request',
+    'tasks.docs_to_stamp', 'tasks.docs_from_stamp', 'tasks.give_advance',
+    'tasks.prepare_declaration', 'tasks.docs_to_customs', 'tasks.docs_from_customs',
+)
 
 
 def is_transport_locked(shipment: Shipment) -> bool:
@@ -60,7 +70,7 @@ def rollback_to_draft(shipment: Shipment, user: User, reason: str) -> None:
     if code == 'draft':
         return
     passed = PRE_LOADING_ORDER[1:PRE_LOADING_ORDER.index(code)]
-    regate = {'documents_status': 'in_progress'}
+    regate = {'documents_status': 'in_progress', 'documents_reset_at': timezone.now()}
     for step in passed:
         regate[STEP_GATES[step][1]] = None
     before = snapshot_fields(shipment, list(regate))
@@ -72,6 +82,8 @@ def rollback_to_draft(shipment: Shipment, user: User, reason: str) -> None:
     if rows:
         AuditLog.objects.bulk_create(rows, batch_size=500)
     reopen_rule_task(shipment, 'tasks.start_documents_prep')
+    for title_key in REDO_TASKS:
+        reopen_rule_task(shipment, title_key)
     for step in passed:
         reopen_rule_task(shipment, STEP_GATES[step][0])
     transition_to(shipment, 'draft', user, comment=reason, is_auto=True, notify=False, rollback=True)

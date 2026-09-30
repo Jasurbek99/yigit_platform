@@ -366,7 +366,8 @@ TASK_RULES: list[dict] = [
         'step': 'gumruk_girish',
         'title_key': 'tasks.give_advance',
         'assignee_role': 'finansist',
-        'target_fields': 'advance_links',
+        # A property: after a truck-change rollback only a NEW advance counts.
+        'target_fields': 'has_current_advance',
         'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
         'target_value': '',
         'deadline_rule': '',

@@ -154,10 +154,11 @@ def close_auto_satisfied(shipment) -> list[Task]:
     if not open_tasks:
         return []
     downloads = {}
-    for key, user_id in (
-        ShipmentDocumentDownload.objects.filter(shipment_id=shipment.pk)
-        .order_by('downloaded_at', 'id').values_list('doc_key', 'downloaded_by_id')
-    ):
+    rows = ShipmentDocumentDownload.objects.filter(shipment_id=shipment.pk)
+    if shipment.documents_reset_at:
+        # A truck change rolled the shipment back: the old truck's papers don't count.
+        rows = rows.filter(downloaded_at__gte=shipment.documents_reset_at)
+    for key, user_id in rows.order_by('downloaded_at', 'id').values_list('doc_key', 'downloaded_by_id'):
         downloads[DOC_TASKS.get(key)] = user_id           # latest downloader wins
     closed = []
     for task in open_tasks:
@@ -252,6 +253,10 @@ def apply_task_done_effects(task: Task, shipment) -> None:
             return
         Shipment.objects.filter(pk=shipment.pk).update(documents_status=code)
         shipment.documents_status = code
+    elif task.title_key == 'tasks.docs_to_customs' and shipment.documents_reset_at:
+        # The documents for the new truck are done: drop the rollback mark.
+        Shipment.objects.filter(pk=shipment.pk).update(documents_reset_at=None)
+        shipment.documents_reset_at = None
 
 
 def after_task_done(shipment, user, done_tasks) -> list[Task]:

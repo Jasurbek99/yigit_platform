@@ -97,7 +97,7 @@ class PrepDocsCatalogTests(ChainFixture):
             {'tasks.set_destination', 'tasks.pick_export_firms', 'tasks.choose_truck', 'tasks.join_supply'},
         )
         ShipmentFirmSplit.objects.create(shipment=s, export_firm=self.export_firm, weight_kg=Decimal('18000'))
-        self._save(s, truck_head_id=7)
+        self._save(s, trip_id=7)                 # a Planning trip joined (PR #24)
         self.assertEqual(s.status.code, 'gumruk_girish')
         self.assertEqual(
             self._titles(s, TaskState.OPEN),
