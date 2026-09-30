@@ -4153,6 +4153,18 @@
       "PLANNING_UNAVAILABLE": "Planning did not answer — the data will be sent again automatically",
       "generic": "Planning refused {{op}} ({{code}})"
     },
-    "passport_valid_until": "Passport valid until"
+    "passport_valid_until": "Passport valid until",
+    "more": "More",
+    "less": "Less",
+    "no_export_code": "No export code",
+    "documents_label": "Documents: {{status}}",
+    "docs": {
+      "ready": "ready",
+      "in_progress": "in progress",
+      "missing": "missing",
+      "ok": "ok",
+      "pending": "pending",
+      "none": "not started"
+    }
   }
 }

@@ -56,6 +56,15 @@ export interface ICandidateShipment {
   customer: number | null;
   customer_name: string | null;
   blocks: string[];
+  export_code: string | null;
+  documents_status: string | null;
+  import_firm: number | null;
+  import_firm_name: string | null;
+  loading_location: number | null;
+  loading_location_name: string | null;
+  city: number | null;
+  city_name: string | null;
+  export_firms: { id: number; name: string }[];
 }
 
 export interface ITripSyncState {

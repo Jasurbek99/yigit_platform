@@ -68,6 +68,26 @@ class TripApiTests(TestCase):
         self.assertIn('customer', rows[0])
         self.assertNotIn('code', rows[0])
 
+    def test_candidate_card_carries_export_code_firms_and_places(self):
+        from apps.core.models import City, ExportFirm, ImportFirm, LoadingLocation
+        from apps.export.models import ShipmentFirmSplit
+        self._as('export_manager')
+        city = City.objects.create(country=self.kz, name='Almaty')
+        importer = ImportFirm.objects.create(name_company='Berik LLP', country=self.kz)
+        location = LoadingLocation.objects.create(name='Ahal')
+        type(self.shipment).objects.filter(pk=self.shipment.pk).update(
+            export_code='2909001/26', documents_status='in_progress',
+            city=city, import_firm=importer, loading_location=location)
+        firm = ExportFirm.objects.create(code='Y', name_tk='YGT HJ', name_short='YGT')
+        ShipmentFirmSplit.objects.create(shipment=self.shipment, export_firm=firm, weight_kg=10000)
+        row = self.client.get('/api/v1/transport/external-trips/candidate-shipments/').json()[0]
+        self.assertEqual(row['export_code'], '2909001/26')
+        self.assertEqual(row['documents_status'], 'in_progress')
+        self.assertEqual((row['city'], row['city_name']), (city.pk, 'Almaty'))
+        self.assertEqual((row['import_firm'], row['import_firm_name']), (importer.pk, 'Berik LLP'))
+        self.assertEqual((row['loading_location'], row['loading_location_name']), (location.pk, 'Ahal'))
+        self.assertEqual(row['export_firms'], [{'id': firm.pk, 'name': 'YGT'}])
+
     def test_candidate_shipments_are_scoped_to_the_season(self):
         from apps.core.models import Season
         self._as('export_manager')

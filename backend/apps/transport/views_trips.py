@@ -136,7 +136,8 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
             Shipment.objects.filter(
                 season=resolve_season(request), status__code='draft', is_gapy_satys=False, trip_id__isnull=True,
             )
-            .select_related('country', 'customer').prefetch_related('block_sources__block')
+            .select_related('country', 'customer', 'import_firm', 'loading_location', 'city')
+            .prefetch_related('block_sources__block', 'firm_splits__export_firm')
             .order_by('date', 'id')
         )
         return Response(CandidateShipmentSerializer(shipments, many=True).data)

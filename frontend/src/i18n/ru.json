@@ -4155,6 +4155,18 @@
       "PLANNING_UNAVAILABLE": "Planning не ответил — данные будут отправлены повторно автоматически",
       "generic": "Planning отклонил {{op}} ({{code}})"
     },
-    "passport_valid_until": "Паспорт действителен до"
+    "passport_valid_until": "Паспорт действителен до",
+    "more": "Ещё",
+    "less": "Свернуть",
+    "no_export_code": "Нет кода экспорта",
+    "documents_label": "Документы: {{status}}",
+    "docs": {
+      "ready": "готовы",
+      "in_progress": "в работе",
+      "missing": "нет",
+      "ok": "в порядке",
+      "pending": "ожидают",
+      "none": "не начаты"
+    }
   }
 }

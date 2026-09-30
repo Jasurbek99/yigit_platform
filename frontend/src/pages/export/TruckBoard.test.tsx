@@ -22,8 +22,10 @@ beforeAll(async () => { await i18n.changeLanguage('en'); });
 
 function renderBoard(assignMutate = vi.fn()) {
   vi.mocked(trips.useCandidateShipments).mockReturnValue({ data: [
-    { id: 1, shipment_code: 'KZ-SHIP', customer: 3, date: '2026-10-01', country_code: 'KZ', country_name: 'GAZAGYSTAN', customer_name: 'C', blocks: ['A'] },
-    { id: 2, shipment_code: 'RU-SHIP', customer: 3, date: '2026-10-01', country_code: 'RU', country_name: 'RUSSIYA', customer_name: 'C', blocks: ['B'] },
+    { id: 1, shipment_code: 'KZ-SHIP', customer: 3, date: '2026-10-01', country_code: 'KZ', country_name: 'GAZAGYSTAN', customer_name: 'C', blocks: ['A'],
+      export_code: null, documents_status: null, import_firm: null, import_firm_name: null, loading_location: null, loading_location_name: null, city: null, city_name: null, export_firms: [] },
+    { id: 2, shipment_code: 'RU-SHIP', customer: 3, date: '2026-10-01', country_code: 'RU', country_name: 'RUSSIYA', customer_name: 'C', blocks: ['B'],
+      export_code: null, documents_status: null, import_firm: null, import_firm_name: null, loading_location: null, loading_location_name: null, city: null, city_name: null, export_firms: [] },
   ], isLoading: false } as any);
   vi.mocked(trips.useExternalTrips).mockReturnValue({ data: [
     { ...base, id: 10, tractor_plate: 'KZ-TRUCK', destination_country_code: 'KZ' },
