@@ -31,10 +31,15 @@ def sync_devices(client: TraccarClient | None = None) -> int:
     devices = client.get_devices()
     for device in devices:
         plate, fleet_no = parse_device_name(device.get('name', ''))
-        truck, _ = Truck.objects.update_or_create(
-            plate=plate,
-            defaults={'fleet_no': fleet_no, 'category': device.get('category') or 'unknown'},
-        )
+        truck_fields = {'fleet_no': fleet_no, 'category': device.get('category') or 'unknown'}
+        # A known device keeps its truck even when renamed in Traccar; matching by
+        # plate alone would insert a second row with the same unique fleet_no.
+        known = TraccarDevice.objects.filter(traccar_id=device['id']).select_related('truck').first()
+        if known and known.truck:
+            truck = known.truck
+            Truck.objects.filter(pk=truck.pk).update(plate=plate, **truck_fields)
+        else:
+            truck, _ = Truck.objects.update_or_create(plate=plate, defaults=truck_fields)
         TraccarDevice.objects.update_or_create(
             traccar_id=device['id'],
             defaults={

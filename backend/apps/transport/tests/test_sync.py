@@ -83,6 +83,26 @@ class SyncTests(TestCase):
         self.assertEqual(written, 0)
         self.assertEqual(DevicePosition.objects.count(), 0)
 
+    def test_sync_devices_follows_a_renamed_device(self):
+        # Regression: Traccar device 11 was renamed '2613AHG TR076' → '2613AHF TR076'.
+        # Looking the truck up by plate tried to insert a second TR076 row and the
+        # IntegrityError aborted every poll, freezing the whole Fleet Map.
+        client = MagicMock()
+        client.get_devices.return_value = [
+            {'id': 11, 'uniqueId': 'imei-11', 'name': '2613AHG TR076',
+             'category': None, 'status': 'online', 'lastUpdate': None},
+        ]
+        sync_devices(client=client)
+        truck_id = Truck.objects.get().id
+
+        client.get_devices.return_value[0]['name'] = '2613AHF TR076'
+        sync_devices(client=client)
+
+        truck = Truck.objects.get()
+        self.assertEqual(truck.id, truck_id)
+        self.assertEqual((truck.plate, truck.fleet_no), ('2613AHF', 'TR076'))
+        self.assertEqual(TraccarDevice.objects.get(traccar_id=11).truck_id, truck_id)
+
     def test_sync_devices_allows_multiple_null_fleet_no(self):
         # Regression test: Truck.fleet_no is unique=True, null=True. On MSSQL
         # this maps to a FILTERED unique index (WHERE fleet_no IS NOT NULL),
