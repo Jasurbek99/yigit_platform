@@ -60,9 +60,13 @@ export function SelfBoardActiveTaskPanel({
     totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 0;
 
   const isManualDone = task.completion_rule === 'manual_done';
+  // A gate task must never close without the guard's actual mark — no
+  // generic "Mark done" here (final-fix review F10). GateTaskCard is the
+  // path that closes it.
   const canComplete =
     isManualDone &&
-    (task.state === 'open' || task.state === 'in_progress');
+    (task.state === 'open' || task.state === 'in_progress') &&
+    task.kind !== 'gate';
   const isDone = task.state === 'done';
   const isOverdue = task.is_overdue;
 
@@ -92,7 +96,7 @@ export function SelfBoardActiveTaskPanel({
           {t(`tasks.role.${task.assignee_role}`)}
         </Text>
         <Title level={5} style={{ margin: 0, fontSize: 15 }}>
-          {t(task.title_key)}
+          {t(task.title_key, { plate: task.truck_plate ?? task.shipment_code })}
         </Title>
         {deadlineDisplay && (
           <Tag

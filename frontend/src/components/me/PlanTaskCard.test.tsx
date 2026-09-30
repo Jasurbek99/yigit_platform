@@ -18,6 +18,7 @@ function task(over: Partial<ITaskListItem>): ITaskListItem {
     state: 'open', is_overdue: false, created_at: '2026-09-28T06:05:00+05:00',
     started_at: null, completed_at: null, blocked_reason: '', link: '/export/drafts',
     scope_year: null, scope_week: null, scope_block: null, scope_block_code: null,
+    scope_location: null, truck_plate: null,
     scope_date: '2026-09-28', cancelled_reason: '',
     ...over,
   };

@@ -110,7 +110,7 @@ export function BoardTasksModal({ item, onClose, onTaskClick }: IBoardTasksModal
                       textOverflow: 'ellipsis',
                     }}
                   >
-                    {t(task.title_key)}
+                    {t(task.title_key, { plate: task.truck_plate ?? task.shipment_code })}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                     <Tag color={STATE_COLOR[task.state]} style={{ margin: 0, fontSize: 11, lineHeight: '18px' }}>

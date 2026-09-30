@@ -33,6 +33,7 @@ import { useBlockTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SelfKanbanCard } from '@/components/kanban/SelfKanbanCard';
 import { SelfBoardTaskDrawer } from '@/components/kanban/SelfBoardTaskDrawer';
+import { GateTaskCard } from '@/components/me/GateTaskCard';
 import { PlanTaskCard } from '@/components/me/PlanTaskCard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ITaskListItem, ShipmentPhase, TaskKind, TaskState } from '@/types';
@@ -514,7 +515,9 @@ export default function SelfBoard() {
                 onDrop={(e) => handleDropOnColumn(e, col.dropTargetState)}
               >
                 {colTasks.map((task) =>
-                  isPlanTask(task) ? (
+                  task.kind === 'gate' ? (
+                    <GateTaskCard key={task.id} task={task} />
+                  ) : isPlanTask(task) ? (
                     <PlanTaskCard key={task.id} task={task} />
                   ) : (
                     <SelfKanbanCard
@@ -539,7 +542,9 @@ export default function SelfBoard() {
               emptyText={t('me.board.empty_col')}
             >
               {historyTasks.map((task) =>
-                isPlanTask(task) ? (
+                task.kind === 'gate' ? (
+                  <GateTaskCard key={task.id} task={task} />
+                ) : isPlanTask(task) ? (
                   <PlanTaskCard key={task.id} task={task} />
                 ) : (
                   <SelfKanbanCard

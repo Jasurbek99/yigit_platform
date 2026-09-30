@@ -31,6 +31,7 @@ import {
   IconTruckDelivery,
   IconScale,
   IconTrophy,
+  IconDoorEnter,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -200,6 +201,7 @@ export default function AppLayout() {
     '/admin/packing-templates': t('nav.admin_packing_templates'),
     '/transport/map': t('nav.fleet_map'),
     '/transport/plan': t('nav.transport_plan'),
+    '/export/gate': t('gate.nav'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -341,6 +343,8 @@ export default function AppLayout() {
     // same rule as the /tir-takip item above: NO `roles` array, so an admin
     // toggle in the permission matrix is the only thing that hides it.
     '/export/gaplama': { key: '/export/gaplama', icon: <IconTruckDelivery size={15} />, label: t('nav.gaplama') },
+    // Gate guard (garawul) — phone-first arrival/departure screen at the gate.
+    '/export/gate': { key: '/export/gate', icon: <IconDoorEnter size={15} />, label: t('gate.nav') },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
     '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
     '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
@@ -384,7 +388,7 @@ export default function AppLayout() {
     group('nav.group_prep', ['/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
-      '/export/shipments/dashboard', '/transport/map', '/tir-takip', '/export/gaplama',
+      '/export/shipments/dashboard', '/transport/map', '/tir-takip', '/export/gaplama', '/export/gate',
     ]),
     group('nav.group_docs', ['/documents', '/admin/packing-templates']),
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
@@ -404,6 +408,7 @@ export default function AppLayout() {
     group('nav.group_main', ['/', '/boss/dashboard', '/director/stuck-shipments']),
     group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks', '/export/pomidor-dukany']),
     group('nav.group_export', [
+      '/export/gate',
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/task-rules',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',

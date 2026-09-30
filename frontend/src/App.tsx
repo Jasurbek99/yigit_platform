@@ -12,8 +12,9 @@ import { COLORS, FONT } from '@/constants/styles';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const UnauthorizedPage = lazy(() => import('@/pages/auth/UnauthorizedPage'));
-const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const IndexRoute = lazy(() => import('@/pages/IndexRoute'));
 const ScanPage = lazy(() => import('@/pages/scan/ScanPage'));
+const GatePage = lazy(() => import('@/pages/export/GatePage'));
 const ShipmentList = lazy(() => import('@/pages/export/ShipmentList'));
 const ShipmentDetail = lazy(() => import('@/pages/export/ShipmentDetail'));
 const WeeklyPlanGrid = lazy(() => import('@/pages/export/WeeklyPlanGrid'));
@@ -122,7 +123,7 @@ export default function App() {
                     </ProtectedRoute>
                   }
                 >
-                  <Route index element={<DashboardPage />} />
+                  <Route index element={<IndexRoute />} />
                   <Route path="analytics/clients-report" element={
                     <ProtectedRoute pageCode="analytics.clients"><ClientsReport /></ProtectedRoute>
                   } />
@@ -264,6 +265,10 @@ export default function App() {
                   {/* Task Rules — the read-only catalog behind My Tasks */}
                   <Route path="export/task-rules" element={
                     <ProtectedRoute pageCode="export.task_rules"><TaskRulesPage /></ProtectedRoute>
+                  } />
+                  {/* Gate guard (garawul) — phone-first arrival/departure screen */}
+                  <Route path="export/gate" element={
+                    <ProtectedRoute pageCode="export.gate"><GatePage /></ProtectedRoute>
                   } />
                   {/* Feedback module */}
                   <Route path="feedback/submit" element={

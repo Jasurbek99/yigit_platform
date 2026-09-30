@@ -35,6 +35,7 @@
     "weight_master": "Gapançy",
     "loading_dept_head": "Ýükleme gaplama bölüminiň müdiri",
     "loading_dept_head_deputy": "Ýükleme gaplama bölüminiň orunbassary",
+    "garawul": "Garawul",
     "boss": "Başlyk"
   },
   "row_access": {
@@ -1493,7 +1494,8 @@
     "confirm_delete_desc": "\"{{username}}\" hemişelik pozular.",
     "toast_created": "Ulanyja döredildi",
     "toast_deleted": "Ulanyja pozuldy",
-    "toast_password": "Paroly üýtgedildi"
+    "toast_password": "Paroly üýtgedildi",
+    "loading_location": "Derwezäniň ýeri"
   },
   "notifications": {
     "title": "Habarlar",
@@ -1504,7 +1506,8 @@
     "kind_task_assigned": "Size wezipe bellenildi",
     "kind_task_done": "Wezipäňiz ýerine ýetirildi",
     "weekly_plan_summary": "Indiki hepdäniň hasyl plany dolduryldy:",
-    "tasks_changed": "Bu ýük üçin tabşyryk sanawy üýtgedi"
+    "tasks_changed": "Bu ýük üçin tabşyryk sanawy üýtgedi",
+    "gate_arrival": "Maşyn ýyladyşhana geldi:"
   },
   "common": {
     "optional": "hökman däl",
@@ -2992,7 +2995,8 @@
       "loading_dept_head_deputy": "Ýükleme orunbassary",
       "weight_master": "Gapançy",
       "boss": "Ýolbaşçy",
-      "seller": "Satyjy"
+      "seller": "Satyjy",
+      "garawul": "Garawul"
     },
     "field_label": {
       "firm_splits": "Eksport firmalary",
@@ -3039,6 +3043,8 @@
     "transport_plan_changed": "Maşyn paýlanyşy üýtgedi — tanyş boluň",
     "daily_loading_plan": "Şu güne ýük, maşyn planla",
     "daily_export_plan": "Eksport planla",
+    "gate_arrive": "{{plate}} gelmeli — gelenini belläň",
+    "gate_depart": "{{plate}} ýyladyşhanada — çykanyny belläň",
     "acknowledge": "Tanyşdym",
     "ask_peregruz": "Peregruz barmy?",
     "approve_sales_report": "Hasabaty gözden geçir we tassykla",
@@ -3816,6 +3822,9 @@
     "kind_daily_export_name": "Eksport planla",
     "kind_daily_export_trigger": "Ýekşenbeden başga her gün 06:05-de (Celery beat). Möhleti — günüň ahyry. Ertire çenli edilmese — «Ýerine ýetirilmedi».",
     "kind_daily_export_completes": "Şu günüň senesine ýurdy we müşderisi bolan ýükleme bar bolanda.",
+    "kind_gate_name": "Garawul: gelen we çykan maşynlary bellemek",
+    "kind_gate_trigger": "Belgili maşyn garawulyň ýerine gelmeli bolanda (şu gün −7 … ertir)",
+    "kind_gate_completes": "Derwezede «Geldi» / «Çykdy» basylanda",
     "other_kinds_note": "Bular düzgün däl-de kod bilen döredilýär, şonuň üçin olary bu sahypadan-da, hukuk matrisasyndan-da üýtgetmek bolmýar — deploý gerek.",
     "retired_rule_note": "Bu ýerde düzgüni ýok rol üçin hem açyk ýumuş bolup biler. Düzgünler diňe ädime girilende işleýär, şonuň üçin düzgün başga rola berilmezden ýa-da öçürilmezden öň döredilen ýumuş öňki rolunda galýar."
   },
@@ -3983,5 +3992,39 @@
     "toast_unjoined": "Üpjünçilik aýryldy → {{code}}",
     "toast_swapped": "Üpjünçilik çalşyldy",
     "toast_error": "Amal ýerine ýetirilmedi"
+  },
+  "gate": {
+    "nav": "Derweze",
+    "title": "Derweze — {{location}}",
+    "location": "Ýer",
+    "tab_expected": "Gelmeli ({{count}})",
+    "tab_inside": "Ýyladyşhanada ({{count}})",
+    "search_placeholder": "Belgi boýunça gözle",
+    "arrive": "Ýyladyşhana geldi",
+    "depart": "Ýyladyşhanadan çykdy",
+    "undo": "Yza al",
+    "confirm_arrive": "{{plate}} ýyladyşhana geldimi?",
+    "confirm_depart": "{{plate}} ýyladyşhanadan çykdymy?",
+    "confirm_undo": "{{plate}} üçin soňky bellik yza alynsynmy?",
+    "yes": "Hawa, tassykla",
+    "done_arrive": "Bellendi: geldi",
+    "done_depart": "Bellendi: çykdy",
+    "done_undo": "Bellik yza alyndy",
+    "gapy": "Gapy",
+    "overdue": "gijä galdy",
+    "recently_left": "Soňky 10 minutda çykanlar",
+    "empty_expected": "Gelmeli maşyn ýok",
+    "empty_inside": "Ýyladyşhanada maşyn ýok",
+    "no_location": "Size ýer berilmedi — admin bilen habarlaşyň",
+    "stale": "Sanaw täzelenmedi — internet barlaň",
+    "error": {
+      "not_expected": "Bu maşyna indi garaşylmaýar — sanaw täzelendi.",
+      "not_inside": "Bu maşyn ýyladyşhanada däl — sanaw täzelendi.",
+      "not_here": "Bu maşyn siziň ýeriňizde däl.",
+      "undo_closed": "Yza almak üçin giç — ýükleme müdirine Sheet-de düzetdiriň.",
+      "season_closed": "Bu maşynyň möwsümi ýapyk.",
+      "no_location": "Size ýer berilmedi — admin bilen habarlaşyň",
+      "generic": "Ýazdyrylmady — gaýtadan synanyşyň."
+    }
   }
 }

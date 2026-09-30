@@ -86,6 +86,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/admin/fleet':               'transport.fleet',
   '/tir-takip':                 'tir_takip',
   '/export/gaplama':            'tir_takip.gaplama',
+  '/export/gate':               'export.gate',
   '/worklog':                   'worklog',
   '/team/kpi':                  'team_kpi',
 };

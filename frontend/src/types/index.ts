@@ -22,6 +22,7 @@ export type UserRole =
   | 'greenhouse_manager'
   | 'seller'
   | 'quality_inspector'
+  | 'garawul'
   | 'boss';
 
 export interface IResourcePermission {
@@ -1628,11 +1629,12 @@ export interface IAdminUser {
   role: UserRole;
   is_active: boolean;
   permissions: string[];
+  loading_location: number | null;
 }
 
 export interface INotification {
   id: number;
-  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'tasks_changed' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary';
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'tasks_changed' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary' | 'gate_arrival';
   message: string;
   link: string | null;
   read_at: string | null;
@@ -1779,7 +1781,8 @@ export type TaskCompletionRule =
 
 export type TaskKind =
   | 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation'
-  | 'alloc_review' | 'transport_plan' | 'daily_loading' | 'daily_export';
+  | 'alloc_review' | 'transport_plan' | 'daily_loading' | 'daily_export'
+  | 'gate';
 
 export interface ITaskListItem {
   id: number;
@@ -1813,6 +1816,10 @@ export interface ITaskListItem {
   scope_block: number | null;
   /** Block code (e.g. "K") a weekly_plan task covers; null for shipment tasks. */
   scope_block_code: string | null;
+  /** Gate location a gate task belongs to; null for other kinds. */
+  scope_location: number | null;
+  /** Truck plate (gate task cards); null when the shipment has none. */
+  truck_plate: string | null;
   /** Local day (YYYY-MM-DD) a daily_loading / daily_export task covers; null otherwise. */
   scope_date: string | null;
   /** Why a cancelled task was cancelled; 'missed' = a daily task nobody did. '' otherwise. */
@@ -2282,4 +2289,29 @@ export interface ITaskRule {
   condition_field: string;
   condition_value: string;
   is_active: boolean;
+}
+
+// ─── Gate guard (garawul) ────────────────────────────────────────────────────
+
+/** One truck as the gate guard sees it — GET /export/gate/. */
+export interface IGateRow {
+  id: number;
+  shipment_code: string;
+  truck_plate: string | null;
+  truck_plate_2: string | null;
+  driver_name: string | null;
+  driver_phone: string | null;
+  date: string;
+  is_gapy_satys: boolean;
+  status_code: string;
+  greenhouse_arrived_at: string | null;
+  departed_at: string | null;
+  can_undo: boolean;
+}
+
+export interface IGateBoard {
+  location: { id: number; name: string };
+  expected: IGateRow[];
+  inside: IGateRow[];
+  recently_left: IGateRow[];
 }

@@ -192,4 +192,9 @@ describe('TaskRulesPage', () => {
 
     expect(screen.getByText(/keeps the role it was given/)).toBeInTheDocument();
   });
+
+  it('lists the gate guard kind among the code-driven tasks', () => {
+    renderPage([rule()]);
+    expect(screen.getByText('Gate guard: mark arrival and exit')).toBeInTheDocument();
+  });
 });
