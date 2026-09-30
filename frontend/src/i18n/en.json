@@ -3005,6 +3005,7 @@
       "has_peregruz": "Has transshipment",
       "driver_passport_serial": "Passport series",
       "driver_passport_issue_date": "Passport issue date",
+      "trip_id": "Planning trip",
       "truck_head_id": "Truck (tractor)",
       "packing_template": "Packing template (gross/net)",
       "advance_links": "Advance",

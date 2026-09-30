@@ -61,7 +61,7 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
 
   it('the new target fields have a label in every language', () => {
     for (const lng of ['en', 'ru', 'tk']) {
-      for (const key of ['truck_head_id', 'packing_template', 'advance_links', 'customs_exit_at']) {
+      for (const key of ['trip_id', 'truck_head_id', 'packing_template', 'advance_links', 'customs_exit_at']) {
         expect(i18n.getFixedT(lng)(`tasks.field_label.${key}`, { defaultValue: '' })).not.toBe('');
       }
     }

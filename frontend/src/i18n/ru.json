@@ -3005,6 +3005,7 @@
       "quality.kalibrowka_analiz": "Калибровочный анализ",
       "sales_report.approved_at": "Отчёт утверждён",
       "has_peregruz": "Есть перегруз",
+      "trip_id": "Рейс (Planning)",
       "truck_head_id": "Тягач",
       "packing_template": "Шаблон упаковки (брутто/нетто)",
       "advance_links": "Аванс",
