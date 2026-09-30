@@ -7,6 +7,10 @@ import { SelfBoardActiveTaskPanel } from './SelfBoardActiveTaskPanel';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
 import type { IShipmentDetail, ITaskListItem } from '@/types';
 
+// Print tasks now carry the document dialogs (useShipmentDocumentPacket).
+vi.mock('@/hooks/useDocumentPackets', () => ({
+  useShipmentDocumentPacket: () => ({ data: null, isLoading: false }),
+}));
 vi.mock('@/hooks/useTaskActions', () => ({
   useStartTask: vi.fn(),
   useCompleteTask: vi.fn(),

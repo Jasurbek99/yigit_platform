@@ -14,6 +14,9 @@ import { useDocumentDownload } from '@/hooks/useDocumentDownload';
 interface IInvoiceDocumentsButtonProps {
   readonly invoiceId: number;
   readonly size?: 'small' | 'middle' | 'large';
+  /** One document only (e.g. 'ct1_ru' on the «Print CT-1» task card): a
+   * labelled button whose menu holds just that document's formats. */
+  readonly docType?: string;
 }
 
 interface IDocVariant {
@@ -54,13 +57,20 @@ const takesLoading = (type: string): boolean => type.startsWith('invoice');
 export function InvoiceDocumentsButton({
   invoiceId,
   size = 'small',
+  docType,
 }: IInvoiceDocumentsButtonProps) {
   const { t } = useTranslation();
   const { isGenerating, download } = useDocumentDownload();
 
   const [pending, setPending] = useState<{ type: string; fmt: string } | null>(null);
 
-  const items: MenuProps['items'] = DOC_FAMILIES.map((family) => ({
+  const families = docType
+    ? DOC_FAMILIES
+        .map((family) => ({ ...family, variants: family.variants.filter((v) => v.type === docType) }))
+        .filter((family) => family.variants.length > 0)
+    : DOC_FAMILIES;
+
+  const items: MenuProps['items'] = families.map((family) => ({
     type: 'group' as const,
     label: t(family.labelKey),
     children: family.variants.flatMap((variant) =>
@@ -89,12 +99,18 @@ export function InvoiceDocumentsButton({
   return (
     <>
       <Dropdown menu={{ items, onClick: handleClick }} trigger={['click']}>
-        <Button
-          type="text"
-          size={size}
-          icon={<IconFileText size={16} />}
-          title={t('documents.button')}
-        />
+        {docType && families.length > 0 ? (
+          <Button size={size} icon={<IconFileText size={16} />}>
+            {t(families[0].labelKey)}
+          </Button>
+        ) : (
+          <Button
+            type="text"
+            size={size}
+            icon={<IconFileText size={16} />}
+            title={t('documents.button')}
+          />
+        )}
       </Dropdown>
 
       <DocumentOptionsModal

@@ -40,3 +40,25 @@ export function useDocumentPackets(params: IDocumentPacketFilters = {}) {
     staleTime: 30_000,
   });
 }
+
+/**
+ * One truck's document packet — the print buttons on a task card (2026-09-30).
+ * Same endpoint filtered by ?shipment=; null when the truck has no firm split yet
+ * (the list only holds trucks with at least one export firm).
+ */
+export function useShipmentDocumentPacket(shipmentId: number | null) {
+  const { seasonId, isReady } = useSelectedSeason();
+  return useQuery({
+    queryKey: ['document-packets', 'one', seasonId, shipmentId] as const,
+    queryFn: async (): Promise<IDocumentPacket | null> => {
+      const p = new URLSearchParams({ shipment: String(shipmentId) });
+      if (seasonId != null) p.set('season', String(seasonId));
+      const { data } = await api.get<IApiListResponse<IDocumentPacket>>(
+        `/contracts/document-packets/?${p.toString()}`,
+      );
+      return data.results[0] ?? null;
+    },
+    enabled: isReady && shipmentId != null,
+    staleTime: 30_000,
+  });
+}

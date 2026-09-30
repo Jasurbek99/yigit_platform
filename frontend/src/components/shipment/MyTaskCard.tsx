@@ -8,6 +8,7 @@ import { TaskCardEditor } from '@/components/shipment/TaskCardEditor';
 import { isFieldFilled, progressFieldKeys } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
 import { isButtonTask, taskButtonLabel, taskLink } from '@/utils/taskButtons';
+import { TaskDocumentButtons, hasTaskDocuments } from '@/components/kanban/TaskDocumentButtons';
 import { useAuth } from '@/hooks/useAuth';
 import { SUPERVISOR_ROLES } from '@/utils/detailSections';
 import type { IShipmentDetail } from '@/types';
@@ -155,6 +156,11 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
             disabled={task.state === 'done' || task.state === 'cancelled'}
           />
         </div>
+      )}
+
+      {/* Print tasks: the document dialogs themselves, not only «Çap etdim». */}
+      {hasTaskDocuments(task.title_key) && task.shipment != null && task.state !== 'done' && task.state !== 'cancelled' && (
+        <TaskDocumentButtons titleKey={task.title_key} shipmentId={task.shipment} />
       )}
 
       {/* Footer actions */}

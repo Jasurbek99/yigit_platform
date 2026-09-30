@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { SelfBoardShipmentFieldList } from './SelfBoardShipmentFieldList';
+import { TaskDocumentButtons, hasTaskDocuments } from './TaskDocumentButtons';
 import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
 import { isFieldFilled, progressFieldKeys } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
@@ -154,6 +155,11 @@ export function SelfBoardActiveTaskPanel({
         <div style={{ marginTop: 8 }}>
           <ShipmentFirmContractsPanel shipmentId={task.shipment} />
         </div>
+      )}
+
+      {/* Print tasks: the document dialogs themselves, not only «Çap etdim». */}
+      {hasTaskDocuments(task.title_key) && task.shipment != null && !isDone && (
+        <TaskDocumentButtons titleKey={task.title_key} shipmentId={task.shipment} />
       )}
 
       {/* Footer */}
