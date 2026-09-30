@@ -180,8 +180,8 @@ describe('GaplamaTab', () => {
         return Promise.resolve({
           data: {
             days: [{ date: NOT_TODAY, block_id: 1, block_code: 'A', location: 'Dusak',
-                     plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
-                     available_kg: '8000.00', over_kg: '0.00' }],
+                     plan_kg: '20000.00', loaded_kg: '12000.00', carried_in_kg: '0.00',
+                     available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '8000.00' }],
             trucks: [{
               id: 9, shipment_code: '2109001/26', export_code: null, date: NOT_TODAY,
               status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
@@ -228,8 +228,8 @@ describe('GaplamaTab', () => {
         return Promise.resolve({
           data: {
             days: [{ date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
-                     plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
-                     available_kg: '8000.00', over_kg: '0.00' }],
+                     plan_kg: '20000.00', loaded_kg: '12000.00', carried_in_kg: '0.00',
+                     available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '8000.00' }],
             trucks: [{
               id: 9, shipment_code: '2109001/26', export_code: null, date: THIS_MONDAY,
               status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
@@ -454,8 +454,8 @@ describe('GaplamaTab', () => {
         return Promise.resolve({
           data: {
             days: [{ date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
-                     plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
-                     available_kg: '8000.00', over_kg: '0.00' }],
+                     plan_kg: '20000.00', loaded_kg: '12000.00', carried_in_kg: '0.00',
+                     available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '8000.00' }],
             trucks: [{
               id: 9, shipment_code: '2109001/26', export_code: null, date: THIS_MONDAY,
               status: 1, status_code: 'draft', status_display: 'Draft', country: null, customer: null,
@@ -515,11 +515,11 @@ describe('GaplamaTab', () => {
           data: {
             days: [
               { date: THIS_MONDAY, block_id: 1, block_code: 'A', location: 'Dusak',
-                plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
-                available_kg: '8000.00', over_kg: '0.00' },
+                plan_kg: '20000.00', loaded_kg: '12000.00', carried_in_kg: '0.00',
+                available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '8000.00' },
               { date: NOT_TODAY, block_id: 1, block_code: 'A', location: 'Dusak',
-                plan_kg: '20000.00', loaded_kg: '0.00', carried_in_kg: '0.00',
-                available_kg: '8000.00', over_kg: '0.00' },
+                plan_kg: '20000.00', loaded_kg: '12000.00', carried_in_kg: '0.00',
+                available_kg: '8000.00', over_kg: '0.00', carried_out_kg: '8000.00' },
             ],
             trucks: [],
           },
@@ -580,7 +580,7 @@ describe('GaplamaTab', () => {
                        { origin_date: '2026-09-20', kg: '2000.00', age_days: 4 },
                        { origin_date: '2026-09-22', kg: '1500.00', age_days: 2 },
                      ],
-                     available_kg: '13500.00', over_kg: '0.00', carried_out_kg: '0.00' }],
+                     available_kg: '13500.00', over_kg: '0.00', carried_out_kg: '9000.00' }],
             trucks: [],
           },
         });

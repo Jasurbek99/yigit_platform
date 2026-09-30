@@ -489,16 +489,16 @@ describe('GaplamaTruckForm — overdraw guard (seeded floor)', () => {
       editingTruck: overdrawnTruck,
       // Dated exactly the truck's own day — this is the TODAY bucket.
       editingTruckBatches: [{ block_id: 1, block_code: 'A', weight_kg: 18000, harvest_date: '2026-09-21' }],
-      // The block genuinely only has 10000 available today (the motivating
-      // example) — same figure at both block and batch granularity, since
-      // there is only one batch. `available_kg` is clamped at >= 0 on the
-      // backend (gaplama.py: `max(Decimal(0), carried_in + plan - loaded)`),
-      // so blockCapFor (base + this truck's own 18000 added back = 28000)
-      // can never fall below what this truck itself already carries —
-      // these tests isolate the per-batch cap the motivating example is
-      // about; the block-level gate is exercised separately in test 6.
-      availableByBlock: { 1: 10000 },
-      batchesByBlock: { 1: [{ harvest_date: '2026-09-21', age_days: 0, available_kg: 10000 }] },
+      // The overdrawn state in net figures (2026-09-30 — board caps are net of
+      // every truck dated that day, this one included): nothing is free beyond
+      // what this truck already carries, at both block and batch granularity
+      // (one batch). `available_kg` is clamped at >= 0 on the backend
+      // (gaplama.py: `max(Decimal(0), carried_in + plan - loaded)`), so
+      // blockCapFor (0 + this truck's own 18000) and the per-row cap (0 net +
+      // its own 18000) both equal what the row was seeded with; the
+      // block-level gate is exercised separately in test 6.
+      availableByBlock: { 1: 0 },
+      batchesByBlock: { 1: [{ harvest_date: '2026-09-21', age_days: 0, available_kg: 0 }] },
     });
   }
 
@@ -639,7 +639,21 @@ describe('GaplamaTruckForm — leftover-collapse fix round 1', () => {
       { batchesByBlock: { 1: [{ harvest_date: null, age_days: 2, available_kg: 5000 }] } },
       { 1: [{ harvest_date: null, age_days: 9, available_kg: 2000 }] },
     );
-    expect(result).toEqual([{ harvest_date: null, age_days: 9, available_kg: 5000 }]);
+    // available: live net 5000 + this truck's own 2000 (2026-09-30 — live caps are net).
+    expect(result).toEqual([{ harvest_date: null, age_days: 9, available_kg: 7000 }]);
+  });
+
+  // 2026-09-30: live batch caps are NET of every truck dated that day, this one
+  // included, so the truck being edited gets its own kg back on top — a sum, not
+  // the max it was while live caps were gross. Plan 20 000, this truck 18 500:
+  // 1 500 still free, so the row may grow to 20 000.
+  it("adds the edited truck's own kg to the net live cap", () => {
+    const result = effectiveBatches(
+      1,
+      { batchesByBlock: { 1: [{ harvest_date: '2026-09-30', age_days: 0, available_kg: 1500 }] } },
+      { 1: [{ harvest_date: '2026-09-30', age_days: 0, available_kg: 18500 }] },
+    );
+    expect(result).toEqual([{ harvest_date: '2026-09-30', age_days: 0, available_kg: 20000 }]);
   });
 
   // Item 2: the row said "age unknown" while the total line said "oldest: 0

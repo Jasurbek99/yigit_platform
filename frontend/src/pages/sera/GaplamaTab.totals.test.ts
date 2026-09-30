@@ -130,25 +130,50 @@ describe('collapseCarryIn', () => {
 describe('buildBlockBatches', () => {
   it('shows only the leftover row when there is no plan today', () => {
     const result = buildBlockBatches(
-      { plan_kg: 0, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 3000, age_days: 3 }] },
+      { plan_kg: 0, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 3000, age_days: 3 }], available_kg: 3000, carried_out_kg: 0 },
       '2026-09-24',
     );
     expect(result).toEqual([{ harvest_date: null, age_days: 3, available_kg: 3000 }]);
   });
 
   it('shows only today\'s row when the block has no leftover to carry', () => {
-    const result = buildBlockBatches({ plan_kg: 9000, carry_in_breakdown: [] }, '2026-09-24');
+    const result = buildBlockBatches({ plan_kg: 9000, carry_in_breakdown: [], available_kg: 9000, carried_out_kg: 9000 }, '2026-09-24');
     expect(result).toEqual([{ harvest_date: '2026-09-24', age_days: 0, available_kg: 9000 }]);
   });
 
   it('shows both rows — leftover first — when there is a plan today and a carried-over leftover', () => {
     const result = buildBlockBatches(
-      { plan_kg: 9000, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 3000, age_days: 3 }] },
+      { plan_kg: 9000, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 3000, age_days: 3 }], available_kg: 12000, carried_out_kg: 9000 },
       '2026-09-24',
     );
     expect(result).toEqual([
       { harvest_date: null, age_days: 3, available_kg: 3000 },
       { harvest_date: '2026-09-24', age_days: 0, available_kg: 9000 },
+    ]);
+  });
+
+  // 2026-09-30: the rows state what is still free NOW, net of every truck already
+  // dated this day — the board's gross plan/carry-in used to show here, so a
+  // block whose whole plan was already on a truck still read «elýeterli 18 500».
+  it("shows 0 on today's row once earlier trucks took the whole plan", () => {
+    const result = buildBlockBatches(
+      { plan_kg: 18500, carry_in_breakdown: [], available_kg: 0, carried_out_kg: 0 },
+      '2026-09-30',
+    );
+    expect(result).toEqual([{ harvest_date: '2026-09-30', age_days: 0, available_kg: 0 }]);
+  });
+
+  it("nets earlier loads out of the leftover row first, then today's", () => {
+    // 3 000 carried in + 9 000 plan, 5 000 already loaded: FIFO drains the leftover
+    // (3 000) then 2 000 of today's plan — 0 left over, 7 000 of today free.
+    const result = buildBlockBatches(
+      { plan_kg: 9000, carry_in_breakdown: [{ origin_date: '2026-09-21', kg: 3000, age_days: 3 }],
+        available_kg: 7000, carried_out_kg: 7000 },
+      '2026-09-24',
+    );
+    expect(result).toEqual([
+      { harvest_date: null, age_days: 3, available_kg: 0 },
+      { harvest_date: '2026-09-24', age_days: 0, available_kg: 7000 },
     ]);
   });
 

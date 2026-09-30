@@ -91,14 +91,31 @@ export function collapseCarryIn(
  * `collapseCarryIn`). A zero-plan day omits the today row; a block with
  * nothing carried in omits the leftover row — an empty row would offer
  * nothing to load.
+ *
+ * Each row's `available_kg` is what is still free NOW, net of every truck
+ * already dated this day (2026-09-30 — it used to be the gross plan/carry-in,
+ * so a block whose whole plan was already on a truck still read «elýeterli
+ * 18 500» and then refused 18 500 on save). build_gaplama_board leaves
+ * today's bucket holding `carried_out_kg` after the day's drains, and the
+ * buckets leaving a day sum to `available_kg`, so the carried-in buckets hold
+ * the rest. A row whose stock is all taken stays, showing 0.
  */
 export function buildBlockBatches(
-  row: { plan_kg: number; carry_in_breakdown: { origin_date: string; kg: number; age_days: number }[] } | undefined,
+  row: {
+    plan_kg: number;
+    carry_in_breakdown: { origin_date: string; kg: number; age_days: number }[];
+    available_kg: number;
+    carried_out_kg: number;
+  } | undefined,
   date: string,
 ): IGaplamaFormBatch[] {
   const batches: IGaplamaFormBatch[] = [];
   const leftover = collapseCarryIn(row?.carry_in_breakdown ?? []);
-  if (leftover) batches.push({ harvest_date: null, ...leftover });
-  if ((row?.plan_kg ?? 0) > 0) batches.push({ harvest_date: date, age_days: 0, available_kg: row!.plan_kg });
+  const todayNet = row?.carried_out_kg ?? 0;
+  if (leftover) {
+    const leftoverNet = Math.max(0, (row?.available_kg ?? 0) - todayNet);
+    batches.push({ harvest_date: null, age_days: leftover.age_days, available_kg: leftoverNet });
+  }
+  if ((row?.plan_kg ?? 0) > 0) batches.push({ harvest_date: date, age_days: 0, available_kg: todayNet });
   return batches;
 }

@@ -1,3 +1,8 @@
+- [x] 2026-09-30 — Gaplama Tır Aç: «Elýeterli» per batch row is now what is still free (net of trucks already opened that day), not the gross plan — TESTED
+  To test: (1) Gaplama → today → + Tır Aç → pick block A (18 500 planned, truck 3009001/26 already
+  holds 18 500) → its today row must read «Elýeterli 0», and typing any kg turns red; (2) a block
+  with free stock: the row shows exactly the free kg, and typing that number saves; (3) Üýtget
+  an unjoined truck: its row allows up to (free + what the truck already holds), no more.
 - [x] 2026-09-30 — Assignment board (/export/assign) cards show the export code and every filled detail (blocks with kg, harvest status, variety, destination, customer, firms, border point, Gapy, truck, notes, creator) — TESTED
   To test: (1) open /export/assign → a packing card (left) shows «code · EXPORT-CODE» in the header
   and its blocks with kg, harvest status and variety below; (2) an export card (right) shows its

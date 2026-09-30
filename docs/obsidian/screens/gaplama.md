@@ -254,15 +254,19 @@ disappearing with no form in view read as nothing happening.
 listing that block's **at most two rows** (see "Per-date leftover picking removed" above) —
 today's own plan and/or the collapsed leftover, each with its date-or-`Galyndy` label, age
 (`iň köne` / oldest-batch age shown beside the truck total via `oldestAgeDays`) and one kg
-input. Two caps apply together (`rowInvalid`): each row is capped at that batch's own gross
-`available_kg` (the leftover row's is the sum of every live carry-in bucket, snapshotted
-**before** that day's own consumption — the same snapshot the board's tooltip shows), and
-the block's row SUM is separately capped at `availableByBlock[blockId]`, the block-level net
-figure the board itself reports. The per-row cap alone is not airtight: it is a gross,
-point-in-time figure, so a second truck opened the same day can still show the same
-leftover's full remaining kg even after a first truck already drew from it — the
-block-level SUM cap is the actual backstop that stops the block from being oversold, per
-`blockCapFor`'s own comment. The card header shows the block's own carry window
+input. Two caps apply together (`rowInvalid`): each row is capped at that batch's own
+`available_kg`, and the block's row SUM is separately capped at `availableByBlock[blockId]`,
+the block-level net figure the board itself reports.
+
+**Row caps are net since 2026-09-30.** A row's «Elýeterli» is what is still free now, after
+every truck already dated that day. Today's row = `carried_out_kg` (what is left of today's
+bucket after the day's drains). The leftover row = `available_kg − carried_out_kg`, since the
+buckets leaving a day sum to `available_kg` (`buildBlockBatches`, `GaplamaTab.totals.ts`).
+Before, a row showed the gross plan or carry-in: block A with 18 500 planned and a truck
+already holding all 18 500 still read «elýeterli 18 500», and Save then refused 18 500 against
+the block's real 0. A row whose stock is all taken stays visible, showing 0. The block-level
+SUM cap remains the backstop, because the form's leftover/today split of a same-day
+sibling's load is FIFO-attributed. The card header shows the block's own carry window
 (`carry_days`). `+ Blok goş` adds another block; an export-code field, then the harvest-status select
 and variety select side by side in one row (half width each, so full variety names show), sit below the block cards. Submitting
 creates a draft the same
@@ -330,9 +334,11 @@ just patched. `foldEntriesByBlock` (shared by `initialRowsFor` and `computeOrpha
 can never disagree) sums a truck's real source rows into at most two buckets per block —
 today's (a real date, only rows dated exactly the truck's own day) and leftover (`null`,
 everything else) — and `computeOrphans` still floors each bucket's cap at what it already
-holds: `effectiveBatches` merges rather than replaces, `max(live cap, the bucket's own kg)`, so
-kg already on the row is never flagged invalid while the live cap still applies above that
-floor (raising it further can still go red).
+holds: `effectiveBatches` merges rather than replaces, so kg already on the row is never
+flagged invalid while the live cap still applies above that floor (raising it further can
+still go red). Since 2026-09-30 the merge is `live cap + the bucket's own kg`. The live cap is
+net of every truck dated that day, this one included, so the edited truck gets its own kg back
+on top. It was `max(live, own)` while live caps were gross.
 
 **Asymmetric overdraw guard (owner's 2026-09-25 decision).** The orphan floor above stops a
 seeded row from opening invalid; it does not by itself say what happens when the operator then

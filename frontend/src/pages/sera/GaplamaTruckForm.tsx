@@ -111,7 +111,10 @@ export function effectiveBatches(
     return collision
       ? {
         ...b,
-        available_kg: Math.max(b.available_kg, collision.available_kg),
+        // Live caps are NET of every truck dated that day, this one included
+        // (2026-09-30, buildBlockBatches), so the truck being edited gets its own
+        // kg back on top. Was max(live, own) while live caps were gross.
+        available_kg: b.available_kg + collision.available_kg,
         age_days: Math.max(b.age_days, collision.age_days),
       }
       : b;
