@@ -750,6 +750,62 @@ TASK_RULES: list[dict] = [
         'condition_field': '',
         'condition_value': '',
     },
+    # ── Legacy rows that were never in this file (owner, 2026-09-30) ───────────
+    # Created by hand / an old seed; seeding left them ACTIVE, so they kept
+    # making Mark Done cards next to the PREP/DOCS chain: send_documents_to_customs
+    # duplicates 21b «Gümrüge ugradyldy», docs_back_to_office duplicates 22
+    # «Gümrükden geldi», finalize_sale is covered by 36/37. Listed here inactive
+    # so every seed keeps them off; `cancel_retired_duplicate_tasks` cancels
+    # their open cards once.
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.send_documents_to_customs',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
+        'deadline_rule': '13:00_same_day',
+        'condition_field': '',
+        'condition_value': '',
+        'is_active': False,
+    },
+    {
+        'step': 'gumruk_chykysh',
+        'title_key': 'tasks.docs_back_to_office',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+        'is_active': False,
+    },
+    {
+        'step': 'satyldy',
+        'title_key': 'tasks.finalize_sale',
+        'assignee_role': 'sales_rep',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+        'is_active': False,
+    },
+    {
+        # `hasabat` was retired in state machine v2 (merged into tamamlandy).
+        'step': 'hasabat',
+        'title_key': 'tasks.submit_sales_report',
+        'assignee_role': 'sales_rep',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        'target_value': '',
+        'deadline_rule': 'friday_eow',
+        'condition_field': '',
+        'condition_value': '',
+        'is_active': False,
+    },
 ]
 
 

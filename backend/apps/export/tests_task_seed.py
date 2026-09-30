@@ -102,6 +102,11 @@ class SeedTaskRulesTests(TestCase):
             ('tasks.assign_driver', 'transport'),
             ('tasks.trigger_customs_exit', 'document_team'),
             ('tasks.trigger_report_received', 'sales_rep'),   # item 36, one card
+            # Legacy DB-only duplicates, listed inactive 2026-09-30.
+            ('tasks.send_documents_to_customs', 'document_team'),
+            ('tasks.docs_back_to_office', 'document_team'),
+            ('tasks.finalize_sale', 'sales_rep'),
+            ('tasks.submit_sales_report', 'sales_rep'),        # the retired `hasabat` step row
         })
 
     def test_new_catalog_rows_get_effective_from_once(self) -> None:
