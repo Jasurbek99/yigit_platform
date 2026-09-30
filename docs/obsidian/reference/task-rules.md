@@ -17,7 +17,7 @@ The Self Board (`/me/board`) generates **tasks** automatically as a shipment mov
 - **Auto** — the task is tied to one or more shipment **fields**. The moment the responsible person fills those field(s), the task auto-closes (no button). Implemented by `resolve_for_shipment()` in `apps/export/services/task_rules.py`, invoked from `Shipment.save()`.
 - **Mark Done** (`manual_done`) — the task represents a **physical / process action** with no data field to watch (handing over papers, sending docs to customs, finalizing a sale). The responsible person confirms it with the **Mark Done** button in the drawer.
 
-Completion rules: `all_fields_filled` (all listed fields set), `any_field_filled` (≥1 set), `field_equals` (a field equals a value), `manual_done` (button only).
+Completion rules: `all_fields_filled` (all listed fields set), `any_field_filled` (≥1 set), `field_equals` (a field equals a value), `manual_done` (button only), `confirm` (button only, **but holds the step** — 2026-09-30, see [[#PREP / DOCS chain (2026-09-30)]]).
 
 ## Who can act
 
@@ -58,16 +58,27 @@ department's tasks.
 
 | Opens when shipment enters… | Task | Responsible role | Completes by |
 |---|---|---|---|
-| **Draft** | Set destination | export_manager | auto: `country` + `customer` + `import_firm` |
-| | Pick export firms | document_team | auto: add a firm split |
-| | Assign driver | transport | auto: `driver_name` + `driver_phone` + `truck_plate` — *only if not gapy-satys* |
-| | Set border point | transport | auto: `border_point` — *only if not gapy-satys* |
-| | Give documents | transport | **Mark Done** — *only if not gapy-satys* |
-| | Give documents (gapy) | document_team | **Mark Done** — *only if gapy-satys* |
-| | Assign driver (gapy) | document_team | auto: `driver_name` + `driver_phone` + `truck_plate` — *only if gapy-satys* |
-| | Start documents prep | document_team | auto: `documents_status` = `ready` |
-| **Customs entry (TM)** `gumruk_girish` | Trigger customs exit | document_team | auto: `customs_exit_at` |
-| **Customs exit (TM)** `gumruk_chykysh` | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
+| **Draft** (PREP) | 5b Set destination «Eksport maglumatlaryny dolduryň» | export_manager | auto: `country` + `customer` + `import_firm` |
+| | 6 Join supply «Ýükleme bölek birikdir» — *after 5b* | export_manager | auto: `block_sources` (packing joined; card links to the Assignment board). **Does not hold the step** |
+| | 7 Pick export firms — *after 5b* | document_team | auto: add a firm split |
+| | 8.1 Choose truck «Maşyn saýla» — *after 5b, only if not gapy-satys* | export_manager | auto: `truck_head_id` (TIR fleet tractor) |
+| | 8.2 Assign driver (gapy) «Transport maglumatlaryny dolduryň» — *after 5b, only if gapy-satys* | document_team | auto: `driver_name` + `truck_plate` + `driver_phone` |
+| **Customs entry (TM)** `gumruk_girish` (DOCS) | 9 Prepare contract — *after 7* | document_team | `confirm` button, or closes itself once every firm on the truck has a non-void sale whose contract's agreement was downloaded |
+| | 10 Fill gross/net — *after 7* | document_team | auto: `packing_template` chosen |
+| | 11 Prepare transport docs «Taýýarladym» — *after 8* | document_team | `confirm`; sets R6 «Resminamalar 13:00» to `in_progress` |
+| | 12 Print CMR — *after 9, 10, 11* | document_team | CMR downloaded, or `confirm` |
+| | 13 Print TIR — *after 11* | document_team | TIR downloaded, or `confirm` |
+| | 14 Print CT-1 — *after 12* | document_team | CT-1 letter downloaded, or `confirm` |
+| | 15 Print phyto — *after 14* | document_team | fito letter downloaded, or `confirm` |
+| | 16 CT-1 and phyto sent «Ugradyldy» — *after 14, 15* | document_team | `confirm` |
+| | 17 Customs letter «Gümrük haty» — *after 12* | document_team | `customs_tk` downloaded, or `confirm` |
+| | 18 Sent to stamp «Peçada ugradyldy» — *after 16, 17* | document_team | `confirm` |
+| | 19 Back from stamp «Peçatdan geldi» — *after 18* | document_team | `confirm` |
+| | 20 Give advance «Awans ber» | finansist | auto: `advance_links` (an advance is linked) |
+| | 21a Prepare declaration — *after 19* | document_team | `confirm` |
+| | 21b Sent to customs «Gümrüge ugradyldy» — *after 20, 21a* | document_team | `confirm` — the last task; the step advances when it closes |
+| **Customs exit (TM)** `gumruk_chykysh` | 22 Back from customs «Gümrükden geldi» | document_team | auto: `customs_exit_at`; sets R6 to the «Gümrükden geldi» option |
+| | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
 | **Loading** `yuklenme` | Fill loading data | loading_dept_head | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
 | | **Quality inspection** | quality_inspector | **Mark Done** *(non-gating reminder — 4 quality certificates + `transit_days` + `transport_temp_c` + `shelf_life_days`; see below)* |
 | | Trigger departure | document_team | auto: `departed_at` |
@@ -100,6 +111,43 @@ each gate action.
 tasks on the step, so *Give documents*, *Submit sales report* and *Quality inspection* are reminders — a shipment moves on
 without them. See [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]].
 
+## PREP / DOCS chain (2026-09-30)
+
+Owner's catalog, `docs/Tasks.md` items 5b–22. Spec:
+`docs/superpowers/specs/2026-09-30-prep-docs-tasks-design.md`. Engine: `apps/export/services/task_chain.py`.
+
+- **`depends_on`** (CSV of `title_key`s) — "task after N". The task is **not created** at step
+  entry; `spawn_ready_tasks()` creates it once every prerequisite is satisfied. A prerequisite
+  is satisfied when no task with that title is still active, and — if there is no such task at
+  all — no applicable, effective rule for it exists on the **current** step. A prerequisite
+  from an earlier step with no task (a shipment that crossed the deploy, or a variant that
+  does not apply) counts as satisfied, so nothing deadlocks.
+- **A pending dependent holds the step** (E3): `is_step_trigger_satisfied()` is False while a
+  gating dependent of the current step is still waiting to be created.
+- **`gates_step`** (default True). `False` = the task never holds the step, open or pending —
+  `join_supply` only, so documents can start before the packing is joined.
+- **`confirm`** — a button task that holds the step. The card shows the task's own button text
+  (`tasks.button.*`: «Çap etdim», «Ugradyldy», «Taýýarladym»…). `POST /tasks/{id}/complete/`
+  accepts it, then spawns what is due and runs auto-advance.
+- **`effective_from`** — set once by `seed_task_rules` when a `new_in_catalog` row is first
+  created. A rule applies only to shipments that entered its step at or after it (step entry =
+  `status_changed_at`, written only by `transition_to` / `create_shipment`, else `created_at`),
+  so a shipment already in «Подготовка» or at customs at deploy finishes the step on its old
+  tasks. Not the status log: join / swap / unjoin append same-status rows to it.
+- **Ordering in `Shipment.save()`**: resolve → spawn the tasks now due (only when something
+  closed) → auto-advance.
+- **Promote** (`can_promote_from_draft` on the detail serializer) follows the same gate: an
+  open `join_supply` does not block it, a PREP task still waiting to be created does.
+- **Closing paths outside `save()`**: document downloads (`ShipmentDocumentDownload`;
+  CMR/TIR/packet/letter endpoints close the print task now, or when it is created later);
+  contract readiness (contracts registers `contracts_ready` for `prepare_contract`; checked on
+  sale create/update, firm-contract link and agreement download); advances (create + link-shipment);
+  join / swap packing (closes `join_supply` only — **a packing move never moves the truck**).
+  A closed season changes nothing.
+- **Deactivated** (rows kept, `is_active=False`): `set_border_point`, `give_documents`,
+  `give_documents_gapy`, `start_documents_prep`, the transport `assign_driver`,
+  `trigger_customs_exit`. Their open tasks on in-flight shipments still close as before.
+
 ## Packing parts get no tasks
 
 Owner, 2026-09-29: a draft with **no destination** (country and customer both empty) is the
@@ -126,6 +174,9 @@ condition reconciler (a Gapy flip on a packing part creates nothing).
   (196 on 39 trucks on the dev DB). Run it once after deploy.
 
 ## Border point (Serhet nokady)
+
+> **Inactive since 2026-09-30** — replaced by the PREP chain above. Kept for the shipments that
+> still carry the task and for history.
 
 `Set border point` is a **gating** draft task: `border_point` feeds the TIR carnet and the
 CMR overlay (`_border_point_name()` in `contracts/services/document_context.py`), so transport

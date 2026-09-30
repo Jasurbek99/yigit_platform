@@ -28,7 +28,7 @@ Hook: `frontend/src/hooks/useTaskRules.ts`
    | Opens when shipment enters | the translated status name + the raw `step` code underneath |
    | Task | `t(title_key)` — the same label My Tasks shows |
    | Responsible role | `assignee_role_display` |
-   | Completes by | Auto vs **Mark Done**, plus one tag per watched field (`= value` for `field_equals`) |
+   | Completes by | Auto vs **Mark Done** vs **Button (holds the step)** (`confirm`, orange, 2026-09-30), plus one tag per watched field (`= value` for `field_equals`); an **After:** line lists the `depends_on` tasks (translated titles) |
    | Only when | the rule's `condition_field = condition_value`, else "Always" |
    | Deadline | `deadline_rule` rendered in words (see below) |
 

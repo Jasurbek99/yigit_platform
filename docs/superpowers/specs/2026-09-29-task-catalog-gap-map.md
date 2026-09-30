@@ -2,6 +2,7 @@
 
 **Дата:** 2026-09-29
 **Статус:** анализ, ничего не реализовано. Источник требований: `docs/Tasks.md`.
+**Обновление 2026-09-30:** пункты **5b–22 (PREP + DOCS) сделаны** — spec [[2026-09-30-prep-docs-tasks-design]]; вопросы 1–3 из раздела про движок (зависимости, кнопки держат шаг, раскладка по статусам) решены там же.
 Код: `backend/apps/export/management/commands/seed_task_rules.py` (24 правила),
 `services/task_rules.py`, `services/weekly_plan_tasks.py`, `services/truck_allocation_tasks.py`.
 

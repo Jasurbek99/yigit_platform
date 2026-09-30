@@ -97,7 +97,7 @@ Three sections, top to bottom:
 - `driver_name`, `driver_phone`, `truck_plate`, all lifecycle timestamps (`customs_exit_at`, `loading_started_at`, `departed_at`, `border_crossed_at`, `dest_entry_at`, `customs_entry_at`, `peregruz_date`, `arrived_at`, `sale_started_at`, `sale_ended_at`), and all other sheet-backed fields are now editable via the sheet machinery.
 - For `quality.*` dotted-path fields (used by the `quality_inspection` task) that have no matching `IRowConfig`, a `ReadOnlyStubRow` renders: translated label + current boolean value + "edit in shipment detail" hint. No crash.
 - `useStartTask` fires on first field click (debounced via `useRef` flag — at most once per mount). Clicks bubble up through the presentation wrapper div.
-- "Mark Done" button when `completion_rule === 'manual_done'` and task is open/in_progress.
+- "Mark Done" button when `completion_rule === 'manual_done'` **or `'confirm'`** (2026-09-30, `utils/taskButtons.ts` `isButtonTask`) and task is open/in_progress. The label is the task's own `tasks.button.<key>` («Çap etdim», «Ugradyldy», «Taýýarladym», …), falling back to «Mark done». `tasks.join_supply` also shows a link to the Assignment board (`/export/assign`). Same in `MyTaskCard`.
 - `useCompleteTask` fires on mark-done; drawer closes automatically on success.
 - Shows a done `<Tag>` when the task is already completed. All fields are read-only when task is done/cancelled (`disabled` prop to renderer).
 - Sheet data (`sheetItem`, `rows`, `rowSettings`, `isSheetLoading`) is threaded from `ActiveDrawerLayout`.

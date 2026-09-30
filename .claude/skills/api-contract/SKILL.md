@@ -365,10 +365,25 @@ frontend.
     "deadline_rule": "24h_after_status",
     "condition_field": "",
     "condition_value": "",
+    "depends_on": [],
+    "gates_step": true,
     "is_active": true
   }
 ]
 ```
+
+**2026-09-30 (PREP/DOCS chain, spec `docs/superpowers/specs/2026-09-30-prep-docs-tasks-design.md`):**
+`depends_on` is a **list** of `title_key`s (stored as CSV, split like `target_fields`) — the
+task is created only after they are done. `gates_step: false` = the task never holds its step
+(`tasks.join_supply`). `completion_rule` gains `"confirm"` — a button task that holds the step.
+`POST /api/v1/export/tasks/{id}/complete/` accepts `manual_done` **and** `confirm`; for
+`confirm` it then creates the tasks now due and runs auto-advance (response unchanged: the task
+detail). Document endpoints now also close print tasks on a successful download (no response
+change): `GET /contracts/shipments/{id}/cmr/` → `tasks.print_cmr`, `…/tir/` → `tasks.print_tir`,
+`…/packet.zip` → CMR + (with an active sale) CT-1, fito, customs letter; `GET /contracts/sales/{id}/document/?type=ct1_ru|fito_ru|customs_tk`
+→ the matching print task. `GET /contracts/contracts/{id}/agreement/` stamps
+`Contract.agreement_downloaded_at` (first time) and may close `tasks.prepare_contract`. A
+closed season records and closes nothing; the file is still served.
 
 Read-only by design (`ReadOnlyModelViewSet`). Editing a `TaskRule` leaves existing open Tasks
 on their snapshotted `target_fields` until `reconcile_tasks` runs, so write verbs need that

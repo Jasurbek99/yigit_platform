@@ -112,6 +112,20 @@ rule). For each active `TaskRule` with `step == new_status_code`:
    surprising behaviour in the system.
 4. **Deadline.** `deadline_rule` is parsed into an absolute `deadline` at creation
    time, anchored to the moment of the status change.
+5. **Deferred / not yet effective (2026-09-30).** A rule with `depends_on` is skipped
+   here and created later by `spawn_ready_tasks()` once its prerequisites are done;
+   a rule whose `effective_from` is after the shipment entered the step is skipped
+   for that shipment. Generation ends with one `spawn_ready_tasks()` pass.
+
+**Task chain engine (2026-09-30, `services/task_chain.py`).** "Task after N" is
+deferred creation, not a blocked task: the dependent does not exist until N is done.
+While a gating dependent of the current step is still waiting to be created, the step
+is not satisfied (E3), so auto-advance cannot skip it. `Shipment.save()` runs resolve
+→ spawn (only when something closed) → auto-advance; writes that bypass `save()`
+(document downloads, contract readiness, advance links, join/swap) call the same
+spawn and, except for packing moves, the same advance gate. See
+[[task-rules#PREP / DOCS chain (2026-09-30)]] and the spec
+`docs/superpowers/specs/2026-09-30-prep-docs-tasks-design.md`.
 
 ## Rule anatomy
 
@@ -123,10 +137,13 @@ One `TaskRule` row (`export_task_rule`):
 | `title_key` | i18n key, e.g. `tasks.fill_loading_data` — the frontend resolves it in tk/ru/en |
 | `assignee_role` | The role that owns the generated task |
 | `target_fields` | **CSV** of shipment field keys — a `CharField`, not a JSONField (MSSQL rule). Read it with `Task.target_field_list`, never by hand |
-| `completion_rule` | One of the four below |
+| `completion_rule` | One of the rules below |
 | `target_value` | The comparison value, `FIELD_EQUALS` only |
 | `deadline_rule` | Grammar below; blank means no deadline |
 | `condition_field` / `condition_value` | The optional gate from step 1 above |
+| `depends_on` | CSV of `title_key`s — created only after they are done (2026-09-30) |
+| `gates_step` | False = never holds the step, open or pending (`join_supply`) |
+| `effective_from` | Applies only to shipments that entered the step at or after it; set once by the seed |
 | `is_active` | A deactivated rule stops generating; tasks it already made survive |
 
 ### Completion rules
@@ -136,7 +153,9 @@ One `TaskRule` row (`export_task_rule`):
 | `all_fields_filled` | every field in `target_fields` is filled |
 | `any_field_filled` | at least one is filled |
 | `field_equals` | the field equals `target_value` (string-cast) |
+| `field_set` | every field has a value, `False` included |
 | `manual_done` | never automatically — only the **Mark Done** button |
+| `confirm` | only the task's own button — but unlike `manual_done` it **holds the step** (2026-09-30) |
 
 Auto-resolution runs in `Shipment.save()` (again, not a signal) via
 `resolve_for_shipment()`, which re-checks every `open` / `in_progress` task on the
