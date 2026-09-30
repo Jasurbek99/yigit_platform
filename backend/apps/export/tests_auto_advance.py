@@ -305,6 +305,7 @@ class CascadeTests(TestCase):
         shipment.departed_at = now
         shipment.variety = variety
         shipment.weight_net = Decimal('10000')
+        shipment.loading_ended_at = now          # tasks.loading_ended (26)
         shipment.save()
 
         shipment.refresh_from_db()

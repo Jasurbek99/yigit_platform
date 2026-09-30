@@ -161,6 +161,7 @@ class QualityInspectionTaskTests(TestCase):
         )
         shipment.variety = TomatoVariety.objects.create(name='QI Pink')
         shipment.weight_net = 18500
+        shipment.loading_ended_at = timezone.now()   # tasks.loading_ended (26)
         shipment.departed_at = timezone.now()
         shipment.updated_by = self.user
         shipment.save()

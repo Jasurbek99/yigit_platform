@@ -106,6 +106,7 @@ class GapyTerminalTests(TestCase):
             )
             shipment.variety = self.variety
             shipment.weight_net = 18000
+            shipment.loading_ended_at = timezone.now()   # tasks.loading_ended, 2026-09-30
             shipment.save()
         from apps.export.services.task_rules import generate_tasks_for_status
         generate_tasks_for_status(shipment, 'yuklenme')
@@ -451,6 +452,7 @@ class GapyCompletionSideEffectTests(TestCase):
         )
         shipment.variety = self.variety
         shipment.weight_net = 18000
+        shipment.loading_ended_at = timezone.now()   # tasks.loading_ended, 2026-09-30
         shipment.save()
         from apps.export.services.task_rules import generate_tasks_for_status
         generate_tasks_for_status(shipment, 'yuklenme')

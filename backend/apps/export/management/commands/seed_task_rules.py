@@ -468,6 +468,22 @@ TASK_RULES: list[dict] = [
         'condition_value': '',
     },
     {
+        # 26 «Ýükleme gutardy» (owner, 2026-09-30, docs/Tasks.md LOAD): the
+        # loading department writes when loading ended (R20). It holds the
+        # step — a truck the garawul already let out (departed_at) waits in
+        # yuklenme until this is filled, then auto-advances. Gapy too.
+        'step': 'yuklenme',
+        'title_key': 'tasks.loading_ended',
+        'assignee_role': 'loading_dept_head',
+        'target_fields': 'loading_ended_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'new_in_catalog': True,
+    },
+    {
         # Quality inspection, re-enabled 2026-09-22 for the new
         # `quality_inspector` role. This rule was soft-disabled on 2026-06-06
         # (commit 84f1a98) for two reasons, both addressed here:

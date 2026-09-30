@@ -72,7 +72,8 @@ class GateTaskSyncTests(GateFixtures, TestCase):
         self.assertEqual((task.state, task.scope_location), (TaskState.OPEN, self.kaka))
 
     def test_gate_tasks_never_hold_a_status(self):
-        truck = self.make_truck('T-7', status='gumruk_chykysh')
+        # Documents back from customs (tasks.docs_from_customs, 2026-09-30).
+        truck = self.make_truck('T-7', status='gumruk_chykysh', customs_exit_at=timezone.now())
         sync_gate_tasks(self.dusak)
         truck.loading_started_at = timezone.now()
         truck.save()  # the ordinary Sheet path still advances with a gate task open

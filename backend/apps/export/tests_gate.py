@@ -148,7 +148,8 @@ class GateActionTests(GateFixtures, TestCase):
         self.assertEqual(result.loading_started_at, earlier)
 
     def test_arrive_from_customs_exit_starts_loading(self):
-        truck = self.make_truck('A-3', status='gumruk_chykysh')
+        # Documents back from customs (tasks.docs_from_customs, 2026-09-30).
+        truck = self.make_truck('A-3', status='gumruk_chykysh', customs_exit_at=timezone.now())
         result = gate.arrive(truck.pk, self.dusak, self.guard)
         self.assertEqual(result.status.code, 'yuklenme')
 
@@ -200,6 +201,8 @@ class GateActionTests(GateFixtures, TestCase):
         self.assertFalse(Notification.objects.filter(kind='gate_arrival').exists())
 
     def _loaded_truck(self, code, **extra):
+        # The loading department wrote the loading end (tasks.loading_ended, 2026-09-30).
+        extra.setdefault('loading_ended_at', timezone.now())
         truck = self.make_truck(code, status='yuklenme', variety=self.variety,
                                 weight_net=Decimal('18000'), **extra)
         truck.save()  # resolve fill_loading_data now that its fields are set
@@ -228,6 +231,17 @@ class GateActionTests(GateFixtures, TestCase):
         result = gate.depart(truck.pk, self.dusak, self.guard)
         self.assertEqual(result.status.code, 'tamamlandy')
 
+    def test_depart_before_the_loading_end_waits_in_loading(self):
+        truck = self._loaded_truck('D-5', loading_ended_at=None)
+        result = gate.depart(truck.pk, self.dusak, self.guard)
+        self.assertIsNotNone(result.departed_at)
+        self.assertEqual(result.status.code, 'yuklenme')
+        result.loading_ended_at = timezone.now()
+        result.updated_by = self.guard
+        result.save()
+        result.refresh_from_db()
+        self.assertEqual(result.status.code, 'yola_chykdy')
+
     def test_depart_without_loading_data_keeps_the_status(self):
         truck = self.make_truck('D-3', status='yuklenme')
         gate.arrive(truck.pk, self.dusak, self.guard)
@@ -255,7 +269,7 @@ class GateActionTests(GateFixtures, TestCase):
         self.assertEqual(result.loading_started_at, earlier)
 
     def test_undo_after_a_status_move_is_refused(self):
-        truck = self.make_truck('U-3', status='gumruk_chykysh')
+        truck = self.make_truck('U-3', status='gumruk_chykysh', customs_exit_at=timezone.now())
         gate.arrive(truck.pk, self.dusak, self.guard)  # → yuklenme
         with self.assertRaises(gate.GateError) as ctx:
             gate.undo(truck.pk, self.dusak, self.guard, 'arrive')
