@@ -51,6 +51,8 @@ export function useUpsertDailyBoard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      // «Düýnki galyndy» is Gaplama's stored leftover too (spec 2026-09-30 §6).
+      queryClient.invalidateQueries({ queryKey: ['gaplama-board'] });
     },
   });
 }

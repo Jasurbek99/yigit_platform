@@ -3967,6 +3967,8 @@
       "col_trucks": "Trucks",
       "folded_blocks": "{{count}} blocks — none available",
       "formula_hint": "Available = carried + plan − loaded",
+      "rest_calc_hint": "calculated: {{kg}}",
+      "rest_save_error": "Could not save the leftover",
       "carry_window": "{{days}}-day carry window",
       "carry_age": "{{days}} d",
       "weekday_1": "Mon",

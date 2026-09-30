@@ -918,6 +918,17 @@
   cursor: help;
 }
 
+.sera-page .sera-gaplama-rest-calc-hint {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sera-text-faint);
+  white-space: nowrap;
+}
+
+.sera-page .sera-gaplama-grid td .ant-input-number {
+  min-width: 90px;
+}
+
 .sera-page .sera-gaplama-location-subtotal td {
   background: #ecfdf5;
   color: var(--sera-accent);

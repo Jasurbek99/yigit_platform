@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Select } from 'antd';
+import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -8,7 +9,9 @@ import { useDrafts } from '@/hooks/useDrafts';
 import { useGreenhouseBlocks } from '@/hooks/useAdmin';
 import { useGreenhouseConfig } from '@/hooks/useGreenhouseConfig';
 import { useAuth } from '@/hooks/useAuth';
-import { canDoBackendGated } from '@/utils/permissions';
+import { useUpsertDailyBoard } from '@/hooks/useDailyBoard';
+import { DailyBoardNumberCell } from '@/components/DailyBoardCell';
+import { canDoBackendGated, canSeePage } from '@/utils/permissions';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { BlockFilterSelect } from './BlockFilterSelect';
 import GaplamaTruckForm from './GaplamaTruckForm';
@@ -27,6 +30,14 @@ const LOCATION_KEY_FALLBACK = 'other';
  * (DraftComposerModal, salesReportUtils, etc. all use the same locale). */
 function fmt(kg: number): string {
   return kg.toLocaleString('ru-RU');
+}
+
+/** The calculated carry-in when the stored one differs from it, else null — drives the
+ * «hasap: X» hint, the only sign a frozen number went stale (spec 2026-09-30 §4). */
+function staleRestCalc(row: IGaplamaDay | undefined): number | null {
+  return row != null && row.rest_stored_kg !== null && row.rest_stored_kg !== row.rest_calc_kg
+    ? row.rest_calc_kg
+    : null;
 }
 
 export default function GaplamaTab(): JSX.Element {
@@ -65,7 +76,7 @@ export default function GaplamaTab(): JSX.Element {
   // narrower client request would otherwise have silently degraded.
   const fetchFrom = weekStart.format('YYYY-MM-DD');
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
-  const { data: board, isLoading, isError } = useGaplamaBoard(fetchFrom, fetchTo);
+  const { data: board, isLoading, isError, dataUpdatedAt } = useGaplamaBoard(fetchFrom, fetchTo);
 
   // A Gaplama truck is always a draft — the Üýtget button only ever shows
   // for status_code==='draft' (see `canEdit` below) — so the drafts endpoint
@@ -145,6 +156,67 @@ export default function GaplamaTab(): JSX.Element {
   }
 
   const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
+
+  // Stored leftover (spec 2026-09-30 §6). The day's carry-in IS the harvest-board's
+  // «Düýnki galyndy», so the same people may edit it here: page export.harvest_board,
+  // a greenhouse_manager only on their own blocks (the daily-plan endpoint enforces
+  // both). Never in a read-only season — the endpoint writes into the ACTIVE season —
+  // and never for a day that hasn't started yet.
+  const upsertRest = useUpsertDailyBoard();
+  const canEditRestOnDay = !isReadOnly && selectedDay <= today && canSeePage(user, 'export.harvest_board');
+  function canEditRest(blockId: number): boolean {
+    if (!canEditRestOnDay || !user) return false;
+    if (user.is_superuser || user.role !== 'greenhouse_manager') return true;
+    return user.managed_block_ids.includes(blockId);
+  }
+  function saveRest(blockId: number, kg: number | null) {
+    upsertRest.mutate(
+      { block: blockId, date: selectedDay, yesterday_rest: kg },
+      {
+        onError: (err: unknown) => {
+          const apiErr = err as { response?: { data?: { error?: string } } };
+          toast.error(apiErr?.response?.data?.error ?? t('tir_takip.gaplama.rest_save_error'));
+        },
+      },
+    );
+  }
+
+  // Day-view carry-in cell, shared by visible rows and expanded folded rows — a block
+  // with nothing to show today must still take found crates (spec §6).
+  function carryCell(blockId: number, row: IGaplamaDay | undefined): JSX.Element {
+    const carried = row?.carried_in_kg ?? 0;
+    // Oldest bucket first, one line per origin day — matches the FIFO consumption
+    // order (design spec §3①).
+    const carryTooltip = (row?.carry_in_breakdown ?? [])
+      .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: ${fmt(b.kg)} kg (${t('tir_takip.gaplama.carry_age', { days: b.age_days })})`)
+      .join('\n');
+    const staleCalc = staleRestCalc(row);
+    return (
+      <td
+        className={carried > 0 ? 'sera-gaplama-carry-in' : undefined}
+        title={carryTooltip || undefined}
+      >
+        {/* No row = a day the board clamped away (outside the active season): the
+            daily-plan endpoint would stamp it into the active season, so no input. */}
+        {row != null && canEditRest(blockId) ? (
+          <DailyBoardNumberCell
+            // Remount on every refetch and day change: the cell only re-syncs when its
+            // value prop changes, so clearing a value whose calculated figure is the
+            // same number would otherwise leave the input blank.
+            key={`${selectedDay}:${blockId}:${dataUpdatedAt}`}
+            value={String(carried)}
+            saving={upsertRest.isPending && upsertRest.variables?.block === blockId}
+            onCommit={(kg) => saveRest(blockId, kg)}
+          />
+        ) : carried > 0 ? `+${fmt(carried)}` : '—'}
+        {staleCalc !== null && (
+          <div className="sera-gaplama-rest-calc-hint">
+            {t('tir_takip.gaplama.rest_calc_hint', { kg: fmt(staleCalc) })}
+          </div>
+        )}
+      </td>
+    );
+  }
 
   const rowsByBlock = useMemo(() => {
     const map: Record<number, IGaplamaDay[]> = {};
@@ -280,7 +352,8 @@ export default function GaplamaTab(): JSX.Element {
   // redesign exists to surface, not hide.
   function isEmptyToday(block: IGreenhouseBlock): boolean {
     const row = selectedDayRowByBlock[block.id];
-    return !row || (row.available_kg === 0 && row.over_kg === 0);
+    // A stale stored value never folds either — its «hasap» hint is the only sign of it.
+    return !row || (row.available_kg === 0 && row.over_kg === 0 && staleRestCalc(row) === null);
   }
   const foldedBlocks = blocks.filter(isEmptyToday);
 
@@ -370,16 +443,10 @@ export default function GaplamaTab(): JSX.Element {
                     const over = row?.over_kg ?? 0;
                     const plan = row?.plan_kg ?? 0;
                     const loaded = row?.loaded_kg ?? 0;
-                    const carried = row?.carried_in_kg ?? 0;
                     const carriedOut = row?.carried_out_kg ?? 0;
                     const isOver = over > 0;
                     const isFull = !isOver && available >= truckCapacityKg;
                     const cellClass = isOver ? 'sera-gaplama-cell-over' : isFull ? 'sera-gaplama-cell-full' : undefined;
-                    // Oldest bucket first, one line per origin day — matches
-                    // the FIFO consumption order (design spec §3①).
-                    const carryTooltip = (row?.carry_in_breakdown ?? [])
-                      .map((b) => `${dayjs(b.origin_date).format('DD.MM')}: ${fmt(b.kg)} kg (${t('tir_takip.gaplama.carry_age', { days: b.age_days })})`)
-                      .join('\n');
                     return (
                       <tr key={block.id}>
                         <td className="sera-gaplama-block-name">
@@ -396,12 +463,7 @@ export default function GaplamaTab(): JSX.Element {
                         </td>
                         <td>{fmt(plan)}</td>
                         <td>{fmt(loaded)}</td>
-                        <td
-                          className={carried > 0 ? 'sera-gaplama-carry-in' : undefined}
-                          title={carryTooltip || undefined}
-                        >
-                          {carried > 0 ? `+${fmt(carried)}` : '—'}
-                        </td>
+                        {carryCell(block.id, row)}
                         <td>{carriedOut > 0 ? fmt(carriedOut) : '—'}</td>
                         <td>{Math.floor(available / truckCapacityKg)}</td>
                       </tr>
@@ -431,7 +493,9 @@ export default function GaplamaTab(): JSX.Element {
                     <td className="sera-gaplama-block-name">
                       {block.name || block.code} ({locationLabel(block.location_name ?? LOCATION_KEY_FALLBACK)})
                     </td>
-                    <td colSpan={6}>—</td>
+                    <td colSpan={3}>—</td>
+                    {carryCell(block.id, selectedDayRowByBlock[block.id])}
+                    <td colSpan={2}>—</td>
                   </tr>
                 ))}
               </>

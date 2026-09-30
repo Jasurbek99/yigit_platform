@@ -3969,6 +3969,8 @@
       "col_trucks": "Маш.",
       "folded_blocks": "{{count}} блок — нет свободного",
       "formula_hint": "Своб. = перенесено + план − погружено",
+      "rest_calc_hint": "расчёт: {{kg}}",
+      "rest_save_error": "Не удалось сохранить остаток",
       "carry_window": "{{days}}-дневное окно переноса",
       "carry_age": "{{days}} дн.",
       "weekday_1": "Пн",

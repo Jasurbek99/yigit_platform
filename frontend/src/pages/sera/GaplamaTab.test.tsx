@@ -12,7 +12,8 @@ dayjs.extend(isoWeek);
 vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
-vi.mock('@/hooks/useSeasonReadOnly', () => ({ useSeasonReadOnly: () => false }));
+const mockSeasonReadOnly = vi.hoisted(() => ({ value: false }));
+vi.mock('@/hooks/useSeasonReadOnly', () => ({ useSeasonReadOnly: () => mockSeasonReadOnly.value }));
 // useDrafts() (added 2026-09-24 for edit-mode batch seeding — see
 // task-7-report.md) pulls in useSelectedSeason(), which calls
 // react-router-dom's useSearchParams() — this test file has no <Router>
@@ -768,5 +769,159 @@ describe('GaplamaTab', () => {
         expect(call?.[0]).toContain(`from_date=${nextMonday}`);
       });
     });
+  });
+});
+
+describe('GaplamaTab — stored leftover cell', () => {
+  const TOMORROW = dayjs().add(1, 'day').format('YYYY-MM-DD');
+  const EDITOR = {
+    role: 'loading_dept_head', is_superuser: false, managed_block_ids: [],
+    page_permissions: { 'export.harvest_board': true },
+    resource_permissions: { shipment: { create: false } },
+  };
+
+  function restDay(date: string, over: Record<string, unknown> = {}) {
+    return { date, block_id: 1, block_code: 'A', location: 'Dusak',
+             plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '9000.00', carry_in_breakdown: [],
+             available_kg: '9000.00', over_kg: '0.00', carried_out_kg: '0.00',
+             rest_stored_kg: null, rest_calc_kg: '9000.00', ...over };
+  }
+
+  function mockBoard(days: object[]) {
+    (api.get as any).mockImplementation((url: string) => {
+      if (url.includes('/export/gaplama/board/')) return Promise.resolve({ data: { days, trucks: [] } });
+      if (url.includes('/core/blocks')) {
+        return Promise.resolve({ data: { results: [
+          { id: 1, code: 'A', name: 'A', parent: null, is_active: true, location_name: 'Dusak', carry_days: 7 },
+        ] } });
+      }
+      if (url.includes('/greenhouse-config')) return Promise.resolve({ data: { truck_capacity_kg: '18500.00' } });
+      if (url.includes('/core/shipment-options')) return Promise.resolve({ data: { results: [] } });
+      return Promise.resolve({ data: {} });
+    });
+  }
+
+  async function gridMounted(container: HTMLElement) {
+    await waitFor(() => expect(container.querySelector('table.sera-gaplama-grid')).not.toBeNull());
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSeasonReadOnly.value = false;
+    (api.post as any).mockResolvedValue({ data: {} });
+    mockBoard([restDay(TODAY), restDay(TOMORROW)]);
+  });
+
+  it('is an input for today with export.harvest_board', async () => {
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    expect(digits((screen.getByRole('spinbutton') as HTMLInputElement).value)).toBe('9000');
+  });
+
+  it('saves through the daily-plan endpoint', async () => {
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    const input = screen.getByRole('spinbutton');
+    fireEvent.change(input, { target: { value: '7000' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/greenhouse/daily-plan/', { block: 1, date: TODAY, yesterday_rest: 7000 },
+    ));
+  });
+
+  it('is read-only without export.harvest_board', async () => {
+    (useAuth as any).mockReturnValue({ user: { ...EDITOR, page_permissions: {} } });
+    const { container } = renderTab();
+    await gridMounted(container);
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
+  });
+
+  it('is read-only in a read-only season', async () => {
+    mockSeasonReadOnly.value = true;
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
+  });
+
+  it('is read-only for a greenhouse_manager on a block they do not manage', async () => {
+    (useAuth as any).mockReturnValue({
+      user: { ...EDITOR, role: 'greenhouse_manager', managed_block_ids: [99] },
+    });
+    const { container } = renderTab();
+    await gridMounted(container);
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
+  });
+
+  it('is read-only for a day that has not started yet', async () => {
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    await stepToDay(TOMORROW);
+    await gridMounted(container);
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
+  });
+
+  it('is still editable on a folded (empty) block once expanded', async () => {
+    mockBoard([restDay(TODAY, {
+      carried_in_kg: '0.00', available_kg: '0.00', rest_calc_kg: '0.00',
+    })]);
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
+    fireEvent.click(container.querySelector('tr.sera-gaplama-folded-row') as HTMLElement);
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(1);
+  });
+
+  it('shows the calculated hint only when the stored value differs', async () => {
+    mockBoard([restDay(TODAY, { carried_in_kg: '7000.00', rest_stored_kg: '7000.00', rest_calc_kg: '9000.00' })]);
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container, unmount } = renderTab();
+    await gridMounted(container);
+    expect(screen.getByText('tir_takip.gaplama.rest_calc_hint')).toBeInTheDocument();
+    unmount();
+
+    mockBoard([restDay(TODAY, { rest_stored_kg: '9000.00', rest_calc_kg: '9000.00' })]);
+    const second = renderTab();
+    await gridMounted(second.container);
+    expect(screen.queryByText('tir_takip.gaplama.rest_calc_hint')).toBeNull();
+  });
+  it('offers no input on a day the board has no row for (outside the season)', async () => {
+    mockBoard([]);
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    fireEvent.click(container.querySelector('tr.sera-gaplama-folded-row') as HTMLElement);
+    expect(screen.queryAllByRole('spinbutton')).toHaveLength(0);
+  });
+
+  it('shows the refetched value again after the cell is cleared', async () => {
+    mockBoard([restDay(TODAY, { rest_stored_kg: '9000.00', rest_calc_kg: '9000.00' })]);
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    const input = screen.getByRole('spinbutton');
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith(
+      '/greenhouse/daily-plan/', { block: 1, date: TODAY, yesterday_rest: null },
+    ));
+    await waitFor(() => {
+      expect(digits((screen.getByRole('spinbutton') as HTMLInputElement).value)).toBe('9000');
+    });
+  });
+
+  it('does not fold an empty block whose stored value went stale', async () => {
+    mockBoard([restDay(TODAY, {
+      carried_in_kg: '0.00', available_kg: '0.00', rest_stored_kg: '0.00', rest_calc_kg: '9000.00',
+    })]);
+    (useAuth as any).mockReturnValue({ user: EDITOR });
+    const { container } = renderTab();
+    await gridMounted(container);
+    expect(container.querySelector('tr.sera-gaplama-folded-row')).toBeNull();
+    expect(screen.getByText('tir_takip.gaplama.rest_calc_hint')).toBeInTheDocument();
   });
 });

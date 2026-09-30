@@ -1993,6 +1993,12 @@ export interface IGaplamaDay {
    * "N →" outgoing marker. Covers only THIS day's own leftover, not aged carry-in
    * that also moves on. */
   carried_out_kg: number;
+  /** Stored starting leftover (HarvestDayEntry.yesterday_rest_value), post-expiry — null
+   * when nothing is stored and the carry-in is purely calculated (spec 2026-09-30 §3). */
+  rest_stored_kg: number | null;
+  /** What the carry-in would be without the stored value. Stored ≠ calc → the
+   * «hasap: X» hint, the only sign a frozen number went stale (spec §4). */
+  rest_calc_kg: number;
 }
 
 /** Week-aggregate per block. plan_kg/loaded_kg/over_kg are real sums (each day's

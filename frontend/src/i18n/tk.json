@@ -3970,6 +3970,8 @@
       "col_trucks": "Tir",
       "folded_blocks": "{{count}} blok — boş ýok",
       "formula_hint": "Boş = geçen + plan − ýüklenen",
+      "rest_calc_hint": "hasap: {{kg}}",
+      "rest_save_error": "Galyndy ýazdyrylmady",
       "carry_window": "{{days}} gün geçiş penjiresi",
       "carry_age": "{{days}} gün",
       "weekday_1": "Duş",

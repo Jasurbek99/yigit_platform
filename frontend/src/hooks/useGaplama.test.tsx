@@ -34,6 +34,29 @@ describe('useGaplamaBoard', () => {
     expect(result.current.data?.trucks[0].block_sources[0].weight_kg).toBe(12000);
   });
 
+  it('coerces rest_stored_kg (null stays null) and rest_calc_kg', async () => {
+    (api.get as any).mockResolvedValue({
+      data: {
+        days: [
+          { date: '2026-09-22', block_id: 5, block_code: 'F', location: 'dusak',
+            plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '7000.00', carry_in_breakdown: [],
+            available_kg: '7000.00', over_kg: '0.00', carried_out_kg: '0.00',
+            rest_stored_kg: '7000.00', rest_calc_kg: '9000.00' },
+          { date: '2026-09-23', block_id: 5, block_code: 'F', location: 'dusak',
+            plan_kg: '0.00', loaded_kg: '0.00', carried_in_kg: '0.00', carry_in_breakdown: [],
+            available_kg: '0.00', over_kg: '0.00', carried_out_kg: '0.00',
+            rest_stored_kg: null, rest_calc_kg: '0.00' },
+        ],
+        trucks: [],
+      },
+    });
+    const { result } = renderHook(() => useGaplamaBoard('2026-09-21', '2026-09-27'), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.days[0].rest_stored_kg).toBe(7000);
+    expect(result.current.data?.days[0].rest_calc_kg).toBe(9000);
+    expect(result.current.data?.days[1].rest_stored_kg).toBeNull();
+  });
+
   it('requests the right endpoint and params', async () => {
     (api.get as any).mockResolvedValue({ data: { days: [], trucks: [] } });
     renderHook(() => useGaplamaBoard('2026-09-19', '2026-09-27'), { wrapper });

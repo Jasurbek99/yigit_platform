@@ -28,6 +28,9 @@ interface IGaplamaDayRaw {
   available_kg: string;
   over_kg: string;
   carried_out_kg: string;
+  // Optional: absent on deploys older than the stored-leftover change (2026-09-30).
+  rest_stored_kg?: string | null;
+  rest_calc_kg?: string;
 }
 
 interface IGaplamaTruckSourceRaw {
@@ -81,6 +84,8 @@ function coerceDay(raw: IGaplamaDayRaw): IGaplamaDay {
     available_kg: Number(raw.available_kg) || 0,
     over_kg: Number(raw.over_kg) || 0,
     carried_out_kg: Number(raw.carried_out_kg) || 0,
+    rest_stored_kg: raw.rest_stored_kg == null ? null : Number(raw.rest_stored_kg),
+    rest_calc_kg: Number(raw.rest_calc_kg) || 0,
   };
 }
 
