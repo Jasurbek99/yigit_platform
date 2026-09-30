@@ -61,8 +61,9 @@ button.
 ## Phone page — `/scan/:id`
 
 Outside `AppLayout` on purpose: a driver in a yard gets the truck code, the current status
-and one button. Behind `ProtectedRoute`, so an unauthenticated scan lands on `/login` and
-returns here after signing in.
+and one button. Behind `ProtectedRoute`, so an unauthenticated scan lands on
+`/login?next=%2Fscan%2F{id}` and returns here after signing in — no second scan needed
+(see [[authentication]], 2026-09-30).
 
 **It never records on load.** Tapping the button opens a confirm dialog naming the step and
 the truck; only "Yes" writes. A status step is a real-world event, and a mis-tap would

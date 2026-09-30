@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Form, Input } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import api from '@/services/api';
 import type { ICurrentUser } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { safeNextPath } from '@/utils/loginRedirect';
 
 interface ILoginForm {
   username: string;
@@ -16,6 +17,8 @@ interface ILoginForm {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = safeNextPath(searchParams.get('next'));
   const queryClient = useQueryClient();
   const [form] = Form.useForm<ILoginForm>();
   const { t } = useTranslation();
@@ -27,7 +30,7 @@ export default function LoginPage() {
       toast.success(t('login.toast_success', { name: data.first_name || data.username }), {
         description: t('login.toast_success_desc', { role: t(`roles.${data.role}`) }),
       });
-      navigate(data.role === 'boss' ? '/boss/dashboard' : '/');
+      navigate(next ?? (data.role === 'boss' ? '/boss/dashboard' : '/'));
     },
     onError: (error: unknown) => {
       // 429 = brute-force lockout (django-axes). Show the cool-off countdown.

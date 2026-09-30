@@ -1,4 +1,5 @@
 - [ ] 2026-09-29 — Truck Board + Planning trips integration (poll, assign, change/rollback, pushes, read-only transport cells), branch feat/transport-trips — NEEDS TEST
+- [x] 2026-09-30 — Login keeps the page you were opening (`/login?next=`): a pallet QR scanned while logged out opens the scan page after login, no second scan — TESTED
 - [ ] 2026-09-30 — Gate «Gelmeli» window 7 → 30 days (1709001/26 now listed for the Dusak guard) — NEEDS TEST
 - [x] 2026-09-30 — Gaplama: Tır Aç/Üýtget now auto-scrolls to the form instead of leaving it below the fold — TESTED
 - [ ] 2026-09-29 — Garawul gate guard: `/export/gate` screen (Gelmeli/Ýyladyşhanada tabs, plate search), arrive/depart/undo (10 min, before status move), gate tasks on My Tasks + guard-scoped "done today" KPI tile, Sheet row 49 «Ýyladyşhana geldi» — NEEDS TEST

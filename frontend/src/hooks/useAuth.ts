@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '@/services/api';
 import type { ICurrentUser } from '@/types';
+import { loginPathFor } from '@/utils/loginRedirect';
 
 export function useAuth() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const query = useQuery({
     queryKey: ['auth', 'me'],
@@ -19,9 +21,9 @@ export function useAuth() {
 
   useEffect(() => {
     if (query.isError) {
-      navigate('/login');
+      navigate(loginPathFor(location.pathname + location.search));
     }
-  }, [query.isError, navigate]);
+  }, [query.isError, navigate, location.pathname, location.search]);
 
   return {
     user: query.data ?? null,

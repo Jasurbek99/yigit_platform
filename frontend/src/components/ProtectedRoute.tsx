@@ -1,7 +1,8 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Spin } from 'antd';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeePage } from '@/utils/permissions';
+import { loginPathFor } from '@/utils/loginRedirect';
 import type { UserRole } from '@/types';
 
 interface IProtectedRouteProps {
@@ -14,6 +15,7 @@ interface IProtectedRouteProps {
 
 export function ProtectedRoute({ children, roles, pageCode }: IProtectedRouteProps) {
   const { user, isLoading, isError } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -24,7 +26,7 @@ export function ProtectedRoute({ children, roles, pageCode }: IProtectedRoutePro
   }
 
   if (isError || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={loginPathFor(location.pathname + location.search)} replace />;
   }
 
   // Dynamic page permission check (takes precedence when pageCode is provided)

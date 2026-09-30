@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type AxiosInstance } from 'axios';
 import { toast } from 'sonner';
 import i18n from '@/i18n';
+import { loginPathFor } from '@/utils/loginRedirect';
 
 const api: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -63,7 +64,7 @@ export function handleApiResponseError(error: AxiosError): void {
   const url = error.config?.url ?? '';
   const isLoginRequest = url.includes('/auth/login');
   if (error.response?.status === 401 && !isLoginRequest) {
-    window.location.href = '/login';
+    window.location.href = loginPathFor(window.location.pathname + window.location.search);
   }
   if (error.response?.status === 409 && isSeasonClosedError(error.response.data)) {
     toast.error(i18n.t('season.closed_error'));
