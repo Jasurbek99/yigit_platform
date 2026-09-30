@@ -1,3 +1,12 @@
+- [ ] 2026-09-30 — Gaplama stored leftover: nightly snapshot into «Düýnki galyndy», board anchors to it, carry-in cell editable in Gaplama day view — NEEDS TEST
+  To test (as superuser; real roles can't open Gaplama until `tir_takip.gaplama` is restored):
+  (1) Gaplama → Gün, today: click a block's carry-in cell, type a lower number, Enter → the cell
+  keeps it, available drops by the difference, «hasap: X» shows the old calculated number;
+  (2) harvest-board, same date: «Düýnki galyndy» shows the typed number with your name as
+  author; (3) type a higher number → available rises, the tooltip shows the extra dated
+  yesterday; (4) clear the cell → back to the calculated number, no hint; (5) step to tomorrow →
+  the cell is not editable; (6) next morning after 00:05 (celery beat running): harvest-board
+  shows filled «Düýnki galyndy» cells with an empty author.
 - [ ] 2026-09-30 — «Record departure» task moved to garawul; one sales-report card (closes on the saved report); destination customs worded «Таможня пройдена»; board phase averages DOCS/LOAD fixed — NEEDS TEST
 - [ ] 2026-09-30 — Page access (core 0071, applied to the shared DB): loading head + deputy see Truck Board + Transport Plan (+ truck_allocation view); Tır Takip reopened for every role but garawul; Staff Page Access now lists them; «Tır Takip» group label on /admin/permissions — NEEDS TEST
 - [ ] 2026-09-30 — LOAD item 26 «Ýükleme gutardy» (loading_dept_head, loading_ended_at); a truck the guard let out waits in Погрузка until it is filled — NEEDS TEST

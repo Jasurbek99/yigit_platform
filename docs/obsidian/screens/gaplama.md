@@ -60,6 +60,22 @@ week grid unchanged in shape: one row per block, one column per day, a `week_tot
 with per-cell detail (plan hint, carry-in origins, carry-out) moved into a hover `title`
 instead of stacked numbers, since the redesign keeps the week grid to one number per cell.
 
+**Editable carry-in (2026-09-30).** In the day view the carry-in cell is an inline kg input
+(`DailyBoardNumberCell`, the harvest-board's own cell). Who gets it: anyone who can write the
+harvest-board (page `export.harvest_board`; a greenhouse_manager only on their own blocks).
+When: today and past days only, never in a read-only season. It saves through
+`POST /greenhouse/daily-plan/` (`yesterday_rest`). Clearing it returns that day to the
+calculated value. Expanded folded blocks get the same input, so found crates can be entered on
+an empty block. Three rules keep the cell honest (final-review fixes, same day):
+- No input on a day the board returned no row for. The view clamps to the active season, and
+  a save there would stamp the date into the active season.
+- The input remounts on every board refetch or day change (`key` includes `dataUpdatedAt`),
+  so clearing a value whose calculated figure is the same number doesn't leave a blank cell.
+- A block whose stored value is stale (stored ≠ calculated) never folds, even at 0 available,
+  so its «hasap» hint stays visible.
+
+The week view stays read-only. See "Stored leftover" below.
+
 Filters — the location `Select`, `BlockFilterSelect`, and the `◀`/`▶` day stepper — sit in one
 bar above the table (`stepDay`, `GaplamaTab.tsx`). The day stepper moves one day at a time in
 `Gün` mode and one full week at a time in `Hepde` mode; there is no separate week
@@ -71,6 +87,19 @@ deliberately reads the **unfiltered** board (`capForBlockDate` reads `board.days
 editable.
 
 ### The carry-over rule (no negative numbers)
+
+**Stored leftover (2026-09-30).** The carry-in is no longer only calculated. Every night at
+00:05 (`snapshot-gaplama-leftovers`, `apps/export/services/gaplama_snapshot.py`), each block's
+starting carry-in is frozen into `HarvestDayEntry.yesterday_rest_value`, the same field as the
+harvest-board's «Düýnki galyndy». The job fills empty fields only, for today and the 3 days
+before, and stamps no author and no audit entry. When a stored value exists,
+`build_gaplama_board` reconciles its bucket queue to it **after** expiry: a shortfall comes off
+the oldest bucket, a surplus joins yesterday's bucket. An untouched snapshot is therefore a
+no-op and can never re-add kg that just expired. Stored values change only by hand: nothing
+recomputes them, not weighing, not a corrected earlier day. Each `days[]` row carries
+`rest_stored_kg` (null = nothing stored) and `rest_calc_kg`, and the day view shows
+«hasap: X» under the cell when they differ. That hint is the only sign a frozen number went
+stale. Spec: `docs/superpowers/specs/2026-09-30-gaplama-stored-leftover-design.md`.
 
 `available_kg = max(0, carried_in_kg + plan_kg - loaded_kg)`. A day that gets loaded past
 its own plan plus its carry-in never goes negative on screen — the overshoot is clamped to
@@ -456,6 +485,8 @@ not part of this screen at all (that is the Sheet's clipboard feature, unrelated
 | Batch key | `backend/apps/export/models/shipment.py` — `ShipmentBlockSource`, `unique_together = ('shipment', 'block', 'harvest_date')` (migration `export/0077`, no backfill — see above) |
 | Admin CRUD for blocks (incl. `carry_days`) | `backend/apps/greenhouse/views_admin.py` — `GreenhouseBlockAdminViewSet`, `PATCH /api/v1/greenhouse/admin/blocks/{id}/` (director only). `frontend/src/pages/admin/BlocksPage.tsx` has a `carry_days` field (`InputNumber`, required, `type: 'integer'` rule bounded 1–30) in the create/edit drawer since 2026-09-25 — new blocks default to 7; editing seeds the block's current value so an unrelated field edit can't reset it. `frontend/src/pages/admin/BlockDetailPage.tsx` (sub-blocks) and `frontend/src/pages/admin/shipment-settings/OptionListsTab.tsx` (quick block list) also call `useCreateBlock`/`useUpdateBlock` but have no `carry_days` UI — they send `carry_days: 7` only on create and omit the key entirely on update (the endpoint is a partial `PATCH`), so they can't silently reset an existing block's value either. |
 | Config | `backend/apps/core/models/config.py` — `.truck_capacity_kg` (default 18 500) |
+| Stored-leftover job | `backend/apps/export/services/gaplama_snapshot.py` (`snapshot_gaplama_leftovers`), task `apps.export.tasks.snapshot_gaplama_leftovers`, beat `snapshot-gaplama-leftovers` (00:05) |
+| Stored-leftover tests | `backend/apps/export/tests_gaplama_stored_leftover.py`, `tests_gaplama_snapshot.py`; frontend `GaplamaTab.test.tsx` → "stored leftover cell" |
 | Tests | `backend/apps/export/tests_gaplama_board.py`, `tests_gaplama_batch_consumption.py`, `tests_gaplama_carry_days.py`, `tests_block_source_batches.py`, `backend/apps/core/tests_block_carry_days.py`, `backend/apps/greenhouse/tests_block_admin_carry_days.py` |
 | Route | `frontend/src/App.tsx` — `export/gaplama`, `pageCode="tir_takip.gaplama"` |
 | Nav | `frontend/src/components/AppLayout.tsx` — `nav.gaplama` |

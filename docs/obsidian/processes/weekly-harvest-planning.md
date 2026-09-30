@@ -481,6 +481,12 @@ operational Google Sheet: one row per active block with **Düýnki galyndy**
   `WeeklyHarvestPlan` / `HarvestDayEntry` rows are created on demand, and each
   write logs an AuditLog `daily_board_set` entry.
 
+**Since 2026-09-30, «Düýnki galyndy» is also Gaplama's stored leftover.** A nightly job
+(00:05) fills empty `yesterday_rest_value` cells with Gaplama's calculated starting carry-in.
+It sets no author and writes no audit entry, which is how an automatic value differs from a
+typed one on this screen. A typed value is never overwritten, and Gaplama uses it as that day's
+carry-in. See [[../screens/gaplama]].
+
 **The analysis of this plan lives on its own screen.** Planned vs achieved per block — week / month / season, cumulative-to-a-day, kg/m² by planted area, and the domestic vs export split — is [[pomidor-dukany]], the port of the office's `Pomidor Dükany` workbook. This page is where the numbers are *entered*; that one is where they are *judged*.
 
 ## Connections to Other Processes
