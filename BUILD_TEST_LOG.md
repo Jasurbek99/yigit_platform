@@ -1,4 +1,4 @@
-- [ ] 2026-09-30 — Gaplama: Tır Aç/Üýtget now auto-scrolls to the form instead of leaving it below the fold — NEEDS TEST
+- [x] 2026-09-30 — Gaplama: Tır Aç/Üýtget now auto-scrolls to the form instead of leaving it below the fold — TESTED
 - [ ] 2026-09-29 — Garawul gate guard: `/export/gate` screen (Gelmeli/Ýyladyşhanada tabs, plate search), arrive/depart/undo (10 min, before status move), gate tasks on My Tasks + guard-scoped "done today" KPI tile, Sheet row 49 «Ýyladyşhana geldi» — NEEDS TEST
 - [ ] 2026-09-29 — «Peregruz barmy?» question at dest_entry (has_peregruz tri-state, Sheet R33 Bolmady/Boldy) + sales report approval at satyldy (button «Hasabaty tassykla», shipment closes only after approval) — NEEDS TEST
 - [ ] 2026-09-29 — Planning tasks (Tasks.md 1–5a): Friday weekly plan task (red from Sat), Saturday allocation deadline, «Tanyşdym» review banner on /export/plan + new /transport/plan page, daily Ýük planla / Eksport planla + «missed» next morning — NEEDS TEST
