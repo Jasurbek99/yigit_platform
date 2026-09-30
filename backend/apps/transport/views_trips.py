@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.permissions import DynamicResourcePermission
-from apps.core.seasons import SeasonClosedError
+from apps.core.seasons import SeasonClosedError, resolve_season
 from apps.export.models import Shipment
 from apps.transport.models import ExternalTrip, ExternalTripSyncState
 from apps.transport.permissions import CanAssignTrips, CanViewTruckBoard
@@ -131,8 +131,11 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
 
     @action(detail=False, methods=['get'], url_path='candidate-shipments')
     def candidate_shipments(self, request):
+        # Scoped like every other shipment list: ?season=<id>, else the active season.
         shipments = (
-            Shipment.objects.filter(status__code='draft', is_gapy_satys=False, trip_id__isnull=True)
+            Shipment.objects.filter(
+                season=resolve_season(request), status__code='draft', is_gapy_satys=False, trip_id__isnull=True,
+            )
             .select_related('country', 'customer').prefetch_related('block_sources__block')
             .order_by('date', 'id')
         )

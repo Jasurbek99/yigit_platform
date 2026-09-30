@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { useSelectedSeason } from '@/hooks/useSeasonParam';
 import { isAxiosError } from 'axios';
 import type { ICandidateShipment, IExternalTrip, ITripSyncState } from '@/types/externalTrip';
 import { MOCK_CANDIDATE_SHIPMENTS, MOCK_EXTERNAL_TRIPS, MOCK_TRIP_SYNC_STATE } from '@/mock/externalTrips';
@@ -24,11 +25,17 @@ export function useExternalTrips(params: { free?: boolean; linked?: boolean } = 
   });
 }
 
+/** Preparation shipments still needing a truck, in the season browsed in the header. */
 export function useCandidateShipments() {
+  const { seasonId, isReady } = useSelectedSeason();
   return useQuery({
-    queryKey: [...TRIPS_KEY, 'candidates'],
-    queryFn: async (): Promise<ICandidateShipment[]> =>
-      USE_MOCK ? MOCK_CANDIDATE_SHIPMENTS : (await api.get(`${BASE}candidate-shipments/`)).data,
+    queryKey: [...TRIPS_KEY, 'candidates', seasonId],
+    queryFn: async (): Promise<ICandidateShipment[]> => {
+      if (USE_MOCK) return MOCK_CANDIDATE_SHIPMENTS;
+      const params = seasonId != null ? { season: seasonId } : undefined;
+      return (await api.get(`${BASE}candidate-shipments/`, { params })).data;
+    },
+    enabled: USE_MOCK || isReady,
   });
 }
 

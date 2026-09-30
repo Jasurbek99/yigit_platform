@@ -68,6 +68,19 @@ class TripApiTests(TestCase):
         self.assertIn('customer', rows[0])
         self.assertNotIn('code', rows[0])
 
+    def test_candidate_shipments_are_scoped_to_the_season(self):
+        from apps.core.models import Season
+        self._as('export_manager')
+        old = Season.objects.create(name='Old', start_date='2025-09-01', end_date='2026-06-30', is_active=False)
+        old_draft = _make_shipment(code='OLD-1', country=self.kz)
+        type(old_draft).objects.filter(pk=old_draft.pk).update(season=old)
+        url = '/api/v1/transport/external-trips/candidate-shipments/'
+        codes = [r['shipment_code'] for r in self.client.get(url).json()]
+        self.assertNotIn('OLD-1', codes)  # default = active season
+        self.assertIn(self.shipment.shipment_code, codes)
+        codes = [r['shipment_code'] for r in self.client.get(f'{url}?season={old.pk}').json()]
+        self.assertEqual(codes, ['OLD-1'])
+
     def test_date_filter(self):
         self._as('export_manager')
         make_trip(integration_trip_id='b242b4de-a941-4dba-899e-3b0235e9f4ec', planned_departure='2026-10-01')

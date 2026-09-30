@@ -3,9 +3,10 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import api from '@/services/api';
-import { useShipmentTrip } from './useExternalTrips';
+import { useCandidateShipments, useShipmentTrip } from './useExternalTrips';
 
 vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('@/hooks/useSeasonParam', () => ({ useSelectedSeason: () => ({ seasonId: 4, isReady: true }) }));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{children}</QueryClientProvider>
@@ -52,5 +53,14 @@ describe('openTripDocument', () => {
     const { openTripDocument } = await import('./useExternalTrips');
     await expect(openTripDocument(3)).rejects.toThrow();
     expect(tab.close).toHaveBeenCalled();
+  });
+});
+
+describe('useCandidateShipments', () => {
+  it('asks for the season browsed in the header', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({ data: [] });
+    const { result } = renderHook(() => useCandidateShipments(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.get).toHaveBeenCalledWith('/transport/external-trips/candidate-shipments/', { params: { season: 4 } });
   });
 });
