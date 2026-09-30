@@ -793,7 +793,7 @@ class DocumentPacketListView(ListAPIView):
     + per-firm ``sale_id`` and the packing-complete flag. Always scoped to the
     resolved season (``?season=``, default active); filters: ``?date=`` (exact),
     ``?date_from=`` / ``?date_to=`` (range), ``?status=`` (status code),
-    ``?firm=`` (export firm id). Gated by 'sale'.
+    ``?firm=`` (export firm id), ``?shipment=`` (one truck). Gated by 'sale'.
     """
 
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
@@ -836,6 +836,9 @@ class DocumentPacketListView(ListAPIView):
             qs = qs.filter(status__code=params['status'])
         if params.get('firm'):
             qs = qs.filter(firm_splits__export_firm_id=params['firm'])
+        if params.get('shipment'):
+            # One truck — the task card's print buttons (2026-09-30).
+            qs = qs.filter(pk=params['shipment'])
         return qs
 
 

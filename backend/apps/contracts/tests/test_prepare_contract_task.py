@@ -226,3 +226,23 @@ class PackingTemplateClosesGrossNetTests(_SeededPermsMixin, TestCase):
         }, format='json')
         self.assertEqual(resp.status_code, 200, resp.content[:300])
         self.assertEqual(self.shipment.tasks.get(title_key='tasks.fill_gross_net').state, TaskState.DONE)
+
+
+class DocumentPacketShipmentFilterTests(_SeededPermsMixin, TestCase):
+    """The task card asks for one truck's packet: ?shipment=<id> (2026-09-30)."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.client.force_authenticate(user=_make_user('pf_doc', 'export_manager'))
+        season = _make_season()
+        imp = _make_import_firm('IMPPF')
+        ef = _make_export_firm('PFA')
+        self.a = _make_packed_shipment(season, imp, status_code='gumruk_girish', code='0606001/25')
+        self.b = _make_packed_shipment(season, imp, status_code='gumruk_girish', code='0606002/25')
+        for s in (self.a, self.b):
+            ShipmentFirmSplit.objects.create(shipment=s, export_firm=ef, weight_kg=Decimal('9000'))
+
+    def test_one_trucks_packet(self):
+        resp = self.client.get('/api/v1/contracts/document-packets/', {'shipment': self.a.pk})
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        self.assertEqual([p['id'] for p in resp.json()['results']], [self.a.pk])
