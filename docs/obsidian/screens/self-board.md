@@ -104,6 +104,13 @@ Three sections, top to bottom:
   (`tasks.prepare_contract`) shows the Sheet's `ShipmentFirmContractsPanel`. Both close the task
   server-side and refresh My tasks. The lower «other fields» list shows filled fields first,
   then the empty ones (Sheet order within each group).
+- **Print from the task (2026-09-30):** print tasks carry the Documents page dialogs
+  (`TaskDocumentButtons`): «Print CMR» → CMR, «Print TIR» → TIR carnet, «Transport resminamalary» → both,
+  «Print CT-1» / «Print fito» / «Gümrük haty» → that one authority letter (`ct1_ru` / `fito_ru` / `customs_tk`)
+  per firm's sale, as a labelled button (`InvoiceDocumentsButton docType`), or «link contract» when a firm
+  has no sale.
+  A download closes the print task server-side (My tasks refetches within a minute); «Çap etdim» stays as
+  the fallback. Data: `GET /contracts/document-packets/?shipment=<id>`. Same on `MyTaskCard`.
 - A task a truck-change rollback reopened (`documents_redo: true` on the task list item) shows an orange
   «Täzeden: maşyn üýtgedi» tag on its `SelfKanbanCard` (2026-09-30).
 - `useCompleteTask` fires on mark-done; drawer closes automatically on success.

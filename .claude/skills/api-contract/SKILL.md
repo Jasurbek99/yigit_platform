@@ -390,6 +390,8 @@ shipment list, detail and sheet items — set when a Planning truck change rolle
 to draft, cleared when `tasks.docs_to_customs` closes again. Task list items gain
 `documents_redo` (bool — a document task that rollback reopened). `GET /transport/trips/` items
 gain `shipment_documents_reset_at` (the linked shipment's stamp, null when unlinked).
+`GET /contracts/document-packets/` accepts `?shipment=<id>` (one truck's packet — the task card's
+print buttons); same shape, one or zero results.
 
 Read-only by design (`ReadOnlyModelViewSet`). Editing a `TaskRule` leaves existing open Tasks
 on their snapshotted `target_fields` until `reconcile_tasks` runs, so write verbs need that
