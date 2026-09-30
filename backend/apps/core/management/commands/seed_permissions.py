@@ -123,6 +123,10 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
         'export.plan',
         _BOARD,
         _HARVEST_BOARD,
+        # Truck Board + Transport Plan (owner request 2026-09-30, core/0071).
+        # Transport Plan also needs the truck_allocation view grant below.
+        'export.truck_board',
+        'transport.plan',
     } | _UNIVERSAL,
     'warehouse_chief': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
@@ -219,7 +223,8 @@ for _role in ('greenhouse_manager', 'seller'):
 # shipments. admin / director / export_manager / boss hold it via _ALL_PAGES and
 # document_team via its copy of export_manager's set; transport sees the board
 # read-only (writes are gated on shipment_assign.can_edit, which it lacks).
-# Must stay in step with VISIBLE_ROLES in core/0070_truck_board_page_perms.
+# Must stay in step with VISIBLE_ROLES in core/0070_truck_board_page_perms, plus
+# the loading department added by core/0071.
 PAGE_DEFAULTS['transport'] = PAGE_DEFAULTS['transport'] | {'export.truck_board'}
 
 
@@ -321,6 +326,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # as they arrive. Mirrors the old hardcoded SHIPMENT_EDITOR_ROLES set the
         # fleet ViewSets used before the `fleet` resource existed (2026-09-03).
         'fleet': _VCE,
+        'truck_allocation': _VIEW,       # /transport/plan reads the week's allocation (core/0071)
     },
     'warehouse_chief': {
         # _VCE: warehouse_chief can now create draft shipments (Finding #2)
