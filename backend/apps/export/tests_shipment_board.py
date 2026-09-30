@@ -680,3 +680,39 @@ class BoardQueryCountTests(TestCase):
             f"Queries:\n"
             + "\n".join(q['sql'][:200] for q in ctx.captured_queries),
         )
+
+
+class PhaseAverageBoundariesTests(TestCase):
+    """DOCS come before LOAD in the lifecycle (docs/Tasks.md 9–22 → 23–27).
+    Fixed 2026-09-30: LOAD used customs_entry_at, the DESTINATION customs time
+    that comes after departure, so DOCS was always empty and LOAD ran to the
+    destination border."""
+
+    def test_docs_then_loading_then_transit_then_destination(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.core.models import Season, ShipmentStatusType
+        from apps.export.models import Shipment, ShipmentStatusLog
+        from apps.export.views import ShipmentViewSet
+
+        season = Season.objects.create(name='kpi-26', start_date='2025-09-01', end_date='2026-12-31',
+                                       is_active=True)
+        docs, _ = ShipmentStatusType.objects.get_or_create(
+            code='gumruk_girish', defaults={'name_tk': 'gg', 'name_en': 'gg', 'name_ru': 'gg', 'step_order': 1})
+        t0 = timezone.now() - timedelta(days=10)
+        shipment = Shipment.objects.create(
+            shipment_code='KPI-1', date='2026-01-01', season=season, status=docs,
+            loading_started_at=t0, departed_at=t0 + timedelta(hours=2),
+            customs_entry_at=t0 + timedelta(days=1),            # destination customs done
+            arrived_at=t0 + timedelta(days=2), sale_ended_at=t0 + timedelta(days=5),
+        )
+        from apps.core.models import User
+        user = User.objects.create_user(username='kpi_u', password='pw', role='admin')
+        log = ShipmentStatusLog.objects.create(shipment=shipment, status=docs, changed_by=user)
+        ShipmentStatusLog.objects.filter(pk=log.pk).update(changed_at=t0 - timedelta(hours=5))
+
+        avgs = ShipmentViewSet._compute_phase_avg_seconds(season.id)
+        self.assertEqual(avgs['DOCS'], 5 * 3600)
+        self.assertEqual(avgs['LOAD'], 2 * 3600)
+        self.assertEqual(avgs['TRANSIT'], 2 * 86400 - 2 * 3600)
+        self.assertEqual(avgs['DEST'], 3 * 86400)

@@ -4079,9 +4079,11 @@ class ShipmentViewSet(ModelViewSet):
         Uses AD-1 denormalized timestamp pairs. Only computes phases that have
         a start + end AD-1 timestamp. Returns None for phases with no data.
 
-        Phase → (start_field, end_field) pairs:
-            LOAD    loading_started_at → customs_entry_at
-            DOCS    customs_entry_at   → departed_at
+        Phase → (start, end) pairs, in lifecycle order (docs/Tasks.md: the
+        documents 9–22 come before loading 23–27; fixed 2026-09-30 — LOAD used
+        customs_entry_at, the destination customs time after departure):
+            DOCS    entry into gumruk_girish (status log) → loading_started_at
+            LOAD    loading_started_at → departed_at
             TRANSIT departed_at        → arrived_at
             DEST    arrived_at         → sale_ended_at
 
@@ -4106,12 +4108,24 @@ class ShipmentViewSet(ModelViewSet):
 
         # Fetch the timestamp columns for closed or late-stage shipments.
         # We pull only the 4 pairs we need to avoid over-fetching.
+        # The DOCS start has no timestamp column: the latest entry into
+        # gumruk_girish before loading started, from the status log.
+        from django.db.models import OuterRef, Subquery
+        from apps.export.models import ShipmentStatusLog
+        docs_started = (
+            ShipmentStatusLog.objects
+            .filter(shipment=OuterRef('pk'), status__code='gumruk_girish',
+                    changed_at__lte=OuterRef('loading_started_at'))
+            .order_by('-changed_at')
+            .values('changed_at')[:1]
+        )
         rows = list(
             Shipment.objects.filter(**filter_kwargs)
             .filter(loading_started_at__gte=thirty_days_ago)
+            .annotate(docs_started_at=Subquery(docs_started))
             .values(
+                'docs_started_at',
                 'loading_started_at',
-                'customs_entry_at',
                 'departed_at',
                 'arrived_at',
                 'sale_ended_at',
@@ -4128,8 +4142,8 @@ class ShipmentViewSet(ModelViewSet):
 
         for row in rows:
             pairs = [
-                ('LOAD',    row['loading_started_at'], row['customs_entry_at']),
-                ('DOCS',    row['customs_entry_at'],   row['departed_at']),
+                ('DOCS',    row['docs_started_at'],    row['loading_started_at']),
+                ('LOAD',    row['loading_started_at'], row['departed_at']),
                 ('TRANSIT', row['departed_at'],        row['arrived_at']),
                 ('DEST',    row['arrived_at'],         row['sale_ended_at']),
             ]
