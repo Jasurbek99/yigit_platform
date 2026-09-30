@@ -13,23 +13,56 @@ that bucket is still live; only an unattributed load (no harvest_date, or one
 naming a bucket that has since expired) falls back to oldest-bucket-first (FIFO)
 (2026-09-24, batch selection). A negative remainder (over-loaded day) never
 carries — it is clamped to 0 for display and reported separately as over_kg.
+
+Stored leftover (2026-09-30, spec 2026-09-30-gaplama-stored-leftover-design.md):
+HarvestDayEntry.yesterday_rest_value on day d's row is d's starting leftover AFTER
+expiry. The midnight job freezes it; people may correct it by hand. When present, the
+walk reconciles its bucket queue to it right after expiry — a shortfall off the oldest
+bucket, a surplus into yesterday's — and everything downstream (today's bucket, drains,
+over_kg) runs unchanged on the reconciled queue.
 """
 from collections import deque
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Sum
+from django.db.models import Max, Sum
 
 from apps.core.models import GreenhouseBlock
 from apps.export.models import Shipment, ShipmentBlockSource
 from apps.greenhouse.models import HarvestDayEntry
 
 
+def _reconcile_to_stored(buckets: deque, diff: Decimal, day: date) -> None:
+    """Shift the live bucket queue's total by `diff` kg (stored − calculated), in place.
+
+    A shortfall comes off the OLDEST buckets first — spoilage and miscounts hit the
+    oldest goods, the same order the FIFO drain uses. A surplus is found crates of
+    unknown age: it joins yesterday's bucket (created if absent), so it expires on the
+    block's normal carry_days from there and never shows as a second bucket with the
+    same origin date.
+    """
+    if diff > 0:
+        yesterday = day - timedelta(days=1)
+        if buckets and buckets[-1][1] == yesterday:
+            buckets[-1][0] += diff
+        else:
+            buckets.append([diff, yesterday])
+        return
+    to_remove = -diff
+    while buckets and to_remove > 0:
+        take = min(buckets[0][0], to_remove)
+        buckets[0][0] -= take
+        to_remove -= take
+        if buckets[0][0] <= 0:
+            buckets.popleft()
+
+
 def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
     """Return {'days': [...], 'trucks': [...], 'week_totals': [...]} for the window.
 
     days[i] = {date, block_id, block_code, location, plan_kg, loaded_kg,
-               carried_in_kg, carry_in_breakdown, available_kg, over_kg, carried_out_kg}
+               carried_in_kg, carry_in_breakdown, available_kg, over_kg, carried_out_kg,
+               rest_stored_kg, rest_calc_kg}
     trucks[i] = {id, shipment_code, export_code, date, status, status_code,
                  status_display, country, customer,
                  block_sources: [{block_id, block_code, weight_kg}]}
@@ -136,15 +169,21 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
         for b in all_blocks if b.parent_id is None and b.is_active
     }
 
-    plan_rows = (
+    # Materialised: read twice below, and a second iteration of a queryset is a second query.
+    plan_rows = list(
         HarvestDayEntry.objects
         .filter(season=season, block_id__in=block_meta, entry_date__range=(walk_start, to_date))
         .values('block_id', 'entry_date')
-        .annotate(plan_kg=Sum('plan_value'))
+        .annotate(plan_kg=Sum('plan_value'), rest_kg=Max('yesterday_rest_value'))
         .order_by()
     )
     plan_map: dict[tuple[int, date], Decimal] = {
         (row['block_id'], row['entry_date']): (row['plan_kg'] or Decimal(0)) for row in plan_rows
+    }
+    # Stored starting leftover per block-day — absent where nothing is stored (spec §3).
+    rest_map: dict[tuple[int, date], Decimal] = {
+        (row['block_id'], row['entry_date']): row['rest_kg']
+        for row in plan_rows if row['rest_kg'] is not None
     }
 
     loaded_rows = (
@@ -186,6 +225,14 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
             # Expire buckets older than this block's own carry_days.
             while buckets and (d - buckets[0][1]).days > block_carry_days:
                 buckets.popleft()
+
+            # Stored leftover (spec 2026-09-30 §4). Reconciled AFTER expiry: the stored
+            # value is post-expiry, so an untouched midnight snapshot is a no-op here and
+            # can never re-add kg that just expired.
+            rest_calc_kg = sum((b[0] for b in buckets), Decimal(0))
+            rest_stored_kg = rest_map.get((block_id, d))
+            if rest_stored_kg is not None and rest_stored_kg != rest_calc_kg:
+                _reconcile_to_stored(buckets, rest_stored_kg - rest_calc_kg, d)
 
             carried_in_kg = sum((b[0] for b in buckets), Decimal(0))
             # Snapshot BEFORE today's consumption loop below touches the buckets —
@@ -265,6 +312,8 @@ def build_gaplama_board(from_date: date, to_date: date, season) -> dict:
                     'available_kg': available_kg,
                     'over_kg': over_kg,
                     'carried_out_kg': remainder_today,
+                    'rest_stored_kg': rest_stored_kg,
+                    'rest_calc_kg': rest_calc_kg,
                 })
 
     # Week totals — pure post-processing of days_out already in memory, no new query.

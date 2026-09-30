@@ -12,6 +12,7 @@ MAX_WINDOW_DAYS = 31
 
 _DAY_DECIMAL_FIELDS = (
     'plan_kg', 'loaded_kg', 'carried_in_kg', 'available_kg', 'over_kg', 'carried_out_kg',
+    'rest_calc_kg',
 )
 _WEEK_TOTAL_DECIMAL_FIELDS = ('plan_kg', 'loaded_kg', 'over_kg', 'available_kg')
 
@@ -28,6 +29,8 @@ def _stringify_decimals(board: dict) -> dict:
     for day in board['days']:
         for field in _DAY_DECIMAL_FIELDS:
             day[field] = str(day[field])
+        if day['rest_stored_kg'] is not None:
+            day['rest_stored_kg'] = str(day['rest_stored_kg'])
         for bucket in day['carry_in_breakdown']:
             bucket['kg'] = str(bucket['kg'])
     for truck in board['trucks']:
