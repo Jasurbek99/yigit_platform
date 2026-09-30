@@ -61,7 +61,7 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
 
   it('the new target fields have a label in every language', () => {
     for (const lng of ['en', 'ru', 'tk']) {
-      for (const key of ['trip_id', 'truck_head_id', 'packing_template', 'advance_links', 'has_current_advance', 'customs_exit_at', 'loading_ended_at']) {
+      for (const key of ['trip_id', 'truck_head_id', 'packing_template', 'advance_links', 'has_current_advance', 'customs_exit_at', 'loading_ended_at', 'sales_report', 'customs_entry_at']) {
         expect(i18n.getFixedT(lng)(`tasks.field_label.${key}`, { defaultValue: '' })).not.toBe('');
       }
     }
@@ -71,6 +71,14 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
     for (const lng of ['en', 'ru', 'tk']) {
       expect(i18n.getFixedT(lng)('tasks.loading_ended', { defaultValue: '' })).not.toBe('');
     }
+  });
+
+  it('destination customs is worded as one moment — customs done (item 30)', () => {
+    const en = i18n.getFixedT('en');
+    const ru = i18n.getFixedT('ru');
+    expect(en('shipment_edit_drawer.field.customs_entry_at')).toBe('Dest. customs done');
+    expect(ru('shipment_edit_drawer.field.customs_entry_at')).toBe('Таможня пройдена');
+    expect(ru('tasks.trigger_dest_customs')).toBe('Отметить, когда таможня назначения пройдена');
   });
 
   it('join_supply links to the Assignment board', () => {
