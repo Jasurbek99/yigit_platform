@@ -93,7 +93,7 @@ keeps its own `?status_code=draft` query.
 - Page: `frontend/src/pages/export/AssignmentBoard.tsx`, `frontend/src/pages/export/assignment/*`
   (`BoardColumn`, `SupplyCard`, `ExportPartCard`, `PackingActionPanel`, `boardHelpers.ts`)
 - Route: `/export/assign` (`pageCode: 'export.assign'`)
-- Navigation: no sidebar entry — removed from every role's menu 2026-08-24 (owner request, same treatment as Truck Forecast); reachable only by direct URL. See [[permissions-system#Sidebar Navigation (2026-08-05)]].
+- Navigation: sidebar entry in the staff menu's Export group and the boss menu's Prep group — removed from every role's menu 2026-08-24, restored 2026-09-29 (owner request). See [[permissions-system#Sidebar Navigation (2026-08-05)]].
 - Backend: `join` / `unjoin` / `swap_packaging` actions on `ShipmentViewSet`
   (`backend/apps/export/views.py`); business logic in `backend/apps/export/services/packaging.py`.
 - Hooks: `useJoinBoard`, `useJoinShipments`, `useUnjoinPackaging`, `useSwapPackaging`

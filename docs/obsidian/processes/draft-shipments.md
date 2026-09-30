@@ -296,7 +296,7 @@ shipments"`.
 
 **Files**: `frontend/src/pages/export/DraftPool.tsx`, `frontend/src/pages/export/AssignmentBoard.tsx`.
 
-**Navigation:** neither page has a sidebar entry any more — both dropped from every role's menu 2026-08-24 (owner request). Routes, page permissions and the pages themselves are untouched; reachable only by direct URL. See [[permissions-system#Sidebar Navigation (2026-08-05)]].
+**Navigation:** both pages are back in the sidebar (staff: Export group; boss: Prep group) — dropped from every role's menu 2026-08-24, restored 2026-09-29 (owner request). Visibility is still gated by the `export.drafts` / `export.assign` page permissions. See [[permissions-system#Sidebar Navigation (2026-08-05)]].
 
 ### Components
 
