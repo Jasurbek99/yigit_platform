@@ -30,6 +30,13 @@ Backend: `ShipmentViewSet.sheet()` action at `GET /api/v1/export/shipments/sheet
 
 Three frozen left columns (#, Who, Field label) + virtualised data columns rendered via `@tanstack/react-virtual`. A full season (~1,000 shipments × 45 active rows, numbered up to R49) is handled by virtualising columns; only ~20 visible at a time are in the DOM.
 
+## Truck-change rollback mark (2026-09-30)
+
+A column whose shipment was rolled back to «Подготовка» because its Planning trip's truck changed
+shows a small orange «Maşyn üýtgedi» tag in the header (`SheetColumnHeader` → `DocumentsRedoTag`
+compact; full text and date in the tooltip) until «Gümrüge ugradyldy» closes again. Data:
+`documents_reset_at` on the sheet item. See [[../processes/truck-board#Reaction to a Planning change]].
+
 ## Freeze panes (configurable)
 
 Both axes of the freeze are user-configurable, modelled on Google Sheets:

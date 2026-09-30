@@ -150,7 +150,9 @@ Owner's catalog, `docs/Tasks.md` items 5b–22. Spec:
   built on them; the contract (9) and gross/net (10) stay done. Downloads and advances from
   before the stamp do not count (a second advance is needed; the first stays linked). The
   reopened tasks are all open at once — the redo is not re-sequenced. The stamp is cleared when
-  «Gümrüge ugradyldy» (21b) closes again.
+  «Gümrüge ugradyldy» (21b) closes again. While it is set the Sheet, «Подготовка», the shipment
+  card, My tasks (reopened tasks only) and the Truck Board show an orange «Maşyn üýtgedi» mark —
+  see [[../processes/truck-board#Reaction to a Planning change]].
 - **Deactivated** (rows kept, `is_active=False`): `set_border_point`, `give_documents`,
   `give_documents_gapy`, `start_documents_prep`, the transport `assign_driver`,
   `trigger_customs_exit`. Their open tasks on in-flight shipments still close as before.

@@ -65,8 +65,16 @@ counts. Status moves (`CREATED → PLANNED …`) and our own export-code push do
 | `yuklenme` with `loading_started_at`/`loading_ended_at`, or later | **conflict** — not applied, red banner | **conflict** — stays linked |
 
 Rollback re-gates the steps already passed, otherwise auto-advance would walk straight back:
-`documents_status → in_progress` and `start_documents_prep` reopened; for every passed step its gate
-task is reopened and its trigger field cleared (`customs_exit_at`, `loading_started_at`).
+`documents_status → in_progress`; for every passed step its gate task is reopened and its trigger
+field cleared (`customs_exit_at`, `loading_started_at`). **Since the PREP/DOCS chain (2026-09-30)**
+it also reopens document tasks 11–21b, 22 and the advance (20 — a second advance is needed, the first
+stays linked) and stamps `Shipment.documents_reset_at`; downloads and advances from before the stamp
+do not count. See [[../reference/task-rules#PREP / DOCS chain (2026-09-30)]].
+
+**Rollback mark.** While `documents_reset_at` is set the shipment shows an orange tag «Maşyn üýtgedi — resminamalar täzeden» / «Машина изменена — документы заново» (`components/shipment/DocumentsRedoTag.tsx`)
+on the Linked trips tab (`ExternalTrip.shipment_documents_reset_at`), the Sheet column header (short
+«Maşyn üýtgedi»), the «Подготовка» card and the shipment card; reopened tasks on My tasks show
+«Täzeden: maşyn üýtgedi» (`Task.documents_redo`). It clears when «Gümrüge ugradyldy» (21b) closes.
 A conflict clears only by **Accept** (take Planning's values, no status change) or **Unlink**.
 
 Our shipment cancelled → the next poll frees its trip (Planning is not told; no such operation).

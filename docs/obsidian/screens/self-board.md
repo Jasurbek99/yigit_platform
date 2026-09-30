@@ -98,6 +98,8 @@ Three sections, top to bottom:
 - For `quality.*` dotted-path fields (used by the `quality_inspection` task) that have no matching `IRowConfig`, a `ReadOnlyStubRow` renders: translated label + current boolean value + "edit in shipment detail" hint. No crash.
 - `useStartTask` fires on first field click (debounced via `useRef` flag — at most once per mount). Clicks bubble up through the presentation wrapper div.
 - "Mark Done" button when `completion_rule === 'manual_done'` **or `'confirm'`** (2026-09-30, `utils/taskButtons.ts` `isButtonTask`) and task is open/in_progress. The label is the task's own `tasks.button.<key>` («Çap etdim», «Ugradyldy», «Taýýarladym», …), falling back to «Mark done». `tasks.join_supply` also shows a link to the Assignment board (`/export/assign`). Same in `MyTaskCard`.
+- A task a truck-change rollback reopened (`documents_redo: true` on the task list item) shows an orange
+  «Täzeden: maşyn üýtgedi» tag on its `SelfKanbanCard` (2026-09-30).
 - `useCompleteTask` fires on mark-done; drawer closes automatically on success.
 - Shows a done `<Tag>` when the task is already completed. All fields are read-only when task is done/cancelled (`disabled` prop to renderer).
 - Sheet data (`sheetItem`, `rows`, `rowSettings`, `isSheetLoading`) is threaded from `ActiveDrawerLayout`.

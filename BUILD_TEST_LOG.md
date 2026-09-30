@@ -1,3 +1,4 @@
+- [ ] 2026-09-30 — «Maşyn üýtgedi» mark on rolled-back shipments: Sheet header, Подготовка card, shipment card, My tasks (reopened tasks), Truck Board — NEEDS TEST
 - [ ] 2026-09-30 — Truck-change rollback (PR #24) redoes documents 11–22 and needs a second advance; old downloads/advance ignored — NEEDS TEST
 - [ ] 2026-09-30 — PREP+DOCS task chain (Tasks.md 5b–22): «after N» tasks, `confirm` buttons with own labels, print tasks close on download, contract task closes when agreements downloaded, Awans ber on advance link, join_supply links to Assignment board — NEEDS TEST
 - [ ] 2026-09-29 — Truck Board + Planning trips integration (poll, assign, change/rollback, pushes, read-only transport cells), branch feat/transport-trips — NEEDS TEST

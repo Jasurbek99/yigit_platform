@@ -385,6 +385,12 @@ change): `GET /contracts/shipments/{id}/cmr/` → `tasks.print_cmr`, `…/tir/` 
 `Contract.agreement_downloaded_at` (first time) and may close `tasks.prepare_contract`. A
 closed season records and closes nothing; the file is still served.
 
+**Truck-change rollback mark (2026-09-30):** `documents_reset_at` (ISO datetime or null) on the
+shipment list, detail and sheet items — set when a Planning truck change rolled the shipment back
+to draft, cleared when `tasks.docs_to_customs` closes again. Task list items gain
+`documents_redo` (bool — a document task that rollback reopened). `GET /transport/trips/` items
+gain `shipment_documents_reset_at` (the linked shipment's stamp, null when unlinked).
+
 Read-only by design (`ReadOnlyModelViewSet`). Editing a `TaskRule` leaves existing open Tasks
 on their snapshotted `target_fields` until `reconcile_tasks` runs, so write verbs need that
 reconciliation wired in first.
