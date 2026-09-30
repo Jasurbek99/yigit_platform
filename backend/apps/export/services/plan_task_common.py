@@ -46,6 +46,20 @@ def encode_counts(counts: Mapping[tuple[int, ...], int]) -> str:
     )
 
 
+EMPTY_BASELINE = ';'
+
+
+def encode_baseline(counts: Mapping[tuple[int, ...], int]) -> str:
+    """encode_counts, but a recorded empty map is ';', never ''.
+
+    '' on a truck_allocation task means "no baseline recorded yet" (a task from
+    before this feature, adopted on first sync). A plan that genuinely needs no
+    trucks must stay distinguishable from that, or a later increase would be
+    adopted silently instead of raising a review. decode_counts(';') == {}.
+    """
+    return encode_counts(counts) or EMPTY_BASELINE
+
+
 def decode_counts(text: str) -> dict[tuple[int, ...], int]:
     out: dict[tuple[int, ...], int] = {}
     for chunk in filter(None, text.split(';')):

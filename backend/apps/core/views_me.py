@@ -77,6 +77,7 @@ class MeTaskListView(APIView):
         from apps.export.serializers import TaskListSerializer
         from apps.export.services import (
             resolve_all_open_weekly_plan_tasks,
+            resolve_daily_plan_tasks,
             resolve_local_sell_plan_tasks,
             resolve_truck_allocation_tasks,
         )
@@ -102,6 +103,9 @@ class MeTaskListView(APIView):
         # simpler reason that there is no per-user set to resolve.
         resolve_local_sell_plan_tasks()
         resolve_truck_allocation_tasks()
+        # Daily loading/export tasks: resolve only — creation belongs to the
+        # 06:05 beat (a GET that creates would race on every badge poll).
+        resolve_daily_plan_tasks()
 
         qs = Task.objects.select_related(
             'shipment__status', 'rule', 'assignee_user', 'scope_block',

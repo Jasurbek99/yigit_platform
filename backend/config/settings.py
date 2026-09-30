@@ -493,6 +493,22 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=6, minute=0),
         'options': {'expires': 3600},
     },
+    # Plan-change reviews («Tanyşdym»): greenhouse plan edits cannot call export
+    # (dependency direction), so this sweep raises alloc_review / transport_plan
+    # tasks. set_splits also syncs synchronously.
+    'plan-ack-sync': {
+        'task': 'apps.export.tasks.sync_plan_ack_tasks',
+        'schedule': 1800.0,
+        'options': {'expires': 1700},
+    },
+    # «Ýük planla» / «Eksport planla» (docs/Tasks.md items 4, 5a). Runs every day
+    # so Saturday's leftovers become `missed` on Sunday; creates Mon–Sat only.
+    # 06:05, after weekly-plan-setup.
+    'daily-plan-tasks': {
+        'task': 'apps.export.tasks.run_daily_plan_tasks',
+        'schedule': crontab(hour=6, minute=5),
+        'options': {'expires': 3600},
+    },
 }
 
 # ════════════════════════════════════════════════

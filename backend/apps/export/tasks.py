@@ -25,6 +25,22 @@ def send_saturday_plan_summary() -> None:
 
 
 @shared_task
+def sync_plan_ack_tasks() -> None:
+    """Every 30 min: open alloc_review / transport_plan tasks the plan or allocation now needs."""
+    from apps.export.services.plan_ack_tasks import sync_plan_ack_tasks as run
+
+    run()
+
+
+@shared_task
+def run_daily_plan_tasks() -> None:
+    """Daily 06:05: close done daily tasks, mark yesterday's leftovers missed, open today's."""
+    from apps.export.services.daily_plan_tasks import run_daily_plan_tasks as run
+
+    run()
+
+
+@shared_task
 def run_weekly_plan_setup() -> None:
     """Daily: initialize the current+next plan weeks and generate plan tasks.
 

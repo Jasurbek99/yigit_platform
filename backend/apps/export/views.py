@@ -4343,6 +4343,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
     POST   /api/v1/export/tasks/{id}/block/     — → BLOCKED (with reason)
     POST   /api/v1/export/tasks/{id}/unblock/   — BLOCKED → IN_PROGRESS
     POST   /api/v1/export/tasks/{id}/complete/  — → DONE (manual_done only)
+    POST   /api/v1/export/tasks/{id}/acknowledge/ — «Tanyşdym» (alloc_review / transport_plan only)
     POST   /api/v1/export/tasks/{id}/cancel/    — → CANCELLED (admin/director only)
 
     List is scoped to the resolved season via `shipment`. Task.shipment is
@@ -4577,6 +4578,15 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from apps.export.services.plan_ack_tasks import ACK_KINDS
+
+        if task.kind in ACK_KINDS:
+            # «Tanyşdym» must record what was seen — only /acknowledge/ does.
+            return Response(
+                {'error': 'Use /acknowledge/ for review tasks.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if task.state == TaskState.DONE:
             # Idempotent — already done
             return Response(TaskDetailSerializer(task).data)
@@ -4616,6 +4626,57 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
         task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
 
         task.refresh_from_db()
+        return Response(TaskDetailSerializer(task).data)
+
+    @action(detail=True, methods=['post'])
+    def acknowledge(self, request, pk=None):
+        """POST /api/v1/export/tasks/{id}/acknowledge/ — «Tanyşdym».
+
+        alloc_review / transport_plan only. Body: {"snapshot": "<the page's
+        snapshot>"}. Only the assignee role family, admin / boss / director, or
+        a superuser may press it — export_manager on transport's task would
+        move the baseline past a change transport never saw. If the data
+        moved since the page loaded → 409 and nothing changes. Stores what was
+        seen in Task.ack_snapshot and closes the task. Idempotent on a DONE task.
+        """
+        from apps.export.models import Task, TaskState
+        from apps.export.serializers import TaskDetailSerializer
+        from apps.export.services.plan_ack_tasks import (
+            ACK_KINDS, StaleSnapshot, acknowledge, can_acknowledge,
+        )
+
+        task = self.get_object()
+        if task.kind not in ACK_KINDS:
+            return Response(
+                {'error': 'Only review tasks can be acknowledged.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not can_acknowledge(request.user, task.assignee_role):
+            return Response(
+                {'error': f"Only role '{task.assignee_role}' can acknowledge this task."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        snapshot = request.data.get('snapshot')
+        if not isinstance(snapshot, str):
+            return Response(
+                {'error': 'snapshot is required — post back the snapshot of the page you reviewed.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            task = Task.objects.select_for_update().get(pk=task.pk)
+            if task.state == TaskState.CANCELLED:
+                return Response(
+                    {'error': 'Cannot acknowledge a cancelled task.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if task.state != TaskState.DONE:
+                try:
+                    acknowledge(task, request.user, snapshot)
+                except StaleSnapshot:
+                    return Response(
+                        {'error': 'stale', 'detail': 'The data changed since the page was loaded. Reload and review again.'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
         return Response(TaskDetailSerializer(task).data)
 
     @action(detail=True, methods=['post'])

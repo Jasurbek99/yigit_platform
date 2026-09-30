@@ -47,6 +47,17 @@ _TRUCK_WRITE_ROLES = TRUCK_WRITE
 _PRICE_WRITE_ROLES = PRICE_WRITE
 
 
+def _year_week(request) -> tuple[int, int] | None:
+    """?year=&week= as a valid ISO week, or None."""
+    try:
+        year = int(request.query_params['year'])
+        week = int(request.query_params['week'])
+        datetime.date.fromisocalendar(year, week, 1)
+    except (KeyError, ValueError):
+        return None
+    return year, week
+
+
 class PriceEntryViewSet(ModelViewSet):
     """
     GET   /api/v1/export/prices/          — list (filter by ?city=&days=7)
@@ -164,6 +175,13 @@ class WeeklyTruckAllocationViewSet(SeasonScopedMixin, ModelViewSet):
                 defaults={'truck_count': count},
             )
 
+        # Spec §3 (planning tasks): the manager saw the current plan while
+        # saving — refresh the review baseline and close the allocation task
+        # synchronously, never from the lazy /me/tasks/ read.
+        from apps.export.services.plan_ack_tasks import on_allocation_saved
+
+        on_allocation_saved(allocation.year, allocation.week_number)
+
         allocation.refresh_from_db()
         serializer = self.get_serializer(
             WeeklyTruckAllocation.objects.prefetch_related(
@@ -171,6 +189,42 @@ class WeeklyTruckAllocationViewSet(SeasonScopedMixin, ModelViewSet):
             ).get(pk=allocation.pk)
         )
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='review')
+    def review(self, request):
+        """GET /api/v1/export/truck-allocations/review/?year=&week=
+
+        The /export/plan banner: the open alloc_review task (if any), the days
+        whose needed-truck count moved since the allocation baseline, the
+        snapshot «Tanyşdym» must post back, and whether this user may press it.
+        """
+        from apps.export.services.plan_ack_tasks import build_review
+
+        parsed = _year_week(request)
+        if parsed is None:
+            return Response(
+                {'error': 'year and week must be a valid ISO year and week.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(build_review(*parsed, request.user))
+
+    @action(detail=False, methods=['get'], url_path='transport-plan')
+    def transport_plan(self, request):
+        """GET /api/v1/export/truck-allocations/transport-plan/?year=&week=
+
+        The /transport/plan page: the week's allocation, what transport last
+        acknowledged, and the open transport_plan task. Needs truck_allocation
+        can_view (transport is granted view-only).
+        """
+        from apps.export.services.plan_ack_tasks import build_transport_plan
+
+        parsed = _year_week(request)
+        if parsed is None:
+            return Response(
+                {'error': 'year and week must be a valid ISO year and week.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(build_transport_plan(*parsed, request.user))
 
 
 class WeeklyDestinationSelectionViewSet(SeasonScopedMixin, ModelViewSet):
