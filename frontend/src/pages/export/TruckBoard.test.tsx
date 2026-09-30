@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
@@ -70,5 +70,17 @@ describe('TruckBoard', () => {
     fireEvent.click(screen.getByText(/KZ-TRUCK/));
     fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
     expect(toast.error).toHaveBeenCalledWith('This truck is already assigned');
+  });
+
+  it('shows an error instead of an empty board when the trips cannot load', () => {
+    renderBoard();
+    vi.mocked(trips.useExternalTrips).mockReturnValue({ data: undefined, isLoading: false, isError: true } as any);
+    cleanup();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter><TruckBoard /></MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText('Could not load the trips')).toBeInTheDocument();
   });
 });

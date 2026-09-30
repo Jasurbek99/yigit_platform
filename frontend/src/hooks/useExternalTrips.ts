@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { isAxiosError } from 'axios';
 import type { ICandidateShipment, IExternalTrip, ITripSyncState } from '@/types/externalTrip';
+import { MOCK_CANDIDATE_SHIPMENTS, MOCK_EXTERNAL_TRIPS, MOCK_TRIP_SYNC_STATE } from '@/mock/externalTrips';
 
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
 const BASE = '/transport/external-trips/';
 export const TRIPS_KEY = ['transport', 'external-trips'] as const;
 
@@ -9,6 +12,7 @@ export function useExternalTrips(params: { free?: boolean; linked?: boolean } = 
   return useQuery({
     queryKey: [...TRIPS_KEY, params],
     queryFn: async (): Promise<IExternalTrip[]> => {
+      if (USE_MOCK) return MOCK_EXTERNAL_TRIPS.filter((trip) => (params.linked ? trip.shipment : !trip.shipment));
       const { data } = await api.get<IExternalTrip[]>(BASE, {
         params: { free: params.free ? 1 : undefined, linked: params.linked ? 1 : undefined },
       });
@@ -21,14 +25,16 @@ export function useExternalTrips(params: { free?: boolean; linked?: boolean } = 
 export function useCandidateShipments() {
   return useQuery({
     queryKey: [...TRIPS_KEY, 'candidates'],
-    queryFn: async (): Promise<ICandidateShipment[]> => (await api.get(`${BASE}candidate-shipments/`)).data,
+    queryFn: async (): Promise<ICandidateShipment[]> =>
+      USE_MOCK ? MOCK_CANDIDATE_SHIPMENTS : (await api.get(`${BASE}candidate-shipments/`)).data,
   });
 }
 
 export function useTripSyncState() {
   return useQuery({
     queryKey: [...TRIPS_KEY, 'sync-state'],
-    queryFn: async (): Promise<ITripSyncState> => (await api.get(`${BASE}sync-state/`)).data,
+    queryFn: async (): Promise<ITripSyncState> =>
+      USE_MOCK ? MOCK_TRIP_SYNC_STATE : (await api.get(`${BASE}sync-state/`)).data,
     refetchInterval: 60_000,
   });
 }
@@ -66,12 +72,24 @@ export function useMoveTrip() {
   );
 }
 
+/** The Planning trip on one shipment — open to every role (shipment page banner). */
 export function useShipmentTrip(shipmentId: number) {
-  const query = useExternalTrips({ linked: true });
-  return { ...query, data: query.data?.find((trip) => trip.shipment === shipmentId) ?? null };
+  return useQuery({
+    queryKey: [...TRIPS_KEY, 'by-shipment', shipmentId],
+    queryFn: async (): Promise<IExternalTrip | null> => {
+      if (USE_MOCK) return MOCK_EXTERNAL_TRIPS.find((trip) => trip.shipment === shipmentId) ?? null;
+      try {
+        return (await api.get<IExternalTrip>(`/transport/shipments/${shipmentId}/trip/`)).data;
+      } catch (err) {
+        if (isAxiosError(err) && err.response?.status === 404) return null;
+        throw err;
+      }
+    },
+  });
 }
 
-export function tripDocumentUrl(tripId: number): string {
-  const base = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
-  return `${base}${BASE}${tripId}/document/`;
+/** Fetch the trip's A4 PDF and open it; throws so the caller can show the translated error. */
+export async function openTripDocument(tripId: number): Promise<void> {
+  const { data } = await api.get<Blob>(`${BASE}${tripId}/document/`, { responseType: 'blob' });
+  window.open(URL.createObjectURL(data), '_blank');
 }

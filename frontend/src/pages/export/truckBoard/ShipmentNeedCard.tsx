@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { ICandidateShipment } from '@/types/externalTrip';
 import { COLORS, FONT } from '@/constants/styles';
+import { boardCardStyle } from './truckBoardHelpers';
 
 interface IShipmentNeedCardProps {
   shipment: ICandidateShipment;
@@ -14,14 +15,7 @@ export function ShipmentNeedCard({ shipment, selected, onSelect }: IShipmentNeed
     <div
       data-testid={`shipment-card-${shipment.id}`}
       onClick={onSelect}
-      style={{
-        background: selected ? COLORS.bgBlue : '#fff',
-        border: selected ? '2px solid #1677ff' : '1px solid #f0f0f0',
-        borderRadius: 6,
-        padding: 10,
-        marginBottom: 8,
-        cursor: 'pointer',
-      }}
+      style={boardCardStyle(selected)}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
         <span style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 12, color: COLORS.primary }}>

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { filterShipmentsForTrip, filterTripsForShipment, hasVisaFor, syncAgeMinutes } from './truckBoardHelpers';
+import {
+  apiErrorKey, filterShipmentsForTrip, filterTripsForShipment, hasVisaFor, pushErrorParts, syncAgeMinutes,
+} from './truckBoardHelpers';
 import type { ICandidateShipment, IExternalTrip } from '@/types/externalTrip';
 
 const trip = (id: number, code: string | null, visas: string[] = []) =>
@@ -39,5 +41,16 @@ describe('truckBoardHelpers', () => {
     const now = new Date('2026-09-29T12:10:00Z');
     expect(syncAgeMinutes('2026-09-29T12:00:00Z', now)).toBe(10);
     expect(syncAgeMinutes(null, now)).toBeNull();
+  });
+
+  it('splits a stored push error into op and code', () => {
+    expect(pushErrorParts('export-code: DUPLICATE_EXPORT_CODE')).toEqual({ op: 'export-code', code: 'DUPLICATE_EXPORT_CODE' });
+    expect(pushErrorParts('garbage')).toEqual({ op: '', code: 'garbage' });
+  });
+
+  it('reads the contract error key from an axios error, generic otherwise', () => {
+    const axiosErr = Object.assign(new Error('x'), { isAxiosError: true, response: { data: { error: 'trip_taken' } } });
+    expect(apiErrorKey(axiosErr)).toBe('trip_taken');
+    expect(apiErrorKey(new Error('boom'))).toBe('generic');
   });
 });

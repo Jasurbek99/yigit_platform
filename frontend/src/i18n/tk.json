@@ -4020,7 +4020,11 @@
       "trip_closed": "Reýs ýapyk ýa-da ýatyryldy",
       "gapy": "Gapy satyşyň öz sürüjisi bar",
       "locked": "Ugratma gulplandy — ýükleme başlady",
-      "generic": "Ýatda saklap bolmady"
+      "generic": "Ýatda saklap bolmady",
+      "pdf": "Reýs resminamalaryny açyp bolmady",
+      "season_closed": "Möwsüm ýapyk",
+      "shipment_not_found": "Ugratma tapylmady",
+      "shipment_id_required": "Ilki ugratmany saýlaň"
     },
     "accept_change": "Üýtgetmäni kabul et",
     "accepted": "Üýtgetme kabul edildi",
@@ -4028,6 +4032,36 @@
     "tab_linked": "Birikdirilenler",
     "unlink": "Aýyr",
     "move": "Göçür",
-    "unlink_confirm": "Ugratma taýýarlyga gaýdyp biler. Dowam etmelimi?"
+    "unlink_confirm": "Ugratma taýýarlyga gaýdyp biler. Dowam etmelimi?",
+    "status": {
+      "CREATED": "Döredildi",
+      "PLANNED": "Meýilleşdirildi",
+      "DOCUMENTS_READY": "Resminamalar taýýar",
+      "ON_THE_WAY": "Ýolda",
+      "ARRIVED_FOR_LOADING": "Ýüklemä geldi",
+      "LOADED": "Ýüklendi",
+      "BORDER_CROSSING": "Serhetde",
+      "ARRIVED": "Bardy",
+      "UNLOADED": "Düşürildi",
+      "CLOSED": "Ýapyldy",
+      "CANCELLED": "Ýatyryldy",
+      "ARCHIVED": "Arhiwde"
+    },
+    "minutes_ago": "{{minutes}} min öň",
+    "load_error": "Reýsleri ýükläp bolmady",
+    "conflict": {
+      "changed": "Planning maşyny çalyşdy: {{from}} → {{to}}",
+      "cancelled": "Planning reýsi ýatyrdy: {{from}} → {{to}}"
+    },
+    "push_op": {
+      "export-code": "eksport kody",
+      "loading": "ýükleme ýeri"
+    },
+    "push_error": {
+      "DUPLICATE_EXPORT_CODE": "Planning eksport koduny kabul etmedi: ol başga reýsde bar",
+      "CITY_COUNTRY_MISMATCH": "Planning ýükleme ýerini kabul etmedi: şäher reýsiň ýurdunda däl",
+      "PLANNING_UNAVAILABLE": "Planning jogap bermedi — maglumat awtomatik gaýtadan iberiler",
+      "generic": "Planning {{op}} kabul etmedi ({{code}})"
+    }
   }
 }

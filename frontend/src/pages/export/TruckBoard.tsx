@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { isAxiosError } from 'axios';
-import { Alert, Modal, Spin, Tabs, Tag, Typography } from 'antd';
+import { Alert, Spin, Tabs, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,7 +14,8 @@ import { TripCard } from './truckBoard/TripCard';
 import { TripDrawer } from './truckBoard/TripDrawer';
 import { TruckMatchPanel } from './truckBoard/TruckMatchPanel';
 import {
-  STALE_SYNC_MINUTES, filterShipmentsForTrip, filterTripsForShipment, syncAgeMinutes,
+  STALE_SYNC_MINUTES, apiErrorKey, confirmUnknownCountry, filterShipmentsForTrip, filterTripsForShipment,
+  syncAgeMinutes,
 } from './truckBoard/truckBoardHelpers';
 
 const { Title, Text } = Typography;
@@ -25,8 +25,8 @@ export default function TruckBoard() {
   const { user } = useAuth();
   const isReadOnly = useSeasonReadOnly();
   const canAssign = canDo(user, 'shipment_assign', 'edit');
-  const { data: shipments = [], isLoading: shipmentsLoading } = useCandidateShipments();
-  const { data: trips = [], isLoading: tripsLoading } = useExternalTrips({ free: true });
+  const { data: shipments = [], isLoading: shipmentsLoading, isError: shipmentsError } = useCandidateShipments();
+  const { data: trips = [], isLoading: tripsLoading, isError: tripsError } = useExternalTrips({ free: true });
   const { data: sync } = useTripSyncState();
   const assign = useAssignTrip();
 
@@ -50,17 +50,14 @@ export default function TruckBoard() {
           setShipmentId(null);
           setTripId(null);
         },
-        onError: (err) => {
-          const detail = isAxiosError(err) ? err.response?.data?.error : undefined;
-          toast.error(t(`truck_board.error.${detail ?? 'generic'}`));
-        },
+        onError: (err) => toast.error(t(`truck_board.error.${apiErrorKey(err)}`)),
       },
     );
   }
 
   function handleAssign() {
     if (trip?.destination_country_code === null) {
-      Modal.confirm({ title: t('truck_board.unknown_country_confirm'), onOk: () => doAssign(true) });
+      confirmUnknownCountry(t, () => doAssign(true));
       return;
     }
     doAssign();
@@ -81,6 +78,9 @@ export default function TruckBoard() {
         </div>
       </div>
       {sync?.last_error && <Alert type="warning" showIcon message={t('truck_board.sync_error')} style={{ margin: '8px 0' }} />}
+      {(tripsError || shipmentsError) && (
+        <Alert type="error" showIcon message={t('truck_board.load_error')} style={{ margin: '8px 0' }} />
+      )}
       <Tabs
         items={[
           {

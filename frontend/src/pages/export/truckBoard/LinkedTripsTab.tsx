@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { isAxiosError } from 'axios';
 import { Button, Modal, Select, Space, Table, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -7,6 +6,8 @@ import {
   useAcceptTripChange, useCandidateShipments, useExternalTrips, useMoveTrip, useUnassignTrip,
 } from '@/hooks/useExternalTrips';
 import type { IExternalTrip } from '@/types/externalTrip';
+import { apiErrorKey, confirmUnknownCountry } from './truckBoardHelpers';
+import { useTripMessages } from './useTripMessages';
 
 interface ILinkedTripsTabProps {
   canEdit: boolean;
@@ -22,10 +23,8 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
   const [moving, setMoving] = useState<IExternalTrip | null>(null);
   const [target, setTarget] = useState<number | null>(null);
 
-  const onError = (err: Error) => {
-    const detail = isAxiosError(err) ? err.response?.data?.error : undefined;
-    toast.error(t(`truck_board.error.${detail ?? 'generic'}`));
-  };
+  const messages = useTripMessages();
+  const onError = (err: Error) => toast.error(t(`truck_board.error.${apiErrorKey(err)}`));
 
   const columns = [
     { title: t('truck_board.col_shipments'), dataIndex: 'shipment_code', key: 'shipment_code' },
@@ -34,10 +33,16 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
       render: (_: unknown, trip: IExternalTrip) => `${trip.tractor_plate} / ${trip.trailer_plate}`,
     },
     { title: t('truck_board.driver'), dataIndex: 'driver_full_name', key: 'driver' },
-    { title: t('truck_board.trip'), dataIndex: 'status', key: 'status' },
+    {
+      title: t('truck_board.trip'), key: 'status',
+      render: (_: unknown, trip: IExternalTrip) => messages.status(trip.status),
+    },
     {
       title: '', key: 'conflict',
-      render: (_: unknown, trip: IExternalTrip) => trip.conflict_note && <Tag color="red">{trip.conflict_note}</Tag>,
+      render: (_: unknown, trip: IExternalTrip) => {
+        const conflict = messages.conflict(trip);
+        return conflict && <Tag color="red">{conflict}</Tag>;
+      },
     },
     {
       title: '', key: 'actions',
@@ -52,7 +57,7 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
           <Button size="small" onClick={() => { setMoving(trip); setTarget(null); }}>
             {t('truck_board.move')}
           </Button>
-          {trip.conflict_note && (
+          {trip.conflict_kind && (
             <Button size="small" danger onClick={() => accept.mutate({ tripId: trip.id }, {
               onSuccess: () => toast.success(t('truck_board.accepted')),
               onError,
@@ -85,7 +90,7 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
             { onSuccess: () => setMoving(null), onError },
           );
           if (moving.destination_country_code === null) {
-            Modal.confirm({ title: t('truck_board.unknown_country_confirm'), onOk: () => doMove(true) });
+            confirmUnknownCountry(t, () => doMove(true));
           } else {
             doMove(false);
           }

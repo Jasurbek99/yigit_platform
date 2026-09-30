@@ -12,10 +12,11 @@ beforeAll(async () => {
   await i18n.changeLanguage('en');
 });
 
-function renderTab(canEdit: boolean, conflictNote: string | null) {
+function renderTab(canEdit: boolean, conflictKind: 'changed' | null) {
   vi.mocked(trips.useExternalTrips).mockReturnValue({ data: [{
     id: 5, shipment_code: 'KZ-SHIP', tractor_plate: '2563AHF', trailer_plate: '2251TAH',
-    driver_full_name: 'Amandurdyyew Atajan', status: 'PLANNED', conflict_note: conflictNote,
+    driver_full_name: 'Amandurdyyew Atajan', status: 'PLANNED', conflict_kind: conflictKind,
+    conflict_from: 'A', conflict_to: 'B',
     destination_country_code: 'KZ',
   }], isLoading: false } as any);
   vi.mocked(trips.useCandidateShipments).mockReturnValue({ data: [] } as any);
@@ -27,14 +28,15 @@ function renderTab(canEdit: boolean, conflictNote: string | null) {
 
 describe('LinkedTripsTab', () => {
   it('shows the conflict and offers Accept only when there is one', () => {
-    renderTab(true, 'Planning changed the truck: A → B');
+    renderTab(true, 'changed');
     expect(screen.getByText('Planning changed the truck: A → B')).toBeInTheDocument();
+    expect(screen.getByText('Planned')).toBeInTheDocument();
     expect(screen.getByText('Accept change')).toBeInTheDocument();
     expect(screen.getByText('Unlink')).toBeInTheDocument();
   });
 
   it('hides every action from a read-only viewer', () => {
-    renderTab(false, 'x');
+    renderTab(false, 'changed');
     expect(screen.getByText('KZ-SHIP')).toBeInTheDocument();
     expect(screen.queryByText('Unlink')).toBeNull();
     expect(screen.queryByText('Accept change')).toBeNull();

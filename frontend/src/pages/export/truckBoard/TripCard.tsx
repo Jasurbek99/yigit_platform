@@ -1,8 +1,7 @@
 import { Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IExternalTrip } from '@/types/externalTrip';
-import { COLORS } from '@/constants/styles';
-import { hasVisaFor } from './truckBoardHelpers';
+import { boardCardStyle, hasVisaFor, syncAgeMinutes } from './truckBoardHelpers';
 
 const { Text } = Typography;
 
@@ -18,23 +17,19 @@ interface ITripCardProps {
 
 export function TripCard({ trip, selected, dimmed, countryCode, onSelect, onOpen }: ITripCardProps) {
   const { t } = useTranslation();
-  const where = trip.position
-    ? trip.position.geofence_name ?? trip.position.address
-      ?? `${trip.position.lat.toFixed(3)}, ${trip.position.lon.toFixed(3)}`
+  const position = trip.position;
+  const place = position
+    ? position.geofence_name ?? position.address ?? `${position.lat.toFixed(3)}, ${position.lon.toFixed(3)}`
+    : null;
+  const age = syncAgeMinutes(position?.fix_time ?? null);
+  const where = place
+    ? age === null ? place : `${place} · ${t('truck_board.minutes_ago', { minutes: age })}`
     : t('truck_board.no_gps');
   return (
     <div
       data-testid={`trip-card-${trip.id}`}
       onClick={onSelect}
-      style={{
-        border: selected ? '2px solid #1677ff' : '1px solid #f0f0f0',
-        borderRadius: 6,
-        padding: 10,
-        marginBottom: 8,
-        cursor: 'pointer',
-        opacity: dimmed ? 0.55 : 1,
-        background: selected ? COLORS.bgBlue : '#fff',
-      }}
+      style={boardCardStyle(selected, dimmed)}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <Text strong>{trip.tractor_plate} / {trip.trailer_plate}</Text>

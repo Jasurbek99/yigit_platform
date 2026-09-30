@@ -4017,7 +4017,11 @@
       "trip_closed": "Trip is closed or cancelled",
       "gapy": "Gate-sale shipments keep their own driver",
       "locked": "Shipment is locked — loading started",
-      "generic": "Could not save"
+      "generic": "Could not save",
+      "pdf": "Could not open the trip documents",
+      "season_closed": "The season is closed",
+      "shipment_not_found": "Shipment not found",
+      "shipment_id_required": "Choose a shipment first"
     },
     "accept_change": "Accept change",
     "accepted": "Change accepted",
@@ -4025,6 +4029,36 @@
     "tab_linked": "Linked",
     "unlink": "Unlink",
     "move": "Move",
-    "unlink_confirm": "The shipment may return to Preparation. Continue?"
+    "unlink_confirm": "The shipment may return to Preparation. Continue?",
+    "status": {
+      "CREATED": "Created",
+      "PLANNED": "Planned",
+      "DOCUMENTS_READY": "Documents ready",
+      "ON_THE_WAY": "On the way",
+      "ARRIVED_FOR_LOADING": "Arrived for loading",
+      "LOADED": "Loaded",
+      "BORDER_CROSSING": "At the border",
+      "ARRIVED": "Arrived",
+      "UNLOADED": "Unloaded",
+      "CLOSED": "Closed",
+      "CANCELLED": "Cancelled",
+      "ARCHIVED": "Archived"
+    },
+    "minutes_ago": "{{minutes}} min ago",
+    "load_error": "Could not load the trips",
+    "conflict": {
+      "changed": "Planning changed the truck: {{from}} → {{to}}",
+      "cancelled": "Planning cancelled the trip: {{from}} → {{to}}"
+    },
+    "push_op": {
+      "export-code": "the export code",
+      "loading": "the loading place"
+    },
+    "push_error": {
+      "DUPLICATE_EXPORT_CODE": "Planning refused the export code: another trip already has it",
+      "CITY_COUNTRY_MISMATCH": "Planning refused the loading place: the city is not in the trip country",
+      "PLANNING_UNAVAILABLE": "Planning did not answer — the data will be sent again automatically",
+      "generic": "Planning refused {{op}} ({{code}})"
+    }
   }
 }

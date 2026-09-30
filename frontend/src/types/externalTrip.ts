@@ -36,6 +36,10 @@ export interface IExternalTrip {
   shipment: number | null;
   shipment_code: string | null;
   conflict_note: string | null;
+  /** 'changed' | 'cancelled' — worded by the frontend with conflict_from / conflict_to. */
+  conflict_kind: 'changed' | 'cancelled' | null;
+  conflict_from: string | null;
+  conflict_to: string | null;
   last_push_status: string | null;
   last_push_error: string | null;
   position: ITripPosition | null;
