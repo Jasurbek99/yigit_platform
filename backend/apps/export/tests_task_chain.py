@@ -331,6 +331,47 @@ class ChainWritePathTests(ChainFixture):
         self.assertEqual(s.tasks.get(title_key='tasks.set_destination').state, TaskState.DONE)
         self.assertEqual(s.tasks.get(title_key='tasks.pick_export_firms').state, TaskState.OPEN)
 
+    def _api_as(self, role):
+        from io import StringIO
+        from django.core.management import call_command
+        call_command('seed_permissions', stdout=StringIO())
+        client = APIClient()
+        client.force_authenticate(User.objects.create_user(username=f'tc_{role}_w', password='pw', role=role))
+        return client
+
+    def test_saving_the_firm_splits_closes_pick_export_firms(self):
+        """The split editor writes rows without Shipment.save(); the task still
+        closes (bug report 2026-09-30: it stayed «in progress»)."""
+        from unittest import mock
+        from apps.core.models import Customer, ExportFirm
+        _rule('draft', 'tasks.pick_export_firms', completion_rule=TaskCompletionRule.ANY_FIELD_FILLED,
+              target_fields='firm_splits')
+        _rule('draft', 'tasks.hold')
+        s = self._draft_with_destination(customer=Customer.objects.get_or_create(name='TC fs')[0])
+        generate_tasks_for_status(s, 'draft')
+        firm = ExportFirm.objects.create(code='TCF', name_tk='TCF')
+        client = self._api_as('export_manager')
+        with mock.patch('apps.export.services_quota.compute_firm_quota_balances',
+                        return_value={firm.pk: {'remaining_kg': 50000}}):
+            resp = client.post(f'/api/v1/export/shipments/{s.pk}/firm-splits/',
+                               {'firms': [{'export_firm_id': firm.pk}]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        self.assertEqual(s.tasks.get(title_key='tasks.pick_export_firms').state, TaskState.DONE)
+
+    def test_saving_block_sources_closes_join_supply(self):
+        from apps.core.models import Customer, GreenhouseBlock
+        _rule('draft', 'tasks.join_supply', completion_rule=TaskCompletionRule.ANY_FIELD_FILLED,
+              target_fields='block_sources', gates_step=False)
+        _rule('draft', 'tasks.hold')
+        s = self._draft_with_destination(customer=Customer.objects.get_or_create(name='TC bs')[0])
+        generate_tasks_for_status(s, 'draft')
+        block, _ = GreenhouseBlock.objects.get_or_create(code='TCBS')
+        client = self._api_as('export_manager')
+        resp = client.post(f'/api/v1/export/shipments/{s.pk}/block-sources/',
+                           {'blocks': [{'block_id': block.pk, 'weight_kg': 18000}]}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        self.assertEqual(s.tasks.get(title_key='tasks.join_supply').state, TaskState.DONE)
+
     def test_gapy_flip_before_set_destination_creates_no_transport_task(self):
         _rule('draft', 'tasks.set_destination', assignee_role='export_manager',
               completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED, target_fields='country,customer,import_firm')

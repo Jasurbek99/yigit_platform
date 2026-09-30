@@ -3387,6 +3387,11 @@ class ShipmentViewSet(ModelViewSet):
             from apps.export.services.task_rules import mark_started_for_changed_fields
             mark_started_for_changed_fields(shipment, ['weight_net'])
 
+        # The rows bypass Shipment.save(): close field tasks on block_sources
+        # (join_supply, fill_loading_data), spawn what is due, auto-advance.
+        from apps.export.services.task_chain import refresh_tasks_after_write
+        refresh_tasks_after_write(shipment, request.user)
+
         logger.info(
             'Block sources for %s updated by %s (%d blocks -> %d parent rows)%s',
             shipment.shipment_code, request.user.username, n, count,
@@ -3493,6 +3498,12 @@ class ShipmentViewSet(ModelViewSet):
             'Firm splits for %s updated by %s (%d firms, %d usage records)',
             shipment.shipment_code, request.user.username, len(firms_data), usage_count,
         )
+        # The rows bypass Shipment.save(): close field tasks on firm_splits
+        # (pick_export_firms — bug 2026-09-30: it stayed in progress), spawn
+        # what is due, auto-advance.
+        from apps.export.services.task_chain import refresh_tasks_after_write
+        refresh_tasks_after_write(shipment, request.user)
+
         return Response({'status': 'ok', 'count': len(firms_data)})
 
     @action(detail=True, methods=['get'], url_path='label')
