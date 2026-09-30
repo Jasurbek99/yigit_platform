@@ -66,8 +66,10 @@ class GateListTests(GateFixtures, TestCase):
         self.assertFalse({cancelled.pk, deleted.pk, archived.pk} & ids)
 
     def test_date_window_edges(self):
-        in_back = self.make_truck('G-W1', days=-7)
-        out_back = self.make_truck('G-W2', days=-8)
+        # 30 days back: a truck whose documents/customs took two weeks is still
+        # coming (1709001/26, 13 days old, was hidden by the first 7-day rule).
+        in_back = self.make_truck('G-W1', days=-30)
+        out_back = self.make_truck('G-W2', days=-31)
         in_ahead = self.make_truck('G-W3', days=1)
         out_ahead = self.make_truck('G-W4', days=2)
         ids = self._ids(gate.expected(self.dusak))

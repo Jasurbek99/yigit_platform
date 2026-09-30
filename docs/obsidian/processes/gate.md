@@ -41,7 +41,7 @@ status not `cancelled`.
 **«Gelmeli» — `expected(L)`.** Live rows at `L`, status in `{draft,
 gumruk_girish, gumruk_chykysh, yuklenme}`, plate filled (`truck_plate` not
 null and not `''` — no trimming), `greenhouse_arrived_at IS NULL`,
-`departed_at IS NULL`, `date` between today−7 and tomorrow. A **packing part**
+`departed_at IS NULL`, `date` between today−30 and tomorrow (was −7 until 2026-09-30: a truck held up by documents for two weeks disappeared). A **packing part**
 — a `draft` with no `country` and no `customer` — is excluded even if
 everything else matches: Join deletes that row, so a gate stamp on it would be
 lost (owner-approved decision, 2026-09-29; the same exclusion `/me/tasks/`

@@ -17,7 +17,10 @@ from apps.core.seasons import SeasonClosedError, assert_season_open
 from apps.export.models import Shipment, ShipmentBlockSource
 
 PRE_DEPARTURE = ('draft', 'gumruk_girish', 'gumruk_chykysh', 'yuklenme')
-DAYS_BACK = 7
+# 30, not 7 (owner, 2026-09-30): a truck whose documents / customs took weeks is
+# still coming — 1709001/26 was 13 days old and hidden. 30 still keeps the
+# abandoned June rows out.
+DAYS_BACK = 30
 DAYS_AHEAD = 1
 UNDO_WINDOW = timedelta(minutes=10)
 

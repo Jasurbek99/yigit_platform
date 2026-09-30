@@ -3823,7 +3823,7 @@
     "kind_daily_export_trigger": "Ýekşenbeden başga her gün 06:05-de (Celery beat). Möhleti — günüň ahyry. Ertire çenli edilmese — «Ýerine ýetirilmedi».",
     "kind_daily_export_completes": "Şu günüň senesine ýurdy we müşderisi bolan ýükleme bar bolanda.",
     "kind_gate_name": "Garawul: gelen we çykan maşynlary bellemek",
-    "kind_gate_trigger": "Belgili maşyn garawulyň ýerine gelmeli bolanda (şu gün −7 … ertir)",
+    "kind_gate_trigger": "Belgili maşyn garawulyň ýerine gelmeli bolanda (şu gün −30 … ertir)",
     "kind_gate_completes": "Derwezede «Geldi» / «Çykdy» basylanda",
     "other_kinds_note": "Bular düzgün däl-de kod bilen döredilýär, şonuň üçin olary bu sahypadan-da, hukuk matrisasyndan-da üýtgetmek bolmýar — deploý gerek.",
     "retired_rule_note": "Bu ýerde düzgüni ýok rol üçin hem açyk ýumuş bolup biler. Düzgünler diňe ädime girilende işleýär, şonuň üçin düzgün başga rola berilmezden ýa-da öçürilmezden öň döredilen ýumuş öňki rolunda galýar."
