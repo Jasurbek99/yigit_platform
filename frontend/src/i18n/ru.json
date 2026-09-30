@@ -3009,6 +3009,7 @@
       "truck_head_id": "Тягач",
       "packing_template": "Шаблон упаковки (брутто/нетто)",
       "advance_links": "Аванс",
+      "has_current_advance": "Аванс",
       "customs_exit_at": "Таможня выход"
     },
     "edit_in_detail": "Редактировать в деталях отгрузки",

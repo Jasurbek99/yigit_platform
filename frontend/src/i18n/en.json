@@ -3009,6 +3009,7 @@
       "truck_head_id": "Truck (tractor)",
       "packing_template": "Packing template (gross/net)",
       "advance_links": "Advance",
+      "has_current_advance": "Advance",
       "customs_exit_at": "Customs Exit"
     },
     "edit_in_detail": "Edit in shipment detail",

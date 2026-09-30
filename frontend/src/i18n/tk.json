@@ -3012,6 +3012,7 @@
       "truck_head_id": "Çekiji",
       "packing_template": "Gaplaýyş şablony (brut/net)",
       "advance_links": "Awans",
+      "has_current_advance": "Awans",
       "customs_exit_at": "Gümrük çykyş"
     },
     "edit_in_detail": "Iberişiň jikme-jikliginde redaktirle",
