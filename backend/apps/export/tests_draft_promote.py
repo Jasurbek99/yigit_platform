@@ -127,17 +127,9 @@ class DraftCreationGeneratesTasksTests(TestCase):
         self.assertEqual(resp.status_code, 201, resp.data)
         ship_id = resp.data['id']
         tasks = Task.objects.filter(shipment_id=ship_id, step='draft')
-        # Default is_gapy_satys=False → 6 tasks generate (gapy variant gated out)
-        self.assertEqual(tasks.count(), 6)
-        title_keys = set(tasks.values_list('title_key', flat=True))
-        self.assertIn('tasks.set_destination', title_keys)
-        self.assertIn('tasks.pick_export_firms', title_keys)
-        self.assertIn('tasks.assign_driver', title_keys)
-        self.assertIn('tasks.give_documents', title_keys)
-        self.assertIn('tasks.set_border_point', title_keys)
-        self.assertIn('tasks.start_documents_prep', title_keys)
-        # Conditional out:
-        self.assertNotIn('tasks.give_documents_gapy', title_keys)
+        # PREP chain (2026-09-30): only 5b exists until it is done — country and
+        # import firm are still empty; the rest are created after it.
+        self.assertEqual(set(tasks.values_list('title_key', flat=True)), {'tasks.set_destination'})
 
     def test_draft_without_block_sources_allowed(self):
         """Stream F relaxed the validation — drafts can be created without
@@ -247,18 +239,24 @@ class CanPromoteFromDraftTests(TestCase):
         ser = ShipmentDetailSerializer(ship, context={'request': type('R', (), {'user': self.user})()})
         self.assertFalse(ser.data['can_promote_from_draft'])
 
+    def _close_auto_tasks(self, ship):
+        """Mark every non-manual draft task DONE, including the ones each
+        closure makes due (PREP chain, 2026-09-30)."""
+        from apps.export.models import TaskCompletionRule
+        from apps.export.services.task_chain import spawn_ready_tasks
+        from apps.export.services.task_rules import generate_tasks_for_status
+        generate_tasks_for_status(ship, 'draft')
+        while True:
+            Task.objects.filter(shipment=ship, step='draft').exclude(
+                completion_rule=TaskCompletionRule.MANUAL_DONE,
+            ).update(state=TaskState.DONE)
+            if not spawn_ready_tasks(ship):
+                break
+
     def test_promotable_when_auto_tasks_done(self):
         """Mark all auto-resolving draft tasks DONE → promotable, even with manual tasks open."""
         ship = self._make_draft()
-        from apps.export.services.task_rules import generate_tasks_for_status
-        generate_tasks_for_status(ship, 'draft')
-        # Mark all non-manual draft tasks DONE.
-        from apps.export.models import TaskCompletionRule
-        Task.objects.filter(
-            shipment=ship, step='draft',
-        ).exclude(
-            completion_rule=TaskCompletionRule.MANUAL_DONE,
-        ).update(state=TaskState.DONE)
+        self._close_auto_tasks(ship)
         ser = ShipmentDetailSerializer(ship, context={'request': type('R', (), {'user': self.user})()})
         self.assertTrue(
             ser.data['can_promote_from_draft'],
@@ -266,17 +264,14 @@ class CanPromoteFromDraftTests(TestCase):
         )
 
     def test_manual_done_tasks_dont_block_promote(self):
-        """tasks.give_documents (manual_done) being OPEN must NOT block promotion."""
+        """A manual_done draft task being OPEN must NOT block promotion."""
+        from apps.export.models import TaskCompletionRule, TaskRule
+        # The catalog has no manual draft task since 2026-09-30 (give_documents
+        # is inactive), so the test brings its own.
+        TaskRule.objects.create(step='draft', title_key='tasks.test_manual', assignee_role='transport',
+                                completion_rule=TaskCompletionRule.MANUAL_DONE)
         ship = self._make_draft()
-        from apps.export.services.task_rules import generate_tasks_for_status
-        from apps.export.models import TaskCompletionRule
-        generate_tasks_for_status(ship, 'draft')
-        # Resolve every auto task; explicitly leave manual ones OPEN.
-        Task.objects.filter(
-            shipment=ship, step='draft',
-        ).exclude(
-            completion_rule=TaskCompletionRule.MANUAL_DONE,
-        ).update(state=TaskState.DONE)
+        self._close_auto_tasks(ship)
         # Sanity: a manual_done task is still OPEN
         manual_open = Task.objects.filter(
             shipment=ship, step='draft',
@@ -286,6 +281,23 @@ class CanPromoteFromDraftTests(TestCase):
         self.assertTrue(manual_open, 'Test setup: manual task should remain open')
         ser = ShipmentDetailSerializer(ship, context={'request': type('R', (), {'user': self.user})()})
         self.assertTrue(ser.data['can_promote_from_draft'])
+
+    def test_an_open_join_supply_does_not_block_promote(self):
+        """E4 (2026-09-30): join_supply never holds draft — documents may start first."""
+        ship = self._make_draft()
+        self._close_auto_tasks(ship)
+        Task.objects.filter(shipment=ship, title_key='tasks.join_supply').update(state=TaskState.OPEN)
+        ser = ShipmentDetailSerializer(ship, context={'request': type('R', (), {'user': self.user})()})
+        self.assertTrue(ser.data['can_promote_from_draft'])
+
+    def test_a_task_still_waiting_to_be_created_blocks_promote(self):
+        """5b done, 7 and 8 not created yet: the draft is not ready (E3)."""
+        from apps.export.services.task_rules import generate_tasks_for_status
+        ship = self._make_draft()
+        generate_tasks_for_status(ship, 'draft')
+        Task.objects.filter(shipment=ship, title_key='tasks.set_destination').update(state=TaskState.DONE)
+        ser = ShipmentDetailSerializer(ship, context={'request': type('R', (), {'user': self.user})()})
+        self.assertFalse(ser.data['can_promote_from_draft'])
 
 
 class PromoteEndpointStillWorksTests(TestCase):

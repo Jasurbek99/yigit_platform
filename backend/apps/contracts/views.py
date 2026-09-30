@@ -2,6 +2,7 @@
 import logging
 from decimal import Decimal
 
+from django.db import DatabaseError
 from django.db.models import Count, Exists, OuterRef
 from django.http import FileResponse, HttpResponse
 from rest_framework.decorators import action
@@ -58,6 +59,7 @@ from apps.contracts.services.files import (
     sanitise_filename,
     validate_contract_document,
 )
+from apps.contracts.services.task_checks import PREPARE_CONTRACT, sync_prepare_contract
 
 logger = logging.getLogger(__name__)
 
@@ -263,6 +265,12 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         except DocumentRenderError as exc:
             return Response({'error': str(exc)}, status=503)
 
+        try:
+            _agreement_downloaded(contract, request.user)
+        except (DatabaseError, ValueError):
+            # The chain must never cost the user the file just generated.
+            logger.exception('task chain: agreement download of contract %s', contract.pk)
+
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -399,6 +407,8 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
         self.assert_create_target_open(serializer)
         sale = serializer.save()
         sync_split_weight_from_sale(sale, self.request.user)
+        if sale.shipment_id:
+            sync_prepare_contract(sale.shipment, self.request.user)
 
     def perform_update(self, serializer):
         """Save an edit, refusing one that moves the sale into a closed season.
@@ -415,6 +425,8 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
         # the firm's split — and therefore its quota. Runs on create too: a sale
         # can be created straight onto a truck that already has splits.
         sync_split_weight_from_sale(sale, self.request.user)
+        if sale.shipment_id:
+            sync_prepare_contract(sale.shipment, self.request.user)
 
     def get_queryset(self):
         """Apply server-side filters."""
@@ -526,6 +538,11 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
         except DocumentRenderError as exc:
             return Response({'error': str(exc)}, status=503)
 
+        doc_key = {'ct1_ru': 'ct1', 'fito_ru': 'phyto', 'customs_tk': 'customs_request'}.get(doc_type)
+        if doc_key and invoice.shipment_id:
+            # PREP/DOCS chain: a served letter closes its print task.
+            _mark_downloaded(invoice.shipment, [doc_key], request.user)
+
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -617,6 +634,8 @@ class ShipmentCmrView(APIView):
         except DocumentRenderError as exc:
             return Response({'error': str(exc)}, status=503)
 
+        _mark_downloaded(shipment, ['cmr'], request.user)
+
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -688,6 +707,8 @@ class ShipmentTirView(APIView):
         except DocumentRenderError as exc:
             return Response({'error': str(exc)}, status=503)
 
+        _mark_downloaded(shipment, ['tir'], request.user)
+
         response = HttpResponse(data, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
@@ -748,6 +769,11 @@ class ShipmentPacketZipView(APIView):
             return Response({'error': str(exc)}, status=400)
         except DocumentRenderError as exc:
             return Response({'error': str(exc)}, status=503)
+
+        # The letters are per sale: with every sale void the packet is the CMR alone.
+        _mark_downloaded(
+            shipment, ['cmr'] + (['ct1', 'phyto', 'customs_request'] if active_sales else []), request.user,
+        )
 
         code = (shipment.shipment_code or 'NA').replace('/', '-')
         response = HttpResponse(data, content_type=ZIP_CONTENT_TYPE)
@@ -938,6 +964,7 @@ class ShipmentFirmContractsView(APIView):
         except (KeyError, TypeError, ValueError) as exc:
             return Response({'error': str(exc)}, status=400)
 
+        sync_prepare_contract(shipment, request.user)
         return Response({
             'export_firm': sale.export_firm_id,
             'contract_id': sale.contract_id,
@@ -948,6 +975,38 @@ class ShipmentFirmContractsView(APIView):
 
 
 _SHARE_FIELDS = ('net_kg', *_FIRM_PACKING_FIELDS)
+
+
+def _mark_downloaded(shipment, doc_keys, user) -> None:
+    """PREP/DOCS chain hook for a served document. A chain error (spawn,
+    auto-advance) must never cost the user the file just generated — log it
+    and serve the document."""
+    from apps.export.services.task_chain import record_document_download
+
+    try:
+        record_document_download(shipment, doc_keys, user)
+    except (DatabaseError, ValueError):
+        logger.exception('task chain: recording %s download on shipment %s', doc_keys, shipment.pk)
+
+
+def _agreement_downloaded(contract, user) -> None:
+    """Stamp the first agreement download and re-check item 9 on the trucks
+    still waiting on it — a season contract can cover dozens, and this is a GET."""
+    from django.utils import timezone
+    from apps.export.models import Shipment, TaskState
+
+    if contract.season_id and contract.season.closed_at is not None:
+        return        # closed season: frozen (D1)
+    if contract.agreement_downloaded_at is None:
+        Contract.objects.filter(pk=contract.pk).update(agreement_downloaded_at=timezone.now())
+    waiting_ids = (
+        contract.sales.exclude(status=ContractSale.STATUS_VOID)
+        .filter(shipment__tasks__title_key=PREPARE_CONTRACT,
+                shipment__tasks__state__in=[TaskState.OPEN, TaskState.IN_PROGRESS])
+        .order_by().values_list('shipment_id', flat=True).distinct()
+    )
+    for shipment in Shipment.objects.filter(id__in=list(waiting_ids)).select_related('season'):
+        sync_prepare_contract(shipment, user)
 
 
 def _set_firm_weights(shipment, weight_by_firm, user):

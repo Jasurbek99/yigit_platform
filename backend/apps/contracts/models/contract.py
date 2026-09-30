@@ -134,6 +134,9 @@ class Contract(models.Model):
     # === Invoice tracking ===
     last_invoice_number = models.IntegerField(null=True, blank=True)
     sent_to_unk = models.BooleanField(default=False)
+    # First time the agreement document was generated (docs/Tasks.md item 9,
+    # «Kontrakt saýla/döret we ýükle»). Set by the agreement endpoint.
+    agreement_downloaded_at = models.DateTimeField(null=True, blank=True)
 
     # === Status ===
     status = models.CharField(

@@ -44,6 +44,9 @@ class TaskCompletionRule(models.TextChoices):
     # yes/no questions (has_peregruz) where ALL_FIELDS_FILLED would read «No»
     # as unanswered (_is_filled treats False as empty).
     FIELD_SET         = 'field_set',         _('Target field has any value (incl. No)')
+    # A button that HOLDS the step (unlike manual_done, which never gates).
+    # For the DOCS chain («Taýýarladym», «Ugradyldy», «Çap etdim»).
+    CONFIRM           = 'confirm',           _('Button that gates the step')
     MANUAL_DONE       = 'manual_done',       _('Marked done manually')
 
 
@@ -111,6 +114,21 @@ class TaskRule(models.Model):
     condition_value = models.CharField(
         max_length=64, blank=True, default='',
         help_text='String-cast comparison: str(getattr(shipment, condition_field)) == condition_value',
+    )
+    depends_on = models.CharField(
+        max_length=512, blank=True, default='',
+        help_text='CSV of title_keys that must be done before this rule creates '
+                  'its task (docs/Tasks.md "after N"). Blank = created at step entry.',
+    )
+    gates_step = models.BooleanField(
+        default=True,
+        help_text='False = the task closes itself but never holds the step '
+                  '(join_supply: documents may start before packing).',
+    )
+    effective_from = models.DateTimeField(
+        null=True, blank=True,
+        help_text='The rule applies only to shipments that entered its step at or '
+                  'after this moment. Set once by seed_task_rules on create.',
     )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)

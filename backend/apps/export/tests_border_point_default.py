@@ -47,6 +47,10 @@ class CountryBorderPointDefaultTests(TestCase):
                 },
             )
         SeedTaskRulesCommand().handle(reset=False)
+        # tasks.set_border_point was retired 2026-09-30 (PREP chain); these tests
+        # keep the rule's own behaviour pinned, so they switch it back on.
+        from apps.export.models import TaskRule
+        TaskRule.objects.filter(title_key='tasks.set_border_point').update(is_active=True)
         cls.user = User.objects.create_user(
             username='bpd_transport', password='pw', role='transport',
         )

@@ -1495,16 +1495,25 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
 
         tasks = self._get_tasks_prefetched(obj)
         # Only consider auto-resolving (target-field-driven) draft tasks.
-        # MANUAL_DONE tasks are decoupled from promotion readiness.
+        # MANUAL_DONE tasks are decoupled from promotion readiness, and so are
+        # non-gating ones (join_supply — documents may start before packing, E4).
+        from apps.export.models import TaskRule
+        non_gating = set(TaskRule.objects.filter(gates_step=False).values_list('id', flat=True))
         active = [
             t for t in tasks
             if t.step == 'draft'
             and t.completion_rule != TaskCompletionRule.MANUAL_DONE
+            and t.rule_id not in non_gating
             and t.state not in (TaskState.DONE, TaskState.CANCELLED)
         ]
+        if active:
+            return False
+        # A PREP task still waiting to be created (E3) — e.g. 5b is done but
+        # its dependents are not there yet — means not ready either.
+        from apps.export.services.task_chain import has_pending_dependents
         # No auto-resolving draft tasks active → ready (covers the case of
         # a draft created before the engine, or one with no applicable rules).
-        return len(active) == 0
+        return not has_pending_dependents(obj)
 
     @staticmethod
     def _compute_status_avg_seconds(status_code: str, season_id: int) -> int | None:
@@ -2626,6 +2635,8 @@ class TaskRuleSerializer(serializers.ModelSerializer):
     step_phase = serializers.SerializerMethodField()
     assignee_role_display = serializers.SerializerMethodField()
     target_fields = serializers.SerializerMethodField()
+    # CSV in the DB (MSSQL: no JSON); a list on the wire, like target_fields.
+    depends_on = serializers.SerializerMethodField()
     completion_rule_display = serializers.CharField(
         source='get_completion_rule_display', read_only=True,
     )
@@ -2638,6 +2649,7 @@ class TaskRuleSerializer(serializers.ModelSerializer):
             'target_fields', 'completion_rule', 'completion_rule_display',
             'target_value', 'deadline_rule',
             'condition_field', 'condition_value', 'is_active',
+            'depends_on', 'gates_step',
         ]
         read_only_fields = fields
 
@@ -2662,6 +2674,9 @@ class TaskRuleSerializer(serializers.ModelSerializer):
         return (self.context.get('role_labels') or {}).get(
             obj.assignee_role, obj.assignee_role,
         )
+
+    def get_depends_on(self, obj) -> list[str]:
+        return [k.strip() for k in obj.depends_on.split(',') if k.strip()]
 
     def get_target_fields(self, obj) -> list[str]:
         return [f.strip() for f in (obj.target_fields or '').split(',') if f.strip()]

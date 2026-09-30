@@ -53,6 +53,7 @@ from .sheet_settings import (
     ShipmentCustomFieldValue,
 )
 from .task import Task, TaskRule, TaskState, TaskCompletionRule, TaskKind, TaskCancelReason
+from .document_download import ShipmentDocumentDownload
 from .process_node_link import ProcessNodeLink
 
 __all__ = [
@@ -111,5 +112,6 @@ __all__ = [
     'TaskCompletionRule',
     'TaskKind',
     'TaskCancelReason',
+    'ShipmentDocumentDownload',
     'ProcessNodeLink',
 ]

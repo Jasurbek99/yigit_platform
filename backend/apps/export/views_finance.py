@@ -201,6 +201,10 @@ class FinansistAdvanceViewSet(ModelViewSet):
                 for sid in shipment_ids
             ]
             FinansistAdvanceShipment.objects.bulk_create(links, batch_size=500)
+            # The link rows bypass Shipment.save(): close «Awans ber» here.
+            from apps.export.services.task_chain import refresh_tasks_after_write
+            for shipment in Shipment.objects.filter(id__in=shipment_ids).select_related('status'):
+                refresh_tasks_after_write(shipment, request.user)
 
         advance.refresh_from_db()
         detail_serializer = FinansistAdvanceDetailSerializer(advance)
@@ -284,6 +288,8 @@ class FinansistAdvanceViewSet(ModelViewSet):
             shipment_id=shipment_id,
             allocated_amount=allocated_amount or None,
         )
+        from apps.export.services.task_chain import refresh_tasks_after_write
+        refresh_tasks_after_write(target, request.user)
 
         advance.refresh_from_db()
         serializer = FinansistAdvanceDetailSerializer(advance)

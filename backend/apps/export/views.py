@@ -2537,6 +2537,10 @@ class ShipmentViewSet(ModelViewSet):
             logger.exception('join rejected target=%s source=%s', target.pk, source.pk)
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        # PREP chain: close «Ýükleme bölek birikdir»; the truck never moves.
+        from apps.export.services.task_chain import refresh_after_packing_move
+        refresh_after_packing_move(target, request.user)
+
         target.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(target, context={'request': request})
         return Response(detail_serializer.data)
@@ -4606,7 +4610,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
     def complete(self, request, pk=None):
         """POST /api/v1/export/tasks/{id}/complete/
 
-        Manually marks a MANUAL_DONE task as DONE. Returns 400 for tasks
+        Manually marks a MANUAL_DONE or CONFIRM task as DONE. Returns 400 for tasks
         with auto-resolution completion rules (ALL_FIELDS_FILLED, ANY_FIELD_FILLED)
         because those resolve automatically via Shipment.save() — explicit
         "mark done" does not apply to them.
@@ -4622,7 +4626,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
         if denied:
             return denied
 
-        if task.completion_rule != TaskCompletionRule.MANUAL_DONE:
+        if task.completion_rule not in (TaskCompletionRule.MANUAL_DONE, TaskCompletionRule.CONFIRM):
             return Response(
                 {
                     'error': (
@@ -4688,6 +4692,10 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
             task.started_at = now
         task.completed_by = request.user
         task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
+        if task.completion_rule == TaskCompletionRule.CONFIRM and task.shipment_id:
+            # A confirm task holds its step: spawn what is now due and advance.
+            from apps.export.services.task_chain import after_task_done
+            after_task_done(task.shipment, request.user, [task])
 
         task.refresh_from_db()
         return Response(TaskDetailSerializer(task).data)

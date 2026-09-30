@@ -90,10 +90,28 @@ class SeedTaskRulesTests(TestCase):
         actual_keys = set(TaskRule.objects.values_list('title_key', flat=True))
         self.assertEqual(actual_keys, expected_keys)
 
-    def test_all_active_by_default(self) -> None:
+    def test_only_the_retired_rules_are_inactive(self) -> None:
+        # The PREP/DOCS catalog (2026-09-30) replaced these; the rows stay for history.
         call_command('seed_task_rules', stdout=StringIO())
-        inactive = TaskRule.objects.filter(is_active=False).count()
-        self.assertEqual(inactive, 0)
+        inactive = set(TaskRule.objects.filter(is_active=False).values_list('title_key', 'assignee_role'))
+        self.assertEqual(inactive, {
+            ('tasks.set_border_point', 'transport'),
+            ('tasks.give_documents', 'transport'),
+            ('tasks.give_documents_gapy', 'document_team'),
+            ('tasks.start_documents_prep', 'document_team'),
+            ('tasks.assign_driver', 'transport'),
+            ('tasks.trigger_customs_exit', 'document_team'),
+        })
+
+    def test_new_catalog_rows_get_effective_from_once(self) -> None:
+        call_command('seed_task_rules', stdout=StringIO())
+        rule = TaskRule.objects.get(title_key='tasks.print_cmr')
+        first = rule.effective_from
+        self.assertIsNotNone(first)
+        call_command('seed_task_rules', stdout=StringIO())
+        rule.refresh_from_db()
+        self.assertEqual(rule.effective_from, first)
+        self.assertIsNone(TaskRule.objects.get(title_key='tasks.set_destination').effective_from)
 
 
 # ---------------------------------------------------------------------------

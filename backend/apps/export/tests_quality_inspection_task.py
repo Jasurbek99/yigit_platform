@@ -93,6 +93,9 @@ class QualityInspectionTaskTests(TestCase):
             date='2026-01-01',
             season=self.season,
             status=status,
+            # Back from customs: tasks.docs_from_customs (2026-09-30) also
+            # holds gumruk_chykysh until customs_exit_at is filled.
+            customs_exit_at=timezone.now(),
             created_by=self.user,
             updated_by=self.user,
         )
@@ -376,6 +379,7 @@ class QualityTaskReachesMyTasksTests(TestCase):
             date='2026-01-01',
             season=cls.season,
             status=ShipmentStatusType.objects.get(code='gumruk_chykysh'),
+            customs_exit_at=timezone.now(),     # tasks.docs_from_customs, 2026-09-30
             created_by=loader,
             updated_by=loader,
         )

@@ -13,6 +13,18 @@ from apps.core.db_utils import cyrillic_collation, schema_table
 _AUTO_ADVANCE_REENTRY = threading.local()
 
 
+def advance_after_tasks(shipment, resolved_tasks) -> bool:
+    """auto_advance_if_ready under the same re-entry guard save() uses."""
+    if getattr(_AUTO_ADVANCE_REENTRY, 'active', False):
+        return False
+    try:
+        _AUTO_ADVANCE_REENTRY.active = True
+        from apps.export.services.shipment import auto_advance_if_ready
+        return auto_advance_if_ready(shipment, resolved_tasks=resolved_tasks)
+    finally:
+        _AUTO_ADVANCE_REENTRY.active = False
+
+
 VEHICLE_CONDITION_CHOICES = [
     ('OK', 'OK'),
     ('ISSUE', 'Issue'),
@@ -435,16 +447,18 @@ class Shipment(models.Model):
         resolved = resolve_for_shipment(self)
 
         # Re-entry guard: transition_to() calls shipment.save(update_fields=...)
-        # which re-enters this method. Skip the second auto-advance attempt.
+        # which re-enters this method. Skip spawning and a second auto-advance.
         if getattr(_AUTO_ADVANCE_REENTRY, 'active', False):
             return
 
-        try:
-            _AUTO_ADVANCE_REENTRY.active = True
-            from apps.export.services.shipment import auto_advance_if_ready
-            auto_advance_if_ready(self, resolved_tasks=resolved)
-        finally:
-            _AUTO_ADVANCE_REENTRY.active = False
+        # resolve → spawn the tasks now due → auto-advance (spec §1 ordering).
+        # A dependent can only become ready when something closed, so an
+        # ordinary Sheet edit that resolved nothing pays nothing here.
+        spawned = []
+        if resolved:
+            from apps.export.services.task_chain import spawn_ready_tasks
+            spawned = spawn_ready_tasks(self)
+        advance_after_tasks(self, list(resolved) + spawned)
 
 
 class ShipmentStatusLog(models.Model):

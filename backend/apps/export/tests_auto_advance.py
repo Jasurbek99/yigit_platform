@@ -19,7 +19,7 @@ from decimal import Decimal
 
 from django.test import TestCase
 
-from apps.core.models import BorderPoint, GreenhouseBlock, Season, ShipmentStatusType, User
+from apps.core.models import GreenhouseBlock, Season, ShipmentStatusType, TomatoVariety, User
 from apps.export.management.commands.seed_task_rules import (
     Command as SeedTaskRulesCommand,
 )
@@ -72,7 +72,8 @@ def _make_season() -> Season:
 
 
 class DraftAutoAdvanceTests(TestCase):
-    """draft → gumruk_girish fires when documents_status='in_progress'."""
+    """draft → gumruk_girish fires when the last PREP task closes — for a
+    regular truck, choosing the TIR tractor (tasks.choose_truck, 2026-09-30)."""
 
     @classmethod
     def setUpTestData(cls):
@@ -81,9 +82,10 @@ class DraftAutoAdvanceTests(TestCase):
         cls.user = _make_user('test_doc', 'document_team')
         cls.season = _make_season()
 
-    def _make_draft_with_destination(self) -> Shipment:
+    def _make_draft_with_destination(self, gapy: bool = False) -> Shipment:
         """Create a draft with country/customer/import_firm/firm_splits filled
-        so only the documents_status FIELD_EQUALS rule remains as a gate.
+        so only the transport task remains as a gate (choose_truck, or the gapy
+        assign_driver).
         """
         from apps.core.models import Country, Customer, GreenhouseBlock, ImportFirm, ExportFirm
         from apps.export.models import ShipmentBlockSource, ShipmentFirmSplit
@@ -103,6 +105,7 @@ class DraftAutoAdvanceTests(TestCase):
             country=country,
             customer=customer,
             import_firm=import_firm,
+            is_gapy_satys=gapy,
             created_by=self.user,
             updated_by=self.user,
         )
@@ -120,22 +123,14 @@ class DraftAutoAdvanceTests(TestCase):
         # should auto-resolve on this save.
         from apps.export.services.task_rules import generate_tasks_for_status
         generate_tasks_for_status(shipment, 'draft')
-        # Also need to set is_gapy_satys explicitly so condition rules match.
-        shipment.is_gapy_satys = False
         shipment.save()
         return shipment
 
-    def test_field_equals_ready_fires_advance(self):
+    def test_choosing_the_truck_fires_advance(self):
         shipment = self._make_draft_with_destination()
-        # Satisfy the assign_driver task (ALL_FIELDS_FILLED on
-        # driver_name + driver_phone + truck_plate, condition is_gapy_satys=False).
-        shipment.driver_name = 'Test Driver'
-        shipment.driver_phone = '+99363391774'
-        shipment.truck_plate = 'AB1234'
-        # tasks.set_border_point gates the draft step the same way (transport,
-        # ALL_FIELDS_FILLED, non-gapy only).
-        shipment.border_point = BorderPoint.objects.create(name='Farap')
-        shipment.documents_status = 'ready'
+        # tasks.choose_truck (ALL_FIELDS_FILLED truck_head_id, non-gapy) is the
+        # last open PREP task; join_supply is already closed by block_sources.
+        shipment.truck_head_id = 7
         shipment.save()
 
         shipment.refresh_from_db()
@@ -161,11 +156,10 @@ class DraftAutoAdvanceTests(TestCase):
         resolve the assign_driver task and walk the shipment out of draft on a
         field nobody filled.
         """
-        shipment = self._make_draft_with_destination()
+        shipment = self._make_draft_with_destination(gapy=True)
         shipment.driver_name = 'Test Driver'
         shipment.truck_plate = 'AB1234'
         shipment.driver_phone = ''
-        shipment.documents_status = 'ready'
         shipment.save()
 
         shipment.refresh_from_db()
@@ -257,12 +251,15 @@ class CascadeTests(TestCase):
         """
         from django.utils import timezone
 
-        gg = ShipmentStatusType.objects.get(code='gumruk_girish')
+        # Starts at gumruk_chykysh: since 2026-09-30 gumruk_girish closes on
+        # document buttons, not fields, so no save can cascade through it.
+        gc = ShipmentStatusType.objects.get(code='gumruk_chykysh')
+        variety = TomatoVariety.objects.create(name='Cascade')
         shipment = Shipment.objects.create(
             shipment_code='CASCADE-1',
             date='2026-01-01',
             season=self.season,
-            status=gg,
+            status=gc,
             has_peregruz=False,
             created_by=self.user,
             updated_by=self.user,
@@ -274,33 +271,31 @@ class CascadeTests(TestCase):
             shipment=shipment, block=block, weight_kg=Decimal('10000'),
         )
         from apps.export.services.task_rules import generate_tasks_for_status
-        generate_tasks_for_status(shipment, 'gumruk_girish')
+        generate_tasks_for_status(shipment, 'gumruk_chykysh')
 
         now = timezone.now()
-        # Pre-fill the entire trigger chain through yola_chykdy:
-        # gumruk_girish    → customs_exit_at
-        # gumruk_chykysh   → loading_started_at
-        # yuklenme         → departed_at (+ block_sources/variety/weights gate other yuklenme tasks
-        #                                   that are NOT triggers; they're operational so a save
-        #                                   that fills only departed_at still won't satisfy yuklenme's
-        #                                   ALL_FIELDS_FILLED gates — so cascade stops at yuklenme.)
+        # Pre-fill the trigger chain through yola_chykdy:
+        # gumruk_chykysh → customs_exit_at (docs_from_customs) + loading_started_at
+        # yuklenme       → departed_at + fill_loading_data (variety, weight_net;
+        #                  shipment_code and block_sources are already there)
+        # yola_chykdy    → border_crossed_at is NOT filled, so the cascade stops.
         shipment.customs_exit_at = now
         shipment.loading_started_at = now
         shipment.departed_at = now
+        shipment.variety = variety
+        shipment.weight_net = Decimal('10000')
         shipment.save()
 
         shipment.refresh_from_db()
-        # Cascade walks gumruk_girish → gumruk_chykysh → yuklenme. It stops at
-        # yuklenme because the operational tasks (fill_loading_data,
-        # quality_inspection) require fields we did not fill.
-        self.assertEqual(shipment.status.code, 'yuklenme')
+        # Cascade walks gumruk_chykysh → yuklenme → yola_chykdy.
+        self.assertEqual(shipment.status.code, 'yola_chykdy')
         # Each transition is audited individually.
         log_codes = list(
             ShipmentStatusLog.objects.filter(shipment=shipment)
             .order_by('changed_at')
             .values_list('status__code', flat=True)
         )
-        self.assertEqual(log_codes, ['gumruk_chykysh', 'yuklenme'])
+        self.assertEqual(log_codes, ['yuklenme', 'yola_chykdy'])
         # Every cascaded transition is flagged is_auto=True.
         self.assertTrue(all(
             log.is_auto for log in ShipmentStatusLog.objects.filter(shipment=shipment)

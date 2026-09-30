@@ -238,4 +238,7 @@ def swap_packing(a: Shipment, b: Shipment, user) -> tuple[Shipment, Shipment]:
             [a, b], user,
             f'Packing was swapped between {a.shipment_code} and {b.shipment_code} by {user.username}.',
         )
+    from apps.export.services.task_chain import refresh_after_packing_move
+    for row in (a, b):
+        refresh_after_packing_move(row, user)
     return a, b

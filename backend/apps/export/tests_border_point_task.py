@@ -42,6 +42,10 @@ class BorderPointTaskTests(TestCase):
                 },
             )
         SeedTaskRulesCommand().handle(reset=False)
+        # tasks.set_border_point was retired 2026-09-30 (PREP chain); these tests
+        # keep the rule's own behaviour pinned, so they switch it back on.
+        from apps.export.models import TaskRule
+        TaskRule.objects.filter(title_key='tasks.set_border_point').update(is_active=True)
         cls.user = User.objects.create_user(
             username='bp_transport', password='pw', role='transport',
         )
@@ -115,6 +119,9 @@ class BorderPointTaskTests(TestCase):
         """ALL_FIELDS_FILLED means this task gates draft → gumruk_girish."""
         from apps.export.services.shipment import is_step_trigger_satisfied
 
+        # The rule alone: the rest of the PREP chain would hold the gate too.
+        from apps.export.models import TaskRule
+        TaskRule.objects.filter(step='draft').exclude(title_key=TITLE_KEY).update(is_active=False)
         shipment = self._draft('BP-5')
         Task.objects.filter(shipment=shipment).exclude(
             title_key=TITLE_KEY,

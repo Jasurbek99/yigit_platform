@@ -24,14 +24,21 @@ completion check).
 """
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from apps.export.models import TaskCompletionRule, TaskRule
 
 TASK_RULES: list[dict] = [
     # ── draft → gumruk_girish ──────────────────────────────────────────────────
-    # Operational draft tasks (destination, firm split, driver, document
-    # prep) all gate advance to gumruk_girish. The Customs Entry trigger
-    # is documents_status == 'in_progress' (value-match, per user spec).
+    # The owner replaced this catalog 2026-09-30 (docs/Tasks.md items 5b–22,
+    # spec docs/superpowers/specs/2026-09-30-prep-docs-tasks-design.md):
+    # set_destination (5b) → pick_export_firms (7) + choose_truck / gapy
+    # assign_driver (8) + join_supply (6, does not hold the step). The old
+    # rows (set_border_point, give_documents*, start_documents_prep, transport
+    # assign_driver, trigger_customs_exit) stay below with is_active=False for
+    # history; in-flight shipments finish on the tasks they already have.
+    # 'new_in_catalog' rows get effective_from=now() when first created, so a
+    # shipment already inside that step at deploy is not given them.
     {
         'step': 'draft',
         'title_key': 'tasks.set_destination',
@@ -53,6 +60,37 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
+        'depends_on': 'tasks.set_destination',
+    },
+    {
+        # 6 «Ýükleme bölek birikdir» — the packing part is joined on the
+        # Assignment board. Never holds the step: documents may start first.
+        'step': 'draft',
+        'title_key': 'tasks.join_supply',
+        'assignee_role': 'export_manager',
+        'target_fields': 'block_sources',
+        'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.set_destination',
+        'gates_step': False,
+        'new_in_catalog': True,
+    },
+    {
+        # 8.1 «Maşyn saýla» — regular trucks: a TIR fleet tractor is chosen.
+        'step': 'draft',
+        'title_key': 'tasks.choose_truck',
+        'assignee_role': 'export_manager',
+        'target_fields': 'truck_head_id',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': 'is_gapy_satys',
+        'condition_value': 'False',
+        'depends_on': 'tasks.set_destination',
+        'new_in_catalog': True,
     },
     {
         # Non-gapy shipments: transport team fills name + phone + plate.
@@ -67,29 +105,26 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '24h_after_status',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'False',
+        'is_active': False,  # replaced 2026-09-30 (docs/Tasks.md 5b–22)
     },
     {
-        # Gapy shipments: document_team fills name + plate + passport (transport
-        # team is not involved in gapy logistics, and the driver is never a
-        # fleet driver — HARD RULE, see Shipment.driver_passport_serial).
-        # driver_phone is intentionally NOT required: it is contact info, not
-        # something document generation reads. Passport series + issue date ARE
-        # required — the CMR/TIR carnet need them (see _driver_passports() in
-        # contracts/services/document_context.py) and, unlike a fleet driver,
-        # there is no Driver.passport_serial to fall back on. Shares title_key
-        # with the transport variant; the upsert key includes condition so both
-        # rows coexist without collision. A second driver is optional here too,
-        # matching the non-gapy variant — driver_2_* fields are deliberately
-        # absent from target_fields.
+        # 8.2 Gapy shipments: document_team fills the transport details —
+        # driver name, plate and phone (owner, 2026-09-30, docs/Tasks.md item 8;
+        # was name + plate + passport). Transport is not involved in gapy
+        # logistics and the driver is never a fleet driver — HARD RULE, see
+        # Shipment.driver_passport_serial. Shares title_key with the old
+        # transport variant; the upsert key includes condition so both rows
+        # coexist without collision.
         'step': 'draft',
         'title_key': 'tasks.assign_driver',
         'assignee_role': 'document_team',
-        'target_fields': 'driver_name,truck_plate,driver_passport_serial,driver_passport_issue_date',
+        'target_fields': 'driver_name,truck_plate,driver_phone',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
-        'deadline_rule': '24h_after_status',
+        'deadline_rule': '',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'True',
+        'depends_on': 'tasks.set_destination',
     },
     {
         # Serhet nokady — the border point the truck will cross at. Transport
@@ -122,6 +157,7 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '24h_after_status',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'False',
+        'is_active': False,  # replaced 2026-09-30 (docs/Tasks.md 5b–22)
     },
     {
         'step': 'draft',
@@ -133,6 +169,7 @@ TASK_RULES: list[dict] = [
         'deadline_rule': 'friday_eow',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'False',
+        'is_active': False,  # replaced 2026-09-30 (docs/Tasks.md 5b–22)
     },
     {
         # Gapy document handoff is owned by document_team, not export_manager.
@@ -145,6 +182,7 @@ TASK_RULES: list[dict] = [
         'deadline_rule': 'friday_eow',
         'condition_field': 'is_gapy_satys',
         'condition_value': 'True',
+        'is_active': False,  # replaced 2026-09-30 (docs/Tasks.md 5b–22)
     },
     {
         # V2 trigger: Customs Entry fires when Sirin marks documents_status
@@ -164,10 +202,202 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
+        'is_active': False,  # replaced 2026-09-30 (docs/Tasks.md 5b–22)
     },
 
     # ── gumruk_girish → gumruk_chykysh ─────────────────────────────────────────
-    # Trigger: customs_exit_at filled by Sirin (R25).
+    # DOCS chain 2026-09-30 (docs/Tasks.md 9–21b). The step advances when every
+    # task here is closed; the last is docs_to_customs. The old trigger
+    # (customs_exit_at, trigger_customs_exit) is inactive — customs exit now
+    # closes docs_from_customs on the next step.
+    {
+        # 9 — closes when every firm has a contract whose agreement was downloaded (contracts registers the check), or by the button.
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.prepare_contract',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.pick_export_firms',
+        'new_in_catalog': True,
+    },
+    {
+        # 10 — brut/net: a packing template is chosen.
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.fill_gross_net',
+        'assignee_role': 'document_team',
+        'target_fields': 'packing_template',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.pick_export_firms',
+        'new_in_catalog': True,
+    },
+    {
+        # 11 «Taýýarladym» — also sets R6 «Resminamalar 13:00» to in_progress (task_chain effect).
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.prepare_transport_docs',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.choose_truck,tasks.assign_driver',
+        'new_in_catalog': True,
+    },
+    {
+        # 12–15, 17: print tasks close on download (ShipmentDocumentDownload) or by the button.
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.print_cmr',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.prepare_contract,tasks.fill_gross_net,tasks.prepare_transport_docs',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.print_tir',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.prepare_transport_docs',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.print_ct1',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.print_cmr',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.print_phyto',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.print_ct1',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.ct1_phyto_sent',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.print_ct1,tasks.print_phyto',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.print_customs_request',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.print_cmr',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.docs_to_stamp',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.ct1_phyto_sent,tasks.print_customs_request',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.docs_from_stamp',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.docs_to_stamp',
+        'new_in_catalog': True,
+    },
+    {
+        # 20 «Awans ber» — an advance is linked to the shipment.
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.give_advance',
+        'assignee_role': 'finansist',
+        'target_fields': 'advance_links',
+        'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': '',
+        'new_in_catalog': True,
+    },
+    {
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.prepare_declaration',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.docs_from_stamp',
+        'new_in_catalog': True,
+    },
+    {
+        # 21b «Gümrüge ugradyldy» — the last task of the step.
+        'step': 'gumruk_girish',
+        'title_key': 'tasks.docs_to_customs',
+        'assignee_role': 'document_team',
+        'target_fields': '',
+        'completion_rule': TaskCompletionRule.CONFIRM,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': 'tasks.give_advance,tasks.prepare_declaration',
+        'new_in_catalog': True,
+    },
     {
         'step': 'gumruk_girish',
         'title_key': 'tasks.trigger_customs_exit',
@@ -178,10 +408,25 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '13:00_same_day',
         'condition_field': '',
         'condition_value': '',
+        'is_active': False,  # replaced 2026-09-30 (docs/Tasks.md 5b–22)
     },
 
     # ── gumruk_chykysh → yuklenme ──────────────────────────────────────────────
     # Trigger: loading_started_at filled by Soltanmyrat (R19).
+    {
+        # 22 «Gümrükden geldi» — customs exit; sets R6 to the «Gümrükden geldi» option (task_chain effect).
+        'step': 'gumruk_chykysh',
+        'title_key': 'tasks.docs_from_customs',
+        'assignee_role': 'document_team',
+        'target_fields': 'customs_exit_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'depends_on': '',
+        'new_in_catalog': True,
+    },
     {
         'step': 'gumruk_chykysh',
         'title_key': 'tasks.trigger_loading_start',
@@ -497,6 +742,8 @@ class Command(BaseCommand):
             updated_count = 0
 
             for rule_data in TASK_RULES:
+                rule_data = dict(rule_data)
+                new_in_catalog = rule_data.pop('new_in_catalog', False)
                 # Upsert key includes condition so two rules sharing the same
                 # step + title_key but targeting different shipment variants
                 # (e.g. gapy vs non-gapy assign_driver) coexist as separate
@@ -511,6 +758,9 @@ class Command(BaseCommand):
                 _rule, created = TaskRule.objects.update_or_create(
                     **key, defaults=defaults
                 )
+                if created and new_in_catalog:
+                    # Set once: re-runs never move it (spec 2026-09-30).
+                    TaskRule.objects.filter(pk=_rule.pk).update(effective_from=timezone.now())
                 if created:
                     created_count += 1
                 else:

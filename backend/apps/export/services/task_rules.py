@@ -234,12 +234,16 @@ def generate_tasks_for_status(
     )
     created: list[Task] = []
     now = timezone.now()
+    from apps.export.services.task_chain import dep_keys, rule_effective, spawn_ready_tasks, step_entered_at
+    entered_at = step_entered_at(shipment)
 
     for rule in rules:
         if rule.id in existing_rule_ids:
             continue
         if not _rule_applies(rule, shipment):
             continue
+        if dep_keys(rule) or not rule_effective(rule, entered_at):
+            continue          # deferred (spawn_ready_tasks) or not for this shipment
         deadline = parse_deadline_rule(rule.deadline_rule, reference=now)
         task = create_rule_task(
             shipment=shipment,
@@ -267,6 +271,9 @@ def generate_tasks_for_status(
         # the resolver — e.g. tasks.confirm_destination targeting `city` on a
         # shipment that already has a destination set when entering `bardy`.
         resolve_for_shipment(shipment)
+
+    if shipment.status_id and shipment.status.code == new_status_code:
+        created += spawn_ready_tasks(shipment)
 
     return created
 
@@ -348,6 +355,10 @@ def sync_draft_tasks_with_destination(shipment) -> dict:
         resolve_for_shipment(shipment)
         for task in result['reopened']:
             task.refresh_from_db()
+        # A reopened prerequisite may close at once (5b with all three fields
+        # back): create the PREP tasks now due, or E3 holds the draft forever.
+        from apps.export.services.task_chain import spawn_ready_tasks
+        result['created'] = spawn_ready_tasks(shipment)
     return result
 
 
@@ -507,6 +518,9 @@ def reconcile_shipment_tasks(
 
         if matches:
             if task is None:
+                from apps.export.services.task_chain import dep_keys, rule_effective, step_entered_at
+                if dep_keys(rule) or not rule_effective(rule, step_entered_at(shipment)):
+                    continue      # created by spawn_ready_tasks once its prerequisites are done
                 if not create_missing:
                     continue
                 task = create_rule_task(
@@ -559,6 +573,10 @@ def reconcile_shipment_tasks(
         resolve_for_shipment(shipment)
         for task in created + reopened:
             task.refresh_from_db()
+    if created or reopened or cancelled:
+        # A prerequisite created, reopened or cancelled can make a dependent due.
+        from apps.export.services.task_chain import spawn_ready_tasks
+        created += spawn_ready_tasks(shipment)
 
     created = destination_result['created'] + created
     cancelled = destination_result['cancelled'] + cancelled
@@ -861,6 +879,8 @@ def resolve_for_shipment(shipment) -> list[Task]:
             task.completed_by = actor
             task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
             resolved.append(task)
+            from apps.export.services.task_chain import apply_task_done_effects
+            apply_task_done_effects(task, shipment)
 
     if resolved:
         logger.info(

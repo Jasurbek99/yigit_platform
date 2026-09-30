@@ -428,6 +428,7 @@ def is_step_trigger_satisfied(shipment: Shipment, status_code: Optional[str]) ->
     auto_rules_exist = TaskRule.objects.filter(
         step=status_code,
         is_active=True,
+        gates_step=True,
     ).exclude(completion_rule=TaskCompletionRule.MANUAL_DONE).exists()
     if not auto_rules_exist:
         return False
@@ -436,8 +437,14 @@ def is_step_trigger_satisfied(shipment: Shipment, status_code: Optional[str]) ->
         shipment.tasks
         .filter(step=status_code, state__in=[TaskState.OPEN, TaskState.IN_PROGRESS])
         .exclude(completion_rule=TaskCompletionRule.MANUAL_DONE)
+        .exclude(rule__gates_step=False)
         .exists()
     )
+    if (shipment.status_id and shipment.status.code == status_code
+            and not open_auto_tasks_exist):
+        from apps.export.services.task_chain import has_pending_dependents
+        if has_pending_dependents(shipment):
+            return False
     return not open_auto_tasks_exist
 
 
