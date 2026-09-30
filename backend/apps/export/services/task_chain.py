@@ -82,7 +82,9 @@ def has_pending_dependents(shipment) -> bool:
     step_rules = _step_rules(shipment)
     if not any(dep_keys(r) and r.gates_step for r in step_rules):
         return False
-    tasks = list(shipment.tasks.all())
+    # Task.objects.filter, not shipment.tasks.all(): a prefetched `tasks`
+    # cache on `shipment` would otherwise hide a task created since the fetch.
+    tasks = list(Task.objects.filter(shipment_id=shipment.pk))
     return any(r.gates_step for r in _pending_rules(shipment, step_rules, tasks, step_entered_at(shipment)))
 
 
@@ -98,7 +100,9 @@ def spawn_ready_tasks(shipment) -> list[Task]:
     entered_at = step_entered_at(shipment)
     created_all: list[Task] = []
     for _ in range(MAX_SPAWN_PASSES):
-        tasks = list(shipment.tasks.all())
+        # See has_pending_dependents: a prefetched cache must not hide a task
+        # a previous pass of this same loop just created.
+        tasks = list(Task.objects.filter(shipment_id=shipment.pk))
         ready = [r for r in _pending_rules(shipment, step_rules, tasks, entered_at)
                  if _deps_satisfied(r, shipment, step_rules, tasks, entered_at)]
         if not ready:
@@ -222,7 +226,8 @@ def record_document_download(shipment, doc_keys, user) -> list[Task]:
     )
     closed = close_auto_satisfied(shipment)
     if closed:
-        after_task_done(shipment, user, closed)
+        # close_auto_satisfied already applied each task's effects (loop above).
+        after_task_done(shipment, user, closed, apply_effects=False)
     return closed
 
 
@@ -230,15 +235,34 @@ DOCS_IN_PROGRESS = 'in_progress'
 FROM_CUSTOMS_LABEL = 'Gümrükden geldi'
 
 
+def _audit_documents_status_effect(shipment, before: dict, user) -> None:
+    """Record an R6 (documents_status) effect write — see rollback.py for the
+    same before/QuerySet.update()/diff_audit_rows pattern. Skipped when no user
+    is in scope (an ancient close with no completed_by and no updated_by)."""
+    if user is None:
+        return
+    from apps.export.models import AuditLog
+    from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
+
+    rows = diff_audit_rows(shipment, before, snapshot_fields(shipment, list(before)), user)
+    if rows:
+        AuditLog.objects.bulk_create(rows, batch_size=500)
+
+
 def apply_task_done_effects(task: Task, shipment) -> None:
     """One-shot side effects at close (spec §4). Never re-applied later, so a
     manual edit of «Resminamalar 13:00» after it stands."""
     from apps.export.models import Shipment
+    from apps.export.services.sheet_audit import snapshot_fields
+
+    user = task.completed_by or getattr(shipment, 'updated_by', None)
 
     if task.title_key == 'tasks.prepare_transport_docs':
         if shipment.documents_status in (None, '', 'ready'):
+            before = snapshot_fields(shipment, ['documents_status'])
             Shipment.objects.filter(pk=shipment.pk).update(documents_status=DOCS_IN_PROGRESS)
             shipment.documents_status = DOCS_IN_PROGRESS
+            _audit_documents_status_effect(shipment, before, user)
     elif task.title_key == 'tasks.docs_from_customs':
         from apps.core.models import ShipmentOptionType
 
@@ -251,19 +275,27 @@ def apply_task_done_effects(task: Task, shipment) -> None:
             logger.warning('No active documents_status option «%s»; %s left unchanged',
                            FROM_CUSTOMS_LABEL, shipment.shipment_code)
             return
+        before = snapshot_fields(shipment, ['documents_status'])
         Shipment.objects.filter(pk=shipment.pk).update(documents_status=code)
         shipment.documents_status = code
+        _audit_documents_status_effect(shipment, before, user)
     elif task.title_key == 'tasks.docs_to_customs' and shipment.documents_reset_at:
         # The documents for the new truck are done: drop the rollback mark.
         Shipment.objects.filter(pk=shipment.pk).update(documents_reset_at=None)
         shipment.documents_reset_at = None
 
 
-def after_task_done(shipment, user, done_tasks) -> list[Task]:
+def after_task_done(shipment, user, done_tasks, apply_effects: bool = True) -> list[Task]:
     """A task closed outside Shipment.save() (button, download, hook): apply its
-    effects, spawn what is now due, advance through the normal gate."""
-    for task in done_tasks:
-        apply_task_done_effects(task, shipment)
+    effects, spawn what is now due, advance through the normal gate.
+
+    apply_effects=False when the caller already ran apply_task_done_effects on
+    every one of done_tasks itself (close_auto_satisfied does this) — otherwise
+    each effect would run twice for that close.
+    """
+    if apply_effects:
+        for task in done_tasks:
+            apply_task_done_effects(task, shipment)
     shipment.updated_by = user
     spawned = spawn_ready_tasks(shipment)
     from apps.export.models.shipment import advance_after_tasks

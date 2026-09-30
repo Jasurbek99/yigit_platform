@@ -731,6 +731,9 @@ def _plan_condition_changes(
         matches = _rule_applies(rule, shipment)
         if matches:
             if task is None:
+                from apps.export.services.task_chain import dep_keys, rule_effective, step_entered_at
+                if dep_keys(rule) or not rule_effective(rule, step_entered_at(shipment)):
+                    continue      # mirrors reconcile_shipment_tasks: created by spawn_ready_tasks instead
                 if create_missing:
                     plan['created'].append((rule.title_key, 'created'))
             elif (

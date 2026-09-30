@@ -608,6 +608,50 @@ class StepLosesItsLastGateWarningTests(TestCase):
         )
 
 
+class DryRunMirrorsDeferredRulesTests(TestCase):
+    """Review A2: _plan_condition_changes (the --dry-run planner) must skip
+    depends_on / not-yet-effective rules exactly like reconcile_shipment_tasks
+    does — those are created later by spawn_ready_tasks, never by the
+    condition pass itself. Otherwise a dry run promises a task the real run
+    never creates."""
+
+    def _make_pair(self, code):
+        prereq = _make_rule(
+            title_key='tasks.dr_prereq', condition_field='is_gapy_satys', condition_value='True',
+        )
+        dependent = _make_rule(
+            title_key='tasks.dr_after_prereq', depends_on='tasks.dr_prereq',
+            condition_field='is_gapy_satys', condition_value='True',
+        )
+        ship = _make_shipment(code, is_gapy_satys=True)
+        _make_task(ship, prereq)            # still OPEN: the prerequisite is unsatisfied
+        return ship, dependent
+
+    def test_dry_run_does_not_report_the_dependent_rule_as_created(self):
+        from apps.export.services.task_rules import reconcile_conditions_for_shipments
+
+        ship, dependent = self._make_pair('0201090/26')
+
+        plan = reconcile_conditions_for_shipments(shipments=[ship], dry_run=True, create_missing=True)
+
+        created_keys = {c['title_key'] for c in plan['changes'] if c['action'] == 'created'}
+        self.assertNotIn(dependent.title_key, created_keys)
+
+    def test_dry_run_plan_matches_the_real_run(self):
+        from apps.export.services.task_rules import reconcile_conditions_for_shipments
+
+        ship_a, _ = self._make_pair('0201091/26')
+        ship_b, _ = self._make_pair('0201092/26')
+
+        planned = reconcile_conditions_for_shipments(shipments=[ship_a], dry_run=True, create_missing=True)
+        actual = reconcile_conditions_for_shipments(shipments=[ship_b], dry_run=False, create_missing=True)
+
+        def _shape(summary):
+            return sorted((c['action'], c['title_key']) for c in summary['changes'])
+
+        self.assertEqual(_shape(planned), _shape(actual))
+
+
 class GateIsOneQueryTests(TestCase):
     """The gate runs on EVERY Sheet cell edit - the hottest path in the product,
     used by people on public networks in KZ/RU. It must be as close to free as

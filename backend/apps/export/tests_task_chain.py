@@ -145,6 +145,25 @@ class ChainEngineTests(ChainFixture):
         self.assertEqual(s.status.code, 'gumruk_chykysh')
         self.assertEqual(s.tasks.get(title_key='tasks.join').state, TaskState.OPEN)
 
+    def test_has_pending_dependents_ignores_a_stale_prefetched_tasks_cache(self):
+        """Review A5: shipment.tasks.all() can read a stale prefetch cache
+        populated before a dependent task was created — Task.objects.filter
+        must be used instead."""
+        _rule('gumruk_girish', 'tasks.a')
+        _rule('gumruk_girish', 'tasks.c', depends_on='tasks.a')
+        s = self._at()
+        generate_tasks_for_status(s, 'gumruk_girish')
+
+        stale = Shipment.objects.prefetch_related('tasks').get(pk=s.pk)
+        list(stale.tasks.all())            # cache populated while only tasks.a exists
+
+        self._press(s, 'tasks.a')          # closes a on a fresh instance; spawns c for real
+
+        self.assertFalse(
+            has_pending_dependents(stale),
+            'tasks.c already exists — a stale tasks cache must not report it as still pending',
+        )
+
     def test_pending_non_gating_dependent_never_holds_the_step(self):
         _rule('gumruk_girish', 'tasks.a')
         _rule('gumruk_girish', 'tasks.b', depends_on='tasks.never', completion_rule=TaskCompletionRule.ANY_FIELD_FILLED,
@@ -198,6 +217,20 @@ class ChainEffectsTests(ChainFixture):
         s.save()
         s.refresh_from_db()
         self.assertEqual(s.documents_status, 'Gümrükden geldi')
+
+    def test_prepare_transport_docs_effect_is_audited(self):
+        """Review A3: the R6 documents_status write from apply_task_done_effects
+        is a QuerySet.update() — it needs its own AuditLog row, same as
+        rollback.py's re-gate writes."""
+        from apps.export.models import AuditLog
+
+        _rule('gumruk_girish', 'tasks.prepare_transport_docs')
+        _rule('gumruk_girish', 'tasks.hold')
+        s = self._at()
+        generate_tasks_for_status(s, 'gumruk_girish')
+        self._press(s, 'tasks.prepare_transport_docs')
+        row = AuditLog.objects.get(object_id=s.pk, field_name='documents_status')
+        self.assertEqual((row.old_value, row.new_value, row.user_id), ('', 'in_progress', self.user.pk))
 
     def test_manual_edit_after_the_effect_is_kept(self):
         _rule('gumruk_girish', 'tasks.prepare_transport_docs')

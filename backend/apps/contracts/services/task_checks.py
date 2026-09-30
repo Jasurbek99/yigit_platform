@@ -31,4 +31,5 @@ def sync_prepare_contract(shipment, user) -> None:
     shipment.updated_by = user
     closed = close_auto_satisfied(shipment)
     if closed:
-        after_task_done(shipment, user, closed)
+        # close_auto_satisfied already applied each task's effects.
+        after_task_done(shipment, user, closed, apply_effects=False)

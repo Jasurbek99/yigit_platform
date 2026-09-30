@@ -164,6 +164,27 @@ class PrepareContractTaskTests(_SeededPermsMixin, TestCase):
             resp = self.client.get(f'/api/v1/contracts/contracts/{self.contracts["PCA"].pk}/agreement/')
         self.assertEqual(resp.status_code, 200, resp.content[:200])
 
+    def test_sync_prepare_contract_applies_effects_exactly_once(self):
+        """Review A1: sync_prepare_contract's close_auto_satisfied() already
+        applies each closed task's effects; after_task_done() must not apply
+        them again."""
+        from unittest import mock
+
+        from apps.contracts.services.task_checks import sync_prepare_contract
+        from apps.export.services import task_chain as task_chain_module
+
+        self._sale(self.ef_a, 1)
+        self._sale(self.ef_b, 2)
+        type(self.contracts['PCA']).objects.update(agreement_downloaded_at=timezone.now())
+        type(self.contracts['PCB']).objects.update(agreement_downloaded_at=timezone.now())
+        with mock.patch.object(
+            task_chain_module, 'apply_task_done_effects',
+            wraps=task_chain_module.apply_task_done_effects,
+        ) as spy:
+            sync_prepare_contract(self.shipment, self.user)
+        titles = [call.args[0].title_key for call in spy.call_args_list]
+        self.assertEqual(titles.count('tasks.prepare_contract'), 1, titles)
+
     def test_a_void_sale_does_not_cover_its_firm(self):
         from apps.contracts.models import ContractSale
         from apps.contracts.services.task_checks import contracts_ready

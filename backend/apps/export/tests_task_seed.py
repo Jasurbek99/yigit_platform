@@ -115,6 +115,60 @@ class SeedTaskRulesTests(TestCase):
 
 
 # ---------------------------------------------------------------------------
+# depends_on graph (Review A4)
+# ---------------------------------------------------------------------------
+
+def _depends_on_problems(rules: list[dict]) -> list[str]:
+    """Two classes of problem in a TASK_RULES-shaped list: a depends_on key
+    naming a title_key nobody defines, and a depends_on cycle. Nothing else in
+    the engine can tell "waiting on a real prerequisite" apart from "waiting
+    on a key that will never exist" — both just leave the dependent task
+    forever uncreated. Returns human-readable problem strings; empty = clean.
+    """
+    title_keys = {r['title_key'] for r in rules}
+    graph: dict[str, set[str]] = {}
+    problems: list[str] = []
+    for r in rules:
+        deps = {d.strip() for d in r.get('depends_on', '').split(',') if d.strip()}
+        unknown = deps - title_keys
+        if unknown:
+            problems.append(f"{r['title_key']} depends_on unknown key(s): {sorted(unknown)}")
+        graph.setdefault(r['title_key'], set()).update(deps & title_keys)
+
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color = dict.fromkeys(graph, WHITE)
+
+    def visit(node: str, path: list[str]) -> None:
+        color[node] = GRAY
+        for dep in graph.get(node, ()):
+            if color.get(dep, WHITE) == GRAY:
+                problems.append(f"depends_on cycle: {' -> '.join(path + [dep])}")
+            elif color.get(dep, WHITE) == WHITE:
+                visit(dep, path + [dep])
+        color[node] = BLACK
+
+    for key in graph:
+        if color[key] == WHITE:
+            visit(key, [key])
+    return problems
+
+
+class DependsOnGraphTests(TestCase):
+    def test_real_catalog_has_no_depends_on_problems(self) -> None:
+        self.assertEqual(_depends_on_problems(TASK_RULES), [])
+
+    def test_helper_catches_an_unknown_key_and_a_cycle(self) -> None:
+        broken = [
+            {'title_key': 'tasks.a', 'depends_on': 'tasks.b'},
+            {'title_key': 'tasks.b', 'depends_on': 'tasks.a'},          # cycle
+            {'title_key': 'tasks.c', 'depends_on': 'tasks.typo_key'},   # unknown key
+        ]
+        problems = _depends_on_problems(broken)
+        self.assertTrue(any('cycle' in p for p in problems), problems)
+        self.assertTrue(any('typo_key' in p for p in problems), problems)
+
+
+# ---------------------------------------------------------------------------
 # backfill_tasks
 # ---------------------------------------------------------------------------
 
