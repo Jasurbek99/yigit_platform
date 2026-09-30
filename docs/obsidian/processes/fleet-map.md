@@ -161,7 +161,10 @@ Any network error, non-2xx status, or non-JSON body raises `TraccarUnavailable`.
   trailing `TR##` token → returns `(whole_name, None)`.
 - **`sync_devices(client=None)`** — pulls `get_devices()`, `update_or_create`s a `Truck`
   per parsed plate and a `TraccarDevice` per Traccar device id. Idempotent — safe to
-  re-run.
+  re-run. A device already linked to a truck keeps that truck: a rename in Traccar
+  updates the truck's `plate`/`fleet_no` in place. Before 2026-09-30 it matched by plate
+  only, so renaming `2613AHG TR076` → `2613AHF TR076` tried to insert a second `TR076`
+  row. The resulting IntegrityError aborted every poll, and the map stayed frozen from 09-22.
 - **`sync_positions(client=None)`** — pulls `get_positions()`, upserts one
   `DevicePosition` per **known** device (looked up by `traccar_id`). Positions for a
   `deviceId` with no matching `TraccarDevice`, or with a null `latitude`, are skipped and
