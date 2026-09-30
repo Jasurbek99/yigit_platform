@@ -70,13 +70,13 @@
 |---|---|---|---|---|
 | 28 | TM çäginden çykdy | transport | **вероятно есть**: `trigger_border_crossing` (:282), `border_crossed_at` | — |
 | 29 | Barmaly ýurda girdi | sales_rep, QR | **есть**: `trigger_dest_entry` (:316), QR работает | — |
-| 30 | Gümrük işleri | sales_rep, QR | **есть**: `trigger_dest_customs` (:330), `customs_entry_at` | Название в списке «сделаны», поле называется «вход». Это одно и то же? |
+| 30 | Gümrük işleri | sales_rep, QR | **сделано 2026-09-30**: одно время «таможня пройдена» (тексты; поле `customs_entry_at` то же). Было: `trigger_dest_customs` (:330), `customs_entry_at` | Название в списке «сделаны», поле называется «вход». Это одно и то же? |
 | 31 | Peregruz barmy? | sales_rep | **сделано 2026-09-29** | `has_peregruz` — boolean `default=False`: «не ответил» и «нет» сейчас не различаются |
 | 32 | Peregruz wagty | sales_rep | **есть**: `trigger_transshipment` (:346) | — |
 | 33 | Barmaly nokada geldi | sales_rep, QR | **есть**: `trigger_arrival(_direct)` (:357, :371) | — |
 | 34 | Satyş başlady | роль не указана, QR | **есть**: `trigger_sale_start` (:396), sales_rep | — |
 | 35 | Satyş gutardy | sales_rep, QR | **есть**: `trigger_sale_end` (:410) | — |
-| 36 | Hasabat doldur | sales_rep | **есть**: `submit_sales_report` (:293) и `trigger_report_received` (:433) | Два правила на одно действие |
+| 36 | Hasabat doldur | sales_rep | **сделано 2026-09-30**: одна карточка — `submit_sales_report` закрывается сохранённым отчётом, `trigger_report_received` выключен. Было: `submit_sales_report` (:293) и `trigger_report_received` (:433) | Два правила на одно действие |
 | 37 | Hasabaty tassykla | «export manager (aganazar)» | **сделано 2026-09-29** (оба export manager, только «Tassykla») | Процесса утверждения отчёта нет. В коде Aganazar — `sales_rep` (владелец R43) |
 
 ---

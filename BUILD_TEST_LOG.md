@@ -1,3 +1,4 @@
+- [ ] 2026-09-30 — «Record departure» task moved to garawul; one sales-report card (closes on the saved report); destination customs worded «Таможня пройдена»; board phase averages DOCS/LOAD fixed — NEEDS TEST
 - [ ] 2026-09-30 — Page access (core 0071, applied to the shared DB): loading head + deputy see Truck Board + Transport Plan (+ truck_allocation view); Tır Takip reopened for every role but garawul; Staff Page Access now lists them; «Tır Takip» group label on /admin/permissions — NEEDS TEST
 - [ ] 2026-09-30 — LOAD item 26 «Ýükleme gutardy» (loading_dept_head, loading_ended_at); a truck the guard let out waits in Погрузка until it is filled — NEEDS TEST
 - [ ] 2026-09-30 — Task-chain review fixes (double effects, dry-run/depends_on skip, R6 audit rows, stale prefetch, give_advance progress bar) — NEEDS TEST

@@ -82,11 +82,11 @@ department's tasks.
 | **Loading** `yuklenme` | Fill loading data | loading_dept_head | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
 | | 26 **Loading ended** «Ýükleme gutardy» (`tasks.loading_ended`, 2026-09-30) | loading_dept_head | auto: `loading_ended_at` (R20). Holds the step: a truck the garawul already let out (`departed_at`) waits in `yuklenme` until it is filled, then auto-advances (gapy → `tamamlandy`). New-in-catalog: trucks already loading at deploy leave as before |
 | | **Quality inspection** | quality_inspector | **Mark Done** *(non-gating reminder — 4 quality certificates + `transit_days` + `transport_temp_c` + `shelf_life_days`; see below)* |
-| | Trigger departure | document_team | auto: `departed_at` |
+| | Trigger departure (27 «Ýyladyşhanadan çykdy») | **garawul** (since 2026-09-30; was document_team) | auto: `departed_at` — written by the guard's gate «Çykdy» mark. Shows on nobody's My Tasks (a guard sees only his location's gate tasks); it stays as the step's gate |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |
-| | **Submit sales report** | sales_rep | **Mark Done** *(non-gating reminder — closed when the SalesReport is saved; see below)* |
+| | **Submit sales report** (36 «Hasabat doldur») | sales_rep | auto: `sales_report` (the report is saved), `gates_step=False` — one card from departure to the saved report; no button (2026-09-30) |
 | **Border crossed** `serhet_gechdi` | Trigger dest. entry | sales_rep | auto: `dest_entry_at` |
-| **Dest. entry** `dest_entry` | Trigger dest. customs | sales_rep | auto: `customs_entry_at` |
+| **Dest. entry** `dest_entry` | Trigger dest. customs (30 «Gümrük işleri») | sales_rep | auto: `customs_entry_at` — ONE moment: when the destination customs work was done (owner 2026-09-30; UI says «Таможня пройдена», the column name stays) |
 | | **Peregruz barmy?** (`tasks.ask_peregruz`, 2026-09-29) | sales_rep | auto (`field_set`): `has_peregruz` answered — «No» counts. The truck stays at `dest_entry` until answered, so the barysh_gumrugi fork always runs on a real answer |
 | **Dest. customs** `barysh_gumrugi` | Trigger transshipment | sales_rep | auto: `peregruz_date` — *only if has transshipment* |
 | | Trigger arrival (direct) | sales_rep | auto: `arrived_at` — *only if no transshipment* |
@@ -94,7 +94,7 @@ department's tasks.
 | **Arrived** `bardy` | Confirm destination | sales_rep | auto: `city` |
 | | Trigger sale start | sales_rep | auto: `sale_started_at` |
 | **Selling** `satylyar` | Trigger sale end | sales_rep | auto: `sale_ended_at` |
-| **Sold** `satyldy` | Trigger report received | sales_rep | auto: `sales_report` *(report-existence — retargeted from the old `sales_report_date` date field)* |
+| **Sold** `satyldy` | ~~Trigger report received~~ | sales_rep | **inactive since 2026-09-30** — a second card for the same report; `approve_sales_report` needs the report anyway |
 | | **Approve the report** (`tasks.approve_sales_report`, 2026-09-29) | export_manager (either; admin / boss / director may too) | auto: `sales_report.approved_at` — set by `POST /shipments/{id}/sales-report/approve/`. The shipment closes only after approval; approve only, no reject |
 
 `hasabat` was retired in state machine v2 (merged into `tamamlandy`) and has no rules. `tamamlandy` and
@@ -218,19 +218,20 @@ point, which is used only when the shipment has none.
 The sales report is fillable from **step 4 (`yola_chykdy`, departed)** onward — the
 truck usually sells before the system status catches up. Two rules cooperate:
 
-- **Step 4 reminder** (`tasks.submit_sales_report`, sales_rep, `MANUAL_DONE`): appears the
-  moment the truck departs so the rep sees "fill the report" on the board early. It **must**
-  be `MANUAL_DONE` — a field-based (auto-resolving) task on step 4 would gate auto-advance
-  and freeze the truck at step 4 until the report is filled (weeks later). `MANUAL_DONE`
-  tasks are exempt from `is_step_trigger_satisfied`, so this stays a non-gating reminder.
+- **Step 4 reminder** (`tasks.submit_sales_report`, sales_rep): appears the moment the truck
+  departs so the rep sees "fill the report" on the board early. Since 2026-09-30 (owner, item
+  36 — one card) it is `ANY_FIELD_FILLED` on `sales_report` with **`gates_step=False`**: it
+  closes only when the report is saved (no "Mark Done" button), and it never holds a step, so
+  the truck is not frozen at step 4 for the weeks the sale takes. Before, it was `MANUAL_DONE`
+  for the same non-gating reason.
 - **Step 11 approval** (since 2026-09-29, `tasks.approve_sales_report`, target
   `sales_report.approved_at`): the report alone no longer closes the shipment — it waits at
   `satyldy` until an export manager approves it (`POST /shipments/{id}/sales-report/approve/`,
   which sets `approved_at` / `approved_by` and saves the shipment to fire auto-advance).
-- **Step 11 trigger** (`satyldy` → `tamamlandy`, target `sales_report`): resolves
-  when the SalesReport **row exists** (retargeted from the old `sales_report_date` date field).
-  `_resolve_value` returns the report on existence / `None` when absent, so `ALL_FIELDS_FILLED`
-  resolves the instant a report exists.
+- ~~**Step 11 trigger**~~ (`tasks.trigger_report_received`) — **inactive since 2026-09-30**:
+  on a late fill it put a second card for the same report next to the reminder, and the
+  approval task already needs the report. Open ones on in-flight shipments still close when
+  the report is saved.
 
 **Close link:** the engine never auto-resolves `MANUAL_DONE`, so saving the report closes the
 reminder via `close_sales_report_task(shipment, user)` (`services/task_rules.py`), called from
