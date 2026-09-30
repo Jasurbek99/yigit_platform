@@ -181,6 +181,19 @@ has advanced, use `cancel` (lifecycle) or `soft-delete` (restorable trash) inste
 // Error 403: { "error": "Only admin can permanently delete shipments." }
 ```
 
+### Sales report approval: `POST /api/v1/export/shipments/{id}/sales-report/approve/` (2026-09-29)
+
+«Hasabaty tassykla» (`docs/Tasks.md` item 37). No body. Roles: `export_manager`, `admin`, `boss`,
+`director`, superusers — else 403. No report yet → 400 `There is no sales report to approve yet.`
+Deleted/archived → 403. Sets `sales_report.approved_at` / `approved_by` (idempotent — a second call
+keeps the first approval) and saves the shipment, so the satyldy approval task resolves and the
+shipment auto-advances to `tamamlandy`. Returns the full shipment detail. The nested `sales_report`
+now carries read-only `approved_at`, `approved_by` (int) and `approved_by_name`.
+
+**`has_peregruz` is tri-state** since 2026-09-29: `null` = the sales rep has not answered «Peregruz
+barmy?» yet (new shipments start `null`; older rows keep `true`/`false`). Task and rule payloads may
+carry `completion_rule: "field_set"` (any value, `false` included).
+
 ### Sales report: `POST`/`PATCH /api/v1/export/shipments/{id}/sales-report/`
 
 The final per-shipment sales report (the "hasabat" the export manager used to keep in Excel).
@@ -772,6 +785,68 @@ Same caveats as `since` above (understated right after deploy, offline trucks ke
 geofence). Frontend: `ILivePosition`/`ITruckPosition` both carry the two fields;
 `ShipmentTruckLocationBlock.tsx` (shared by the Detail card and the Sheet modal) and
 `FleetMap.tsx` render `geofence_name` as a purple Tag when present.
+
+### Planning tasks: review, transport plan, acknowledge (2026-09-29)
+
+Backs the «Tanyşdym» planning tasks (`docs/Tasks.md` items 2b and 3). Spec:
+`docs/superpowers/specs/2026-09-29-planning-tasks-design.md`. **Not season-scoped**
+— keyed by ISO `year` + `week`. Every count is a **JSON int** (no decimal strings).
+
+`GET /api/v1/export/truck-allocations/review/?year=&week=` — the `/export/plan`
+banner. Gate: `truck_allocation.can_view` (the viewset's `DynamicResourcePermission`).
+`changes` lists the Mon–Sat days (`day_of_week` 1=Mon…6=Sat) whose needed-truck
+count (half-up at 18,500 kg) differs from the allocation baseline; `open_task_id`
+is the open `alloc_review` task, or null.
+
+```json
+{ "year": 2026, "week": 40, "open_task_id": 12,
+  "changes": [ { "day_of_week": 1, "was": 1, "now": 2 } ],
+  "snapshot": "1:2", "can_acknowledge": true }
+```
+
+Both GETs carry `snapshot` (the counts the page shows, ASCII `k:v;…`; `";"` = a
+recorded empty plan) and `can_acknowledge` (true for the task's assignee role
+family — `export_manager` here, `transport` on the transport plan — plus admin /
+boss / director and superusers).
+
+`GET /api/v1/export/truck-allocations/transport-plan/?year=&week=` — the
+`/transport/plan` page. Same gate (transport holds `truck_allocation` view-only).
+`days` always has 6 entries (Mon–Sat). `cells` covers every (day, destination) that
+is non-zero now **or** in transport's last acknowledged snapshot;
+`acknowledged_count` and `acknowledged_at` are `null` when transport never
+acknowledged this week. `acknowledged_at` carries the local offset.
+
+```json
+{
+  "year": 2026, "week": 40,
+  "days": [ { "day_of_week": 1, "date": "2026-09-28" } ],
+  "destinations": [ { "id": 3, "name": "Russia" } ],
+  "cells": [ { "day_of_week": 1, "destination_id": 3, "truck_count": 2, "acknowledged_count": 1 } ],
+  "open_task_id": 51,
+  "acknowledged_at": "2026-09-26T16:05:00+05:00",
+  "snapshot": "1:3:2",
+  "can_acknowledge": true
+}
+```
+
+Both: a missing or invalid ISO `year`/`week` → `400 {"error": "year and week must be a valid ISO year and week."}`.
+
+`POST /api/v1/export/tasks/{id}/acknowledge/` — «Tanyşdym». Body
+`{"snapshot": "<snapshot from the GET the page rendered>"}` (missing → 400).
+`alloc_review` / `transport_plan` tasks only (other kinds → 400 `Only review tasks
+can be acknowledged.`); cancelled → 400. **Only the assignee role family,
+admin / boss / director, or a superuser** (owner, 2026-09-29) — `export_manager`
+gets 403 on transport's task, unlike `/complete/`, because he makes the allocation
+changes and acknowledging for transport would hide them from transport.
+If the data changed since the page loaded → **409** `{"error": "stale", "detail":
+…}` and nothing changes (the frontend refetches). Stores what was seen in
+`Task.ack_snapshot` and returns the task detail. **Idempotent** on a done task (200,
+nothing changes).
+`/complete/` refuses these two kinds with 400 `Use /acknowledge/ for review tasks.`
+
+Task list/detail payloads gained `scope_date` (`"YYYY-MM-DD"` for `daily_loading` /
+`daily_export`, else null) and `cancelled_reason` (`"missed"` = a daily task nobody
+did; `""` when not cancelled).
 
 ## Season scoping (AD-16)
 

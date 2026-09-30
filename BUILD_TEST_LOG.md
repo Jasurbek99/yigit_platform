@@ -1,3 +1,5 @@
+- [ ] 2026-09-29 — «Peregruz barmy?» question at dest_entry (has_peregruz tri-state, Sheet R33 Bolmady/Boldy) + sales report approval at satyldy (button «Hasabaty tassykla», shipment closes only after approval) — NEEDS TEST
+- [ ] 2026-09-29 — Planning tasks (Tasks.md 1–5a): Friday weekly plan task (red from Sat), Saturday allocation deadline, «Tanyşdym» review banner on /export/plan + new /transport/plan page, daily Ýük planla / Eksport planla + «missed» next morning — NEEDS TEST
 - [ ] 2026-09-29 — Sheet: Swap = packing only, Join until loading — NEEDS TEST
 - [ ] 2026-09-29 — Assignment board: join / detach / swap packing, mock demand removed — NEEDS TEST
 - [ ] 2026-09-29 — Backend: late join, /unjoin/, /swap-packaging/ (old /swap/ removed), loading dept roles + board list — NEEDS TEST

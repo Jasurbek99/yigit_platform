@@ -10,6 +10,15 @@ The Self Board (`/me/board`) generates **tasks** automatically as a shipment mov
 
 ## Two kinds of completion
 
+> **`field_set`** (2026-09-29): a fourth auto rule — the target has *any* value, an explicit
+> `False` included. Used for yes/no questions (`has_peregruz`), where `all_fields_filled` would
+> read «No» as empty (`_is_filled(False)` is False).
+
+- **Auto** — the task is tied to one or more shipment **fields**. The moment the responsible person fills those field(s), the task auto-closes (no button). Implemented by `resolve_for_shipment()` in `apps/export/services/task_rules.py`, invoked from `Shipment.save()`.
+- **Mark Done** (`manual_done`) — the task represents a **physical / process action** with no data field to watch (handing over papers, sending docs to customs, finalizing a sale). The responsible person confirms it with the **Mark Done** button in the drawer.
+
+Completion rules: `all_fields_filled` (all listed fields set), `any_field_filled` (≥1 set), `field_equals` (a field equals a value), `manual_done` (button only).
+
 - **Auto** — the task is tied to one or more shipment **fields**. The moment the responsible person fills those field(s), the task auto-closes (no button). Implemented by `resolve_for_shipment()` in `apps/export/services/task_rules.py`, invoked from `Shipment.save()`.
 - **Mark Done** (`manual_done`) — the task represents a **physical / process action** with no data field to watch (handing over papers, sending docs to customs, finalizing a sale). The responsible person confirms it with the **Mark Done** button in the drawer.
 
@@ -71,6 +80,7 @@ department's tasks.
 | | **Submit sales report** | sales_rep | **Mark Done** *(non-gating reminder — closed when the SalesReport is saved; see below)* |
 | **Border crossed** `serhet_gechdi` | Trigger dest. entry | sales_rep | auto: `dest_entry_at` |
 | **Dest. entry** `dest_entry` | Trigger dest. customs | sales_rep | auto: `customs_entry_at` |
+| | **Peregruz barmy?** (`tasks.ask_peregruz`, 2026-09-29) | sales_rep | auto (`field_set`): `has_peregruz` answered — «No» counts. The truck stays at `dest_entry` until answered, so the barysh_gumrugi fork always runs on a real answer |
 | **Dest. customs** `barysh_gumrugi` | Trigger transshipment | sales_rep | auto: `peregruz_date` — *only if has transshipment* |
 | | Trigger arrival (direct) | sales_rep | auto: `arrived_at` — *only if no transshipment* |
 | **Transshipment** `transshipment` | Trigger arrival | sales_rep | auto: `arrived_at` |
@@ -78,6 +88,7 @@ department's tasks.
 | | Trigger sale start | sales_rep | auto: `sale_started_at` |
 | **Selling** `satylyar` | Trigger sale end | sales_rep | auto: `sale_ended_at` |
 | **Sold** `satyldy` | Trigger report received | sales_rep | auto: `sales_report` *(report-existence — retargeted from the old `sales_report_date` date field)* |
+| | **Approve the report** (`tasks.approve_sales_report`, 2026-09-29) | export_manager (either; admin / boss / director may too) | auto: `sales_report.approved_at` — set by `POST /shipments/{id}/sales-report/approve/`. The shipment closes only after approval; approve only, no reject |
 
 `hasabat` was retired in state machine v2 (merged into `tamamlandy`) and has no rules. `tamamlandy` and
 `cancelled` are terminal and generate no tasks.
@@ -148,7 +159,11 @@ truck usually sells before the system status catches up. Two rules cooperate:
   be `MANUAL_DONE` — a field-based (auto-resolving) task on step 4 would gate auto-advance
   and freeze the truck at step 4 until the report is filled (weeks later). `MANUAL_DONE`
   tasks are exempt from `is_step_trigger_satisfied`, so this stays a non-gating reminder.
-- **Step 11 trigger** (`satyldy` → `tamamlandy`, target `sales_report`): closes the lifecycle
+- **Step 11 approval** (since 2026-09-29, `tasks.approve_sales_report`, target
+  `sales_report.approved_at`): the report alone no longer closes the shipment — it waits at
+  `satyldy` until an export manager approves it (`POST /shipments/{id}/sales-report/approve/`,
+  which sets `approved_at` / `approved_by` and saves the shipment to fire auto-advance).
+- **Step 11 trigger** (`satyldy` → `tamamlandy`, target `sales_report`): resolves
   when the SalesReport **row exists** (retargeted from the old `sales_report_date` date field).
   `_resolve_value` returns the report on existence / `None` when absent, so `ALL_FIELDS_FILLED`
   resolves the instant a report exists.
