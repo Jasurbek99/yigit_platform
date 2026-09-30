@@ -214,7 +214,14 @@ inside the current week, click **+ Tır Aç**, and open a truck dated Wednesday.
 itself still exists on every week for layout consistency and only does anything when that
 week contains today.
 
-Clicking it opens `GaplamaTruckForm` in place of the button: one card per block, each
+Clicking it (or **Üýtget** on an existing truck) opens `GaplamaTruckForm` below the board
+table and swaps the button out — `.sera-gaplama-truck-open`, after the day/week table and
+before the truck list. On most screens that wrapper sits below the fold, so `GaplamaTab`
+scrolls it into view on open (`scrollIntoView({behavior: 'smooth', block: 'start'})`, a
+`useEffect` keyed on `formOpen`/`editingTruck.id`) — 2026-09-30 fix; before it, the button
+disappearing with no form in view read as nothing happening.
+
+`GaplamaTruckForm` itself: one card per block, each
 listing that block's **at most two rows** (see "Per-date leftover picking removed" above) —
 today's own plan and/or the collapsed leftover, each with its date-or-`Galyndy` label, age
 (`iň köne` / oldest-batch age shown beside the truck total via `oldestAgeDays`) and one kg
