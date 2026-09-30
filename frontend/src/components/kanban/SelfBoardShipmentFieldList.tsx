@@ -5,6 +5,7 @@ import { getCellValue } from '@/components/sheet/getCellValue';
 import { useSheetStore } from '@/stores/sheetStore';
 import type { IRowConfig, ISheetRowSettingForUser, IShipmentSheetItem } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
+import { PackingTemplateField } from './PackingTemplateField';
 
 const { Text } = Typography;
 
@@ -78,6 +79,10 @@ export function SelfBoardShipmentFieldList({
     return (
       <div>
         {fields.map((fieldKey) => {
+          // «Brutto/netto»: the packing template has no Sheet row — pick it here.
+          if (fieldKey === 'packing_template') {
+            return <PackingTemplateField key={fieldKey} shipmentId={shipmentId} disabled={disabled} />;
+          }
           const row = rows.find((r) => r.field_key === fieldKey);
 
           // Dotted paths (quality.*) and truly unknown keys — read-only stub.
@@ -132,9 +137,14 @@ export function SelfBoardShipmentFieldList({
     );
   }
 
+  // Filled fields first, then the empty ones; Sheet order within each group.
+  // getCellValue renders an empty cell as '—' (or '' in a few branches).
+  const isFilled = (row: IRowConfig) => !['', '—'].includes(getCellValue(sheetItem, row).trim());
+  const orderedRows = [...editableRows.filter(isFilled), ...editableRows.filter((row) => !isFilled(row))];
+
   return (
     <div>
-      {editableRows.map((row) => (
+      {orderedRows.map((row) => (
         <FieldRow
           key={row.field_key}
           row={row}

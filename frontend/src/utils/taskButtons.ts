@@ -14,3 +14,14 @@ export function taskButtonLabel(t: TFunction, titleKey: string): string {
     defaultValue: t('shipment.detail.mark_done'),
   });
 }
+
+/** Tasks done on another page: the card links there (join the packing on the
+ * Assignment board, join a Planning trip on the Truck Board). */
+const TASK_LINKS: Record<string, { to: string; labelKey: string }> = {
+  'tasks.join_supply': { to: '/export/assign', labelKey: 'tasks.open_assign_board' },
+  'tasks.choose_truck': { to: '/export/truck-board', labelKey: 'nav.truck_board' },
+};
+
+export function taskLink(titleKey: string): { to: string; labelKey: string } | null {
+  return TASK_LINKS[titleKey] ?? null;
+}

@@ -87,6 +87,8 @@ export function useLinkFirmContract() {
       // Linking creates the bridge ContractSale → the Documents page packet gains
       // the firm's sale_id, so its invoice/letter buttons appear.
       queryClient.invalidateQueries({ queryKey: ['document-packets'] });
+      // Linking may close «Kontrakt» (tasks.prepare_contract) server-side.
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
 }

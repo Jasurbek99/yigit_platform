@@ -5,9 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { SelfBoardShipmentFieldList } from './SelfBoardShipmentFieldList';
+import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
 import { isFieldFilled, progressFieldKeys } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
-import { isButtonTask, taskButtonLabel } from '@/utils/taskButtons';
+import { isButtonTask, taskButtonLabel, taskLink } from '@/utils/taskButtons';
 import type {
   IRowConfig,
   ISheetRowSettingForUser,
@@ -72,6 +73,7 @@ export function SelfBoardActiveTaskPanel({
     (task.state === 'open' || task.state === 'in_progress') &&
     task.kind !== 'gate';
   const isDone = task.state === 'done';
+  const link = taskLink(task.title_key);
   const isOverdue = task.is_overdue;
 
   const deadlineDisplay = task.deadline
@@ -147,6 +149,13 @@ export function SelfBoardActiveTaskPanel({
         </div>
       )}
 
+      {/* «Kontrakt» (tasks.prepare_contract): the Sheet's per-firm contracts panel. */}
+      {task.title_key === 'tasks.prepare_contract' && task.shipment != null && !isDone && (
+        <div style={{ marginTop: 8 }}>
+          <ShipmentFirmContractsPanel shipmentId={task.shipment} />
+        </div>
+      )}
+
       {/* Footer */}
       <Divider style={{ margin: '10px 0 8px' }} />
       <Space>
@@ -159,9 +168,7 @@ export function SelfBoardActiveTaskPanel({
             {taskButtonLabel(t, task.title_key)}
           </Button>
         )}
-        {task.title_key === 'tasks.join_supply' && !isDone && (
-          <Link to="/export/assign">{t('tasks.open_assign_board')}</Link>
-        )}
+        {link && !isDone && <Link to={link.to}>{t(link.labelKey)}</Link>}
         {isDone && (
           <Tag color="success" style={{ margin: 0 }}>
             {t('tasks.state.done')}

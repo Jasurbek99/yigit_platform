@@ -65,6 +65,8 @@ export function useSetShipmentPacking() {
       // Applying packing flips the truck's packing_complete on the Documents page,
       // enabling its CMR/invoice generation — refresh the packet list.
       queryClient.invalidateQueries({ queryKey: ['document-packets'] });
+      // A template closes «Brutto/netto» (tasks.fill_gross_net) server-side.
+      queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
     },
   });
 }

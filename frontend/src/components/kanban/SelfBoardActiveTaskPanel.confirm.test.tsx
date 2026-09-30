@@ -81,6 +81,14 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
     expect(ru('tasks.trigger_dest_customs')).toBe('Отметить, когда таможня назначения пройдена');
   });
 
+  it('«Maşyn saýla» links to the Truck Board', () => {
+    renderPanel(docsTask({
+      title_key: 'tasks.choose_truck', completion_rule: 'all_fields_filled',
+      target_fields_list: ['trip_id'], step: 'draft', assignee_role: 'export_manager',
+    }));
+    expect(screen.getByRole('link', { name: 'Truck Board' })).toHaveAttribute('href', '/export/truck-board');
+  });
+
   it('join_supply links to the Assignment board', () => {
     renderPanel(docsTask({
       title_key: 'tasks.join_supply', completion_rule: 'any_field_filled',

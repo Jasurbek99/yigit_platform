@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 import { TaskCardEditor } from '@/components/shipment/TaskCardEditor';
 import { isFieldFilled, progressFieldKeys } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
-import { isButtonTask, taskButtonLabel } from '@/utils/taskButtons';
+import { isButtonTask, taskButtonLabel, taskLink } from '@/utils/taskButtons';
 import { useAuth } from '@/hooks/useAuth';
 import { SUPERVISOR_ROLES } from '@/utils/detailSections';
 import type { IShipmentDetail } from '@/types';
@@ -73,6 +73,7 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
   const isOverdue = task.is_overdue;
   // manual_done and confirm (PREP/DOCS chain) both close by a button.
   const isManualDone = isButtonTask(task.completion_rule);
+  const link = taskLink(task.title_key);
   const canComplete =
     isManualDone &&
     (task.state === 'open' || task.state === 'in_progress');
@@ -168,9 +169,7 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
             {taskButtonLabel(t, task.title_key)}
           </Button>
         )}
-        {task.title_key === 'tasks.join_supply' && task.state !== 'done' && (
-          <Link to="/export/assign">{t('tasks.open_assign_board')}</Link>
-        )}
+        {link && task.state !== 'done' && <Link to={link.to}>{t(link.labelKey)}</Link>}
         {task.state === 'done' && (
           <Tag color="success" style={{ margin: 0 }}>
             {t('tasks.state.done')}
