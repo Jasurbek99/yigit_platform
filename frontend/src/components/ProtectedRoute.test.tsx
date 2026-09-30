@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { useAuth } from '@/hooks/useAuth';
 import type { ICurrentUser, UserRole } from '@/types';
@@ -67,6 +67,22 @@ describe('ProtectedRoute', () => {
     );
     expect(screen.getByText('LOGIN_PAGE')).toBeInTheDocument();
     expect(screen.queryByText('CHILD')).not.toBeInTheDocument();
+  });
+
+  it('carries the requested path to /login as ?next= so a QR scan survives login', () => {
+    vi.mocked(useAuth).mockReturnValue({ user: null, isLoading: false, isError: true });
+    function LoginProbe() {
+      return <div>LOGIN_SEARCH:{useLocation().search}</div>;
+    }
+    render(
+      <MemoryRouter initialEntries={['/scan/719']}>
+        <Routes>
+          <Route path="/scan/:id" element={<ProtectedRoute><div>CHILD</div></ProtectedRoute>} />
+          <Route path="/login" element={<LoginProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('LOGIN_SEARCH:?next=%2Fscan%2F719')).toBeInTheDocument();
   });
 
   it('redirects to /login when user is null even without an error flag', () => {

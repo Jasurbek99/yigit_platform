@@ -21,7 +21,7 @@ vi.mock('@/services/api', () => ({
   default: { post: vi.fn() },
 }));
 
-function renderLogin() {
+function renderLogin(url = '/login') {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -30,7 +30,7 @@ function renderLogin() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/login']}>
+      <MemoryRouter initialEntries={[url]}>
         <LoginPage />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -126,6 +126,39 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign In' }));
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/boss/dashboard');
+    });
+  });
+
+  // A pallet QR scanned while logged out lands here with ?next=/scan/{id};
+  // dropping it would make the operator scan the pallet again.
+  it.each([
+    ['export_manager', '/scan/719'],
+    ['boss', '/scan/719'],
+  ])('returns a %s to the ?next= page after login', async (role, target) => {
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: { id: 3, username: 'u', role, first_name: 'U', last_name: '', email: '' },
+    });
+    const user = userEvent.setup();
+    renderLogin(`/login?next=${encodeURIComponent(target)}`);
+    await user.type(screen.getByPlaceholderText('Username'), 'u');
+    await user.type(screen.getByPlaceholderText('Password'), 'secret');
+    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(target);
+    });
+  });
+
+  it('ignores an off-site ?next= and falls back to the role default', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: { id: 3, username: 'u', role: 'export_manager', first_name: 'U', last_name: '', email: '' },
+    });
+    const user = userEvent.setup();
+    renderLogin(`/login?next=${encodeURIComponent('//evil.com')}`);
+    await user.type(screen.getByPlaceholderText('Username'), 'u');
+    await user.type(screen.getByPlaceholderText('Password'), 'secret');
+    await user.click(screen.getByRole('button', { name: 'Sign In' }));
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/');
     });
   });
 

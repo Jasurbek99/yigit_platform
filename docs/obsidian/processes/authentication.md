@@ -33,7 +33,7 @@ sequenceDiagram
     Note over F,B: On 401 (expired/invalid)
     F->>B: Any request
     B->>F: 401 Unauthorized
-    F->>F: Axios interceptor → redirect to /login
+    F->>F: Axios interceptor → redirect to /login?next=<current path>
 ```
 
 ## Backend Implementation
@@ -114,7 +114,7 @@ with a custom **escalating** ladder. Config lives in `config/settings.py`
 - Password (input, type=password)
 - Submit button
 
-**On Submit**: POST to `/api/v1/auth/login/`, on success store user info and redirect to dashboard.
+**On Submit**: POST to `/api/v1/auth/login/`, on success store user info and redirect to `?next=` if present, else the dashboard (`/`, or `/boss/dashboard` for boss). `next` is accepted only as an in-app path — `//host`, `/\host` and `/login…` are ignored (`utils/loginRedirect.ts::safeNextPath`).
 
 ### Axios Configuration
 
@@ -122,7 +122,7 @@ with a custom **escalating** ladder. Config lives in `config/settings.py`
 
 - `withCredentials: true` — sends cookies with every request
 - `X-CSRFToken` header included on mutating requests
-- **401 interceptor**: on any 401 response, redirect to `/login`
+- **401 interceptor**: on any 401 response, redirect to `/login?next=<current path>` (`loginPathFor`; `/` gets no `next`)
 
 ### Auth Hook
 
@@ -135,7 +135,7 @@ with a custom **escalating** ladder. Config lives in `config/settings.py`
 ### Route Protection
 
 **ProtectedRoute** component (`frontend/src/components/ProtectedRoute.tsx`):
-- Checks `isAuthenticated` — redirects to `/login` if not
+- Checks `isAuthenticated` — redirects to `/login?next=<requested path>` if not, so a deep link (pallet QR `/scan/{id}`) survives login. Logout still goes to plain `/login` (shared terminals).
 - Checks `canSeePage(pageCode)` — redirects to `/unauthorized` if no access
 
 ### TypeScript Types
