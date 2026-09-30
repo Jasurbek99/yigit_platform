@@ -977,6 +977,17 @@ class ShipmentFirmContractsView(APIView):
 _SHARE_FIELDS = ('net_kg', *_FIRM_PACKING_FIELDS)
 
 
+def _refresh_tasks(shipment, user) -> None:
+    """Task refresh after a write that bypassed Shipment.save(). Like a served
+    document, a task-chain error must not fail the user's already-saved write."""
+    from apps.export.services.task_chain import refresh_tasks_after_write
+
+    try:
+        refresh_tasks_after_write(shipment, user)
+    except (DatabaseError, ValueError):
+        logger.exception('task chain: refresh after a packing write on shipment %s', shipment.pk)
+
+
 def _mark_downloaded(shipment, doc_keys, user) -> None:
     """PREP/DOCS chain hook for a served document. A chain error (spawn,
     auto-advance) must never cost the user the file just generated — log it
@@ -1289,6 +1300,10 @@ class ShipmentPackingView(APIView):
                     if updated == 0:
                         no_sale_firms.append(fid)
                 Shipment.objects.filter(pk=shipment.id).update(packing_template_id=template.id)
+            # The update() bypasses Shipment.save(): close «Brutto/netto»
+            # (tasks.fill_gross_net) and the rest of the task refresh now.
+            shipment.packing_template_id = template.id
+            _refresh_tasks(shipment, request.user)
             return Response({'scope': 'template', 'packing_template': template.id,
                              'no_sale_firms': no_sale_firms})
 

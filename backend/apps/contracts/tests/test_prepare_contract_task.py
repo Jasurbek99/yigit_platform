@@ -193,3 +193,36 @@ class PrepareContractTaskTests(_SeededPermsMixin, TestCase):
         type(self.contracts['PCA']).objects.update(agreement_downloaded_at=timezone.now())
         ContractSale.objects.filter(pk=sale_b.pk).update(status=ContractSale.STATUS_VOID)
         self.assertFalse(contracts_ready(self.shipment))
+
+
+class PackingTemplateClosesGrossNetTests(_SeededPermsMixin, TestCase):
+    """Item 10 closes when a packing template is chosen through the Sheet / task
+    card panel (POST /contracts/shipment-packing/ scope=template), which writes
+    packing_template with QuerySet.update() — bug 2026-09-30: it stayed open."""
+
+    def setUp(self) -> None:
+        from apps.export.models import PackingTemplate, PackingTemplateShare
+        self.client = APIClient()
+        self.user = _make_user('pt_doc', 'document_team')
+        self.user.is_superuser = True
+        self.user.save(update_fields=['is_superuser'])
+        self.client.force_authenticate(user=self.user)
+        self.season = _make_season()
+        self.imp = _make_import_firm('IMPPT')
+        self.ef = _make_export_firm('PTA')
+        self.shipment = _make_packed_shipment(self.season, self.imp, status_code='gumruk_girish', code='0505001/25')
+        ShipmentFirmSplit.objects.create(shipment=self.shipment, export_firm=self.ef, weight_kg=Decimal('9000'))
+        TaskRule.objects.create(step='gumruk_girish', title_key='tasks.fill_gross_net', assignee_role='document_team',
+                                completion_rule=TaskCompletionRule.ALL_FIELDS_FILLED, target_fields='packing_template')
+        TaskRule.objects.create(step='gumruk_girish', title_key='tasks.hold', assignee_role='document_team',
+                                completion_rule=TaskCompletionRule.CONFIRM)
+        generate_tasks_for_status(self.shipment, 'gumruk_girish')
+        self.template = PackingTemplate.objects.create(name='PT 9t', net_kg=Decimal('9000'))
+        PackingTemplateShare.objects.create(template=self.template, net_kg=Decimal('9000'))
+
+    def test_choosing_a_template_closes_fill_gross_net(self):
+        resp = self.client.post('/api/v1/contracts/shipment-packing/', {
+            'shipment': self.shipment.pk, 'scope': 'template', 'packing_template': self.template.pk,
+        }, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        self.assertEqual(self.shipment.tasks.get(title_key='tasks.fill_gross_net').state, TaskState.DONE)
