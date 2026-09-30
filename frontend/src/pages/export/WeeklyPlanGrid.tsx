@@ -59,6 +59,7 @@ import { GrantExtensionModal } from '@/components/GrantExtensionModal';
 import { PlanChangeRequestsDrawer } from '@/components/PlanChangeRequestsDrawer';
 import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
+import { TruckReviewBanner } from './TruckReviewBanner';
 import { planGridCapabilities } from './WeeklyPlanGrid.roles';
 import { buildPlanGridRows, type IPlanGridRow } from './WeeklyPlanGrid.rows';
 import { COLORS } from '@/constants/styles';
@@ -899,6 +900,14 @@ export default function WeeklyPlanGrid() {
             },
           })}
         />
+      )}
+
+      {/* «Tanyşdym» review banner (docs/Tasks.md item 2b) — rendered here, not
+          in TruckAllocationTable, because the Tır Takip tab reuses that table. */}
+      {plans.length > 0 && (
+        <div style={{ marginTop: 16 }}>
+          <TruckReviewBanner year={year} week={weekNumber} />
+        </div>
       )}
 
       {/* Truck allocation section */}

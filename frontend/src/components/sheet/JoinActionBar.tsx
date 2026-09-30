@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useSheetStore } from '@/stores/sheetStore';
 import { useJoinShipments } from '@/hooks/useDrafts';
-import { isDestinationDraft, isSupplyDraft, explainJoinBlockers } from './joinHelpers';
+import { isJoinTarget, isSupplyDraft, explainJoinBlockers } from './joinHelpers';
 import { FONT } from '@/constants/styles';
 import type { IShipmentSheetItem } from '@/types';
 
@@ -26,7 +26,7 @@ export function JoinActionBar({ shipments }: IJoinActionBarProps) {
     .filter((s): s is IShipmentSheetItem => s !== undefined);
 
   // Classify each selected shipment
-  const destination = selectedShipments.find(isDestinationDraft) ?? null;
+  const destination = selectedShipments.find(isJoinTarget) ?? null;
   const supply = selectedShipments.find(isSupplyDraft) ?? null;
 
   // Valid pair: exactly 2 selected, one destination, one supply, and they differ

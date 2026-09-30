@@ -201,21 +201,26 @@
     </div>
 
     <div class="joinbox">
-      <b style="color:var(--create)">POST /shipments/{target}/join/</b> <span class="muted">— export_manager / director only · transaction.atomic()</span>
+      <b style="color:var(--create)">POST /shipments/{target}/join/</b> <span class="muted">— JOIN_ROLES (admin / export_manager / director / boss / document_team / loading_dept_head + deputy) · transaction.atomic()</span>
       <ul>
+        <li>target may be <b>any pre-loading status</b> (<span class="mono">draft</span> / <span class="mono">gumruk_girish</span> / <span class="mono">gumruk_chykysh</span>) since 2026-09-29, not only <span class="mono">draft</span></li>
         <li>source.block_sources → <b>move to target</b></li>
         <li>source.firm_splits → move (only if target has none)</li>
-        <li>copy variety / export_code if target lacks them; recompute <span class="mono">weight_net</span></li>
-        <li>ShipmentStatusLog on target — <b>status stays <span class="mono">draft</span></b></li>
+        <li>copy variety / export_code if target lacks them; weight: a <span class="mono">draft</span> target recomputes <span class="mono">weight_net</span> from the packing, a later target only fills it if <b>empty</b> — never overwritten, and <span class="mono">weight_gross</span> is never touched</li>
+        <li>ShipmentStatusLog on target — <b>status never changes</b> on join, unjoin or swap</li>
         <li>notify source creator, then <b>HARD-DELETE the source row</b></li>
       </ul>
-      <small class="path">backend/apps/export/views.py · join (~1832)</small>
+      <small class="path">backend/apps/export/views.py · join (~2461) · services/packaging.py</small>
     </div>
 
-    <div class="note"><b>Draft lock:</b> a draft cannot leave <span class="mono">draft</span> until all three exist —
-      <span class="ok">country ✓</span> &nbsp;<span class="ok">customer ✓</span> &nbsp;<span class="ok">block_sources ✓</span>.
-      Otherwise <span class="mono">transition_to()</span> raises: <i>"Supply-only and destination-only drafts must be joined first."</i>
-      A coexisting Assignment-Board path lets the manager <i>assign</i> a destination to a supply draft directly — same end state.
+    <div class="note"><b>Packing barrier (moved 2026-09-29):</b> leaving <span class="mono">draft</span> only needs
+      <span class="ok">country ✓</span>&nbsp;<span class="ok">customer ✓</span> — packing is no longer required here.
+      Packing (<span class="mono">block_sources</span>) is required instead at
+      <span class="mono">gumruk_chykysh → yuklenme</span>; without it that edge refuses with <i>"Packing not joined"</i>.
+      Packing can be <b>joined</b>, <b>detached</b> (<span class="mono">/unjoin/</span>) or <b>swapped</b>
+      (<span class="mono">/swap-packaging/</span>) with another row any time before loading — not only while both
+      rows are still <span class="mono">draft</span>. Spec:
+      <span class="mono">docs/superpowers/specs/2026-09-29-packaging-join-board-design.md</span>.
     </div>
   </div>
 

@@ -15,13 +15,15 @@ Tested transitions:
 Run:
     python manage.py test apps.export.tests_auto_advance --keepdb
 """
+from decimal import Decimal
+
 from django.test import TestCase
 
-from apps.core.models import BorderPoint, Season, ShipmentStatusType, User
+from apps.core.models import BorderPoint, GreenhouseBlock, Season, ShipmentStatusType, User
 from apps.export.management.commands.seed_task_rules import (
     Command as SeedTaskRulesCommand,
 )
-from apps.export.models import Shipment, ShipmentStatusLog, TaskState
+from apps.export.models import Shipment, ShipmentBlockSource, ShipmentStatusLog, TaskState
 
 
 # State machine v2 — 12 active + 3 retired status types.
@@ -260,6 +262,12 @@ class CascadeTests(TestCase):
             has_peregruz=False,
             created_by=self.user,
             updated_by=self.user,
+        )
+        block, _ = GreenhouseBlock.objects.get_or_create(
+            code='FX', defaults={'name': 'FX'},
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=shipment, block=block, weight_kg=Decimal('10000'),
         )
         from apps.export.services.task_rules import generate_tasks_for_status
         generate_tasks_for_status(shipment, 'gumruk_girish')

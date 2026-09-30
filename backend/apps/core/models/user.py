@@ -31,6 +31,10 @@ ROLE_CHOICES = [
     # comment "R27 transit days + temp (quality inspector)" because no such role
     # existed yet. Operational only: no user/permission admin (AD-15).
     ('quality_inspector', 'Quality Inspector'),
+    # garawul (gate guard): sits at one greenhouse gate (Dusak / Kaka /
+    # Owadandepe) and marks trucks in and out. Bound to that gate by
+    # User.loading_location. Sees only the gate screen and his gate tasks.
+    ('garawul', 'Gate Guard'),
     ('boss', 'Boss'),
 ]
 
@@ -50,6 +54,15 @@ class User(AbstractUser):
     )
     phone = models.CharField(max_length=20, blank=True, null=True)
     telegram_chat_id = models.CharField(max_length=50, blank=True, null=True)
+    # The one greenhouse gate a `garawul` works. Required for that role
+    # (validated in the admin user API), unused by every other role.
+    loading_location = models.ForeignKey(
+        'core.LoadingLocation',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='gate_guards',
+    )
 
     class Meta:
         db_table = 'sys_users'  # DDL v5.1: sys_users lives in dbo (no schema prefix intentional)

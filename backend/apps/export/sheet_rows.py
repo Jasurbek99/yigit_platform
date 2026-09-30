@@ -217,6 +217,16 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'base',
     },
     {
+        # Gate arrival (garawul, 2026-09-29). The guard stamps it from the gate
+        # screen; this row shows it and lets the loading head correct it.
+        'row_number': 49,
+        'field_key': 'greenhouse_arrived_at',
+        'default_who_key': 'sheet.who.garawul',
+        'label_key': 'sheet.row.greenhouse_arrival',
+        'input_type': 'datetime',
+        'style': 'base',
+    },
+    {
         'row_number': 22,
         'field_key': 'vehicle_responsible',
         'default_who_key': 'sheet.who.transport',

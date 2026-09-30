@@ -60,6 +60,8 @@ The example below shows the **default-visible** fields. As of the ShipmentList c
 }
 ```
 
+**Join board filter** (`?status_code__in=draft,gumruk_girish,gumruk_chykysh`, spec 2026-09-29): a comma-separated list of status codes, alongside the existing single `?status_code=`. Serves `ShipmentDraftListSerializer` — same shape as `?status_code=draft` (incl. `block_sources`) — extended with `status_code`, `country`, `customer` (ids), `truck_plate`, `driver_name`. Powers the Assignment Board's `useJoinBoard()`, which classifies rows into supply/waiting/joined client-side from these fields. `?status_code=draft` alone is unchanged.
+
 ### Detail endpoint: `GET /api/v1/export/shipments/{id}/`
 Full data with nested related objects.
 
@@ -110,6 +112,58 @@ Full data with nested related objects.
 // Error 403: { "error": "Role document_team cannot trigger this transition" }
 ```
 
+### Packing join / unjoin / swap (spec 2026-09-29)
+
+Packing (`block_sources` + `export_code`, `variety`, `varieties_dominant`, `harvest_date`,
+`harvest_status`, `weight_to_load_kg`) **moves** between shipment rows — it is never linked. All
+three actions gate on `apps.core.roles.JOIN_ROLES` (`admin`/`director`/`boss`/export-manager-like
+roles, plus `loading_dept_head`/`loading_dept_head_deputy` since this spec) + superuser, via
+`resource_edit_permission('shipment')`. All three refuse a row outside
+`PRE_LOADING = {draft, gumruk_girish, gumruk_chykysh}` or with recorded pallets. Weight rule,
+shared by all three: `packaging_weight()` is read **before** the move; a row still `draft`
+afterwards gets `weight_net` = the packing's weight; a row past `draft` only has an **empty**
+`weight_net` filled (never overwrites one already set); `weight_gross` is never touched.
+
+**Join** (extended) — `POST /api/v1/export/shipments/{target_id}/join/` body `{"source_id": <int>}`.
+Target may now be **any** `PRE_LOADING` status, not only `draft` — a destination plan can start
+customs paperwork before packing is joined. Gates: target has country + customer, no packing, no
+pallets; source is `draft`, has ≥1 block, no pallets.
+
+```json
+// Response 200: full shipment detail (target)
+// Error 400: { "error": "Target shipment has no destination (country and customer required)" }
+```
+
+**Unjoin** (new) — `POST /api/v1/export/shipments/{id}/unjoin/`, no body. Detaches the packing of
+a destination plan into a **new** `draft` supply-plan row (fresh `shipment_code`, same date so
+the weekly-plan actual doesn't move day). Caller must hold the shared JOIN_ROLES gate above.
+
+```json
+// Response 200: { ...full shipment detail of the ORIGINAL row..., "new_supply_id": 431, "new_supply_code": "2909002/26" }
+// Error 400: { "error": "<code>: has no packing to detach" }
+```
+
+**Swap packing** (new, replaces the old field-picking `/swap/`) —
+`POST /api/v1/export/shipments/{a_id}/swap-packaging/` body `{"other_id": <int>}`. Either row may
+be a free supply plan. `block_sources` are deleted and re-created on the opposite row, one row at
+a time — **not** `bulk_create`, because a batch mixing `None`/`Decimal` `weight_kg` trips an
+MSSQL/pyodbc type bug (`.claude/rules/mssql-compat.md`).
+
+```json
+// Request: { "other_id": 512 }
+// Response 200: { "shipments": [ {...detail a...}, {...detail b...} ] }
+// Error 400: { "error": "Cannot swap packing of a shipment with itself" }
+```
+
+**Notifications**: join still notifies the source's creator. Unjoin/swap notify every active
+`loading_dept_head` (plus `document_team` too if either row's documents have started), excluding
+the caller — the original creator may be long out of the picture by the time packing is detached
+or swapped.
+
+**Removed**: `POST /shipments/{id}/swap/`, `GET /shipments/swappable-fields/`, `swap_config.py`,
+`ShipmentSwapSerializer` — the old field-picking swap is gone; `swap-packaging` moves packing
+only, with a fixed field set, no `fields: [...]` list in the body.
+
 ### Hard-delete draft: `POST /api/v1/export/shipments/{id}/hard-delete/`
 
 Permanently deletes a single **draft** shipment from the detail page, cascading its
@@ -126,6 +180,19 @@ has advanced, use `cancel` (lifecycle) or `soft-delete` (restorable trash) inste
 // Error 400: { "error": "Only draft shipments can be permanently deleted. Cancel or soft-delete active shipments instead." }
 // Error 403: { "error": "Only admin can permanently delete shipments." }
 ```
+
+### Sales report approval: `POST /api/v1/export/shipments/{id}/sales-report/approve/` (2026-09-29)
+
+«Hasabaty tassykla» (`docs/Tasks.md` item 37). No body. Roles: `export_manager`, `admin`, `boss`,
+`director`, superusers — else 403. No report yet → 400 `There is no sales report to approve yet.`
+Deleted/archived → 403. Sets `sales_report.approved_at` / `approved_by` (idempotent — a second call
+keeps the first approval) and saves the shipment, so the satyldy approval task resolves and the
+shipment auto-advances to `tamamlandy`. Returns the full shipment detail. The nested `sales_report`
+now carries read-only `approved_at`, `approved_by` (int) and `approved_by_name`.
+
+**`has_peregruz` is tri-state** since 2026-09-29: `null` = the sales rep has not answered «Peregruz
+barmy?» yet (new shipments start `null`; older rows keep `true`/`false`). Task and rule payloads may
+carry `completion_rule: "field_set"` (any value, `false` included).
 
 ### Sales report: `POST`/`PATCH /api/v1/export/shipments/{id}/sales-report/`
 
@@ -718,6 +785,152 @@ Same caveats as `since` above (understated right after deploy, offline trucks ke
 geofence). Frontend: `ILivePosition`/`ITruckPosition` both carry the two fields;
 `ShipmentTruckLocationBlock.tsx` (shared by the Detail card and the Sheet modal) and
 `FleetMap.tsx` render `geofence_name` as a purple Tag when present.
+
+### Planning tasks: review, transport plan, acknowledge (2026-09-29)
+
+Backs the «Tanyşdym» planning tasks (`docs/Tasks.md` items 2b and 3). Spec:
+`docs/superpowers/specs/2026-09-29-planning-tasks-design.md`. **Not season-scoped**
+— keyed by ISO `year` + `week`. Every count is a **JSON int** (no decimal strings).
+
+`GET /api/v1/export/truck-allocations/review/?year=&week=` — the `/export/plan`
+banner. Gate: `truck_allocation.can_view` (the viewset's `DynamicResourcePermission`).
+`changes` lists the Mon–Sat days (`day_of_week` 1=Mon…6=Sat) whose needed-truck
+count (half-up at 18,500 kg) differs from the allocation baseline; `open_task_id`
+is the open `alloc_review` task, or null.
+
+```json
+{ "year": 2026, "week": 40, "open_task_id": 12,
+  "changes": [ { "day_of_week": 1, "was": 1, "now": 2 } ],
+  "snapshot": "1:2", "can_acknowledge": true }
+```
+
+Both GETs carry `snapshot` (the counts the page shows, ASCII `k:v;…`; `";"` = a
+recorded empty plan) and `can_acknowledge` (true for the task's assignee role
+family — `export_manager` here, `transport` on the transport plan — plus admin /
+boss / director and superusers).
+
+`GET /api/v1/export/truck-allocations/transport-plan/?year=&week=` — the
+`/transport/plan` page. Same gate (transport holds `truck_allocation` view-only).
+`days` always has 6 entries (Mon–Sat). `cells` covers every (day, destination) that
+is non-zero now **or** in transport's last acknowledged snapshot;
+`acknowledged_count` and `acknowledged_at` are `null` when transport never
+acknowledged this week. `acknowledged_at` carries the local offset.
+
+```json
+{
+  "year": 2026, "week": 40,
+  "days": [ { "day_of_week": 1, "date": "2026-09-28" } ],
+  "destinations": [ { "id": 3, "name": "Russia" } ],
+  "cells": [ { "day_of_week": 1, "destination_id": 3, "truck_count": 2, "acknowledged_count": 1 } ],
+  "open_task_id": 51,
+  "acknowledged_at": "2026-09-26T16:05:00+05:00",
+  "snapshot": "1:3:2",
+  "can_acknowledge": true
+}
+```
+
+Both: a missing or invalid ISO `year`/`week` → `400 {"error": "year and week must be a valid ISO year and week."}`.
+
+`POST /api/v1/export/tasks/{id}/acknowledge/` — «Tanyşdym». Body
+`{"snapshot": "<snapshot from the GET the page rendered>"}` (missing → 400).
+`alloc_review` / `transport_plan` tasks only (other kinds → 400 `Only review tasks
+can be acknowledged.`); cancelled → 400. **Only the assignee role family,
+admin / boss / director, or a superuser** (owner, 2026-09-29) — `export_manager`
+gets 403 on transport's task, unlike `/complete/`, because he makes the allocation
+changes and acknowledging for transport would hide them from transport.
+If the data changed since the page loaded → **409** `{"error": "stale", "detail":
+…}` and nothing changes (the frontend refetches). Stores what was seen in
+`Task.ack_snapshot` and returns the task detail. **Idempotent** on a done task (200,
+nothing changes).
+`/complete/` refuses these two kinds with 400 `Use /acknowledge/ for review tasks.`
+
+Task list/detail payloads gained `scope_date` (`"YYYY-MM-DD"` for `daily_loading` /
+`daily_export`, else null) and `cancelled_reason` (`"missed"` = a daily task nobody
+did; `""` when not cancelled).
+
+### Gate: `/api/v1/export/gate/` (2026-09-29)
+
+The gate guard's screen (garawul). Spec:
+`docs/superpowers/specs/2026-09-29-garawul-gate-design.md`. Own `ViewSet`, not
+`ShipmentViewSet`. **Not season-scoped**, unlike every list above. A `garawul`
+user always works his own `User.loading_location`; any `?location=` he sends
+is ignored. Every other role holding the `gate` grant (`admin`, `boss`) must
+send `?location=<id>` — on **all four calls, GET and the three POSTs alike**
+(missing → `400 {"error": "location_required"}`; unknown id → `400
+{"error": "bad_location"}`).
+
+`GET /gate/[?location=]` → `{location: {id, name}, expected: IGateRow[],
+inside: IGateRow[], recently_left: IGateRow[]}`. Gate: `gate.can_view`.
+
+```json
+{
+  "location": { "id": 1, "name": "Dusak" },
+  "expected": [ { "id": 42, "shipment_code": "S-042", "truck_plate": "AB1234",
+    "truck_plate_2": null, "driver_name": "Merdan", "driver_phone": "+99361...",
+    "date": "2026-09-29", "is_gapy_satys": false, "status_code": "gumruk_chykysh",
+    "greenhouse_arrived_at": null, "departed_at": null, "can_undo": false } ],
+  "inside": [ "...same shape, can_undo=true means «undo arrival»" ],
+  "recently_left": [ "...same shape, greyed on the Ýyladyşhanada tab, can_undo=true means «undo exit»" ]
+}
+```
+
+`IGateRow` never carries customer, firm, price or weight — the guard's payload
+is deliberately narrow. `can_undo` is server-computed per row using the exact
+rule the POST would enforce, so the frontend never has to reimplement it.
+
+**Timestamp fields are local `+05:00`, same as the rest of the contract**
+(final-fix review F6, 2026-09-29). `greenhouse_arrived_at` / `departed_at` now
+go through `timezone.localtime(value).isoformat()` in `gate_row()`'s `_iso()`
+helper — previously plain `datetime.isoformat()` on the raw UTC-aware value
+printed `+00:00`, the one place in this contract that disagreed with `##
+Timestamps` below. Same instant either way; only the printed offset changed.
+
+`POST /gate/{id}/arrive/`, `POST /gate/{id}/depart/` — no body. `POST
+/gate/{id}/undo/` — body `{"event": "arrive" | "depart"}`. All three gate on
+`gate.can_edit` (marking an existing truck is an edit, not a create) and
+return the updated `IGateRow` on success. A successful write also pokes the
+Sheet for that shipment id, like every other shipment-writing endpoint
+(`GateViewSet.finalize_response`, final-fix review F1) — `GET /gate/` never
+does.
+
+**Arrival with packing not yet joined** (final-fix review F5). If
+`needs_packing_for_loading(shipment)` is true (pre-loading status, no
+`block_sources`), `/arrive/` still stamps `greenhouse_arrived_at` (+
+`loading_location` if null) and sends the `gate_arrival` notification, but
+leaves `loading_started_at` null — there is nothing to load yet, and filling
+it would auto-advance a truck with no packing.
+
+`/gate/{id}/undo/`'s response row now reports `can_undo` for the mark that is
+still live afterward, not always `false` (final-fix review F7): undoing a
+`depart` leaves the truck inside again, so the row's `can_undo` reflects
+whether its *arrival* is still undoable; undoing an `arrive` returns the truck
+to Gelmeli, where nothing is undoable, so `can_undo` is `false`.
+
+**Gate tasks never make a shipment "owned" by garawul** (final-fix review
+F3). `owner_role` on a Shipment Board item, and the board's `?owner_role=`
+filter, both read the shipment's most-recently-created task — but they now
+skip `kind='gate'` tasks. Without that, a lazily-created gate task (opened the
+moment a truck is due) would outrank the real rule task and make every plated
+truck look owned by the guard.
+
+**Error codes** — body is always `{"error": "<code>"}`, never a human-readable
+message (frontend renders `gate.error.<code>`, fallback `gate.error.generic`):
+
+| HTTP | Code | Meaning |
+|---|---|---|
+| 400 | `no_location` | guard's `User.loading_location` is null |
+| 400 | `location_required` | non-guard sent no `?location=` |
+| 400 | `bad_location` | `?location=` isn't a real `LoadingLocation` id |
+| 400 | `bad_event` | `undo` body's `event` isn't `arrive`/`depart` |
+| 404 | `not_found` | no such shipment id |
+| 409 | `not_expected` | `/arrive/` on a truck not currently in `expected(L)` |
+| 409 | `not_inside` | `/depart/` on a truck not currently in `inside(L)` |
+| 409 | `not_here` | `/undo/` on a truck not live at `L` at all |
+| 409 | `undo_closed` | past the 10-minute window, or the status already moved |
+| 409 | `season_closed` | the shipment's season is closed (write freeze) |
+
+403 comes from the permission classes directly (`gate.can_view` / `can_edit`),
+not from this table.
 
 ## Season scoping (AD-16)
 

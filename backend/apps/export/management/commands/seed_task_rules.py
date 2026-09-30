@@ -355,6 +355,22 @@ TASK_RULES: list[dict] = [
         'condition_value': '',
     },
 
+    # «Peregruz barmy?» (docs/Tasks.md item 31, 2026-09-29): the sales rep must
+    # answer yes/no before the truck leaves dest_entry, so the barysh_gumrugi
+    # fork below is always taken on a real answer. FIELD_SET, not
+    # ALL_FIELDS_FILLED — an explicit «No» (False) is an answer.
+    {
+        'step': 'dest_entry',
+        'title_key': 'tasks.ask_peregruz',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'has_peregruz',
+        'completion_rule': TaskCompletionRule.FIELD_SET,
+        'target_value': '',
+        'deadline_rule': '24h_after_status',
+        'condition_field': '',
+        'condition_value': '',
+    },
+
     # ── barysh_gumrugi → transshipment | bardy (CONDITIONAL FORK) ──────────────
     # has_peregruz=True: only the peregruz_date task is generated.
     # has_peregruz=False: only the arrived_at task is generated.
@@ -454,6 +470,21 @@ TASK_RULES: list[dict] = [
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
         'deadline_rule': 'friday_eow',
+        'condition_field': '',
+        'condition_value': '',
+    },
+    # «Hasabaty gözden geçir we tassykla» (docs/Tasks.md item 37, 2026-09-29):
+    # the shipment closes only after an export manager (either; admin / boss /
+    # director too) approves the report — POST /shipments/{id}/sales-report/approve/.
+    # Approve only, no reject path. Blocks auto-advance until approved_at is set.
+    {
+        'step': 'satyldy',
+        'title_key': 'tasks.approve_sales_report',
+        'assignee_role': 'export_manager',
+        'target_fields': 'sales_report.approved_at',
+        'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
         'condition_field': '',
         'condition_value': '',
     },

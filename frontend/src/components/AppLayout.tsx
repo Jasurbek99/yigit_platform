@@ -31,6 +31,7 @@ import {
   IconTruckDelivery,
   IconScale,
   IconTrophy,
+  IconDoorEnter,
 } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -200,6 +201,8 @@ export default function AppLayout() {
     '/admin/expense-template': t('nav.admin_expense_template'),
     '/admin/packing-templates': t('nav.admin_packing_templates'),
     '/transport/map': t('nav.fleet_map'),
+    '/transport/plan': t('nav.transport_plan'),
+    '/export/gate': t('gate.nav'),
   };
 
   const currentPageLabel = location.pathname.startsWith('/shipments/')
@@ -269,6 +272,8 @@ export default function AppLayout() {
     '/export/quota': { key: '/export/quota', icon: <IconChartPie size={15} />, label: t('nav.quota') },
     '/export/blocks': { key: '/export/blocks', icon: <IconChartBar size={15} />, label: t('nav.block_summary') },
     '/export/pomidor-dukany': { key: '/export/pomidor-dukany', icon: <IconTrendingUp size={15} />, label: t('nav.pomidor_dukany') },
+    '/export/drafts': { key: '/export/drafts', icon: <IconLayoutGrid size={15} />, label: t('nav.drafts') },
+    '/export/assign': { key: '/export/assign', icon: <IconLayoutKanban size={15} />, label: t('nav.assign') },
     '/export/weightmaster': { key: '/export/weightmaster', icon: <IconScale size={15} />, label: t('nav.weightmaster') },
     '/export/shipments': { key: '/export/shipments', icon: <IconTruck size={15} />, label: t('nav.shipments') },
     '/export/shipments/sheet': { key: '/export/shipments/sheet', icon: <IconLayoutGrid size={15} />, label: t('nav.shipment_sheet') },
@@ -327,6 +332,8 @@ export default function AppLayout() {
     // CanViewFleetMap (backend/apps/transport/permissions.py).
     '/transport/map': { key: '/transport/map', icon: <IconMapPin size={15} />, label: t('nav.fleet_map') },
     '/export/truck-board': { key: '/export/truck-board', icon: <IconTruck size={15} />, label: t('nav.truck_board') },
+    // page_code `transport.plan` — transport truck planning, «Tanyşdym» (docs/Tasks.md item 3).
+    '/transport/plan': { key: '/transport/plan', icon: <IconTruck size={15} />, label: t('nav.transport_plan') },
     // Tır Takip (Maşyn Yzarlamasy) — the sera-design tab shell.
     // Deliberately NO `roles` array: the filter below short-circuits on
     // `item.roles` BEFORE consulting canSeePage, so a roles list would make
@@ -340,6 +347,8 @@ export default function AppLayout() {
     // same rule as the /tir-takip item above: NO `roles` array, so an admin
     // toggle in the permission matrix is the only thing that hides it.
     '/export/gaplama': { key: '/export/gaplama', icon: <IconTruckDelivery size={15} />, label: t('nav.gaplama') },
+    // Gate guard (garawul) — phone-first arrival/departure screen at the gate.
+    '/export/gate': { key: '/export/gate', icon: <IconDoorEnter size={15} />, label: t('gate.nav') },
     '/feedback/submit': { key: '/feedback/submit', icon: <IconMessageCircle size={15} />, label: t('nav.feedback_submit') },
     '/feedback/my-tickets': { key: '/feedback/my-tickets', icon: <IconFileText size={15} />, label: t('nav.feedback_my_tickets') },
     '/feedback/public': { key: '/feedback/public', icon: <IconChartPie size={15} />, label: t('nav.feedback_public') },
@@ -366,24 +375,21 @@ export default function AppLayout() {
   // the boss sees — it affects nobody else.
   const BOSS_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_overview', ['/', '/boss/dashboard', '/me/board', '/export/task-rules', '/director/stuck-shipments']),
-    group('nav.group_planning', ['/export/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks']),
+    group('nav.group_planning', ['/export/plan', '/transport/plan', '/export/pomidor-dukany', '/export/harvest-board', '/export/quota', '/export/blocks']),
     // `/export/drafts` (Draft Shipment) and `/export/assign` (Assignment Board)
-    // were dropped from BOTH sidebars by owner request, 2026-08-24 — same
-    // treatment as `/export/trucks` below: no top-level nav entry for any role.
-    // Routes, page permissions, and the pages themselves are untouched; they
-    // stay reachable by direct URL. Do NOT re-add them by sweeping for
-    // "orphaned routes" — that sweep (421068f) is how they got a nav entry
-    // the first time.
+    // were dropped from both sidebars 2026-08-24 and restored to both by owner
+    // request, 2026-09-29.
     // `/export/trucks` (Truck Forecast) was dropped from BOTH sidebars by owner
     // request, 2026-08-23: the same weekly_truck_allocations data is entered and
     // read in the "Truck allocation" section of /export/plan, so the standalone
     // read-only page earned no nav slot. Route, `export.trucks` permission and the
-    // page itself are untouched — it stays reachable by direct URL. Same rule as
-    // above: do NOT re-add it by sweeping for orphaned routes.
-    group('nav.group_prep', ['/export/weightmaster']),
+    // page itself are untouched — it stays reachable by direct URL. Do NOT re-add
+    // it by sweeping for "orphaned routes" (the 421068f sweep).
+    group('nav.group_prep', ['/export/drafts', '/export/assign', '/export/weightmaster']),
     group('nav.group_shipping', [
       '/export/shipments', '/export/shipments/sheet', '/export/shipments/board',
       '/export/shipments/dashboard', '/transport/map', '/export/truck-board', '/tir-takip', '/export/gaplama',
+      '/export/gate',
     ]),
     group('nav.group_docs', ['/documents', '/admin/packing-templates']),
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
@@ -394,20 +400,21 @@ export default function AppLayout() {
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
   // Every other role's menu — the original module grouping (restored
-  // verbatim from commit d6f1a02, plus 2 previously orphaned routes appended
-  // to nav.group_export: /export/domestic-sales, /export/prices —
-  // /export/drafts, /export/assign, and /export/trucks were also appended
-  // this way but have since been removed from every sidebar, see the note
+  // verbatim from commit d6f1a02, plus 4 previously orphaned routes appended
+  // to nav.group_export: /export/drafts, /export/assign,
+  // /export/domestic-sales, /export/prices — /export/trucks was also appended
+  // this way but has since been removed from every sidebar, see the note
   // above BOSS_MENU_GROUPS).
   const STAFF_MENU_GROUPS: IMenuGroup[] = [
     group('nav.group_main', ['/', '/boss/dashboard', '/director/stuck-shipments']),
     group('nav.group_analytics', ['/analytics/clients-report', '/export/blocks', '/export/pomidor-dukany']),
     group('nav.group_export', [
+      '/export/gate',
       '/export/shipments/dashboard', '/export/shipments', '/export/shipments/sheet', '/me/board',
       '/export/task-rules',
       '/export/shipments/board', '/export/harvest-board', '/export/weightmaster', '/export/overdue',
-      '/export/my-reports', '/export/advances', '/transport/map', '/export/truck-board',
-      '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
+      '/export/my-reports', '/export/advances', '/transport/map', '/export/truck-board', '/transport/plan',
+      '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
     group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),

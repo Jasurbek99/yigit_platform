@@ -35,6 +35,7 @@ from apps.export.models import (
     ShipmentComment,
     Task,
     TaskCompletionRule,
+    TaskKind,
     TaskRule,
     TaskState,
 )
@@ -229,6 +230,9 @@ class SalesReportSerializer(serializers.ModelSerializer):
     total_expenses_usd = serializers.SerializerMethodField()
     net_income_usd = serializers.SerializerMethodField()
 
+    # Approval (docs/Tasks.md item 37) — set only by the approve endpoint.
+    approved_by_name = serializers.CharField(source='approved_by.username', read_only=True, default=None)
+
     class Meta:
         model = SalesReport
         fields = [
@@ -258,10 +262,16 @@ class SalesReportSerializer(serializers.ModelSerializer):
             # Audit
             'created_at',
             'updated_at',
+            # Approval — POST /shipments/{id}/sales-report/approve/ only
+            'approved_at',
+            'approved_by',
+            'approved_by_name',
         ]
         read_only_fields = [
             'created_at',
             'updated_at',
+            'approved_at',
+            'approved_by',
             # Computed server-side via _recompute_totals() — never trust client values
             'total_sales_local',
             'total_expenses_local',
@@ -610,6 +620,8 @@ class ShipmentDraftListSerializer(ShipmentListSerializer):
             'block_sources',
             'previous_platform_id',
             'variety_confidence',
+            # FK ids — the join board classifies rows by them (spec 2026-09-29).
+            'country', 'customer',
         ]
 
 
@@ -812,7 +824,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'transport_docs_given_at',
             # AD-1 Timestamps
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
-            'departed_at', 'border_crossed_at', 'arrived_at',
+            'departed_at', 'greenhouse_arrived_at', 'border_crossed_at', 'arrived_at',
             'sale_started_at', 'sale_ended_at',
             # Operator-entered datetime — sheet R31 (Arap logs destination entry)
             'dest_entry_at',
@@ -1657,6 +1669,7 @@ _ALL_PATCHABLE_FIELDS = {
     'loading_started_at',
     'loading_ended_at',
     'departed_at',
+    'greenhouse_arrived_at',
     'customs_exit_at',
     'border_crossed_at',
     'dest_entry_at',
@@ -1715,6 +1728,16 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         fields = list(_ALL_PATCHABLE_FIELDS)
 
     def validate(self, attrs: dict) -> dict:
+        # Packing guard for loading (spec 2026-09-29): refuse to record the start
+        # of loading on a pre-loading row with no packing. Without this the write
+        # lands, auto_advance_if_ready swallows transition_to's ValueError, and
+        # the truck silently stays at gumruk_chykysh. Runs before the role
+        # early-return: it is a data rule, not a permission.
+        if attrs.get('loading_started_at') and self.instance is not None:
+            from apps.export.services.packaging import PACKING_NOT_JOINED, needs_packing_for_loading
+            if needs_packing_for_loading(self.instance):
+                raise serializers.ValidationError({'loading_started_at': PACKING_NOT_JOINED})
+
         role = self.context.get('role')
         if role in PRIVILEGED_ROLES:
             return attrs
@@ -2057,20 +2080,10 @@ class ShipmentJoinSerializer(serializers.Serializer):
     source_id = serializers.IntegerField(min_value=1)
 
 
-class ShipmentSwapSerializer(serializers.Serializer):
-    """Request body for POST /api/v1/export/shipments/{a_id}/swap/.
-
-    Exchanges the values of selected scalar (and FK) fields between two
-    shipments.  ``other_id`` identifies the second shipment; ``fields`` is
-    a non-empty list of field names drawn from SWAPPABLE_FIELDS.
-    """
+class ShipmentSwapPackagingSerializer(serializers.Serializer):
+    """Request body for POST /api/v1/export/shipments/{a_id}/swap-packaging/."""
 
     other_id = serializers.IntegerField(min_value=1)
-    fields = serializers.ListField(
-        child=serializers.CharField(max_length=80),
-        min_length=1,
-        allow_empty=False,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -2381,6 +2394,12 @@ class TaskListSerializer(serializers.ModelSerializer):
         source='scope_block.code', read_only=True, default=None,
     )
 
+    # Gate tasks (kind='gate'): the plate the card shows and the gate it
+    # belongs to (a supervisor's card sends it as ?location=).
+    truck_plate = serializers.CharField(
+        source='shipment.truck_plate', read_only=True, default=None,
+    )
+
     def get_phase(self, obj) -> str | None:
         """Resolve phase from the task's parent shipment status.
 
@@ -2408,6 +2427,10 @@ class TaskListSerializer(serializers.ModelSerializer):
             'scope_week',
             'scope_block',
             'scope_block_code',
+            'scope_location',
+            'truck_plate',
+            'scope_date',
+            'cancelled_reason',
             'step',
             'phase',
             'title_key',
@@ -2547,16 +2570,21 @@ class BoardItemSerializer(serializers.ModelSerializer):
         return resolve_phase(code)
 
     def get_owner_role(self, obj) -> str | None:
-        """Assignee role of the most-recently-created task on this shipment.
+        """Assignee role of the most-recently-created NON-gate task on this shipment.
 
         Reads from the prefetched tasks queryset (ordered by -created_at).
-        Returns None when the shipment has no tasks.
+        Gate tasks are excluded (final-fix review F3): they are lazily
+        created for every plated truck, so counting them would make a garawul
+        "own" every board card the moment its truck is due. Filtered in
+        Python, not `.exclude()`, to stay on the prefetched queryset — see
+        BoardQueryCountTests' assertNumQueries cap.
+        Returns None when the shipment has no other tasks.
         """
-        tasks = obj.tasks.all()
-        if not tasks:
-            return None
         # tasks is prefetched ordered by -created_at (set in the viewset).
-        return tasks[0].assignee_role
+        for task in obj.tasks.all():
+            if task.kind != TaskKind.GATE:
+                return task.assignee_role
+        return None
 
     def get_time_in_phase_seconds(self, obj) -> int | None:
         """Seconds since the shipment entered its current phase.

@@ -241,6 +241,38 @@ class TruckAllocationTaskTests(_Fixture):
         resolve_truck_allocation_tasks()
         self.assertEqual(self._task().state, TaskState.DONE)
 
+    def test_deadline_is_saturday_before_the_week(self):
+        from apps.export.services.plan_task_common import end_of_local_day
+
+        task = generate_truck_allocation_task(YEAR, WEEK)[0]
+        self.assertEqual(task.deadline, end_of_local_day(datetime.date(2026, 9, 19)))
+
+    def test_created_with_needed_trucks_baseline(self):
+        self._fill(self.block_a, [0], value=Decimal('20000'))   # Mon → 1 truck
+        self._fill(self.block_a, [1], value=Decimal('40000'))   # Tue → 2 trucks
+        self._fill(self.block_a, [2], value=Decimal('5000'))    # Wed → 0, omitted
+        task = generate_truck_allocation_task(YEAR, WEEK)[0]
+        self.assertEqual(task.ack_snapshot, '1:1;2:2')
+
+    def test_needed_trucks_rounds_half_up(self):
+        from apps.export.services.truck_allocation_tasks import needed_trucks_by_day
+
+        self._fill(self.block_a, [0], value=Decimal('27750'))   # 1.5 → 2
+        self._fill(self.block_a, [1], value=Decimal('27749'))   # 1.4999 → 1
+        self.assertEqual(needed_trucks_by_day(YEAR, WEEK), {(1,): 2, (2,): 1})
+
+    def test_allocation_counts_skip_zero_and_sunday(self):
+        from apps.export.services.truck_allocation_tasks import allocation_counts
+
+        self._trucks(1, 2)
+        self._trucks(2, 0)
+        self._trucks(7, 3)                     # Sunday — not a plan day
+        self._trucks(1, 1, dest=self.dest_kz)
+        self.assertEqual(
+            allocation_counts(YEAR, WEEK),
+            {(1, self.dest_ru.id): 2, (1, self.dest_kz.id): 1},
+        )
+
     def test_empty_week_with_no_trucks_stays_open(self):
         generate_truck_allocation_task(YEAR, WEEK)
         resolve_truck_allocation_tasks()

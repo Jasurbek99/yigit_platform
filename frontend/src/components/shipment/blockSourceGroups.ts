@@ -15,7 +15,7 @@ export interface IBlockSourceGroup {
  * date/weight breakdown; `TaskCardEditor` uses it just to list distinct
  * codes. Several other places in this codebase (`getCellValue.ts`,
  * `JoinActionBar.tsx`, `JoinDraftsModal.tsx`, `JoinSupplyModal.tsx`,
- * `MatchPanel.tsx`, `SupplyCard.tsx`, `DraftPool.tsx`) still list one
+ * `SupplyCard.tsx`, `DraftPool.tsx`) still list one
  * block_sources entry per row rather than per block — not switched over to
  * this, but exported so doing that later doesn't mean re-deriving grouping
  * from scratch.

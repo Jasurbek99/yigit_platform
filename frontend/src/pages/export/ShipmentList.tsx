@@ -90,7 +90,7 @@ function renderDateTime(value: string | null | undefined): React.ReactNode {
   ) : mutedDash;
 }
 
-function renderBool(value: boolean): React.ReactNode {
+function renderBool(value: boolean | null): React.ReactNode {
   return value ? <Tag color="green">✓</Tag> : mutedDash;
 }
 

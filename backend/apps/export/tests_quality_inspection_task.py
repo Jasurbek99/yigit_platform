@@ -21,12 +21,14 @@ from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
-from apps.core.models import Season, ShipmentStatusType, User
+from decimal import Decimal
+
+from apps.core.models import GreenhouseBlock, Season, ShipmentStatusType, User
 from apps.export.management.commands.seed_task_rules import (
     Command as SeedTaskRulesCommand,
 )
 from apps.export.models import (
-    QualityDocument, Shipment, Task, TaskCompletionRule, TaskState,
+    QualityDocument, Shipment, ShipmentBlockSource, Task, TaskCompletionRule, TaskState,
 )
 
 V2_STATUSES = [
@@ -74,9 +76,17 @@ class QualityInspectionTaskTests(TestCase):
                 'is_active': True,
             },
         )
+        cls.block, _ = GreenhouseBlock.objects.get_or_create(
+            code='FX', defaults={'name': 'FX'},
+        )
 
     def _shipment_at_customs_exit(self, code: str) -> Shipment:
-        """A shipment sitting at gumruk_chykysh, one field short of loading."""
+        """A shipment sitting at gumruk_chykysh, one field short of loading.
+
+        Packing (spec 2026-09-29) is required at gumruk_chykysh -> yuklenme,
+        so this fixture carries a block source — otherwise filling
+        loading_started_at below would be refused, not advance.
+        """
         status = ShipmentStatusType.objects.get(code='gumruk_chykysh')
         shipment = Shipment.objects.create(
             shipment_code=code,
@@ -85,6 +95,9 @@ class QualityInspectionTaskTests(TestCase):
             status=status,
             created_by=self.user,
             updated_by=self.user,
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=shipment, block=self.block, weight_kg=Decimal('10000'),
         )
         from apps.export.services.task_rules import generate_tasks_for_status
         generate_tasks_for_status(shipment, 'gumruk_chykysh')
@@ -365,6 +378,12 @@ class QualityTaskReachesMyTasksTests(TestCase):
             status=ShipmentStatusType.objects.get(code='gumruk_chykysh'),
             created_by=loader,
             updated_by=loader,
+        )
+        block, _ = GreenhouseBlock.objects.get_or_create(
+            code='FX', defaults={'name': 'FX'},
+        )
+        ShipmentBlockSource.objects.create(
+            shipment=shipment, block=block, weight_kg=Decimal('10000'),
         )
         from apps.export.services.task_rules import generate_tasks_for_status
         generate_tasks_for_status(shipment, 'gumruk_chykysh')

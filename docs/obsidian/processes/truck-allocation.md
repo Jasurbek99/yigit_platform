@@ -167,6 +167,18 @@ Every **Saturday 09:00** (Asia/Ashgabat), Celery beat runs `apps.export.tasks.se
    - **Auto-closes** (lazily on `GET /me/tasks/`, `resolve_truck_allocation_tasks`) when every Mon–Sat day that **needs a truck** has at least one `TruckDestinationSplit` with `truck_count > 0`, and the week has at least one truck overall.
    - A day needs a truck when its summed `plan_value` rounds (half-up) to ≥ 1 truck at 18,500 kg. That's the same capacity the table shows, so a light day shown as 0 trucks never blocks the task.
    - **Known limit:** like the other plan cards, it has no manual Done button. A week with no plan and no trucks stays OPEN.
+   - **Deadline** Saturday 23:59 local (red from Sunday), since 2026-09-29.
+
+## «Tanyşdym» review and transport planning (2026-09-29)
+
+`docs/Tasks.md` items 2b and 3. Spec: `docs/superpowers/specs/2026-09-29-planning-tasks-design.md`. Service: `backend/apps/export/services/plan_ack_tasks.py`.
+
+- **Baseline.** The `truck_allocation` task stores the plan's needed trucks per weekday in `Task.ack_snapshot` (`"1:2;3:1"`), written at creation, on every `set-splits` and on every review «Tanyşdym» — never from the lazy `/me/tasks/` read, or a plan edit made between an allocation save and the next read would be swallowed.
+- **`alloc_review`** (export_manager, `tasks.review_truck_allocation`): opens when the allocation task is done and some Mon–Sat day's needed trucks (half-up at 18,500 kg, same as the table) differ from the baseline. One open per week. Closed only by «Tanyşdym» — the banner above the truck section on `/export/plan` (`TruckReviewBanner`, rendered in `WeeklyPlanGrid`, not in `TruckAllocationTable`, because the Tır Takip tab reuses that table). Endpoint: `GET /export/truck-allocations/review/?year=&week=`.
+- **`transport_plan`** (transport, `tasks.transport_plan` / `tasks.transport_plan_changed`): opens when the week's allocation task is done; again when the allocation (`weekday:destination:trucks`) differs from what transport last acknowledged. Deadline end of that day. Page `/transport/plan` (page code `transport.plan`, `TransportPlanPage`): read-only day × destination grid, changed cells highlighted, «Tanyşdym» button. Endpoint: `GET /export/truck-allocations/transport-plan/?year=&week=` (needs `truck_allocation` view — transport is granted view-only, core migration `0069`).
+- **Acknowledge.** `POST /export/tasks/{id}/acknowledge/` with `{snapshot}` from the page's GET — alloc_review / transport_plan only; `/complete/` refuses them. Only the assignee role family (export_manager / transport), admin / boss / director, or a superuser may press it (owner, 2026-09-29) — export_manager cannot acknowledge transport's task; the button is hidden for others (`can_acknowledge`). If the counts moved after the page loaded the server answers 409 and the page reloads, so «Tanyşdym» always records what the person actually saw.
+- **Empty baseline.** A plan that needs no trucks is stored as `";"`, not `""` — `""` means "no baseline yet" (pre-feature task, adopted silently), so a later increase after an empty plan still raises a review.
+- **When they are created.** `set-splits` syncs synchronously; Celery beat `plan-ack-sync` (every 30 min) catches plan edits, which come from `greenhouse` and cannot call `export`. Nothing is created after the plan week's Saturday.
 
 **Deploy:** `update.sh` rebuilds only backend/frontend/redis. After deploying new task code, rebuild the Celery containers too: `docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml up -d --build celery-worker celery-beat`.
 
@@ -176,7 +188,7 @@ Every **Saturday 09:00** (Asia/Ashgabat), Celery beat runs `apps.export.tasks.se
 |------|----------|----------|
 | `export_manager` | Yes | Yes |
 | `director` | Yes | Yes |
-| `transport` | Yes | No |
+| `transport` | Yes (`truck_allocation` view, `/transport/plan`) | No |
 | Others | Yes (read-only) | No |
 
 ## Connections to Other Processes

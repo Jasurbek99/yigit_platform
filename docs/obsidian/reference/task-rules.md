@@ -10,6 +10,10 @@ The Self Board (`/me/board`) generates **tasks** automatically as a shipment mov
 
 ## Two kinds of completion
 
+> **`field_set`** (2026-09-29): a fourth auto rule — the target has *any* value, an explicit
+> `False` included. Used for yes/no questions (`has_peregruz`), where `all_fields_filled` would
+> read «No» as empty (`_is_filled(False)` is False).
+
 - **Auto** — the task is tied to one or more shipment **fields**. The moment the responsible person fills those field(s), the task auto-closes (no button). Implemented by `resolve_for_shipment()` in `apps/export/services/task_rules.py`, invoked from `Shipment.save()`.
 - **Mark Done** (`manual_done`) — the task represents a **physical / process action** with no data field to watch (handing over papers, sending docs to customs, finalizing a sale). The responsible person confirms it with the **Mark Done** button in the drawer.
 
@@ -71,6 +75,7 @@ department's tasks.
 | | **Submit sales report** | sales_rep | **Mark Done** *(non-gating reminder — closed when the SalesReport is saved; see below)* |
 | **Border crossed** `serhet_gechdi` | Trigger dest. entry | sales_rep | auto: `dest_entry_at` |
 | **Dest. entry** `dest_entry` | Trigger dest. customs | sales_rep | auto: `customs_entry_at` |
+| | **Peregruz barmy?** (`tasks.ask_peregruz`, 2026-09-29) | sales_rep | auto (`field_set`): `has_peregruz` answered — «No» counts. The truck stays at `dest_entry` until answered, so the barysh_gumrugi fork always runs on a real answer |
 | **Dest. customs** `barysh_gumrugi` | Trigger transshipment | sales_rep | auto: `peregruz_date` — *only if has transshipment* |
 | | Trigger arrival (direct) | sales_rep | auto: `arrived_at` — *only if no transshipment* |
 | **Transshipment** `transshipment` | Trigger arrival | sales_rep | auto: `arrived_at` |
@@ -78,9 +83,18 @@ department's tasks.
 | | Trigger sale start | sales_rep | auto: `sale_started_at` |
 | **Selling** `satylyar` | Trigger sale end | sales_rep | auto: `sale_ended_at` |
 | **Sold** `satyldy` | Trigger report received | sales_rep | auto: `sales_report` *(report-existence — retargeted from the old `sales_report_date` date field)* |
+| | **Approve the report** (`tasks.approve_sales_report`, 2026-09-29) | export_manager (either; admin / boss / director may too) | auto: `sales_report.approved_at` — set by `POST /shipments/{id}/sales-report/approve/`. The shipment closes only after approval; approve only, no reject |
 
 `hasabat` was retired in state machine v2 (merged into `tamamlandy`) and has no rules. `tamamlandy` and
 `cancelled` are terminal and generate no tasks.
+
+**`gate` (garawul) is not in this table.** It is code-driven like `weekly_plan` / `local_sell_plan`
+/ `truck_allocation` — see [[task#The nine task kinds]]. Two steps, `gate_arrive` and `gate_depart`,
+each scoped to one `LoadingLocation` via `Task.scope_location` rather than gated by status.
+`MANUAL_DONE`, but not through `/complete/`: `TaskViewSet.complete` refuses `kind='gate'`
+(`gate_task_needs_mark`) so only `POST /export/gate/{id}/arrive\|depart/` can close it. Synced
+lazily by `sync_gate_tasks()` — on every gate list read, on `MeTaskListView` for a guard, and inside
+each gate action.
 
 **Mark Done tasks never gate auto-advance.** `auto_advance_if_ready()` checks only the non-`MANUAL_DONE`
 tasks on the step, so *Give documents*, *Submit sales report* and *Quality inspection* are reminders — a shipment moves on
@@ -148,7 +162,11 @@ truck usually sells before the system status catches up. Two rules cooperate:
   be `MANUAL_DONE` — a field-based (auto-resolving) task on step 4 would gate auto-advance
   and freeze the truck at step 4 until the report is filled (weeks later). `MANUAL_DONE`
   tasks are exempt from `is_step_trigger_satisfied`, so this stays a non-gating reminder.
-- **Step 11 trigger** (`satyldy` → `tamamlandy`, target `sales_report`): closes the lifecycle
+- **Step 11 approval** (since 2026-09-29, `tasks.approve_sales_report`, target
+  `sales_report.approved_at`): the report alone no longer closes the shipment — it waits at
+  `satyldy` until an export manager approves it (`POST /shipments/{id}/sales-report/approve/`,
+  which sets `approved_at` / `approved_by` and saves the shipment to fire auto-advance).
+- **Step 11 trigger** (`satyldy` → `tamamlandy`, target `sales_report`): resolves
   when the SalesReport **row exists** (retargeted from the old `sales_report_date` date field).
   `_resolve_value` returns the report on existence / `None` when absent, so `ALL_FIELDS_FILLED`
   resolves the instant a report exists.
@@ -179,9 +197,18 @@ the Gapy tasks were never created at all.
 on every shipment PATCH whose changed fields (value before ≠ after — resubmitting an
 unchanged checkbox does not count) include a field some active rule
 conditions on — an ordinary weight or date edit costs one small query and no
-writes. It also runs on **both** shipments after a `/swap/`, because
-`has_peregruz` is a swappable field — inside the same transaction as the swap,
-so the swapped values and both task sets commit together or not at all.
+writes.
+
+**No longer runs on a swap (2026-09-29).** The old field-picking `/swap/` could
+exchange `has_peregruz`, so `reconcile_shipment_tasks()` used to also run on
+both shipments after it, inside the same transaction, so the swapped values and
+both task sets committed together or not at all. `/swap/` is removed; its
+replacement, `POST /shipments/{a}/swap-packaging/`, only exchanges packing
+(`block_sources`, `export_code`, `variety`, `varieties_dominant`,
+`harvest_date`, `harvest_status`, `weight_to_load_kg`) — `has_peregruz` is not
+among them, so swap-packaging never calls `reconcile_shipment_tasks()` and
+cannot flip a shipment between its Regular and Gapy task sets. See
+[[../processes/draft-shipments#Late join, detach, swap (2026-09-29)]].
 
 **One task per (shipment, rule), enforced by the database.** The generators
 check for an existing task and then create one, so two concurrent requests could

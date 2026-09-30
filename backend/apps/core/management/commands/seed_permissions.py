@@ -53,6 +53,12 @@ _FEEDBACK_COMMON = {'feedback.submit', 'feedback.my_tickets', 'feedback.public'}
 _TEAM_PAGES = {'worklog', 'team_kpi'}
 _UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON | _TEAM_PAGES
 
+# The gate screen and its resource belong to the guard (plus admin/boss, who hold
+# everything). The operational wildcard roles are carved out: a nav entry they
+# cannot use, and a mark they have no reason to make.
+_GATE_PAGES = {'export.gate'}
+_GATE_RESOURCES = {'gate'}
+
 # Contracts module pages (contracts.list, contracts.sales) default to
 # MANAGEMENT ONLY: admin / director / export_manager get them automatically
 # because their sets are derived from _ALL_PAGES (contracts.* is not admin.*).
@@ -88,7 +94,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # analytics.boss, audit_log, director.stuck_shipments and the feedback pages
     # survive because their prefixes are not 'admin.'. feedback.admin_inbox is
     # removed — that inbox stays admin-only.
-    'director': _ALL_PAGES - _ALL_ADMIN - {'feedback.admin_inbox'},
+    'director': _ALL_PAGES - _ALL_ADMIN - {'feedback.admin_inbox'} - _GATE_PAGES,
     # export_manager: drop the previous admin.permissions exception — AD-15
     # restricts permission-matrix CRUD to admin only. Also drop stuck-shipments
     # (director/boss oversight page) and the admin feedback inbox.
@@ -98,7 +104,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # admin.shipment_settings is added back in explicitly (2026-09-02) — Gadam
     # owns the Sheet, so he must be able to grant a row without an admin.
     'export_manager': (
-        _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'}
+        _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'} - _GATE_PAGES
     ) | {'admin.shipment_settings'},
     'weight_master': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
@@ -112,6 +118,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'loading_dept_head': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         'export.drafts',
+        'export.assign',  # Assignment board: join / detach / swap packing (spec 2026-09-29).
         'export.pallet_manifest',
         'export.plan',
         _BOARD,
@@ -129,12 +136,18 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'transport': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
         _HARVEST_BOARD,
+        # Transport truck planning (docs/Tasks.md item 3, 2026-09-29).
+        'transport.plan',
     } | _UNIVERSAL,
     # quality_inspector: transport's shipment surfaces minus the harvest board
     # — the inspector works the truck, not the greenhouse plan.
     'quality_inspector': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
     } | _UNIVERSAL,
+    # garawul (gate guard): the gate screen and his gate tasks — nothing else.
+    # He sees trucks only through the gate lists, never the Sheet or the list.
+    # Kept out of the every-role loops below (Fleet Map, Tır Takip) too.
+    'garawul': {'export.gate', 'me.board'},
     'sales_rep': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         'export.advances', _BOARD,
@@ -188,7 +201,7 @@ PAGE_DEFAULTS['document_team'] = set(PAGE_DEFAULTS['export_manager']) | _UNIVERS
 # written once, here, instead of in a deny-list plus a 14-role nav array.
 # admin / director / export_manager / boss already hold it via _ALL_PAGES.
 for _role in PAGE_DEFAULTS:
-    if _role != 'seller':
+    if _role not in ('seller', 'garawul'):
         PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | {'transport.map'}
 
 # Task Rules (registered 2026-09-22) — the read-only catalog behind My Tasks.
@@ -206,7 +219,7 @@ for _role in ('greenhouse_manager', 'seller'):
 # shipments. admin / director / export_manager / boss hold it via _ALL_PAGES and
 # document_team via its copy of export_manager's set; transport sees the board
 # read-only (writes are gated on shipment_assign.can_edit, which it lacks).
-# Must stay in step with VISIBLE_ROLES in core/0066_truck_board_page_perms.
+# Must stay in step with VISIBLE_ROLES in core/0070_truck_board_page_perms.
 PAGE_DEFAULTS['transport'] = PAGE_DEFAULTS['transport'] | {'export.truck_board'}
 
 
@@ -229,6 +242,8 @@ for _role in ('warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'
 # to hidden.
 _TIR_TAKIP = {k for k in PAGE_REGISTRY if k == 'tir_takip' or k.startswith('tir_takip.')}
 for _role in PAGE_DEFAULTS:
+    if _role == 'garawul':
+        continue
     PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | _TIR_TAKIP
 
 
@@ -256,7 +271,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # _VCRUD wildcard above, same as every other resource admin manages.
     },
     'director': {
-        **{r: _VCRUD for r in _ALL_RESOURCES},
+        **{r: _VCRUD for r in _ALL_RESOURCES - _GATE_RESOURCES},
         # sale: director may create/edit but NOT delete — sale deletion is
         # admin-only (rollback is too easy to mess up). See ContractSaleViewSet.
         'sale': _VCE,
@@ -269,7 +284,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # resource this endpoint used to gate on, including soft-delete).
     },
     'export_manager': {
-        **{r: _VCRUD for r in _ALL_RESOURCES},
+        **{r: _VCRUD for r in _ALL_RESOURCES - _GATE_RESOURCES},
         # Assignment: export_manager promotes drafts to yuklenme (Finding #1)
         'shipment_assign': _VCE,
         # truck_split_default: read-only for export_manager — only the director
@@ -321,6 +336,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'transport': {
         'shipment': _VE,
         'shipment_comment': _VCE,
+        'truck_allocation': _VIEW,       # /transport/plan reads the week's allocation
     },
     # quality_inspector: edits the shipment's quality readings and owns the
     # quality-certificate record outright. quality_document was previously
@@ -362,6 +378,9 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     },
     'seller': {
         'local_sell_plan': _VCE,
+    },
+    'garawul': {
+        'gate': _VE,    # read the lists, mark / undo
     },
     # boss: full CRUD on every resource. The read-only guard now lives in the
     # frontend view/edit toggle, not in the permission matrix (2026-08-05).
@@ -426,6 +445,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'loading_started_at',
             'loading_ended_at',
             'departed_at',
+            'greenhouse_arrived_at',
             # R34: post-loading rejected weight adjustment
             'weight_to_load_kg',
             # R39: harvest day, operator-entered

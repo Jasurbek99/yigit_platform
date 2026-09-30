@@ -28,6 +28,7 @@ import type {
   ICellLastEdit,
 } from '@/types';
 import { useSheetStore, type TSheetVariant } from '@/stores/sheetStore';
+import { isJoinSelectable } from './joinHelpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { isCellEditable } from '@/utils/sheetPermissions';
@@ -841,9 +842,8 @@ export function SheetGrid({
         const isLast = idx === frozenShipments.length - 1;
         const cancelled = shipment.status_code === 'cancelled';
         const supply = isSupplyColumn(shipment) && !shipment.column_color;
-        const isDraft = shipment.status_code === 'draft';
         const isJoinSelected = joinSelection.includes(shipment.id);
-        const joinSelectable = joinMode && isDraft;
+        const joinSelectable = joinMode && isJoinSelectable(shipment.status_code);
         const swapSelectable = swapMode;
         const isSwapSelected = swapSelection.includes(shipment.id);
         return (
@@ -876,7 +876,7 @@ export function SheetGrid({
             onClick={
               swapMode
                 ? () => toggleSwapSelection(shipment.id)
-                : joinMode && isDraft
+                : joinSelectable
                 ? () => toggleJoinSelection(shipment.id)
                 : undefined
             }
@@ -904,9 +904,8 @@ export function SheetGrid({
         const shipment = scrollableShipments[vc.index];
         const cancelled = shipment.status_code === 'cancelled';
         const supply = isSupplyColumn(shipment) && !shipment.column_color;
-        const isDraft = shipment.status_code === 'draft';
         const isJoinSelected = joinSelection.includes(shipment.id);
-        const joinSelectable = joinMode && isDraft;
+        const joinSelectable = joinMode && isJoinSelectable(shipment.status_code);
         const swapSelectable = swapMode;
         const isSwapSelected = swapSelection.includes(shipment.id);
 
@@ -945,7 +944,7 @@ export function SheetGrid({
 
         const handleJoinClick = swapMode
           ? () => toggleSwapSelection(shipment.id)
-          : joinMode && isDraft
+          : joinSelectable
           ? () => toggleJoinSelection(shipment.id)
           : undefined;
 

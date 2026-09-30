@@ -33,20 +33,26 @@ import { useBlockTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
 import { SelfKanbanCard } from '@/components/kanban/SelfKanbanCard';
 import { SelfBoardTaskDrawer } from '@/components/kanban/SelfBoardTaskDrawer';
+import { GateTaskCard } from '@/components/me/GateTaskCard';
 import { PlanTaskCard } from '@/components/me/PlanTaskCard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
-import type { ITaskListItem, ShipmentPhase, TaskState } from '@/types';
+import type { ITaskListItem, ShipmentPhase, TaskKind, TaskState } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { EXPORT_MANAGER_LIKE, ROLE_CHOICES } from '@/constants/roles';
 
 const { Title, Text } = Typography;
 
-/** Non-shipment reminder tasks (weekly harvest plan, local sell plan, truck
- *  allocation) rendered with the compact PlanTaskCard rather than the shipment
+/** Non-shipment planning tasks (weekly harvest plan, local sell plan, truck
+ *  allocation and its «Tanyşdym» review, transport planning, the daily loading /
+ *  export plans) rendered with the compact PlanTaskCard rather than the shipment
  *  Kanban card. */
+const PLAN_TASK_KINDS: ReadonlySet<TaskKind> = new Set<TaskKind>([
+  'weekly_plan', 'local_sell_plan', 'truck_allocation',
+  'alloc_review', 'transport_plan', 'daily_loading', 'daily_export',
+]);
+
 function isPlanTask(task: ITaskListItem): boolean {
-  return task.kind === 'weekly_plan' || task.kind === 'local_sell_plan'
-    || task.kind === 'truck_allocation';
+  return PLAN_TASK_KINDS.has(task.kind);
 }
 
 // ─── Phase filter options ────────────────────────────────────────────────────
@@ -509,7 +515,9 @@ export default function SelfBoard() {
                 onDrop={(e) => handleDropOnColumn(e, col.dropTargetState)}
               >
                 {colTasks.map((task) =>
-                  isPlanTask(task) ? (
+                  task.kind === 'gate' ? (
+                    <GateTaskCard key={task.id} task={task} />
+                  ) : isPlanTask(task) ? (
                     <PlanTaskCard key={task.id} task={task} />
                   ) : (
                     <SelfKanbanCard
@@ -534,7 +542,9 @@ export default function SelfBoard() {
               emptyText={t('me.board.empty_col')}
             >
               {historyTasks.map((task) =>
-                isPlanTask(task) ? (
+                task.kind === 'gate' ? (
+                  <GateTaskCard key={task.id} task={task} />
+                ) : isPlanTask(task) ? (
                   <PlanTaskCard key={task.id} task={task} />
                 ) : (
                   <SelfKanbanCard

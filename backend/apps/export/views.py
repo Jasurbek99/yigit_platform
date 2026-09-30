@@ -87,7 +87,7 @@ from apps.export.serializers import (
     ShipmentAssignSerializer,
     ShipmentCreateSerializer,
     ShipmentJoinSerializer,
-    ShipmentSwapSerializer,
+    ShipmentSwapPackagingSerializer,
     ShipmentListSerializer,
     ShipmentDraftListSerializer,
     ShipmentDetailSerializer,
@@ -108,6 +108,12 @@ from apps.export.services import (
     override_dominant_varieties,
     transition_to,
     write_block_sources,
+)
+from apps.export.services.packaging import (
+    PRE_LOADING,
+    assert_can_move_packing,
+    net_update,
+    packaging_weight,
 )
 from apps.export.services.shipment import _cancel_open_tasks
 from apps.export.services.trip_lock import trip_locked_fields
@@ -183,6 +189,11 @@ def _scan_recorded_by(shipment, field_name: str) -> str | None:
         return None
     full = f'{row.user.first_name} {row.user.last_name}'.strip()
     return full or row.user.username
+
+
+def _can_move_packing(user) -> bool:
+    """Join / unjoin / swap-packaging gate: JOIN_ROLES or superuser."""
+    return getattr(user, 'is_superuser', False) or getattr(user, 'role', None) in JOIN_ROLES
 
 
 class ShipmentViewSet(ModelViewSet):
@@ -306,18 +317,6 @@ class ShipmentViewSet(ModelViewSet):
             # transition_to still owns the edge check.
             return [IsAuthenticated(), SeasonNotClosed(),
                     resource_edit_permission('shipment')()]
-        if action == 'swap':
-            # Same class of bug as `transition` (F19): a swap EDITS two
-            # shipments, it does not create one, so shipment.can_create is the
-            # wrong flag — 0 for document_team, transport, sales_rep, finansist
-            # and weight_master. This one is NOT theoretical: the Sheet toolbar's
-            # Swap button carries no role gate (only the closed-season freeze),
-            # so every Sheet user sees it and five roles got DRF's generic 403
-            # instead of the per-field message this endpoint is built to return.
-            # The method body's can_edit_sheet_field loop is the real authority —
-            # its own docstring says so — and it could never run.
-            return [IsAuthenticated(), SeasonNotClosed(),
-                    resource_edit_permission('shipment')()]
         if action == 'comment':
             # Same class of bug as `transition` above (F18): this POST creates a
             # ShipmentComment, not a Shipment, so it must gate on the comment
@@ -330,13 +329,14 @@ class ShipmentViewSet(ModelViewSet):
             # now agrees with it instead of contradicting it.
             return [IsAuthenticated(), SeasonNotClosed(),
                     resource_write_permission('shipment_comment')()]
-        if action == 'join':
+        if action in ('join', 'unjoin', 'swap_packaging'):
             # Same class of bug as `transition`/`swap` (F12/F19): a join MERGES two
             # existing drafts — it creates no Shipment — but the class-level
             # DynamicResourcePermission maps POST to shipment.can_create, which is 0
             # for document_team in the seed. Every role the in-body JOIN_ROLES
             # allowlist admits holds can_edit, so this coarse gate now agrees with
             # the fine one instead of 403ing document_team before the body runs.
+            # unjoin and swap_packaging (spec 2026-09-29) edit rows the same way.
             return [IsAuthenticated(), SeasonNotClosed(),
                     resource_edit_permission('shipment')()]
         if action == 'transition':
@@ -413,9 +413,9 @@ class ShipmentViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ShipmentDetailSerializer
-        if (
-            self.action == 'list'
-            and self.request.query_params.get('status_code') == 'draft'
+        if self.action == 'list' and (
+            self.request.query_params.get('status_code') == 'draft'
+            or self.request.query_params.get('status_code__in')
         ):
             return ShipmentDraftListSerializer
         return ShipmentListSerializer
@@ -597,6 +597,12 @@ class ShipmentViewSet(ModelViewSet):
             # Draft list serializer needs created_by + block_sources; pre-load
             # them here so the DraftPool render avoids per-row queries.
             if status_code == 'draft' and getattr(self, 'action', None) == 'list':
+                qs = qs.select_related('created_by').prefetch_related('block_sources__block')
+        # Join board (spec 2026-09-29): several statuses at once, same draft
+        # shape (block_sources prefetched) as ?status_code=draft.
+        if status_codes := self.request.query_params.get('status_code__in'):
+            qs = qs.filter(status__code__in=[c for c in status_codes.split(',') if c])
+            if getattr(self, 'action', None) == 'list':
                 qs = qs.select_related('created_by').prefetch_related('block_sources__block')
         # The ShipmentList serializer's export_firms_display column joins firm
         # codes from the firm_splits junction. Prefetch once per page so the
@@ -2465,7 +2471,8 @@ class ShipmentViewSet(ModelViewSet):
     def join(self, request, pk=None):
         """POST /api/v1/export/shipments/{target_id}/join/
 
-        Merges a supply draft (source) into a destination draft (target).
+        Moves a supply plan's packing (source) onto a destination plan (target)
+        that has not started loading (draft, gumruk_girish, gumruk_chykysh).
 
         The target is identified by the URL pk and SURVIVES. The source is
         identified by source_id in the request body and is DELETED (cascade).
@@ -2476,7 +2483,9 @@ class ShipmentViewSet(ModelViewSet):
         - variety and export_code are copied from source if target has none.
         - harvest_date, harvest_status and weight_to_load_kg are copied from source
           if target has none (F25 — before this they were lost with the source row).
-        - target.weight_net is recomputed from all its block_sources.
+        - target.weight_net is recomputed from all its block_sources only for a
+          draft target; for a later pre-loading target it is only filled when
+          empty (spec 2026-09-29).
         - A ShipmentStatusLog audit row is written on target (status unchanged).
         - The source creator is notified via an action_required Notification.
         - Source is hard-deleted.
@@ -2487,7 +2496,7 @@ class ShipmentViewSet(ModelViewSet):
         Returns:
             200 with full ShipmentDetailSerializer payload on success.
             400 if validation fails (same draft, wrong status, missing blocks, etc.)
-            403 if caller is not a superuser and role not in PRIVILEGED_ROLES | {boss}.
+            403 if caller is not a superuser and role not in JOIN_ROLES.
             404 if target or source not found.
         """
         # --- Permission gate ---
@@ -2497,11 +2506,10 @@ class ShipmentViewSet(ModelViewSet):
         # halves while preparing the CMR packet, so they join drafts from the Sheet
         # and the Shipments list themselves instead of queueing behind a manager.
         # Superusers bypass, as in /cancel.
-        is_super = getattr(request.user, 'is_superuser', False)
-        if not is_super and getattr(request.user, 'role', None) not in JOIN_ROLES:
+        if not _can_move_packing(request.user):
             return Response(
-                {'error': 'Only admin, export_manager, director, boss or document_team '
-                          'can join shipments in Preparation'},
+                {'error': 'Only admin, export_manager, director, boss, document_team or the '
+                          'loading department can join packing'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -2556,8 +2564,10 @@ class ShipmentViewSet(ModelViewSet):
         """
         if target.pk == source.pk:
             return 'Source and target must be different shipments'
-        if target.status.code != 'draft':
-            return 'Target shipment is not in Preparation'
+        if target.status.code not in PRE_LOADING:
+            return 'Target shipment has started loading — packing can no longer be joined'
+        if target.pallets.exists() or source.pallets.exists():
+            return 'Pallets are recorded — packing can no longer be joined'
         if source.status.code != 'draft':
             return 'Source shipment is not in Preparation'
         if not target.country_id or not target.customer_id:
@@ -2603,15 +2613,17 @@ class ShipmentViewSet(ModelViewSet):
             )
             # Re-bind references to the locked instances.
             locked_map = {s.pk: s for s in locked}
+            if target.pk not in locked_map or source.pk not in locked_map:
+                raise ValueError('A shipment in this join no longer exists')
             target = locked_map[target.pk]
             source = locked_map[source.pk]
 
             # Re-assert status + block gates on the now-locked rows.
             # (Cheap identity check already passed in _validate_join; no need to repeat.)
-            if target.status.code != 'draft':
-                raise ValueError('Target shipment is no longer in Preparation')
+            assert_can_move_packing(target)
             if source.status.code != 'draft':
                 raise ValueError('Source shipment is no longer in Preparation')
+            assert_can_move_packing(source)
             if not source.block_sources.exists():
                 raise ValueError('Source shipment has no supply blocks')
             if target.block_sources.exists():
@@ -2626,6 +2638,7 @@ class ShipmentViewSet(ModelViewSet):
             # below removes the row — the weight_net recompute needs it as a
             # fallback when the moved blocks aren't fully weighed yet.
             source_weight_net = source.weight_net
+            source_packing_weight = packaging_weight(source)
 
             # Move block sources from source → target.
             source.block_sources.update(shipment=target)
@@ -2668,25 +2681,25 @@ class ShipmentViewSet(ModelViewSet):
             if target.weight_to_load_kg is None and source.weight_to_load_kg is not None:
                 update_fields['weight_to_load_kg'] = source.weight_to_load_kg
 
-            # Recompute weight_net from all block_sources now on target.
-            # If any moved block is still unweighed (supply draft not yet
-            # detailed), the block Sum understates the truck — fall back to
-            # the supply draft's declared total (source_weight_net, captured
-            # above before the source was deleted).
-            has_null_weight = target.block_sources.filter(weight_kg__isnull=True).exists()
-            if has_null_weight and source_weight_net is not None:
-                update_fields['weight_net'] = source_weight_net
+            # Weight rule (spec 2026-09-29). Draft target: today's recompute from
+            # the moved blocks, falling back to the supply plan's declared total
+            # while blocks are unweighed. Later target: fill an empty net only.
+            if target.status.code == 'draft':
+                has_null_weight = target.block_sources.filter(weight_kg__isnull=True).exists()
+                if has_null_weight and source_weight_net is not None:
+                    update_fields['weight_net'] = source_weight_net
+                else:
+                    agg = target.block_sources.aggregate(total=Sum('weight_kg'))
+                    update_fields['weight_net'] = agg['total'] or Decimal('0')
             else:
-                agg = target.block_sources.aggregate(total=Sum('weight_kg'))
-                update_fields['weight_net'] = agg['total'] or Decimal('0')
+                update_fields.update(net_update(target, source_packing_weight))
             update_fields['updated_by_id'] = user.pk
 
-            # Use .update() to bypass the task engine (save() runs auto_advance_if_ready
-            # which could promote target out of draft — violating the "target stays draft"
-            # invariant documented in AD-join).
+            # Use .update() to bypass the task engine: save() runs auto_advance_if_ready,
+            # and a packing move must never move the truck (spec 2026-09-29).
             Shipment.objects.filter(pk=target.pk).update(**update_fields)
 
-            # Audit log on target (status unchanged — still draft).
+            # Audit log on target (status unchanged).
             source_creator_label = (
                 source.created_by.username if source.created_by_id else 'unknown'
             )
@@ -2726,304 +2739,70 @@ class ShipmentViewSet(ModelViewSet):
         )
         return target
 
-    # -----------------------------------------------------------------------
-    # Swap action
-    # -----------------------------------------------------------------------
+    @action(detail=True, methods=['post'], url_path='unjoin')
+    def unjoin(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/unjoin/
 
-    @action(detail=True, methods=['post'], url_path='swap')
-    def swap(self, request, pk=None):
-        """POST /api/v1/export/shipments/{a_id}/swap/
-
-        Exchange the values of selected scalar / FK fields between two
-        shipments.  Any two shipments of any status may be swapped; the
-        operation is gated per-field by can_edit_sheet_fields on both sides.
-
-        Request body:
-            {
-                "other_id": <int>,
-                "fields":   ["truck_plate", "driver_name", ...]
-            }
-
-        Response 200:
-            {
-                "shipments": [<ShipmentDetailSerializer A>, <ShipmentDetailSerializer B>],
-                "swapped_fields": ["truck_plate", "driver_name"]
-            }
-
-        Errors ({"error": "..."} shape):
-            400  self-swap, empty fields, non-existent other_id, field not in
-                 whitelist, or (implicitly) DRF validation errors.
-            403  user lacks edit permission for one of the requested fields on
-                 either shipment — includes the offending field name.
-            404  either shipment not found (get_object raises 404 for A).
-        """
-        from apps.export.swap_config import FK_SWAPPABLE_FIELDS, SWAPPABLE_FIELDS
-        from apps.export.models import ShipmentStatusLog, Notification
-
-        # --- Deserialize request body ---
-        swap_serializer = ShipmentSwapSerializer(data=request.data)
-        swap_serializer.is_valid(raise_exception=True)
-        other_id = swap_serializer.validated_data['other_id']
-        requested_fields: list[str] = swap_serializer.validated_data['fields']
-
-        # --- Load shipment A (DRF raises 404 automatically) ---
-        shipment_a = self.get_object()
-
-        # --- Self-swap guard ---
-        if shipment_a.pk == other_id:
-            return Response(
-                {'error': 'Cannot swap a shipment with itself'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # --- Load shipment B ---
-        try:
-            shipment_b = (
-                Shipment.objects
-                .select_related('status', 'created_by')
-                .get(pk=other_id)
-            )
-        except Shipment.DoesNotExist:
-            return Response(
-                {'error': f'Shipment with id={other_id} not found'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Write freeze (D1). A swap mutates BOTH rows; only shipment_a came
-        # through get_object(), so shipment_b needs its own guard.
-        assert_season_open(shipment_b.season)
-
-        # --- Whitelist + permission gate (cheap pre-checks on unlocked rows) ---
-        # One settings load for the whole swap — can_edit_sheet_field re-queries
-        # SheetRowSetting per call, and a swap can carry a dozen fields.
-        verdicts = can_edit_sheet_fields(request.user, list(requested_fields))
-        for field in requested_fields:
-            if field not in SWAPPABLE_FIELDS:
-                return Response(
-                    {'error': f"Field '{field}' is not swappable"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if not verdicts.get(field, False):
-                return Response(
-                    {
-                        'error': (
-                            f"You don't have permission to edit field '{field}' on this shipment"
-                        )
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-        # `has_peregruz` is in SWAPPABLE_FIELDS, so a swap is the SECOND runtime
-        # writer of a condition field after partial_update. Without a reconcile
-        # each shipment keeps the task its OLD value called for — and worse than
-        # the plain stale-task bug, because _resolve_next_status forks on
-        # has_peregruz, so the stale task targets a field on a branch the
-        # shipment will never take. `swapped` is the gate, as the changed keys
-        # are on the PATCH path; the reconciler never advances a status, so this
-        # cannot move either truck.
-        #
-        # One transaction for the swap and both reconciles: a failure between
-        # them must not leave swapped values with the old tasks. Notifications
-        # go out only after it commits.
-        from apps.export.services.shipment import notify_tasks_changed
-        from apps.export.services.task_rules import reconcile_shipment_tasks
-        try:
-            with transaction.atomic():
-                swapped, updated_a, updated_b = self._execute_swap(
-                    shipment_a, shipment_b, requested_fields, request.user
-                )
-                updated_a.refresh_from_db()
-                updated_b.refresh_from_db()
-                reconciled = []
-                for shipment in (updated_a, updated_b):
-                    shipment.updated_by = request.user
-                    reconciled.append(
-                        (shipment, reconcile_shipment_tasks(shipment, changed_fields=swapped))
-                    )
-        except ValueError as exc:
-            logger.exception(
-                'swap rejected a=%s b=%s fields=%s',
-                shipment_a.pk, other_id, requested_fields,
-            )
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        self._sheet_poke_ids = [updated_a.pk, updated_b.pk]
-        for shipment, result in reconciled:
-            notify_tasks_changed(shipment, result)
-
-        serializer_a = ShipmentDetailSerializer(updated_a, context={'request': request})
-        serializer_b = ShipmentDetailSerializer(updated_b, context={'request': request})
-        return Response(
-            {
-                'shipments': [serializer_a.data, serializer_b.data],
-                'swapped_fields': swapped,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-    @staticmethod
-    def _execute_swap(
-        shipment_a: 'Shipment',
-        shipment_b: 'Shipment',
-        fields: list[str],
-        user,
-    ) -> tuple[list[str], 'Shipment', 'Shipment']:
-        """Atomically swap field values between two shipments.
-
-        Locks both rows in pk order to prevent deadlocks.  All validations that
-        are cheap to re-assert under the lock (soft-delete, status sanity) are
-        re-checked so a concurrent delete/archive cannot sneak past them.
-
-        For FK fields (entries in FK_SWAPPABLE_FIELDS) the ``_id`` integer is
-        swapped rather than the related-object reference — no related-object
-        fetch required, no Django ORM overhead.
-
-        Args:
-            shipment_a: First shipment (from URL pk).
-            shipment_b: Second shipment (from request body other_id).
-            fields:     List of field names to swap (all in SWAPPABLE_FIELDS).
-            user:       The user performing the swap.
+        Detaches the packing of a destination plan (before loading, no pallets)
+        into a NEW supply-plan row with a new code. Spec 2026-09-29 §1.3.
 
         Returns:
-            (swapped_fields, updated_a, updated_b) — swapped_fields is the
-            subset of *fields* where A and B actually had different values.
-            updated_a / updated_b are the (stale) instances; caller must call
-            refresh_from_db() on both.
-
-        Raises:
-            ValueError: If a re-validation fails under the lock (e.g. soft-deleted).
+            200 — the export row's detail + new_supply_id + new_supply_code.
+            400 — not allowed (message says why). 403 — role.
         """
-        from apps.export.swap_config import FK_SWAPPABLE_FIELDS
-        from apps.export.models import ShipmentStatusLog, Notification
+        from apps.export.services.packaging import unjoin_packing
 
-        with transaction.atomic():
-            # --- Lock in deterministic pk order to prevent deadlocks ---
-            first_pk, second_pk = sorted([shipment_a.pk, shipment_b.pk])
-            locked_qs = (
-                Shipment.objects
-                .select_for_update()
-                .select_related('status', 'created_by')
-                .filter(pk__in=[first_pk, second_pk])
-                .order_by('pk')
-            )
-            locked_map = {s.pk: s for s in locked_qs}
-            shipment_a = locked_map[shipment_a.pk]
-            shipment_b = locked_map[shipment_b.pk]
+        if not _can_move_packing(request.user):
+            return Response({'error': 'Your role cannot detach packing'},
+                            status=status.HTTP_403_FORBIDDEN)
+        shipment = self.get_object()
+        try:
+            new = unjoin_packing(shipment, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-            # --- Re-validate under lock (guard against concurrent soft-delete) ---
-            if shipment_a.deleted_at is not None:
-                raise ValueError(
-                    f'Shipment {shipment_a.shipment_code} has been deleted'
-                )
-            if shipment_b.deleted_at is not None:
-                raise ValueError(
-                    f'Shipment {shipment_b.shipment_code} has been deleted'
-                )
+        self._sheet_poke_ids = [shipment.pk, new.pk]
+        shipment.refresh_from_db()
+        data = ShipmentDetailSerializer(shipment, context={'request': request}).data
+        return Response({**data, 'new_supply_id': new.pk, 'new_supply_code': new.shipment_code})
 
-            # --- Determine which fields actually differ ---
-            swapped: list[str] = []
-            a_update: dict = {}
-            b_update: dict = {}
+    @action(detail=True, methods=['post'], url_path='swap-packaging')
+    def swap_packaging(self, request, pk=None):
+        """POST /api/v1/export/shipments/{a_id}/swap-packaging/  body {"other_id": int}
 
-            for field in fields:
-                if field in FK_SWAPPABLE_FIELDS:
-                    # Operate on the raw integer FK column to avoid related-object
-                    # fetch and to keep save(update_fields=[]) minimal.
-                    attr = f'{field}_id'
-                else:
-                    attr = field
+        Exchanges the packing of two rows before loading (spec 2026-09-29 §1.4).
+        Replaces the old field-picking /swap/.
 
-                a_val = getattr(shipment_a, attr)
-                b_val = getattr(shipment_b, attr)
-
-                # Skip if both values are identical (no-op).
-                if a_val == b_val:
-                    continue
-
-                a_update[attr] = b_val
-                b_update[attr] = a_val
-                swapped.append(field)
-
-            # --- If nothing differs, skip DB writes and return empty list ---
-            if not swapped:
-                return [], shipment_a, shipment_b
-
-            # --- Apply the swap and persist ---
-            a_update['updated_by_id'] = user.pk
-            b_update['updated_by_id'] = user.pk
-            update_fields_a = list(a_update.keys())
-            update_fields_b = list(b_update.keys())
-
-            for attr, val in a_update.items():
-                setattr(shipment_a, attr, val)
-            for attr, val in b_update.items():
-                setattr(shipment_b, attr, val)
-
-            shipment_a.save(update_fields=update_fields_a)
-            shipment_b.save(update_fields=update_fields_b)
-
-            # --- Audit log on both shipments (status unchanged) ---
-            swapped_label = ', '.join(swapped)
-            ShipmentStatusLog.objects.create(
-                shipment=shipment_a,
-                status=shipment_a.status,
-                changed_by=user,
-                comment=(
-                    f'Swapped fields with shipment {shipment_b.shipment_code}: '
-                    f'{swapped_label}'
-                ),
-            )
-            ShipmentStatusLog.objects.create(
-                shipment=shipment_b,
-                status=shipment_b.status,
-                changed_by=user,
-                comment=(
-                    f'Swapped fields with shipment {shipment_a.shipment_code}: '
-                    f'{swapped_label}'
-                ),
-            )
-
-            # --- Notify each shipment's creator (skip if same as request.user) ---
-            notified_user_ids: set[int] = set()
-            for shipment in (shipment_a, shipment_b):
-                creator_id = shipment.created_by_id
-                if not creator_id or creator_id == user.pk or creator_id in notified_user_ids:
-                    continue
-                notified_user_ids.add(creator_id)
-                Notification.objects.create(
-                    user_id=creator_id,
-                    kind='action_required',
-                    message=(
-                        f'Fields were swapped between {shipment_a.shipment_code} and '
-                        f'{shipment_b.shipment_code} by {user.username}: {swapped_label}.'
-                    ),
-                    link=f'/export/shipments/sheet?shipment={shipment.pk}',
-                )
-
-        logger.info(
-            'swap: %s ↔ %s fields=%s by %s',
-            shipment_a.shipment_code,
-            shipment_b.shipment_code,
-            swapped_label,
-            user.username,
-        )
-        return swapped, shipment_a, shipment_b
-
-    @action(detail=False, methods=['get'], url_path='swappable-fields')
-    def swappable_fields(self, request):
-        """GET /api/v1/export/shipments/swappable-fields/
-
-        Returns the list of field names accepted by the swap endpoint so the
-        frontend can sanity-check before submitting a swap request.
-
-        No DB query — the whitelist is a class-level constant.
-
-        Response 200:
-            { "fields": ["truck_plate", "driver_name", ...] }
+        Returns:
+            200 {"shipments": [detail_a, detail_b]}; 400 rule broken; 403 role;
+            404 other row missing; 409 closed season.
         """
-        from apps.export.swap_config import SWAPPABLE_FIELDS
+        from apps.export.services.packaging import swap_packing
 
-        return Response({'fields': sorted(SWAPPABLE_FIELDS)})
+        if not _can_move_packing(request.user):
+            return Response({'error': 'Your role cannot swap packing'},
+                            status=status.HTTP_403_FORBIDDEN)
+        body = ShipmentSwapPackagingSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        shipment_a = self.get_object()
+        try:
+            shipment_b = Shipment.objects.get(pk=body.validated_data['other_id'])
+        except Shipment.DoesNotExist:
+            return Response({'error': 'Other shipment not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Write freeze (D1): only shipment_a came through get_object().
+        assert_season_open(shipment_b.season)
+        try:
+            shipment_a, shipment_b = swap_packing(shipment_a, shipment_b, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        self._sheet_poke_ids = [shipment_a.pk, shipment_b.pk]
+        shipment_a.refresh_from_db()
+        shipment_b.refresh_from_db()
+        return Response({'shipments': [
+            ShipmentDetailSerializer(shipment_a, context={'request': request}).data,
+            ShipmentDetailSerializer(shipment_b, context={'request': request}).data,
+        ]})
 
     @action(detail=True, methods=['get', 'post'], url_path='quality-certificates')
     def quality_certificates(self, request, pk=None):
@@ -3335,6 +3114,58 @@ class ShipmentViewSet(ModelViewSet):
         shipment.refresh_from_db()
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='sales-report/approve')
+    def approve_sales_report(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/sales-report/approve/
+
+        «Hasabaty gözden geçir we tassykla» (docs/Tasks.md item 37, 2026-09-29).
+        Either export manager — or admin / boss / director, or a superuser —
+        approves the report. The satyldy approve_sales_report task waits on
+        approved_at, so saving it closes the task and auto-advances the shipment
+        to tamamlandy. Approve only, no reject path. Idempotent: a second call
+        keeps the first approval. Returns the full shipment detail.
+        """
+        from apps.export.models import SalesReport
+
+        approve_roles = {'export_manager', 'admin', 'boss', 'director'}
+        if not (request.user.is_superuser or getattr(request.user, 'role', None) in approve_roles):
+            return Response(
+                {'error': 'Only an export manager can approve the sales report.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        shipment = self.get_object()
+        if shipment.deleted_at is not None or shipment.is_archived:
+            return Response(
+                {'error': 'Cannot edit a deleted or archived shipment.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        with transaction.atomic():
+            report = SalesReport.objects.select_for_update().filter(shipment=shipment).first()
+            if report is None:
+                return Response(
+                    {'error': 'There is no sales report to approve yet.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if report.approved_at is None:
+                report.approved_at = timezone.now()
+                report.approved_by = request.user
+                report.save(update_fields=['approved_at', 'approved_by'])
+                logger.info(
+                    'SalesReport for %s approved by %s',
+                    shipment.shipment_code, request.user.username,
+                )
+
+        # Fire the task-engine save chain: resolves approve_sales_report and
+        # auto-advances satyldy → tamamlandy (via transition_to, is_auto=True).
+        shipment.refresh_from_db()
+        shipment.updated_by = request.user
+        shipment.save()
+
+        shipment.refresh_from_db()
+        return Response(ShipmentDetailSerializer(shipment, context={'request': request}).data)
 
     @action(detail=True, methods=['post'], url_path='block-sources')
     def set_block_sources(self, request, pk=None):
@@ -4078,7 +3909,7 @@ class ShipmentViewSet(ModelViewSet):
         This is enforced by the bounded-query test in tests_shipment_board.py.
         """
         from django.core.cache import cache
-        from apps.export.models import Task as _Task
+        from apps.export.models import Task as _Task, TaskKind as _TaskKind
         from apps.export.serializers import BoardItemSerializer
         from apps.export.services.phases import PHASE_ORDER, get_phase
 
@@ -4126,11 +3957,15 @@ class ShipmentViewSet(ModelViewSet):
         # ordering restriction does not apply.
         owner_role = request.query_params.get('owner_role', '').strip()
         if owner_role:
-            # Keep only shipments whose most-recent task (by created_at desc)
-            # has the given assignee_role. Subquery approach is safe for MSSQL
-            # — no Window involved so no Meta.ordering-in-subquery issue.
+            # Keep only shipments whose most-recent NON-gate task (by
+            # created_at desc) has the given assignee_role. Gate tasks are
+            # excluded (final-fix review F3) — otherwise every plated truck's
+            # lazily-created gate task would make it "owned" by garawul.
+            # Subquery approach is safe for MSSQL — no Window involved so no
+            # Meta.ordering-in-subquery issue.
             latest_task_role_sq = (
                 _Task.objects.filter(shipment=OuterRef('pk'))
+                .exclude(kind=_TaskKind.GATE)
                 .order_by('-created_at')
                 .values('assignee_role')[:1]
             )
@@ -4574,6 +4409,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
     POST   /api/v1/export/tasks/{id}/block/     — → BLOCKED (with reason)
     POST   /api/v1/export/tasks/{id}/unblock/   — BLOCKED → IN_PROGRESS
     POST   /api/v1/export/tasks/{id}/complete/  — → DONE (manual_done only)
+    POST   /api/v1/export/tasks/{id}/acknowledge/ — «Tanyşdym» (alloc_review / transport_plan only)
     POST   /api/v1/export/tasks/{id}/cancel/    — → CANCELLED (admin/director only)
 
     List is scoped to the resolved season via `shipment`. Task.shipment is
@@ -4787,7 +4623,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
 
         Permission: assignee_role or supervisor roles.
         """
-        from apps.export.models import Task, TaskState, TaskCompletionRule
+        from apps.export.models import Task, TaskKind, TaskState, TaskCompletionRule
         from apps.export.serializers import TaskDetailSerializer
 
         task = self.get_object()
@@ -4805,6 +4641,23 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
                         f"use the shipment PATCH endpoint to fill the required fields."
                     )
                 },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.export.services.plan_ack_tasks import ACK_KINDS
+
+        if task.kind in ACK_KINDS:
+            # «Tanyşdym» must record what was seen — only /acknowledge/ does.
+            return Response(
+                {'error': 'Use /acknowledge/ for review tasks.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if task.kind == TaskKind.GATE:
+            # A gate task must never close without the guard's actual mark —
+            # only POST /gate/{id}/arrive|depart/ does (final-fix review F2).
+            return Response(
+                {'error': 'gate_task_needs_mark'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -4847,6 +4700,57 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
         task.save(update_fields=['state', 'completed_at', 'started_at', 'completed_by'])
 
         task.refresh_from_db()
+        return Response(TaskDetailSerializer(task).data)
+
+    @action(detail=True, methods=['post'])
+    def acknowledge(self, request, pk=None):
+        """POST /api/v1/export/tasks/{id}/acknowledge/ — «Tanyşdym».
+
+        alloc_review / transport_plan only. Body: {"snapshot": "<the page's
+        snapshot>"}. Only the assignee role family, admin / boss / director, or
+        a superuser may press it — export_manager on transport's task would
+        move the baseline past a change transport never saw. If the data
+        moved since the page loaded → 409 and nothing changes. Stores what was
+        seen in Task.ack_snapshot and closes the task. Idempotent on a DONE task.
+        """
+        from apps.export.models import Task, TaskState
+        from apps.export.serializers import TaskDetailSerializer
+        from apps.export.services.plan_ack_tasks import (
+            ACK_KINDS, StaleSnapshot, acknowledge, can_acknowledge,
+        )
+
+        task = self.get_object()
+        if task.kind not in ACK_KINDS:
+            return Response(
+                {'error': 'Only review tasks can be acknowledged.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not can_acknowledge(request.user, task.assignee_role):
+            return Response(
+                {'error': f"Only role '{task.assignee_role}' can acknowledge this task."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        snapshot = request.data.get('snapshot')
+        if not isinstance(snapshot, str):
+            return Response(
+                {'error': 'snapshot is required — post back the snapshot of the page you reviewed.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            task = Task.objects.select_for_update().get(pk=task.pk)
+            if task.state == TaskState.CANCELLED:
+                return Response(
+                    {'error': 'Cannot acknowledge a cancelled task.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if task.state != TaskState.DONE:
+                try:
+                    acknowledge(task, request.user, snapshot)
+                except StaleSnapshot:
+                    return Response(
+                        {'error': 'stale', 'detail': 'The data changed since the page was loaded. Reload and review again.'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
         return Response(TaskDetailSerializer(task).data)
 
     @action(detail=True, methods=['post'])

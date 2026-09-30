@@ -338,9 +338,8 @@ class PromoteEndpointStillWorksTests(TestCase):
 
 
 class DraftLeaveGuardTests(TestCase):
-    """transition_to() must block half-drafts (supply-only or destination-only)
-    from leaving 'draft'. The two-row join flow requires both halves before
-    the merged row can advance into the lifecycle.
+    """transition_to() must block a draft with no destination from leaving
+    'draft'; packing is checked at loading (spec 2026-09-29).
     """
 
     @classmethod
@@ -384,15 +383,14 @@ class DraftLeaveGuardTests(TestCase):
         self.assertIn('customer', msg)
         self.assertNotIn('block_sources', msg)
 
-    def test_destination_only_draft_cannot_leave_draft(self):
-        """Gadam's draft: has destination, no blocks → must receive supply."""
+    def test_destination_only_draft_leaves_draft(self):
+        """Gadam's draft: destination, no blocks → documents may start (spec 2026-09-29)."""
         ship = self._draft(
             country=self.country, customer=self.customer, with_block=False, code='0101302/25',
         )
-        with self.assertRaises(ValueError) as ctx:
-            transition_to(ship, 'gumruk_girish', self.user)
-        msg = str(ctx.exception)
-        self.assertIn('block_sources', msg)
+        transition_to(ship, 'gumruk_girish', self.user)
+        ship.refresh_from_db()
+        self.assertEqual(ship.status.code, 'gumruk_girish')
 
     def test_complete_draft_advances(self):
         """A draft with both halves filled advances normally."""

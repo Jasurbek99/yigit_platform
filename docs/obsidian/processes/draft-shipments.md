@@ -180,13 +180,59 @@ are deliberately not in the list; they still surface as the 400 toast.
 
 The target stays `draft` and is then assigned via the existing assign action (Step 3 of the forecast-first flow). Returns the updated target detail (200); errors as `{error}` with 400/403/404.
 
-**Join supply outside the Sheet (Phase A, 2026-08-14)**: The join endpoint is now also reachable from a **destination draft's Detail page** (a "Join supply" button opens a modal listing all draft supply candidates, where Gadam picks one and confirms — same merge semantics). This is **distinct from** the Sheet join flow above (which requires selecting two columns directly in the spreadsheet); both paths reuse the same `/join/` endpoint and coexist. Visible to `export_manager`/`director`/`boss`/`admin`/`document_team` (same roles as the Sheet join — one shared `canUserJoin()` list); absent on a non-draft, a draft that already has blocks, or a supply draft itself.
+**Join supply outside the Sheet (Phase A, 2026-08-14; target widened 2026-09-29)**: The join endpoint is also reachable from a **destination plan's Detail page** (a "Join supply" button opens a modal listing all free supply-plan candidates, where Gadam picks one and confirms — same merge semantics). This is **distinct from** the Sheet join flow above (which requires selecting two columns directly in the spreadsheet); both paths reuse the same `/join/` endpoint and coexist. Visible to `export_manager`/`director`/`boss`/`admin`/`document_team`/`loading_dept_head`/`loading_dept_head_deputy` (same roles as the Sheet join — one shared `canUserJoin()` list). Button condition is `isJoinTarget()`: the row is **any pre-loading status** (`draft` / `gumruk_girish` / `gumruk_chykysh`, not only `draft` — see [[#Late join, detach, swap (2026-09-29)]]), has country + customer, and has no packing yet — absent on a row that already has packing, one that has started loading, or a free supply plan itself.
 
-**Join two drafts on the List page (Phase B, 2026-08-15)**: A third entry point to the same join endpoint. On the **Shipment List**, tick exactly two draft rows; a **"Join drafts"** button appears in the blue bulk-action bar. Clicking opens a modal that auto-detects which draft is the destination (kept) vs the supply (source, deleted) and shows a preview; confirming merges via the existing `/join/` endpoint. Ambiguous pairs (supply with supply, where the system cannot tell which to keep) show an error instead. Reuses the same merge semantics and permissions as the Sheet join and the Detail-page join above.
+**Join two drafts on the List page (Phase B, 2026-08-15; gate widened 2026-09-29)**: A third entry point to the same join endpoint. On the **Shipment List**, tick exactly two rows **before loading** (`canJoinDrafts()` in `joinDraftsGate.ts` checks `isPreLoading()` on both — `draft` / `gumruk_girish` / `gumruk_chykysh`, not "two draft rows" any more); a **"Join drafts"** button appears in the blue bulk-action bar. Clicking opens a modal that auto-detects which row is the destination (`isJoinTarget()` — kept) vs the supply (`isSupplyDraft()` — still `draft` only, source, deleted) and shows a preview; confirming merges via the existing `/join/` endpoint. Ambiguous pairs (neither/both resolve to a target, or the system otherwise cannot tell which to keep) show an error instead. Reuses the same merge semantics and permissions as the Sheet join and the Detail-page join above — see [[#Late join, detach, swap (2026-09-29)]] for the endpoint's own gates.
 
 **Join permission (updated 2026-09-03)**: the `/join/` endpoint admits `apps.core.roles.JOIN_ROLES` = `admin` / `export_manager` / `director` / `boss` / `document_team`, plus superusers. `boss` was **widened at the call site** on 2026-08-15 (the same pattern `/assign` and `/cancel` already use) so he can merge drafts from his own login. Before that the endpoint used only `apps.core.roles.PRIVILEGED_ROLES` = {admin, export_manager, director}, so all three Join surfaces (Sheet, Detail, List) 403'd for `boss` despite showing him a button. The frontend gates all read one shared helper, `canUserJoin()` in `frontend/src/components/sheet/joinHelpers.ts` (`canJoinSupply` on the Detail hero, `canJoinDrafts` on the List, `canJoin` in `SheetToolbar`). **Fixed 2026-08-22**: the Sheet toolbar had kept its own `['export_manager','director']` literal and was never widened with the endpoint, so `admin` and `boss` saw no Join button in the Sheet at all while the same users could join from the List and the Detail page — the three lists are now one constant so they cannot drift again. **Widened 2026-09-03**: `document_team` (Şirin / Sulgun) joins the list — they pair the supply and destination halves while preparing the CMR packet, so they no longer queue behind a manager to merge. Two gates had to move for that: the in-body role check (now the shared `JOIN_ROLES` constant, so the endpoint and the frontend read one list) **and** the coarse `DynamicResourcePermission`, which maps any POST to `shipment.can_create` — 0 for `document_team` in the seed. `join` now takes a `get_permissions()` branch gating on `shipment.can_edit` instead, the same F12/F19 pattern `transition` and `swap` already use; a join merges two existing drafts and creates no Shipment, so `can_create` was always the wrong flag. Every role the allowlist admits holds `can_edit`, so nothing narrows. (Note: this is distinct from `apps/export/services/shipment.py`'s same-named `PRIVILEGED_ROLES` = {export_manager, director, boss}, which governs per-edge *transition* bypass, not this endpoint. `JOIN_ROLES` is deliberately its own constant rather than `PRIVILEGED_ROLES | {...}`: the core set also gates `/cancel`, the serializer write bypass and the lifecycle edge check.)
 
 **Sheet tint**: supply columns are visually tinted in the Sheet by `created_by_role ∈ {loading_dept_head, warehouse_chief}`. A manual `column_color` still takes precedence over the tint. See [[../screens/shipment-sheet#Supply-column tint|Shipment Sheet]] for the toolbar buttons and tint rendering.
+
+### Late join, detach, swap (2026-09-29)
+
+Spec: `docs/superpowers/specs/2026-09-29-packaging-join-board-design.md`. Two changes on top of
+the Join flow above — packing (`block_sources` + `export_code`, `variety`, `varieties_dominant`,
+`harvest_date`, `harvest_status`, `weight_to_load_kg`) now moves between rows any time before
+loading, not only while both rows are `draft`:
+
+1. **Join no longer requires the target to be `draft`.** `/join/` now accepts a target anywhere
+   in `PRE_LOADING = {draft, gumruk_girish, gumruk_chykysh}` — a destination plan can start
+   customs paperwork before Soltanmyrat has given it packing (the barrier moved to
+   `gumruk_chykysh → yuklenme`; see [[shipment-lifecycle#Packing barrier — `gumruk_chykysh` → `yuklenme` (2026-09-29)]]).
+   Source is still `draft` only, with ≥1 block.
+2. **Two new operations**, both in `backend/apps/export/services/packaging.py`:
+   - `POST /shipments/{id}/unjoin/` — detaches the packing of a destination plan into a **new**
+     supply-plan row (`draft`, a fresh `shipment_code`, same date and season so the weekly-plan
+     actual's date-from-code doesn't move to another day). Returns the original row's detail
+     plus `new_supply_id` / `new_supply_code`.
+   - `POST /shipments/{a}/swap-packaging/` `{other_id}` — exchanges the packing of two rows
+     before loading (either may be a free supply plan). `block_sources` are deleted and
+     re-created on the opposite row one at a time, not `bulk_create` (a batch mixing `None` and
+     `Decimal` `weight_kg` trips an MSSQL/pyodbc type bug — see `.claude/rules/mssql-compat.md`).
+     Replaces the old field-picking `POST /shipments/{id}/swap/` (removed, along with
+     `swap_config.py` / `ShipmentSwapSerializer` on the backend and `SwapFieldsModal` /
+     `swapFieldGroups.ts` on the frontend) — Sheet Swap now moves packing only, nothing else.
+
+Both new operations refuse a row that has started loading or already has recorded pallets
+(`assert_can_move_packing`), and both notify every active `loading_dept_head` (plus
+`document_team` too if either row's documents have started) rather than the original creator —
+by the time someone detaches or swaps packing, whoever made the original supply plan may be long
+out of the picture.
+
+**Weight rule** (`packaging_weight()` / `net_update()` in `services/packaging.py`, shared by
+join/unjoin/swap): a row still `draft` after the move gets `weight_net` = the moved packing's
+weight (read **before** the move); a row already past `draft` only has its `weight_net` **filled
+if it was empty** — a value already there is never overwritten; `weight_gross` is never touched
+by any of the three.
+
+**Roles**: `apps.core.roles.JOIN_ROLES` gained `loading_dept_head` + `loading_dept_head_deputy` —
+it's their packing. All three endpoints (`join`, `unjoin`, `swap-packaging`) check it through
+`get_permissions()` → `resource_edit_permission('shipment')`, not the coarse `can_create` gate.
+Frontend mirror: `frontend/src/components/sheet/joinHelpers.ts`.
+
+**Board**: [[assignment-board|Assignment Board]] was rebuilt on these three operations in place
+of its old `MOCK_DEMAND` matching — see that note for the new three-column layout and the
+QR-reprint reminder shown on unjoin/swap confirmation.
 
 ### Create supply draft (outside the Sheet)
 
@@ -250,7 +296,7 @@ shipments"`.
 
 **Files**: `frontend/src/pages/export/DraftPool.tsx`, `frontend/src/pages/export/AssignmentBoard.tsx`.
 
-**Navigation:** neither page has a sidebar entry any more — both dropped from every role's menu 2026-08-24 (owner request). Routes, page permissions and the pages themselves are untouched; reachable only by direct URL. See [[permissions-system#Sidebar Navigation (2026-08-05)]].
+**Navigation:** both pages are back in the sidebar (staff: Export group; boss: Prep group) — dropped from every role's menu 2026-08-24, restored 2026-09-29 (owner request). Visibility is still gated by the `export.drafts` / `export.assign` page permissions. See [[permissions-system#Sidebar Navigation (2026-08-05)]].
 
 ### Components
 

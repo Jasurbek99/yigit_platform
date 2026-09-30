@@ -1,10 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
-  isDestinationDraft,
+  isJoinTarget,
   isSupplyDraft,
   detectJoinDirection,
   explainJoinBlockers,
   canUserJoin,
+  hasPacking,
+  isPreLoading,
+  isJoinSelectable,
+  explainSwapBlockers,
   type IJoinClassifiable,
 } from './joinHelpers';
 import { useSheetStore } from '@/stores/sheetStore';
@@ -14,15 +18,16 @@ describe('join classifiers accept the structural shape', () => {
   const supply = { status_code: 'draft', country: null, customer: null, block_sources: [{ block_id: 5 }] };
 
   it('classifies a destination draft', () => {
-    expect(isDestinationDraft(destination)).toBe(true);
+    expect(isJoinTarget(destination)).toBe(true);
     expect(isSupplyDraft(destination)).toBe(false);
   });
   it('classifies a supply draft', () => {
     expect(isSupplyDraft(supply)).toBe(true);
-    expect(isDestinationDraft(supply)).toBe(false);
+    expect(isJoinTarget(supply)).toBe(false);
   });
-  it('a non-draft is neither', () => {
-    expect(isDestinationDraft({ ...destination, status_code: 'yuklenme' })).toBe(false);
+  it('a target may be in any pre-loading status, not after', () => {
+    expect(isJoinTarget({ ...destination, status_code: 'gumruk_chykysh' })).toBe(true);
+    expect(isJoinTarget({ ...destination, status_code: 'yuklenme' })).toBe(false);
   });
 });
 
@@ -49,13 +54,13 @@ describe('detectJoinDirection', () => {
 });
 
 describe('canUserJoin mirrors the backend gate', () => {
-  it.each(['admin', 'export_manager', 'director', 'boss', 'document_team'])('allows %s', (role) => {
+  it.each(['admin', 'export_manager', 'director', 'boss', 'document_team', 'loading_dept_head', 'loading_dept_head_deputy'])('allows %s', (role) => {
     expect(canUserJoin({ role, is_superuser: false })).toBe(true);
   });
   it('allows a superuser whatever the role', () => {
     expect(canUserJoin({ role: 'loading_dept_head', is_superuser: true })).toBe(true);
   });
-  it.each(['loading_dept_head', 'warehouse_chief', 'agronom'])('denies %s', (role) => {
+  it.each(['warehouse_chief', 'agronom', 'sales_rep'])('denies %s', (role) => {
     expect(canUserJoin({ role, is_superuser: false })).toBe(false);
   });
   it('denies a missing user', () => {
@@ -87,9 +92,14 @@ describe('explainJoinBlockers', () => {
   it('asks for two when the selection is short', () => {
     expect(explainJoinBlockers([dest])).toEqual([{ key: 'need_two' }]);
   });
-  it('flags a non-draft by code', () => {
+  it('flags a destination past loading by code', () => {
     expect(explainJoinBlockers([{ ...dest, status_code: 'yuklenme' }, supply])).toEqual([
-      { key: 'not_draft', code: 'D-1' },
+      { key: 'target_loading', code: 'D-1' },
+    ]);
+  });
+  it('a source that is not in Preparation is named', () => {
+    expect(explainJoinBlockers([dest, { ...supply, status_code: 'gumruk_girish' }])).toEqual([
+      { key: 'source_not_draft', code: 'S-1' },
     ]);
   });
   it('flags two supplies', () => {
@@ -116,6 +126,47 @@ describe('explainJoinBlockers', () => {
   });
   it('rejects the same column twice', () => {
     expect(explainJoinBlockers([dest, dest])).toEqual([{ key: 'same_shipment' }]);
+  });
+});
+
+describe('packing helpers', () => {
+  it('isPreLoading', () => {
+    expect(['draft', 'gumruk_girish', 'gumruk_chykysh'].every(isPreLoading)).toBe(true);
+    expect(isPreLoading('yuklenme')).toBe(false);
+  });
+  it('hasPacking', () => {
+    expect(hasPacking({ status_code: 'draft', country: null, customer: null, block_sources: [{ block_id: 1 }] })).toBe(true);
+    expect(hasPacking({ status_code: 'draft', country: null, customer: null, block_sources: [] })).toBe(false);
+  });
+});
+
+describe('isJoinSelectable (Sheet join-mode column pick — final-fix-brief item 1)', () => {
+  it('a destination plan in any pre-loading status is selectable, not only draft', () => {
+    expect(isJoinSelectable('draft')).toBe(true);
+    expect(isJoinSelectable('gumruk_girish')).toBe(true);
+    expect(isJoinSelectable('gumruk_chykysh')).toBe(true);
+  });
+  it('a column that has started loading is not selectable', () => {
+    expect(isJoinSelectable('yuklenme')).toBe(false);
+    expect(isJoinSelectable('yola_chykdy')).toBe(false);
+  });
+});
+
+describe('explainSwapBlockers', () => {
+  const a = { shipment_code: 'A', status_code: 'gumruk_girish', country: 1, customer: 2, block_sources: [{ block_id: 1 }] };
+  const b = { shipment_code: 'B', status_code: 'draft', country: null, customer: null, block_sources: [{ block_id: 2 }] };
+  it('two pre-loading rows with packing swap', () => {
+    expect(explainSwapBlockers([a, b])).toEqual([]);
+  });
+  it('needs two different rows', () => {
+    expect(explainSwapBlockers([a])).toEqual([{ key: 'need_two' }]);
+    expect(explainSwapBlockers([a, a])).toEqual([{ key: 'same_shipment' }]);
+  });
+  it('names a row after loading and a row without packing', () => {
+    expect(explainSwapBlockers([{ ...a, status_code: 'yuklenme' }, { ...b, block_sources: [] }])).toEqual([
+      { key: 'swap_loading', code: 'A' },
+      { key: 'swap_no_packing', code: 'B' },
+    ]);
   });
 });
 

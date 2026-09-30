@@ -115,13 +115,12 @@ HARVEST_DAY_OVERRIDE = ADMIN_LIKE  # admin/boss only, with required `reason`
 # Domestic operations
 DOMESTIC_WRITE = frozenset({'admin', 'loading_dept_head', 'loading_dept_head_deputy', 'warehouse_chief', 'greenhouse_manager', 'director'}) | EXPORT_MANAGER_LIKE
 
-# Who may merge a supply draft into a destination draft (POST
-# /export/shipments/{id}/join/). Deliberately NOT derived from PRIVILEGED_ROLES:
-# that set also gates /cancel, the serializer write bypass and the lifecycle edge
-# check, so widening it here would widen all three. 'boss' has been allowed since
-# the two-column join flow shipped; 'document_team' was added 2026-09-03 so the
-# document team can pair the two halves themselves.
-JOIN_ROLES = frozenset({'admin', 'director', 'boss'}) | EXPORT_MANAGER_LIKE
+# Who may join, detach or swap packing (spec 2026-09-29): the join roles plus
+# the loading department, whose packing it is. Mirrored in
+# frontend/src/components/sheet/joinHelpers.ts JOIN_ROLES.
+JOIN_ROLES = frozenset({
+    'admin', 'director', 'boss', 'loading_dept_head', 'loading_dept_head_deputy',
+}) | EXPORT_MANAGER_LIKE
 
 # Export logistics
 TRUCK_WRITE = frozenset({'admin', 'director'}) | EXPORT_MANAGER_LIKE
@@ -173,3 +172,9 @@ def manageable_roles(user) -> frozenset:
 def can_manage_users(user) -> bool:
     """Whether ``user`` may manage at least one other role."""
     return bool(manageable_roles(user))
+
+
+# The gate guard. Bound to one LoadingLocation (User.loading_location); the gate
+# endpoint and My Tasks scope him to it. Identity, not a permission gate — access
+# itself is the `gate` resource in the matrix.
+GATE_GUARD_ROLE = 'garawul'

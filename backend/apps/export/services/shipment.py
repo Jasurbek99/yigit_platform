@@ -301,27 +301,25 @@ def transition_to(
                 f'Allowed: {allowed_codes}'
             )
 
-    # Two-row join guard: a draft must carry BOTH the supply half
-    # (block_sources) and the destination half (country + customer) before
-    # it can leave 'draft'. Pure supply drafts (loading_dept_head) and pure
-    # destination drafts (export_manager) must therefore be joined via
-    # /shipments/{id}/join/ first. Cancel is always allowed — an incomplete
-    # draft can still be cancelled. Applies to manual /transition/, /assign/,
-    # and auto-advance alike (all funnel through here).
+    # Packing guard (spec 2026-09-29-packaging-join-board-design). Documents
+    # start before packing exists, so leaving 'draft' needs only the destination
+    # half (country + customer). The packing half (block_sources) is required at
+    # the step that starts loading. Cancel is always allowed. Applies to manual
+    # /transition/, /assign/ and auto-advance alike (all funnel through here).
     if current_code == 'draft' and new_status_code != 'cancelled':
-        missing: list[str] = []
-        if not shipment.country_id:
-            missing.append('country')
-        if not shipment.customer_id:
-            missing.append('customer')
-        if not shipment.block_sources.exists():
-            missing.append('block_sources')
+        missing = [
+            name for name, value in (
+                ('country', shipment.country_id), ('customer', shipment.customer_id),
+            ) if not value
+        ]
         if missing:
             raise ValueError(
                 f'Shipment {shipment.shipment_code} in Preparation cannot advance to '
-                f'{new_status_code!r}: missing {", ".join(missing)}. '
-                'Supply and destination plans must be joined first.'
+                f'{new_status_code!r}: missing {", ".join(missing)}.'
             )
+    if new_status_code == 'yuklenme' and not shipment.block_sources.exists():
+        from apps.export.services.packaging import PACKING_NOT_JOINED
+        raise ValueError(f'Shipment {shipment.shipment_code}: {PACKING_NOT_JOINED}')
 
     # Role check — privileged roles bypass per-transition restrictions. Auto-
     # advance bypasses too: the editing user may be sales_rep filling a field

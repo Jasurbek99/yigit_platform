@@ -30,7 +30,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from apps.core.models import ExportFirm, ImportFirm, RolePagePermission, Season, User
+from apps.core.models import ExportFirm, ImportFirm, LoadingLocation, RolePagePermission, Season, User
 from apps.core.permission_registry import PAGE_REGISTRY
 from apps.core.serializer_fields import RelativeFileField
 from apps.core.permissions import (
@@ -43,6 +43,7 @@ from apps.core.roles import (
     ADMIN_ONLY,
     AUDIT_VIEWERS,
     EXPORT_MANAGER_LIKE,
+    GATE_GUARD_ROLE,
     PRIVILEGED_ROLES as _PRIVILEGED_ROLES,
     can_manage_users,
     manageable_roles,
@@ -314,9 +315,9 @@ class UserListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'is_active', 'is_superuser', 'phone', 'permissions']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'is_active', 'is_superuser', 'phone', 'permissions', 'loading_location']
         # is_superuser is always read-only — it is managed at the DB / Django-admin level.
-        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'email', 'is_superuser', 'phone', 'permissions']
+        read_only_fields = ['id', 'username', 'first_name', 'last_name', 'email', 'is_superuser', 'phone', 'permissions', 'loading_location']
 
     def get_permissions(self, obj: User) -> list[str]:
         """Return custom export/core permission codenames for the user."""
@@ -328,11 +329,23 @@ class UserListSerializer(serializers.ModelSerializer):
 
 
 class UserPatchSerializer(serializers.ModelSerializer):
-    """Only role and is_active may be patched. Admin-only via partial_update gate (AD-15)."""
+    """Role, is_active and the gate location may be patched. Admin-only via partial_update gate (AD-15)."""
 
     class Meta:
         model = User
-        fields = ['role', 'is_active']
+        fields = ['role', 'is_active', 'loading_location']
+
+    def validate(self, attrs: dict) -> dict:
+        role = attrs.get('role', getattr(self.instance, 'role', None))
+        if 'loading_location' in attrs:
+            location = attrs['loading_location']
+        else:
+            location = getattr(self.instance, 'loading_location', None)
+        if role == GATE_GUARD_ROLE and location is None:
+            raise serializers.ValidationError(
+                {'loading_location': ['A gate guard needs a location.']}
+            )
+        return attrs
 
 
 # ---------------------------------------------------------------------------
@@ -821,6 +834,19 @@ class UserManagementViewSet(ModelViewSet):
         if not role:
             errors['role'] = ['This field is required.']
 
+        loading_location_id = request.data.get('loading_location') or None
+        if loading_location_id is not None:
+            try:
+                loading_location_id = int(loading_location_id)
+            except (TypeError, ValueError):
+                errors['loading_location'] = ['Unknown location.']
+                loading_location_id = None
+            else:
+                if not LoadingLocation.objects.filter(pk=loading_location_id).exists():
+                    errors['loading_location'] = ['Unknown location.']
+        if 'loading_location' not in errors and role == GATE_GUARD_ROLE and loading_location_id is None:
+            errors['loading_location'] = ['A gate guard needs a location.']
+
         if errors:
             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -836,6 +862,7 @@ class UserManagementViewSet(ModelViewSet):
             email=request.data.get('email', ''),
             phone=request.data.get('phone') or None,
             is_active=bool(request.data.get('is_active', True)),
+            loading_location_id=loading_location_id,
         )
         serializer = UserListSerializer(new_user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

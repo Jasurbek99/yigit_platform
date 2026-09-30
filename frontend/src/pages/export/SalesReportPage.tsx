@@ -32,6 +32,7 @@ import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { useCountries } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useSaveSalesReport } from '@/hooks/useSalesReport';
+import { SalesReportApproval } from './SalesReportApproval';
 import { StatusTag } from '@/components/StatusTag';
 import {
   MIN_SALES_REPORT_STEP,
@@ -368,6 +369,12 @@ export default function SalesReportPage(): React.ReactElement {
           {t('sales_report.page_title')} — {detail.shipment_code}
         </Title>
         {detail.status_display && <StatusTag statusDisplay={detail.status_display} />}
+        <SalesReportApproval
+          shipmentId={shipmentId ?? ''}
+          report={detail.sales_report}
+          role={user?.role}
+          isSuperuser={Boolean(user?.is_superuser)}
+        />
       </div>
 
       {/* Context Descriptions */}

@@ -21,10 +21,12 @@ import {
   useCreateUser,
   useDeleteUser,
   useSetUserPassword,
+  useLoadingLocations,
 } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import type { IAdminUser, UserRole } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { resolveLoadingLocation } from './UsersPage.helpers';
 
 const { Text } = Typography;
 
@@ -44,6 +46,7 @@ const ALL_ROLES: UserRole[] = [
   'greenhouse_manager',
   'seller',
   'quality_inspector',
+  'garawul',
   'boss',
 ];
 
@@ -58,6 +61,18 @@ const MANAGEABLE_BY_ROLE: Partial<Record<UserRole, UserRole[]>> = {
 interface IUserEditFormValues {
   role: UserRole | null;
   is_active: boolean;
+  loading_location: number | null;
+}
+
+interface IUserCreateFormValues {
+  username: string;
+  password: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  role: UserRole;
+  is_active?: boolean;
+  loading_location?: number | null;
 }
 
 const ROLE_COLORS: Record<UserRole, string> = {
@@ -79,6 +94,7 @@ const ROLE_COLORS: Record<UserRole, string> = {
   // permissions/roleColors.ts, and the two maps have to agree for the same
   // role. It is the one antd preset neither map had already spent.
   quality_inspector: 'yellow',
+  garawul: 'magenta',
   boss: 'magenta',
 };
 
@@ -108,7 +124,7 @@ export default function UsersPage() {
   const [editForm] = Form.useForm<IUserEditFormValues>();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createForm] = Form.useForm();
+  const [createForm] = Form.useForm<IUserCreateFormValues>();
 
   const [passwordTarget, setPasswordTarget] = useState<IAdminUser | null>(null);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -116,6 +132,7 @@ export default function UsersPage() {
 
   const { data, isLoading, isError } = useAdminUsers();
   const rows = data ?? [];
+  const { data: locations = [] } = useLoadingLocations();
 
   const updateMutation = useUpdateUserRole({
     onSuccess: () => {
@@ -152,13 +169,29 @@ export default function UsersPage() {
 
   function handleOpenEdit(record: IAdminUser) {
     setEditTarget(record);
-    editForm.setFieldsValue({ role: record.role, is_active: record.is_active });
+    editForm.setFieldsValue({
+      role: record.role,
+      is_active: record.is_active,
+      loading_location: record.loading_location,
+    });
     setEditModalOpen(true);
   }
 
   function handleEditSubmit(values: IUserEditFormValues) {
     if (!editTarget || !values.role) return;
-    updateMutation.mutate({ id: editTarget.id, role: values.role, is_active: values.is_active });
+    updateMutation.mutate({
+      id: editTarget.id,
+      role: values.role,
+      is_active: values.is_active,
+      loading_location: resolveLoadingLocation(values.role, values.loading_location),
+    });
+  }
+
+  function handleCreateSubmit(values: IUserCreateFormValues) {
+    createUser.mutate({
+      ...values,
+      loading_location: resolveLoadingLocation(values.role, values.loading_location),
+    });
   }
 
   function handleOpenPasswordModal(record: IAdminUser) {
@@ -377,6 +410,19 @@ export default function UsersPage() {
               options={manageableRoles.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
             />
           </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.role !== cur.role}>
+            {({ getFieldValue }) =>
+              getFieldValue('role') === 'garawul' ? (
+                <Form.Item
+                  name="loading_location"
+                  label={t('users_admin.loading_location')}
+                  rules={[{ required: true, message: t('common.required') }]}
+                >
+                  <Select options={locations.map((l) => ({ value: l.id, label: l.name }))} />
+                </Form.Item>
+              ) : null
+            }
+          </Form.Item>
           <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked">
             <Switch />
           </Form.Item>
@@ -401,10 +447,10 @@ export default function UsersPage() {
         confirmLoading={createUser.isPending}
         destroyOnClose
       >
-        <Form
+        <Form<IUserCreateFormValues>
           form={createForm}
           layout="vertical"
-          onFinish={(values) => createUser.mutate(values)}
+          onFinish={handleCreateSubmit}
           style={{ marginTop: 8 }}
         >
           <Form.Item
@@ -441,6 +487,19 @@ export default function UsersPage() {
             <Select
               options={manageableRoles.map((r) => ({ value: r, label: t(`roles.${r}`) }))}
             />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.role !== cur.role}>
+            {({ getFieldValue }) =>
+              getFieldValue('role') === 'garawul' ? (
+                <Form.Item
+                  name="loading_location"
+                  label={t('users_admin.loading_location')}
+                  rules={[{ required: true, message: t('common.required') }]}
+                >
+                  <Select options={locations.map((l) => ({ value: l.id, label: l.name }))} />
+                </Form.Item>
+              ) : null
+            }
           </Form.Item>
           <Form.Item name="is_active" label={t('users_admin.is_active')} valuePropName="checked" initialValue={true}>
             <Switch />

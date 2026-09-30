@@ -42,6 +42,8 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('export.assign',           'Assignment Board'),
     # Pallet manifest (Finding #4 / Phase 2)
     ('export.pallet_manifest',  'Pallet Manifest'),
+    # Gate guard screen (garawul, 2026-09-29): trucks due at / inside one greenhouse.
+    ('export.gate',             'Gate (truck arrival / exit)'),
     # Personal workspace
     ('me.board',                'My Tasks'),
     # Task Rules — the read-only catalog behind My Tasks: which status opens
@@ -85,6 +87,7 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     ('transport.map',           'Fleet Map (live GPS)'),
     ('export.truck_board',      'Truck Board (Planning trips ↔ shipments)'),
     ('transport.fleet',         'Fleet Management (trucks, trailers, drivers)'),
+    ('transport.plan',          'Transport Truck Planning (weekly allocation, «Tanyşdym»)'),
     # Tır Takip (Maşyn Yzarlamasy) — the sera-design page. One container code
     # plus one code per tab, so an admin can grant or revoke each tab
     # separately from the admin permission screen.
@@ -190,6 +193,9 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # FK, so rows are deactivated, never removed), which is why the seeded
     # defaults are view+create+edit for every role that holds it.
     ('fleet',                 'Fleet catalog (truck heads, trailers, drivers)'),
+    # Gate marks (arrival / exit at a greenhouse gate). All-or-nothing, so absent
+    # from RESOURCE_FIELDS. can_view = read the lists, can_edit = mark / undo.
+    ('gate',                  'Gate (truck arrival / exit marks)'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────
@@ -225,6 +231,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'loading_started_at',
         'loading_ended_at',
         'departed_at',
+        'greenhouse_arrived_at',
         'customs_exit_at',
         'border_crossed_at',
         'dest_entry_at',

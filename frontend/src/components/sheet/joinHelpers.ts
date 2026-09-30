@@ -1,12 +1,14 @@
 // ─── Who may join two drafts ──────────────────────────────────────
-// Mirrors the join endpoint's gate (apps.core.roles.JOIN_ROLES): PRIVILEGED_ROLES
-// {admin, export_manager, director} widened with 'boss' and 'document_team' at the
-// call site, plus a superuser bypass.
+// Mirrors apps.core.roles.JOIN_ROLES: PRIVILEGED_ROLES {admin, export_manager,
+// director} widened with 'boss', 'document_team' and the loading department,
+// plus a superuser bypass. Also gates detach (unjoin) and swap packing
+// (spec 2026-09-29).
 // The Sheet toolbar, the Shipment-list bulk bar and the Detail hero's "Join supply"
 // button MUST use this same list — they diverged once and the Sheet's Join button
 // silently vanished for admin/boss.
 export const JOIN_ROLES: ReadonlyArray<string> = [
   'admin', 'export_manager', 'director', 'boss', 'document_team',
+  'loading_dept_head', 'loading_dept_head_deputy',
 ];
 
 export function canUserJoin(user: { role?: string | null; is_superuser?: boolean } | null): boolean {
@@ -21,12 +23,14 @@ export const SUPPLY_ROLES = new Set(['loading_dept_head', 'loading_dept_head_dep
 // IShipmentSheetItem and IShipmentDetail satisfy this directly — both declare
 // status_code plus required (non-optional) country/customer, so the Sheet and
 // the Detail page can pass their shipment objects straight through.
-// IShipmentDraft does NOT satisfy it: it has no status_code field at all, and
-// it carries no raw country/customer FK ids whatsoever — only
-// country_name/customer_name (the backend's ShipmentDraftListSerializer never
-// sends the ids). A caller working from a raw IShipmentDraft must supply
-// status_code itself and derive country/customer some other way; *_name
-// alone isn't enough to build an IJoinClassifiable.
+// IShipmentDraft does not satisfy it directly: status_code, country and
+// customer are declared optional there (mock literals in mock/drafts.ts don't
+// set them), so TypeScript won't accept a raw IShipmentDraft where this
+// interface is required. Since Task 5/6, ShipmentDraftListSerializer DOES send
+// the raw status_code, country and customer FK ids alongside country_name/
+// customer_name — see pages/export/assignment/boardHelpers.ts's classify(),
+// which narrows a IShipmentDraft into an IJoinClassifiable with `?? null` /
+// `?? 'draft'` fallbacks for the cases those fields are genuinely absent.
 export interface IJoinClassifiable {
   status_code: string;
   country: number | null;
@@ -35,15 +39,37 @@ export interface IJoinClassifiable {
   created_by_role?: string | null;
 }
 
+// ─── Packing (spec 2026-09-29) ───────────────────────────────────────────────
+// Statuses in which packing may still be joined, detached or swapped.
+// Mirrors apps/export/services/packaging.py PRE_LOADING.
+export const PRE_LOADING_STATUSES = ['draft', 'gumruk_girish', 'gumruk_chykysh'] as const;
+
+export function isPreLoading(statusCode: string): boolean {
+  return (PRE_LOADING_STATUSES as readonly string[]).includes(statusCode);
+}
+
+// ─── Sheet Join column selectability (final-fix-brief item 1) ───────────────
+// A Sheet column is clickable/highlighted in join mode when its status is
+// still pre-loading: the join bar accepts a destination plan anywhere up to
+// gumruk_chykysh, not only a draft (spec Part 3 §2) — the source side is
+// still gated to draft by isSupplyDraft/explainJoinBlockers. Kept as its own
+// name (not a bare isPreLoading call at the SheetGrid call sites) so the
+// join-mode condition there reads as "may this column take part in a join"
+// and stays testable without rendering the grid.
+export function isJoinSelectable(statusCode: string): boolean {
+  return isPreLoading(statusCode);
+}
+
+export function hasPacking(s: IJoinClassifiable): boolean {
+  return s.block_sources != null && s.block_sources.length > 0;
+}
+
 // ─── Draft classification helpers ────────────────────────────────────────────
 
-export function isDestinationDraft(s: IJoinClassifiable): boolean {
-  return (
-    s.status_code === 'draft' &&
-    s.country !== null &&
-    s.customer !== null &&
-    (s.block_sources == null || s.block_sources.length === 0)
-  );
+/** A destination plan that may still receive packing: before loading, country +
+ *  customer set, no packing yet. Mirrors the backend _validate_join target gate. */
+export function isJoinTarget(s: IJoinClassifiable): boolean {
+  return isPreLoading(s.status_code) && s.country !== null && s.customer !== null && !hasPacking(s);
 }
 
 export function isSupplyDraft(s: IJoinClassifiable): boolean {
@@ -70,8 +96,8 @@ export type JoinDirection<T extends IJoinClassifiable> =
  * (blocks length can't be 0 and >0 at once), so no over-match is possible.
  */
 export function detectJoinDirection<T extends IJoinClassifiable>(a: T, b: T): JoinDirection<T> {
-  if (isDestinationDraft(a) && isSupplyDraft(b)) return { target: a, source: b };
-  if (isDestinationDraft(b) && isSupplyDraft(a)) return { target: b, source: a };
+  if (isJoinTarget(a) && isSupplyDraft(b)) return { target: a, source: b };
+  if (isJoinTarget(b) && isSupplyDraft(a)) return { target: b, source: a };
   return { error: 'ambiguous' };
 }
 
@@ -110,17 +136,33 @@ export function explainJoinBlockers<T extends Named>(selected: T[]): IJoinBlocke
     return [{ key: 'same_shipment' }];
   }
 
-  const notDrafts = selected.filter((s) => s.status_code !== 'draft');
-  if (notDrafts.length > 0) return notDrafts.map((s) => ({ key: 'not_draft', code: label(s) }));
-
   const withBlocks = selected.filter((s) => blockCount(s) > 0);
   if (withBlocks.length === 2) return [{ key: 'both_supply' }];
   if (withBlocks.length === 0) return [{ key: 'no_supply' }];
 
   // Exactly one supply → the other column is the destination candidate.
   const target = selected.find((s) => blockCount(s) === 0) as T;
+  const source = withBlocks[0];
   const blockers: IJoinBlocker[] = [];
+  if (source.status_code !== 'draft') blockers.push({ key: 'source_not_draft', code: label(source) });
+  if (!isPreLoading(target.status_code)) blockers.push({ key: 'target_loading', code: label(target) });
   if (target.country === null) blockers.push({ key: 'target_no_country', code: label(target) });
   if (target.customer === null) blockers.push({ key: 'target_no_customer', code: label(target) });
+  return blockers;
+}
+
+/** Why two selected rows can't swap packing ([] when they can). Mirrors the
+ *  backend swap_packing gates minus pallets and role (those come back as a toast). */
+export function explainSwapBlockers<T extends Named>(selected: T[]): IJoinBlocker[] {
+  if (selected.length !== 2) return [{ key: 'need_two' }];
+  const [a, b] = selected;
+  if (a === b || (a.shipment_code != null && a.shipment_code === b.shipment_code)) {
+    return [{ key: 'same_shipment' }];
+  }
+  const blockers: IJoinBlocker[] = [];
+  for (const s of selected) {
+    if (!isPreLoading(s.status_code)) blockers.push({ key: 'swap_loading', code: label(s) });
+    else if (!hasPacking(s)) blockers.push({ key: 'swap_no_packing', code: label(s) });
+  }
   return blockers;
 }

@@ -310,11 +310,13 @@ export function useUpdateUserRole(options: MutationOptions = {}) {
       id,
       role,
       is_active,
+      loading_location,
     }: {
       id: number;
       role?: IAdminUser['role'];
       is_active?: boolean;
-    }) => api.patch<IAdminUser>(`/export/admin/users/${id}/`, { role, is_active }),
+      loading_location?: number | null;
+    }) => api.patch<IAdminUser>(`/export/admin/users/${id}/`, { role, is_active, loading_location }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       options.onSuccess?.();
@@ -497,13 +499,14 @@ interface ICreateUserPayload {
   email?: string;
   phone?: string;
   is_active?: boolean;
+  loading_location?: number | null;
 }
 
 export function useCreateUser(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: ICreateUserPayload): Promise<IAdminUser> => {
-      if (USE_MOCK) return Promise.resolve({ id: 0, username: payload.username, first_name: payload.first_name ?? '', last_name: payload.last_name ?? '', email: payload.email ?? '', phone: payload.phone ?? null, role: payload.role, is_active: payload.is_active ?? true, permissions: [] });
+      if (USE_MOCK) return Promise.resolve({ id: 0, username: payload.username, first_name: payload.first_name ?? '', last_name: payload.last_name ?? '', email: payload.email ?? '', phone: payload.phone ?? null, role: payload.role, is_active: payload.is_active ?? true, permissions: [], loading_location: payload.loading_location ?? null });
       const { data } = await api.post<IAdminUser>('/export/admin/users/', payload);
       return data;
     },

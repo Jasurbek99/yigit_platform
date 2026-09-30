@@ -22,6 +22,7 @@ export type UserRole =
   | 'greenhouse_manager'
   | 'seller'
   | 'quality_inspector'
+  | 'garawul'
   | 'boss';
 
 export interface IResourcePermission {
@@ -321,7 +322,8 @@ export interface IShipmentListItem {
   driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
-  has_peregruz: boolean;
+  /** null = «Peregruz barmy?» not answered yet (docs/Tasks.md item 31). */
+  has_peregruz: boolean | null;
   peregruz_city: string | null;
   peregruz_date: string | null;
   // Operational planning
@@ -462,7 +464,8 @@ export interface IShipmentSheetItem {
   driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
-  has_peregruz: boolean;
+  /** null = «Peregruz barmy?» not answered yet (docs/Tasks.md item 31). */
+  has_peregruz: boolean | null;
   peregruz_city: string | null;
   peregruz_date: string | null;
   // Finance
@@ -477,6 +480,7 @@ export interface IShipmentSheetItem {
   customs_entry_at: string | null;
   customs_exit_at: string | null;
   departed_at: string | null;
+  greenhouse_arrived_at: string | null;
   border_crossed_at: string | null;
   arrived_at: string | null;
   sale_started_at: string | null;
@@ -1271,6 +1275,10 @@ export interface ISalesReport {
   // Audit
   readonly created_at: string;
   readonly updated_at: string;
+  /** Set by the approve endpoint (docs/Tasks.md item 37); null until approved. */
+  readonly approved_at: string | null;
+  readonly approved_by: number | null;
+  readonly approved_by_name: string | null;
 }
 
 // ─── Sales Report mutation payload ────────────────────────────────────────────
@@ -1625,11 +1633,12 @@ export interface IAdminUser {
   role: UserRole;
   is_active: boolean;
   permissions: string[];
+  loading_location: number | null;
 }
 
 export interface INotification {
   id: number;
-  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'tasks_changed' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary';
+  kind: 'quota_80' | 'quota_90' | 'quota_95' | 'quota_100' | 'overdue' | 'action_required' | 'plan_submitted' | 'plan_approved' | 'plan_rejected' | 'mention' | 'task_assigned' | 'task_done' | 'tasks_changed' | 'feedback_resolved' | 'feedback_rejected' | 'weekly_plan_summary' | 'gate_arrival';
   message: string;
   link: string | null;
   read_at: string | null;
@@ -1771,9 +1780,13 @@ export interface ICancelShipmentResponse extends IShipmentDetail {
 
 export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 
-export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'manual_done';
+export type TaskCompletionRule =
+  | 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'manual_done';
 
-export type TaskKind = 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation';
+export type TaskKind =
+  | 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation'
+  | 'alloc_review' | 'transport_plan' | 'daily_loading' | 'daily_export'
+  | 'gate';
 
 export interface ITaskListItem {
   id: number;
@@ -1807,6 +1820,14 @@ export interface ITaskListItem {
   scope_block: number | null;
   /** Block code (e.g. "K") a weekly_plan task covers; null for shipment tasks. */
   scope_block_code: string | null;
+  /** Gate location a gate task belongs to; null for other kinds. */
+  scope_location: number | null;
+  /** Truck plate (gate task cards); null when the shipment has none. */
+  truck_plate: string | null;
+  /** Local day (YYYY-MM-DD) a daily_loading / daily_export task covers; null otherwise. */
+  scope_date: string | null;
+  /** Why a cancelled task was cancelled; 'missed' = a daily task nobody did. '' otherwise. */
+  cancelled_reason: string;
 }
 
 export interface ITaskDetail extends ITaskListItem {
@@ -1814,6 +1835,39 @@ export interface ITaskDetail extends ITaskListItem {
   blocked_by: number[];
   rule: number | null;
   duration_seconds: number | null;
+}
+
+/** GET /export/truck-allocations/review/ — the /export/plan «Tanyşdym» banner. */
+export interface ITruckAllocationReview {
+  year: number;
+  week: number;
+  open_task_id: number | null;
+  changes: { day_of_week: number; was: number; now: number }[];
+  /** What «Tanyşdym» records — posted back so a later change is refused (409). */
+  snapshot: string;
+  /** Only the assignee role family may acknowledge. */
+  can_acknowledge: boolean;
+}
+
+/** GET /export/truck-allocations/transport-plan/ — the /transport/plan page. */
+export interface ITransportPlan {
+  year: number;
+  week: number;
+  days: { day_of_week: number; date: string }[];
+  destinations: { id: number; name: string }[];
+  cells: {
+    day_of_week: number;
+    destination_id: number;
+    truck_count: number;
+    /** null = transport never acknowledged this week. */
+    acknowledged_count: number | null;
+  }[];
+  open_task_id: number | null;
+  acknowledged_at: string | null;
+  /** What «Tanyşdym» records — posted back so a later change is refused (409). */
+  snapshot: string;
+  /** Only the assignee role family may acknowledge. */
+  can_acknowledge: boolean;
 }
 
 
@@ -1833,16 +1887,18 @@ export interface IShipmentDraft {
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
   variety_confidence: 'high' | 'low' | 'none';
-  // Join-supply candidate fields (Phase A, 2026-08-14). The backend's
-  // ShipmentDraftListSerializer never emits raw `country`/`customer` FK ids —
-  // only `country_name`/`customer_name` (inherited from
-  // ShipmentListSerializer.Meta.fields; verified against
-  // backend/apps/export/serializers.py). Optional because existing object
-  // literals (mock/drafts.ts, useDrafts.ts mock stubs) don't set them. A
-  // destination-vs-supply filter must key off *_name — there are no raw ids
-  // to key off of here.
+  // Destination names, and (since 2026-09-29) the raw FK ids plus status and
+  // truck — ShipmentDraftListSerializer sends all of these; the join board
+  // (status_code__in=…) classifies rows by them. Optional because mock literals
+  // (mock/drafts.ts) don't set them.
   country_name?: string | null;
   customer_name?: string | null;
+  country?: number | null;
+  customer?: number | null;
+  status_code?: string;
+  status_display?: string;
+  truck_plate?: string | null;
+  driver_name?: string | null;
 }
 
 export interface IDraftFirmSplitInput {
@@ -1898,15 +1954,6 @@ export interface ISupplyDraftPayload {
   harvest_status?: string;
   export_code?: string;
   notes?: string;
-}
-
-export interface IDraftAssignPayload {
-  country: number | null;
-  city: number | null;
-  customer: number | null;
-  import_firm: number | null;
-  firm_splits?: { export_firm_id: number; weight_kg: number }[];
-  border_point?: number | null;
 }
 
 // ─── Gaplama Board ────────────────────────────────────────────────────────────
@@ -1999,23 +2046,6 @@ export interface IForecastSubmitResult {
   date: string;
   entries: { block_id: number; block_code: string; forecast_kg: string }[];
   errors?: string[];
-}
-
-//â”€â”€â”€ Assignment Board (mock demand) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-export type DemandType = 'contract' | 'quota' | 'queue';
-
-export interface IDemandItem {
-  id: number;
-  type: DemandType;
-  label: string;
-  customer: string;
-  country: string;
-  firm: string;
-  remaining: string;
-  due_days: number;
-  pref: string;
-  strict: boolean;
 }
 
 // â”€â”€â”€ Pallet Manifest (Phase 2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2256,11 +2286,36 @@ export interface ITaskRule {
   assignee_role: string;
   assignee_role_display: string;
   target_fields: string[];
-  completion_rule: 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'manual_done';
+  completion_rule: 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'manual_done';
   completion_rule_display: string;
   target_value: string;
   deadline_rule: string;
   condition_field: string;
   condition_value: string;
   is_active: boolean;
+}
+
+// ─── Gate guard (garawul) ────────────────────────────────────────────────────
+
+/** One truck as the gate guard sees it — GET /export/gate/. */
+export interface IGateRow {
+  id: number;
+  shipment_code: string;
+  truck_plate: string | null;
+  truck_plate_2: string | null;
+  driver_name: string | null;
+  driver_phone: string | null;
+  date: string;
+  is_gapy_satys: boolean;
+  status_code: string;
+  greenhouse_arrived_at: string | null;
+  departed_at: string | null;
+  can_undo: boolean;
+}
+
+export interface IGateBoard {
+  location: { id: number; name: string };
+  expected: IGateRow[];
+  inside: IGateRow[];
+  recently_left: IGateRow[];
 }

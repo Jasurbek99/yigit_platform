@@ -1,5 +1,8 @@
 import { Tag, Typography } from 'antd';
 import { CalendarOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { ITaskListItem } from '@/types';
@@ -7,21 +10,32 @@ import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
 
+// Deadlines are greenhouse-local (23:59 Asia/Ashgabat). Viewers on KZ/RU domain
+// machines often run UTC, so format in TM time, not the browser's — same reason
+// as SelfBoard's TM_TZ.
+dayjs.extend(utc);
+dayjs.extend(timezone);
+const TM_TZ = 'Asia/Ashgabat';
+
 interface IPlanTaskCardProps {
   readonly task: ITaskListItem;
 }
 
 /**
- * Compact card for non-shipment plan tasks (weekly_plan, local_sell_plan,
- * truck_allocation) on the SelfBoard. Clicking navigates to the task's link.
- * Done tasks are visually de-emphasized (reduced opacity, muted border).
+ * Compact card for non-shipment planning tasks (weekly_plan, local_sell_plan,
+ * truck_allocation, alloc_review, transport_plan, daily_loading, daily_export)
+ * on the SelfBoard. Clicking navigates to the task's link. An open task shows
+ * its deadline and turns red once overdue; a daily task nobody did shows
+ * «Missed». Done tasks are visually de-emphasized (reduced opacity, muted border).
  */
 export function PlanTaskCard({ task }: IPlanTaskCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
   const isDone = task.state === 'done' || task.state === 'cancelled';
-  const borderColor = isDone ? COLORS.borderLight : COLORS.primary;
+  const isMissed = task.state === 'cancelled' && task.cancelled_reason === 'missed';
+  const borderColor = task.is_overdue ? COLORS.danger : isDone ? COLORS.borderLight : COLORS.primary;
+  const dayLabel = task.scope_date ? dayjs(task.scope_date).format('DD.MM') : null;
 
   function handleClick() {
     navigate(task.link);
@@ -103,13 +117,32 @@ export function PlanTaskCard({ task }: IPlanTaskCardProps) {
             {weekLabel}
           </Text>
         )}
+        {dayLabel && (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {dayLabel}
+          </Text>
+        )}
         <Tag
-          color={isDone ? 'default' : 'processing'}
+          color={isMissed ? 'error' : isDone ? 'default' : 'processing'}
           style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
         >
-          {stateLabel}
+          {isMissed ? t('tasks.missed') : stateLabel}
         </Tag>
       </div>
+
+      {/* Row 3: deadline — red once overdue */}
+      {!isDone && task.deadline && (
+        <div style={{ marginTop: 4 }}>
+          <Text
+            type={task.is_overdue ? undefined : 'secondary'}
+            style={{ fontSize: 11, color: task.is_overdue ? COLORS.danger : undefined }}
+          >
+            {task.is_overdue && task.kind === 'weekly_plan'
+              ? t('tasks.weekly_plan_late_until_sunday')
+              : t('tasks.deadline_at', { time: dayjs(task.deadline).tz(TM_TZ).format('DD.MM HH:mm') })}
+          </Text>
+        </div>
+      )}
     </div>
   );
 }

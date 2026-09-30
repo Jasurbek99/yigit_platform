@@ -129,6 +129,19 @@ class SalesReportTaskTests(TestCase):
         self.assertEqual(close_sales_report_task(shipment, self.user), 0)
 
     # ── satyldy report-existence trigger: early-fill resolves on entry ────────
+    def _approve(self, shipment):
+        """The export manager's approval (docs/Tasks.md item 37) — the path the
+        approve endpoint takes: set approved_at, then save to fire the engine."""
+        from django.utils import timezone
+
+        SalesReport.objects.filter(shipment=shipment).update(
+            approved_at=timezone.now(), approved_by=self.user,
+        )
+        shipment.refresh_from_db()
+        shipment.updated_by = self.user
+        shipment.save()
+        shipment.refresh_from_db()
+
     def test_satyldy_advances_to_tamamlandy_when_report_exists_early(self):
         """Report saved before satyldy → satylyar advance cascades through
         satyldy straight to tamamlandy on the same save (report already exists)."""
@@ -141,6 +154,10 @@ class SalesReportTaskTests(TestCase):
         shipment.save()
 
         shipment.refresh_from_db()
+        # Since 2026-09-29 (docs/Tasks.md item 37) the report alone stops at
+        # satyldy — the export manager's approval closes the shipment.
+        self.assertEqual(shipment.status.code, 'satyldy')
+        self._approve(shipment)
         self.assertEqual(shipment.status.code, 'tamamlandy')
 
     # ── satyldy report-existence trigger: late-fill at satyldy advances ───────
@@ -155,6 +172,8 @@ class SalesReportTaskTests(TestCase):
         close_sales_report_task(shipment, self.user)
 
         shipment.refresh_from_db()
+        self.assertEqual(shipment.status.code, 'satyldy')     # waits for approval
+        self._approve(shipment)
         self.assertEqual(shipment.status.code, 'tamamlandy')
 
     # ── end-to-end via the real endpoint (fresh reverse-OneToOne after save) ──
@@ -180,5 +199,9 @@ class SalesReportTaskTests(TestCase):
         )
         self.assertEqual(response.status_code, 200, response.data)
 
+        shipment.refresh_from_db()
+        self.assertEqual(shipment.status.code, 'satyldy')     # waits for approval
+        approve = client.post(f'/api/v1/export/shipments/{shipment.id}/sales-report/approve/')
+        self.assertEqual(approve.status_code, 200, approve.data)
         shipment.refresh_from_db()
         self.assertEqual(shipment.status.code, 'tamamlandy')

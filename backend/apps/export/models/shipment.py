@@ -181,7 +181,9 @@ class Shipment(models.Model):
     transport_temp_c = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     transit_days = models.IntegerField(null=True, blank=True)
     shelf_life_days = models.IntegerField(null=True, blank=True)
-    has_peregruz = models.BooleanField(default=False)
+    # None = the sales rep has not answered «Peregruz barmy?» yet (docs/Tasks.md
+    # item 31, 2026-09-29). Rows from before keep their False/True.
+    has_peregruz = models.BooleanField(null=True, blank=True, default=None)
     peregruz_city = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
     peregruz_date = models.DateTimeField(null=True, blank=True)
 
@@ -234,6 +236,10 @@ class Shipment(models.Model):
     customs_entry_at = models.DateTimeField(null=True, blank=True)
     customs_exit_at = models.DateTimeField(null=True, blank=True)
     departed_at = models.DateTimeField(null=True, blank=True)
+    # Gate arrival (garawul, 2026-09-29): stamped with server time by the gate
+    # service; admin / loading head correct it on the Sheet («Ýyladyşhana geldi»).
+    # Exit reuses departed_at (R21 «Ýyladyşhanadan çykdy»).
+    greenhouse_arrived_at = models.DateTimeField(null=True, blank=True)
     border_crossed_at = models.DateTimeField(null=True, blank=True)
     # R31 — operator-entered datetime when truck entered destination country
     # (between border_crossed_at and customs_entry_at). NOT AD-1: no transition

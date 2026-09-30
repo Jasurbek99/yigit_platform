@@ -88,7 +88,7 @@ function renderHero(shipmentOverride: IShipmentDetail = shipment) {
 }
 
 // Destination draft: has country/customer, no block_sources yet — the shape
-// isDestinationDraft() (joinHelpers) looks for.
+// isJoinTarget() (joinHelpers) looks for.
 const destinationDraftShipment = {
   ...shipment,
   status_code: 'draft',

@@ -241,7 +241,7 @@ class LifecycleRoleGateTests(LifecycleBase):
 
 
 class DraftGuardTests(LifecycleBase):
-    """A half-built draft must be joined before it can advance."""
+    """A draft needs a destination (country + customer) before it can advance; packing is checked at loading (spec 2026-09-29)."""
 
     def _bare_draft(self, code, country=None, customer=None, blocks=False):
         s = Shipment.objects.create(
@@ -262,13 +262,13 @@ class DraftGuardTests(LifecycleBase):
         self.assertIn('country', str(ctx.exception))
         self.assertIn('customer', str(ctx.exception))
 
-    def test_destination_only_draft_cannot_advance(self):
+    def test_destination_only_draft_advances(self):
+        """Gadam's draft: destination, no blocks -> documents may start (spec 2026-09-29)."""
         s = self._bare_draft(
             'LC-DEST', country=self.country, customer=self.customer,
         )
-        with self.assertRaises(ValueError) as ctx:
-            self.fire('document_team', s, 'gumruk_girish')
-        self.assertIn('block_sources', str(ctx.exception))
+        self.fire('document_team', s, 'gumruk_girish')
+        self.assertEqual(s.status.code, 'gumruk_girish')
 
     def test_a_joined_draft_advances(self):
         s = self._bare_draft(

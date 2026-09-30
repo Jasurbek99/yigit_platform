@@ -13,6 +13,29 @@ import type { IShipmentDetail, ISalesReportPayload } from '@/types';
  * id — a hand-written `['shipment', id]` here would silently miss the cache if a
  * caller ever passed a number (TanStack matches key parts type-strictly).
  */
+/**
+ * «Hasabaty tassykla» — POST /export/shipments/{id}/sales-report/approve/
+ * (docs/Tasks.md item 37). Approval closes the shipment, so the same queries as
+ * a save are refreshed.
+ */
+export function useApproveSalesReport(shipmentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (): Promise<IShipmentDetail> => {
+      const { data } = await api.post<IShipmentDetail>(
+        `/export/shipments/${shipmentId}/sales-report/approve/`,
+      );
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(shipmentId) });
+      void queryClient.invalidateQueries({ queryKey: ['shipments', 'my-sales-reports'] });
+      void queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+    },
+  });
+}
+
 export function useSaveSalesReport(shipmentId: string) {
   const queryClient = useQueryClient();
 

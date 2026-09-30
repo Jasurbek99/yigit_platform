@@ -11,6 +11,7 @@ const { Text } = Typography;
 const ROLE_COLOR: Record<string, string> = {
   loading_dept_head_deputy: 'gold',
   weight_master: 'geekblue',
+  garawul: 'magenta',
 };
 
 export default function StaffPageAccessPage() {

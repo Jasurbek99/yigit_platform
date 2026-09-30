@@ -10,4 +10,5 @@ export const ROLE_COLOR: Record<string, string> = {
   accountant: 'purple',
   seller: 'volcano',
   quality_inspector: 'yellow',  // must match UsersPage's ROLE_COLORS
+  garawul: 'magenta',  // must match UsersPage's ROLE_COLORS
 };

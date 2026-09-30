@@ -14,14 +14,14 @@ Post-deploy verification:
     RolePagePermission.objects.filter(page_code='export.truck_board').count()
 must equal the number of roles in ALL_ROLES. If it comes back 0, this ran as a
 no-op against a `test_`-prefixed database: delete the
-('core', '0066_truck_board_page_perms') row from django_migrations and re-run
+('core', '0070_truck_board_page_perms') row from django_migrations and re-run
 `migrate core` against the real database.
 """
 from django.db import migrations
 
 PAGE_CODE = 'export.truck_board'
 
-# Mirrors ROLE_CHOICES (apps/core/models/user.py) as of 2026-09-29, including
+# Mirrors ROLE_CHOICES (apps/core/models/user.py) as of 2026-09-30 (incl. garawul, core.0066), including
 # `quality_inspector` (core.0053). Spelled out rather than imported so a later
 # role addition cannot silently change what this migration wrote — a new role is
 # seeded by `seed_permissions`, not backdated here.
@@ -29,7 +29,7 @@ ALL_ROLES = (
     'admin', 'export_manager', 'loading_dept_head', 'loading_dept_head_deputy',
     'warehouse_chief', 'weight_master', 'document_team', 'transport',
     'quality_inspector', 'sales_rep', 'finansist', 'director', 'accountant',
-    'greenhouse_manager', 'seller', 'boss',
+    'greenhouse_manager', 'seller', 'boss', 'garawul',
 )
 
 # admin / director / export_manager / boss hold every page via _ALL_PAGES in
@@ -88,7 +88,7 @@ def remove_truck_board_page(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0065_greenhouseconfig_scan_base_url'),
+        ('core', '0069_transport_plan_page'),
     ]
 
     operations = [

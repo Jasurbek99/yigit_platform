@@ -22,6 +22,11 @@ shows (TruckAllocationTable.tsx trucksFromKg), so a light day the table shows as
 empty week cannot close it. Resolution is lazy, from the task-read path
 (MeTaskListView), like the other plan tasks.
 
+The task is due Saturday 23:59 local (red from Sunday) and is created carrying
+the plan's needed-truck counts in Task.ack_snapshot — the baseline the
+alloc_review «Tanyşdym» task compares against. needed_trucks_by_day and
+allocation_counts are shared with services/plan_ack_tasks.py.
+
 Lives in export (not greenhouse): it reads greenhouse plan cells and writes
 export Tasks/Notifications — export may import greenhouse, not the reverse.
 """
@@ -34,6 +39,7 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 from apps.export.models import Notification, Task, TaskCompletionRule, TaskKind, TaskState
+from apps.export.services.plan_task_common import encode_baseline, end_of_local_day, iso_monday
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +183,10 @@ def generate_truck_allocation_task(year: int, week: int) -> list[Task]:
         link=_build_link(year, week),
         scope_year=year,
         scope_week=week,
+        # docs/Tasks.md item 2: due Saturday (red from Sunday).
+        deadline=end_of_local_day(iso_monday(year, week) - timedelta(days=2)),
+        # Review baseline (spec §3) — refreshed by every set_splits and review «Tanyşdym».
+        ack_snapshot=encode_baseline(needed_trucks_by_day(year, week)),
         state=TaskState.OPEN,
     )
     logger.info('Generated truck_allocation task for W%d/%d', week, year)
@@ -189,8 +199,12 @@ def _trucks_for_kg(kg: Decimal) -> int:
     return int((kg / TRUCK_CAPACITY_KG).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
 
 
-def _week_is_allocated(year: int, week: int) -> bool:
-    from apps.export.models import TruckDestinationSplit
+def needed_trucks_by_day(year: int, week: int) -> dict[tuple[int], int]:
+    """(ISO weekday,) → trucks the plan needs, Mon–Sat, days needing 0 omitted.
+
+    Uses _trucks_for_kg (half-up at 18,500 kg), the same rounding the table
+    and the allocation task use, so "needed" always matches the screen.
+    """
     from apps.greenhouse.models import HarvestDayEntry
 
     monday, saturday = _mon_sat(year, week)
@@ -202,24 +216,42 @@ def _week_is_allocated(year: int, week: int) -> bool:
         .annotate(kg=Sum('plan_value'))
         .values_list('entry_date', 'kg')
     )
-    # WeeklyTruckAllocation.day_of_week is 1=Mon … 7=Sun.
-    needs_trucks = {d.isoweekday() for d, kg in planned_kg if _trucks_for_kg(kg) >= 1}
+    needed: dict[tuple[int], int] = {}
+    for day, kg in planned_kg:
+        trucks = _trucks_for_kg(kg)
+        if trucks >= 1:
+            needed[(day.isoweekday(),)] = trucks
+    return needed
 
-    trucks = dict(
+
+def allocation_counts(year: int, week: int) -> dict[tuple[int, int], int]:
+    """(ISO weekday, destination id) → trucks allocated, Mon–Sat, count > 0 only.
+
+    WeeklyTruckAllocation.day_of_week is 1=Mon … 7=Sun.
+    """
+    from apps.export.models import TruckDestinationSplit
+
+    rows = (
         TruckDestinationSplit.objects
         .filter(
             truck_allocation__year=year,
             truck_allocation__week_number=week,
             truck_allocation__day_of_week__lte=PLAN_DAYS,
+            truck_count__gt=0,
         )
         .order_by()
-        .values('truck_allocation__day_of_week')
-        .annotate(n=Sum('truck_count'))
-        .values_list('truck_allocation__day_of_week', 'n')
+        .values_list('truck_allocation__day_of_week', 'destination_id', 'truck_count')
     )
-    if sum(trucks.values()) == 0:
+    return {(dow, dest): n for dow, dest, n in rows}
+
+
+def _week_is_allocated(year: int, week: int) -> bool:
+    trucks_by_day: dict[int, int] = {}
+    for (dow, _dest), n in allocation_counts(year, week).items():
+        trucks_by_day[dow] = trucks_by_day.get(dow, 0) + n
+    if not trucks_by_day:
         return False
-    return all(trucks.get(dow, 0) > 0 for dow in needs_trucks)
+    return all(trucks_by_day.get(dow, 0) > 0 for (dow,) in needed_trucks_by_day(year, week))
 
 
 def _resolve_task(task: Task) -> bool:

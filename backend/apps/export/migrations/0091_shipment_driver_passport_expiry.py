@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("export", "0081_block_source_batch_key"),
+        ("export", "0089_task_ack_snapshot_db_default"),
     ]
 
     operations = [

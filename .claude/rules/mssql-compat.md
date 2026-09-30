@@ -59,3 +59,14 @@ AuditLog.objects.filter(pk__in=Subquery(ranked.filter(rn=1).values('pk')))
 ```
 
 The same rule applies to any `.order_by()`-aware queryset placed inside `Subquery()`: if you don't need that outer ordering for the subquery's semantics (e.g. you're just filtering by `pk__in`), strip it.
+
+## `bulk_create()` with mixed `None` / `Decimal` in one `DecimalField` batch
+A single `bulk_create()` batch where some rows have `weight_kg=None` and others have a real
+`Decimal` on the same `DecimalField` fails on MSSQL/pyodbc with `DataError 8115` ("Arithmetic
+overflow error converting nvarchar to data type numeric") — pyodbc infers the batch's parameter
+type from the first row(s) and chokes when a later row's type disagrees. `batch_size` does not
+help; the fix is to create such rows **one at a time** (`.create()` in a loop) instead of
+batching them. Precedent: `backend/apps/export/tests_supply_draft.py` (~L373-378) and
+`backend/apps/export/services/packaging.py::swap_packing`, which creates `ShipmentBlockSource`
+rows one by one for exactly this reason (at most a handful of rows per call, so there's no
+batching cost worth losing).

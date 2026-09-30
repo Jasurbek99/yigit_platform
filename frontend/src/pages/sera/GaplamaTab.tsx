@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Select } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs from 'dayjs';
@@ -38,6 +38,7 @@ export default function GaplamaTab(): JSX.Element {
   const [mode, setMode] = useState<'day' | 'week'>('day');
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [foldOpen, setFoldOpen] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<IGaplamaTruck | null>(null);
   const [selectedBlockIds, setSelectedBlockIds] = useState<number[] | null>(null);
@@ -236,6 +237,16 @@ export default function GaplamaTab(): JSX.Element {
     setFormOpen(false);
     setEditingTruck(null);
   }
+
+  // The form renders below the (often tall) board table — Tır Aç/Üýtget just
+  // swaps the button out from under the fold instead of visibly opening
+  // anything, so it read as "the button disappeared and nothing happened".
+  // Scroll it into view on open; ref lives on the wrapper div so this still
+  // finds it via the day/edit remount above (`key={...}` swaps the form
+  // instance, not the wrapper).
+  useEffect(() => {
+    if (formOpen) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [formOpen, editingTruck?.id]);
 
   // Moves selectedDay one day at a time and only rolls weekOffset on
   // crossing a week boundary — the day-stepper replaces clicking a column
@@ -562,7 +573,7 @@ export default function GaplamaTab(): JSX.Element {
         </table>
       )}
 
-      <div className="sera-gaplama-truck-open">
+      <div className="sera-gaplama-truck-open" ref={formRef}>
         {formOpen && (!editingTruck || drafts) && (
           <GaplamaTruckForm
             // Forces a remount whenever "what we're editing" changes —

@@ -609,8 +609,8 @@ class JoinSourceNoBlocksTests(TestCase):
 # ---------------------------------------------------------------------------
 
 class JoinPermissionTests(TestCase):
-    """Join endpoint allows admin/export_manager/director/boss/document_team
-    (+ superuser); warehouse_chief/loading_dept_head/sales_rep stay forbidden."""
+    """Join endpoint allows admin/export_manager/director/boss/document_team/
+    loading_dept_head (+ superuser); warehouse_chief/sales_rep stay forbidden."""
 
     @classmethod
     def setUpTestData(cls):
@@ -649,9 +649,14 @@ class JoinPermissionTests(TestCase):
         """warehouse_chief is allowed to create supply drafts but NOT to join."""
         self._assert_join_forbidden('warehouse_chief')
 
-    def test_loading_dept_head_cannot_join(self):
-        """loading_dept_head can create supply drafts but NOT to join."""
-        self._assert_join_forbidden('loading_dept_head')
+    def test_loading_dept_head_can_join(self):
+        """The loading department may join its own packing (spec 2026-09-29)."""
+        solt = _make_user('solt_perm_jn', 'loading_dept_head')
+        _auth(self.client, solt)
+        resp = self.client.post(
+            self._join_url(self.target.pk), {'source_id': self.source.pk}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
 
     def test_sales_rep_cannot_join(self):
         self._assert_join_forbidden('sales_rep')
