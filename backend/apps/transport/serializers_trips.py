@@ -46,10 +46,11 @@ class ExternalTripSerializer(serializers.ModelSerializer):
 
 class CandidateShipmentSerializer(serializers.Serializer):
     id = serializers.IntegerField()
-    code = serializers.CharField(source='shipment_code')
+    shipment_code = serializers.CharField()
     date = serializers.DateField()
     country_code = serializers.CharField(source='country.code', default=None)
     country_name = serializers.CharField(source='country.name_tk', default=None)
+    customer = serializers.IntegerField(source='customer_id', allow_null=True)
     customer_name = serializers.CharField(source='customer.name', default=None)
     blocks = serializers.SerializerMethodField()
 

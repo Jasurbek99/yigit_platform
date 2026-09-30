@@ -43,10 +43,11 @@ export interface IExternalTrip {
 
 export interface ICandidateShipment {
   id: number;
-  code: string;
+  shipment_code: string;
   date: string;
   country_code: string | null;
   country_name: string | null;
+  customer: number | null;
   customer_name: string | null;
   blocks: string[];
 }

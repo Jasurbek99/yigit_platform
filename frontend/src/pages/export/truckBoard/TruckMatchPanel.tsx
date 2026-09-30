@@ -25,7 +25,7 @@ export function TruckMatchPanel({
     <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 8, padding: 14 }}>
       <Space direction="vertical" style={{ width: '100%' }}>
         <Text type="secondary">{t('truck_board.col_shipments')}</Text>
-        <Text strong>{shipment ? `${shipment.code} · ${shipment.country_code ?? '—'}` : '—'}</Text>
+        <Text strong>{shipment ? `${shipment.shipment_code} · ${shipment.country_code ?? '—'}` : '—'}</Text>
         <Text type="secondary">{t('truck_board.col_trips')}</Text>
         <Text strong>
           {trip ? `${trip.tractor_plate} / ${trip.trailer_plate} · ${trip.destination_country_code ?? '—'}` : '—'}

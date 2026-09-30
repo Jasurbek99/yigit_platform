@@ -25,7 +25,7 @@ export function ShipmentNeedCard({ shipment, selected, onSelect }: IShipmentNeed
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
         <span style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 12, color: COLORS.primary }}>
-          {shipment.code}
+          {shipment.shipment_code}
         </span>
         <span style={{ fontSize: 11, color: COLORS.textSecondary }}>{shipment.date}</span>
       </div>

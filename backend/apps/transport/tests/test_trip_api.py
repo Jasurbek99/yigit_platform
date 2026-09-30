@@ -62,9 +62,11 @@ class TripApiTests(TestCase):
     def test_candidate_shipments_excludes_gapy_and_linked(self):
         self._as('export_manager')
         _make_shipment(code='G-1', country=self.kz, is_gapy_satys=True)
-        codes = [s['code'] for s in self.client.get(
-            '/api/v1/transport/external-trips/candidate-shipments/').json()]
-        self.assertEqual(codes, [self.shipment.shipment_code])
+        rows = self.client.get('/api/v1/transport/external-trips/candidate-shipments/').json()
+        self.assertEqual([r['shipment_code'] for r in rows], [self.shipment.shipment_code])
+        # FK exposed as id + _name pair (api-contract).
+        self.assertIn('customer', rows[0])
+        self.assertNotIn('code', rows[0])
 
     def test_sync_state_reports_mock(self):
         self._as('export_manager')

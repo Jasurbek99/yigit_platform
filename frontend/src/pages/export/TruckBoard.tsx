@@ -46,7 +46,7 @@ export default function TruckBoard() {
       { tripId: trip.id, shipmentId: shipment.id, confirmUnknownCountry },
       {
         onSuccess: () => {
-          toast.success(t('truck_board.assigned', { code: shipment.code }));
+          toast.success(t('truck_board.assigned', { code: shipment.shipment_code }));
           setShipmentId(null);
           setTripId(null);
         },

@@ -95,7 +95,7 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
           style={{ width: '100%' }}
           value={target ?? undefined}
           onChange={(value: number) => setTarget(value)}
-          options={moveTargets.map((s) => ({ value: s.id, label: `${s.code} · ${s.country_code ?? '—'}` }))}
+          options={moveTargets.map((s) => ({ value: s.id, label: `${s.shipment_code} · ${s.country_code ?? '—'}` }))}
         />
       </Modal>
     </>
