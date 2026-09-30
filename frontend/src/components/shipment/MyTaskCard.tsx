@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { TaskCardEditor } from '@/components/shipment/TaskCardEditor';
-import { isFieldFilled } from '@/components/shipment/TaskCardEditor.helpers';
+import { isFieldFilled, progressFieldKeys } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
 import { isButtonTask, taskButtonLabel } from '@/utils/taskButtons';
 import { useAuth } from '@/hooks/useAuth';
@@ -79,8 +79,9 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
 
   // Compute field fill progress
   const targetFields = task.target_fields_list;
-  const filledCount = targetFields.filter((fk) => isFieldFilled(shipment, fk)).length;
-  const totalCount = targetFields.length;
+  const progressFields = progressFieldKeys(targetFields);
+  const filledCount = progressFields.filter((fk) => isFieldFilled(shipment, fk)).length;
+  const totalCount = progressFields.length;
   const progressPercent = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 0;
 
   function handleFirstEdit() {

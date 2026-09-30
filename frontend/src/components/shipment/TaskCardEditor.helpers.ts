@@ -74,3 +74,22 @@ export function isFieldFilled(shipment: IShipmentDetail, fieldKey: string): bool
   if (typeof value === 'number') return true;
   return false;
 }
+
+/**
+ * Target field keys whose value is computed server-side only and never
+ * appears on IShipmentDetail — e.g. tasks.give_advance's only target,
+ * has_current_advance (a Shipment @property; resolution happens when an
+ * advance is linked, not by editing a field here). isFieldFilled can only
+ * read these as null, which would read as "not filled" forever — counting
+ * that toward a task's progress denominator understates it permanently
+ * instead of admitting the frontend cannot know.
+ */
+const UNEVALUABLE_TARGET_FIELDS = new Set<string>(['has_current_advance']);
+
+/**
+ * Target field keys to use for a task's "N of M filled" progress bar —
+ * UNEVALUABLE_TARGET_FIELDS excluded rather than counted as unfilled.
+ */
+export function progressFieldKeys(targetFields: readonly string[]): string[] {
+  return targetFields.filter((fk) => !UNEVALUABLE_TARGET_FIELDS.has(fk));
+}
