@@ -2409,6 +2409,8 @@ class TaskListSerializer(serializers.ModelSerializer):
             'scope_week',
             'scope_block',
             'scope_block_code',
+            'scope_date',
+            'cancelled_reason',
             'step',
             'phase',
             'title_key',

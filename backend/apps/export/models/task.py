@@ -28,6 +28,11 @@ class TaskKind(models.TextChoices):
     WEEKLY_PLAN     = 'weekly_plan',     _('Weekly harvest-plan task')
     LOCAL_SELL_PLAN = 'local_sell_plan', _('Local sell-plan task')
     TRUCK_ALLOCATION = 'truck_allocation', _('Weekly truck-allocation task')
+    # Task.kind is max_length=16 (indexed) — keep new codes ≤ 16 chars.
+    ALLOC_REVIEW    = 'alloc_review',    _('Truck-allocation review (plan changed)')
+    TRANSPORT_PLAN  = 'transport_plan',  _('Transport truck planning («Tanyşdym»)')
+    DAILY_LOADING   = 'daily_loading',   _('Daily loading plan (Gaplama)')
+    DAILY_EXPORT    = 'daily_export',    _('Daily export plan')
 
 
 class TaskCompletionRule(models.TextChoices):
@@ -59,6 +64,7 @@ class TaskCancelReason(models.TextChoices):
     SHIPMENT_CANCELLED = 'shipment_cancelled', _('Shipment was cancelled')
     RULE_MISMATCH      = 'rule_mismatch',      _('Rule no longer applies')
     RULE_DEACTIVATED   = 'rule_deactivated',   _('Rule was deactivated')
+    MISSED             = 'missed',             _('Daily task not done on its day')
 
 
 class TaskRule(models.Model):
@@ -191,6 +197,16 @@ class Task(models.Model):
                   'null-block weekly_plan task is simply skipped by the '
                   'resolver. Always null for shipment tasks.',
     )
+    scope_date = models.DateField(
+        null=True, blank=True,
+        help_text='Local day a daily_loading / daily_export task covers',
+    )
+    ack_snapshot = models.TextField(
+        blank=True, default='',
+        help_text='ASCII "k:v;..." counts snapshot: the review baseline on a '
+                  'truck_allocation task, or what was seen at «Tanyşdym» on '
+                  'alloc_review / transport_plan tasks',
+    )
 
     state = models.CharField(
         max_length=16, choices=TaskState.choices,
@@ -228,6 +244,25 @@ class Task(models.Model):
                 fields=['shipment', 'rule'],
                 condition=models.Q(shipment__isnull=False, rule__isnull=False),
                 name='export_task_one_per_shipment_rule',
+            ),
+            # One daily task per kind per local day, in any state — a re-run of
+            # the 06:05 beat, or a second worker, cannot duplicate it, and a
+            # `missed` one is never re-created.
+            models.UniqueConstraint(
+                fields=['kind', 'scope_date'],
+                condition=models.Q(kind__in=['daily_loading', 'daily_export']),
+                name='export_task_one_daily_per_kind',
+            ),
+            # At most one OPEN acknowledgement task per (kind, ISO week); done
+            # ones repeat (a later change raises a fresh one). MSSQL filtered
+            # indexes accept IN (...) AND IN (...).
+            models.UniqueConstraint(
+                fields=['kind', 'scope_year', 'scope_week'],
+                condition=models.Q(
+                    kind__in=['alloc_review', 'transport_plan'],
+                    state__in=['open', 'in_progress'],
+                ),
+                name='export_task_one_open_ack_per_week',
             ),
         ]
 
