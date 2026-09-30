@@ -28,7 +28,7 @@ Backend: `ShipmentViewSet.sheet()` action at `GET /api/v1/export/shipments/sheet
 └──┴──────┴───────────┴────────┴────────┴─────────┘
 ```
 
-Three frozen left columns (#, Who, Field label) + virtualised data columns rendered via `@tanstack/react-virtual`. A full season (~1,000 shipments × 44 rows) is handled by virtualising columns; only ~20 visible at a time are in the DOM.
+Three frozen left columns (#, Who, Field label) + virtualised data columns rendered via `@tanstack/react-virtual`. A full season (~1,000 shipments × 45 active rows, numbered up to R49) is handled by virtualising columns; only ~20 visible at a time are in the DOM.
 
 ## Freeze panes (configurable)
 
@@ -384,11 +384,20 @@ flag without the other. Tracked as `docs/FINDINGS_BACKLOG.md` F22.
 | Section | Rows | Purpose |
 |---------|------|---------|
 | Frozen top | 2–14 | Identity & planning — route note, customs/docs/harvest status, shipment code, blocks, firms, country, customer, city, import firm |
-| Scrollable bottom | 15–44 | Operations & logistics — truck capacity, loading/departure timestamps, transport, border, weights, variety, sale window, sales report flag |
+| Scrollable bottom | 15–49 | Operations & logistics — truck capacity, loading/departure timestamps, transport, border, weights, variety, sale window, sales report flag, gate arrival |
 
 Row numbers mirror the original "Eksport Hasabat" Excel sheet so users can cross-reference the platform view with their spreadsheet by row index. Earlier versions of the platform had a one-row offset on R20+ (loading_started_at was rendered on R20 instead of R19, transit_days_temp on R27 instead of R26, etc.); that has been corrected.
 
 **Per-role freeform notes (R17, R18):** Plain text cells, parallel to Gadam's `export_manager_note` (R5). R17 holds `warehouse_note` — owned by Soltanmyrat (`loading_dept_head`); deputies (`warehouse_chief`) share the same field. R18 holds `document_note` — owned by Şirin (`document_team`). Editable inline like any other text cell; per-cell discussion threads still live on each cell's CommentMarker.
+
+**R49 — `greenhouse_arrived_at` (garawul / gate guard).** Datetime cell,
+placed right after R21 (`display_order` only — the row number itself is 49,
+not a renumbering). Set from the gate screen on arrival; the loading head
+(+ deputy) and `boss` hold an explicit trigger on the row, and `admin`,
+`director`, `export_manager` and `document_team` may correct it too via the
+`SHEET_BYPASS_ROLES` trigger-bypass (AD-15). Added 2026-09-29 — see
+[[../processes/gate#Sheet row 49]] for why this row is **not** listed among
+the AD-1 lifecycle triggers below.
 
 **R4 — `transport_docs_given_at` (Şirin / `document_team`).** Datetime cell logging when the transport department handed over the shipment docs. Empty state renders `Berilmedi` (not the generic em-dash) so an unfilled cell is unambiguous; picking a date+time implies `Berildi` at that moment. Repurposed from the legacy Malik "Goşmaça bellik" column per in-app feedback #9 — `Shipment.notes` still exists on the model (and on the Detail view) for historical data but is no longer surfaced on the Sheet.
 
@@ -792,6 +801,12 @@ A `sales_rep` user sees only the **shipment columns whose customer is assigned t
 This mirrors the same ownership rule used by `GET /export/shipments/my-sales-reports/` and the Shipment List (`GET /export/shipments/`, list action only). See [[../roles/sales-rep]].
 
 > **Lifecycle timestamps are editable — they are the state machine's triggers.** AD-1 is retired: all ten (`loading_started_at` R19, `loading_ended_at` R20, `departed_at` R21, `customs_exit_at` R25, `border_crossed_at` R30, `dest_entry_at` R31, `customs_entry_at` R32, `arrived_at` R35, `sale_started_at` R41, `sale_ended_at` R42) are listed in `_ALL_PATCHABLE_FIELDS` in `ShipmentPatchSerializer`. Filling one resolves its step's task and `auto_advance_if_ready()` fires the transition — see [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]]. `transition_to()` no longer writes any timestamp (`STATUS_TIMESTAMP_MAP` is empty).
+
+> **R49 `greenhouse_arrived_at` is deliberately not on that list of ten.** It
+> is `_ALL_PATCHABLE_FIELDS` (editable) but not a trigger — filling it on the
+> Sheet only changes what the next gate sync sees, it does not fill
+> `loading_started_at`, set `loading_location`, or send the arrival
+> notification the gate's own `/arrive/` action does. See [[../processes/gate]].
 
 ## Save flow
 

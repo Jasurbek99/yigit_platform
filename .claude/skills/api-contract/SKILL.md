@@ -848,6 +848,90 @@ Task list/detail payloads gained `scope_date` (`"YYYY-MM-DD"` for `daily_loading
 `daily_export`, else null) and `cancelled_reason` (`"missed"` = a daily task nobody
 did; `""` when not cancelled).
 
+### Gate: `/api/v1/export/gate/` (2026-09-29)
+
+The gate guard's screen (garawul). Spec:
+`docs/superpowers/specs/2026-09-29-garawul-gate-design.md`. Own `ViewSet`, not
+`ShipmentViewSet`. **Not season-scoped**, unlike every list above. A `garawul`
+user always works his own `User.loading_location`; any `?location=` he sends
+is ignored. Every other role holding the `gate` grant (`admin`, `boss`) must
+send `?location=<id>` — on **all four calls, GET and the three POSTs alike**
+(missing → `400 {"error": "location_required"}`; unknown id → `400
+{"error": "bad_location"}`).
+
+`GET /gate/[?location=]` → `{location: {id, name}, expected: IGateRow[],
+inside: IGateRow[], recently_left: IGateRow[]}`. Gate: `gate.can_view`.
+
+```json
+{
+  "location": { "id": 1, "name": "Dusak" },
+  "expected": [ { "id": 42, "shipment_code": "S-042", "truck_plate": "AB1234",
+    "truck_plate_2": null, "driver_name": "Merdan", "driver_phone": "+99361...",
+    "date": "2026-09-29", "is_gapy_satys": false, "status_code": "gumruk_chykysh",
+    "greenhouse_arrived_at": null, "departed_at": null, "can_undo": false } ],
+  "inside": [ "...same shape, can_undo=true means «undo arrival»" ],
+  "recently_left": [ "...same shape, greyed on the Ýyladyşhanada tab, can_undo=true means «undo exit»" ]
+}
+```
+
+`IGateRow` never carries customer, firm, price or weight — the guard's payload
+is deliberately narrow. `can_undo` is server-computed per row using the exact
+rule the POST would enforce, so the frontend never has to reimplement it.
+
+**Timestamp fields are local `+05:00`, same as the rest of the contract**
+(final-fix review F6, 2026-09-29). `greenhouse_arrived_at` / `departed_at` now
+go through `timezone.localtime(value).isoformat()` in `gate_row()`'s `_iso()`
+helper — previously plain `datetime.isoformat()` on the raw UTC-aware value
+printed `+00:00`, the one place in this contract that disagreed with `##
+Timestamps` below. Same instant either way; only the printed offset changed.
+
+`POST /gate/{id}/arrive/`, `POST /gate/{id}/depart/` — no body. `POST
+/gate/{id}/undo/` — body `{"event": "arrive" | "depart"}`. All three gate on
+`gate.can_edit` (marking an existing truck is an edit, not a create) and
+return the updated `IGateRow` on success. A successful write also pokes the
+Sheet for that shipment id, like every other shipment-writing endpoint
+(`GateViewSet.finalize_response`, final-fix review F1) — `GET /gate/` never
+does.
+
+**Arrival with packing not yet joined** (final-fix review F5). If
+`needs_packing_for_loading(shipment)` is true (pre-loading status, no
+`block_sources`), `/arrive/` still stamps `greenhouse_arrived_at` (+
+`loading_location` if null) and sends the `gate_arrival` notification, but
+leaves `loading_started_at` null — there is nothing to load yet, and filling
+it would auto-advance a truck with no packing.
+
+`/gate/{id}/undo/`'s response row now reports `can_undo` for the mark that is
+still live afterward, not always `false` (final-fix review F7): undoing a
+`depart` leaves the truck inside again, so the row's `can_undo` reflects
+whether its *arrival* is still undoable; undoing an `arrive` returns the truck
+to Gelmeli, where nothing is undoable, so `can_undo` is `false`.
+
+**Gate tasks never make a shipment "owned" by garawul** (final-fix review
+F3). `owner_role` on a Shipment Board item, and the board's `?owner_role=`
+filter, both read the shipment's most-recently-created task — but they now
+skip `kind='gate'` tasks. Without that, a lazily-created gate task (opened the
+moment a truck is due) would outrank the real rule task and make every plated
+truck look owned by the guard.
+
+**Error codes** — body is always `{"error": "<code>"}`, never a human-readable
+message (frontend renders `gate.error.<code>`, fallback `gate.error.generic`):
+
+| HTTP | Code | Meaning |
+|---|---|---|
+| 400 | `no_location` | guard's `User.loading_location` is null |
+| 400 | `location_required` | non-guard sent no `?location=` |
+| 400 | `bad_location` | `?location=` isn't a real `LoadingLocation` id |
+| 400 | `bad_event` | `undo` body's `event` isn't `arrive`/`depart` |
+| 404 | `not_found` | no such shipment id |
+| 409 | `not_expected` | `/arrive/` on a truck not currently in `expected(L)` |
+| 409 | `not_inside` | `/depart/` on a truck not currently in `inside(L)` |
+| 409 | `not_here` | `/undo/` on a truck not live at `L` at all |
+| 409 | `undo_closed` | past the 10-minute window, or the status already moved |
+| 409 | `season_closed` | the shipment's season is closed (write freeze) |
+
+403 comes from the permission classes directly (`gate.can_view` / `can_edit`),
+not from this table.
+
 ## Season scoping (AD-16)
 
 Every season-bearing list endpoint (shipments, Sheet, Kanban board, harvest plans, day

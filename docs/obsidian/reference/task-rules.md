@@ -93,6 +93,14 @@ department's tasks.
 `hasabat` was retired in state machine v2 (merged into `tamamlandy`) and has no rules. `tamamlandy` and
 `cancelled` are terminal and generate no tasks.
 
+**`gate` (garawul) is not in this table.** It is code-driven like `weekly_plan` / `local_sell_plan`
+/ `truck_allocation` — see [[task#The nine task kinds]]. Two steps, `gate_arrive` and `gate_depart`,
+each scoped to one `LoadingLocation` via `Task.scope_location` rather than gated by status.
+`MANUAL_DONE`, but not through `/complete/`: `TaskViewSet.complete` refuses `kind='gate'`
+(`gate_task_needs_mark`) so only `POST /export/gate/{id}/arrive\|depart/` can close it. Synced
+lazily by `sync_gate_tasks()` — on every gate list read, on `MeTaskListView` for a guard, and inside
+each gate action.
+
 **Mark Done tasks never gate auto-advance.** `auto_advance_if_ready()` checks only the non-`MANUAL_DONE`
 tasks on the step, so *Give documents*, *Submit sales report* and *Quality inspection* are reminders — a shipment moves on
 without them. See [[../processes/shipment-lifecycle#Sheet-Driven Auto-Advance (v2)]].
