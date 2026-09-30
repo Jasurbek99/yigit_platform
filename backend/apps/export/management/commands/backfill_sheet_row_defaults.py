@@ -50,6 +50,7 @@ WHO_TO_ROLE: dict[str, list[str]] = {
     'logist':      ['transport'],
     'transport':   ['transport'],
     'quality':     ['quality_inspector'],
+    'garawul': ['loading_dept_head', 'loading_dept_head_deputy'],
 }
 
 LANGS = ('tk', 'ru', 'en')

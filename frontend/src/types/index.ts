@@ -473,6 +473,7 @@ export interface IShipmentSheetItem {
   customs_entry_at: string | null;
   customs_exit_at: string | null;
   departed_at: string | null;
+  greenhouse_arrived_at: string | null;
   border_crossed_at: string | null;
   arrived_at: string | null;
   sale_started_at: string | null;

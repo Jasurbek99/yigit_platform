@@ -438,6 +438,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
             'loading_started_at',
             'loading_ended_at',
             'departed_at',
+            'greenhouse_arrived_at',
             # R34: post-loading rejected weight adjustment
             'weight_to_load_kg',
             # R39: harvest day, operator-entered

@@ -230,6 +230,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         'loading_started_at',
         'loading_ended_at',
         'departed_at',
+        'greenhouse_arrived_at',
         'customs_exit_at',
         'border_crossed_at',
         'dest_entry_at',

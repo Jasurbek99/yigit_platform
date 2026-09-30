@@ -129,6 +129,7 @@ export function getCellValue(
   const tsFields = [
     'loading_started_at', 'loading_ended_at',
     'customs_entry_at', 'customs_exit_at', 'departed_at',
+    'greenhouse_arrived_at',
     'border_crossed_at', 'dest_entry_at',
     'arrived_at', 'sale_started_at', 'sale_ended_at',
     'peregruz_date',

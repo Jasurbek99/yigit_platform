@@ -90,6 +90,7 @@ export const TOPIC_SECTIONS: readonly ITopicSection[] = [
       'loading_started_at',
       'loading_ended_at',
       'departed_at',
+      'greenhouse_arrived_at',
       'transit_days_temp',
       // YGT-only, no Sera sibling — appended.
       'warehouse_note',

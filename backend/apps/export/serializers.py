@@ -814,7 +814,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'transport_docs_given_at',
             # AD-1 Timestamps
             'loading_started_at', 'customs_entry_at', 'customs_exit_at',
-            'departed_at', 'border_crossed_at', 'arrived_at',
+            'departed_at', 'greenhouse_arrived_at', 'border_crossed_at', 'arrived_at',
             'sale_started_at', 'sale_ended_at',
             # Operator-entered datetime — sheet R31 (Arap logs destination entry)
             'dest_entry_at',
@@ -1659,6 +1659,7 @@ _ALL_PATCHABLE_FIELDS = {
     'loading_started_at',
     'loading_ended_at',
     'departed_at',
+    'greenhouse_arrived_at',
     'customs_exit_at',
     'border_crossed_at',
     'dest_entry_at',

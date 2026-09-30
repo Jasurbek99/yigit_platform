@@ -38,6 +38,7 @@ SHEET_FIELD_KEYS: frozenset[str] = frozenset([
     'loading_started_at',
     'loading_ended_at',
     'departed_at',
+    'greenhouse_arrived_at',
     'vehicle_responsible',
     'truck_plate',
     'customs_exit_at',
