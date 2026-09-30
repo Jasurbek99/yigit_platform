@@ -13,6 +13,10 @@ class ExternalTripSerializer(serializers.ModelSerializer):
     visa_country_codes = serializers.SerializerMethodField()
     has_unrecognised_visa = serializers.SerializerMethodField()
     shipment_code = serializers.CharField(source='shipment.shipment_code', read_only=True, default=None)
+    # Truck-change rollback mark of the linked shipment (export services/rollback.py).
+    shipment_documents_reset_at = serializers.DateTimeField(
+        source='shipment.documents_reset_at', read_only=True, default=None,
+    )
     position = serializers.SerializerMethodField()
 
     class Meta:
@@ -24,7 +28,7 @@ class ExternalTripSerializer(serializers.ModelSerializer):
             'trailer_plate', 'trailer_brand', 'trailer_model', 'trailer_company', 'trailer_source',
             'driver_full_name', 'driver_phone', 'driver_passport_number', 'driver_passport_expiry',
             'driver_source', 'visas', 'visa_country_codes', 'has_unrecognised_visa',
-            'shipment', 'shipment_code', 'conflict_note', 'conflict_kind', 'conflict_from', 'conflict_to',
+            'shipment', 'shipment_code', 'shipment_documents_reset_at', 'conflict_note', 'conflict_kind', 'conflict_from', 'conflict_to',
             'last_push_status', 'last_push_error', 'position',
         ]
 

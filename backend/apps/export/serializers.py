@@ -510,6 +510,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'status_display',
             'status_code',
             'status_step',
+            # Truck-change rollback mark (services/rollback.py): «Подготовка» + card.
+            'documents_reset_at',
             'country_name',
             'country_code',
             'customer_name',
@@ -785,6 +787,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'id', 'shipment_code', 'export_code', 'date',
             # Status
             'status', 'status_display', 'status_code', 'status_step',
+            # Truck-change rollback mark (services/rollback.py): column header tag.
+            'documents_reset_at',
             # Phase grouping (Stream C)
             'phase',
             # Geography
@@ -2399,6 +2403,9 @@ class TaskListSerializer(serializers.ModelSerializer):
     # is_overdue is a model property — expose it as a read field.
     is_overdue = serializers.BooleanField(read_only=True)
 
+    # True on a document task a truck-change rollback reopened (card tag).
+    documents_redo = serializers.SerializerMethodField()
+
     # Block a weekly_plan task covers (null for shipment tasks).
     scope_block_code = serializers.CharField(
         source='scope_block.code', read_only=True, default=None,
@@ -2424,6 +2431,10 @@ class TaskListSerializer(serializers.ModelSerializer):
 
     def get_target_fields_list(self, obj) -> list[str]:
         return obj.target_field_list
+
+    def get_documents_redo(self, obj) -> bool:
+        from apps.export.services.rollback import REDO_TASKS
+        return bool(obj.shipment_id and obj.shipment.documents_reset_at and obj.title_key in REDO_TASKS)
 
     class Meta:
         model = Task
@@ -2460,6 +2471,7 @@ class TaskListSerializer(serializers.ModelSerializer):
             # OtherTasksRow can show the reason in its Unblock modal without
             # needing a separate /tasks/:id/ fetch per blocked card.
             'blocked_reason',
+            'documents_redo',
         ]
         read_only_fields = fields
 

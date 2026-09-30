@@ -213,3 +213,34 @@ class RollbackTests(TestCase):
         fields = set(AuditLog.objects.filter(object_id=self.shipment.pk).values_list('field_name', flat=True))
         self.assertIn('customs_exit_at', fields)
         self.assertIn('documents_status', fields)
+
+
+class RollbackMarkFieldsTests(TestCase):
+    """The rollback mark reaches the Sheet, «Подготовка», the card and My tasks
+    (owner, 2026-09-30)."""
+
+    def setUp(self):
+        _ensure_statuses()
+        _seed_rules()
+        self.user = _make_user('doc_mark', 'document_team')
+        self.shipment = make_advanced_shipment(self.user)
+        walk_customs_docs(self.shipment, self.user)
+        rollback_to_draft(self.shipment, self.user, 'x')
+        self.shipment.refresh_from_db()
+
+    def test_list_detail_and_sheet_carry_the_stamp(self):
+        from apps.export.serializers import (
+            ShipmentDetailSerializer, ShipmentListSerializer, ShipmentSheetSerializer,
+        )
+        context = {'request': type('R', (), {'user': self.user})()}
+        for serializer in (ShipmentListSerializer, ShipmentDetailSerializer, ShipmentSheetSerializer):
+            self.assertIsNotNone(serializer(self.shipment, context=context).data['documents_reset_at'],
+                                 serializer.__name__)
+
+    def test_only_the_reopened_document_tasks_are_marked(self):
+        from apps.export.serializers import TaskListSerializer
+        marks = {t.title_key: TaskListSerializer(t).data['documents_redo'] for t in self.shipment.tasks.all()}
+        self.assertTrue(marks['tasks.print_cmr'])
+        self.assertTrue(marks['tasks.give_advance'])
+        self.assertFalse(marks['tasks.prepare_contract'])
+        self.assertFalse(marks['tasks.set_destination'])

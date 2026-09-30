@@ -238,3 +238,12 @@ class AcceptCancelledTripTests(TestCase):
         self.assertEqual(task.state, TaskState.DONE)
         shipment.refresh_from_db()
         self.assertIsNone(shipment.trip_id)
+
+
+class RollbackMarkOnTheTruckBoardTests(TestCase):
+    def test_a_linked_trip_carries_the_shipments_rollback_stamp(self):
+        from apps.transport.serializers_trips import ExternalTripSerializer
+        shipment = _make_shipment(documents_reset_at=timezone.now())
+        trip = make_trip(shipment=shipment)
+        self.assertIsNotNone(ExternalTripSerializer(trip).data['shipment_documents_reset_at'])
+        self.assertIsNone(ExternalTripSerializer(make_trip(integration_trip_id='00000000-0000-0000-0000-000000000001')).data['shipment_documents_reset_at'])
