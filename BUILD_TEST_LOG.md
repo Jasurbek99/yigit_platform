@@ -1,3 +1,4 @@
+- [ ] 2026-09-30 — Task card: packing-template select on «Brutto/netto», contracts panel on «Kontrakt», Truck Board link on «Maşyn saýla», filled fields first in the lower list; template choice closes the task — NEEDS TEST
 - [x] 2026-09-30 — Gaplama Tır Aç: «Elýeterli» per batch row is now what is still free (net of trucks already opened that day), not the gross plan — TESTED
   To test: (1) Gaplama → today → + Tır Aç → pick block A (18 500 planned, truck 3009001/26 already
   holds 18 500) → its today row must read «Elýeterli 0», and typing any kg turns red; (2) a block
