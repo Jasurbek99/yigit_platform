@@ -4158,6 +4158,18 @@
       "PLANNING_UNAVAILABLE": "Planning jogap bermedi — maglumat awtomatik gaýtadan iberiler",
       "generic": "Planning {{op}} kabul etmedi ({{code}})"
     },
-    "passport_valid_until": "Pasportyň möhleti"
+    "passport_valid_until": "Pasportyň möhleti",
+    "more": "Giňişleýin",
+    "less": "Ýygna",
+    "no_export_code": "Eksport kody ýok",
+    "documents_label": "Resminamalar: {{status}}",
+    "docs": {
+      "ready": "taýýar",
+      "in_progress": "işlenýär",
+      "missing": "ýok",
+      "ok": "tertipli",
+      "pending": "garaşylýar",
+      "none": "başlanmady"
+    }
   }
 }

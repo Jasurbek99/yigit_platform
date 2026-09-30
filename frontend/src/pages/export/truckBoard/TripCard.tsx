@@ -1,6 +1,8 @@
-import { Tag, Typography } from 'antd';
+import { useState } from 'react';
+import { Button, Tag, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IExternalTrip } from '@/types/externalTrip';
+import { TripCardDetails } from './TripCardDetails';
 import { boardCardStyle, hasVisaFor, syncAgeMinutes } from './truckBoardHelpers';
 
 const { Text } = Typography;
@@ -17,6 +19,7 @@ interface ITripCardProps {
 
 export function TripCard({ trip, selected, dimmed, countryCode, onSelect, onOpen }: ITripCardProps) {
   const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
   const position = trip.position;
   const place = position
     ? position.geofence_name ?? position.address ?? `${position.lat.toFixed(3)}, ${position.lon.toFixed(3)}`
@@ -43,16 +46,16 @@ export function TripCard({ trip, selected, dimmed, countryCode, onSelect, onOpen
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>📍 {where}</Text>
-        <a
-          style={{ fontSize: 12 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpen();
-          }}
-        >
-          {t('truck_board.details')}
-        </a>
+        <span>
+          <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
+            {expanded ? `${t('truck_board.less')} ▴` : `${t('truck_board.more')} ▾`}
+          </Button>
+          <Button type="link" size="small" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
+            {t('truck_board.details')}
+          </Button>
+        </span>
       </div>
+      {expanded && <TripCardDetails trip={trip} />}
     </div>
   );
 }

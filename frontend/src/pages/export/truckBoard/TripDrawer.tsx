@@ -1,33 +1,10 @@
-import { useEffect } from 'react';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import { Button, Descriptions, Drawer } from 'antd';
 import { useTranslation } from 'react-i18next';
-import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
 import { openTripDocument } from '@/hooks/useExternalTrips';
 import type { IExternalTrip } from '@/types/externalTrip';
-import { pinIcon } from '@/utils/truckPin';
+import { TripMiniMap } from './TripMiniMap';
 import { useTripMessages } from './useTripMessages';
-
-const TILE_URL =
-  import.meta.env.VITE_MAP_TILE_URL || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-
-interface IFitToTruckProps {
-  lat: number;
-  lon: number;
-}
-
-// Leaflet measures its container at mount; inside a drawer that container is
-// still animating in, so re-measure once it is there (same fix as the
-// shipment truck-location block).
-function FitToTruck({ lat, lon }: IFitToTruckProps) {
-  const map = useMap();
-  useEffect(() => {
-    map.invalidateSize();
-    map.setView([lat, lon]);
-  }, [lat, lon, map]);
-  return null;
-}
 
 interface ITripDrawerProps {
   trip: IExternalTrip | null;
@@ -70,15 +47,7 @@ export function TripDrawer({ trip, onClose }: ITripDrawerProps) {
                 : '—'}
             </Descriptions.Item>
           </Descriptions>
-          {trip.position && (
-            <div style={{ height: 220, marginTop: 12 }} data-testid="trip-map">
-              <MapContainer center={[trip.position.lat, trip.position.lon]} zoom={12} style={{ height: '100%' }}>
-                <TileLayer url={TILE_URL} />
-                <Marker position={[trip.position.lat, trip.position.lon]} icon={pinIcon('idle', true)} />
-                <FitToTruck lat={trip.position.lat} lon={trip.position.lon} />
-              </MapContainer>
-            </div>
-          )}
+          {trip.position && <TripMiniMap lat={trip.position.lat} lon={trip.position.lon} height={220} />}
           <Button style={{ marginTop: 12 }} onClick={() => openPdf(trip.id)}>
             {t('truck_board.documents_pdf')}
           </Button>

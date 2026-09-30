@@ -91,6 +91,16 @@ give up. Any other refusal → stored as `"<op>: <CODE>"` in `last_push_error`, 
 shipment banner, export managers notified. Retries running out clear the op's `last_pushed_*` marker, so
 the next poll sends it again.
 
+## Cards (2026-09-30)
+
+- **Shipment card:** code, date, country, customer, blocks, export code (or "No export code"), documents
+  status, export firms → importer, loading place → destination city (`candidate-shipments` returns
+  `export_code`, `documents_status`, `import_firm(_name)`, `loading_location(_name)`, `city(_name)`,
+  `export_firms[]`).
+- **Trip card:** plates, date, driver, own/third-party, country, ⚠ visa, GPS place + age; **More ▾** expands in
+  place — vehicles with brand/model/company, phone, passport + expiry, visas, Planning status and number, a mini
+  map when there is GPS (`TripMiniMap`, shared with the drawer), trip PDF. **Details** still opens the drawer.
+
 ## Where conflicts and statuses are worded
 
 The backend stores conflicts structured — `conflict_kind` (`changed` / `cancelled`), `conflict_from`,

@@ -39,7 +39,9 @@ export const MOCK_EXTERNAL_TRIPS: IExternalTrip[] = [
 
 export const MOCK_CANDIDATE_SHIPMENTS: ICandidateShipment[] = [
   { id: 101, shipment_code: '0110001/26', date: '2026-10-01', country_code: 'KZ', country_name: 'GAZAGYSTAN',
-    customer: 1, customer_name: 'Berik', blocks: ['A1'] },
+    customer: 1, customer_name: 'Berik', blocks: ['A1'], export_code: '0110001/26', documents_status: 'in_progress',
+    import_firm: 1, import_firm_name: 'Berik LLP', loading_location: 1, loading_location_name: 'Ahal',
+    city: 1, city_name: 'Almaty', export_firms: [{ id: 1, name: 'YGT' }] },
 ];
 
 export const MOCK_TRIP_SYNC_STATE: ITripSyncState = { last_success_at: new Date().toISOString(), last_error: '', is_mock: true };

@@ -69,6 +69,21 @@ class CandidateShipmentSerializer(serializers.Serializer):
     customer = serializers.IntegerField(source='customer_id', allow_null=True)
     customer_name = serializers.CharField(source='customer.name', default=None)
     blocks = serializers.SerializerMethodField()
+    export_code = serializers.CharField(allow_null=True)
+    documents_status = serializers.CharField(allow_null=True)
+    import_firm = serializers.IntegerField(source='import_firm_id', allow_null=True)
+    import_firm_name = serializers.CharField(source='import_firm.name_company', default=None)
+    loading_location = serializers.IntegerField(source='loading_location_id', allow_null=True)
+    loading_location_name = serializers.CharField(source='loading_location.name', default=None)
+    city = serializers.IntegerField(source='city_id', allow_null=True)
+    city_name = serializers.CharField(source='city.name', default=None)
+    export_firms = serializers.SerializerMethodField()
+
+    def get_export_firms(self, shipment) -> list[dict]:
+        return [
+            {'id': split.export_firm_id, 'name': split.export_firm.name_short or split.export_firm.name_tk}
+            for split in shipment.firm_splits.all()
+        ]
 
     def get_blocks(self, shipment) -> list[str]:
         return [s.block.code for s in shipment.block_sources.all()]
