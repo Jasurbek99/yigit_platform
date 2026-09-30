@@ -84,3 +84,36 @@ class LoadingEndedTaskTests(TestCase):
         self.assertFalse(shipment.tasks.filter(title_key='tasks.loading_ended').exists())
         self._save(shipment, departed_at=timezone.now())
         self.assertEqual(shipment.status.code, 'yola_chykdy')
+
+
+# ── 27: the old «Record departure» gate belongs to the garawul (owner, 2026-09-30) ──
+from rest_framework.test import APIClient
+
+from apps.export.tests_gate_fixtures import GateFixtures
+
+
+class DepartureGateOwnerTests(GateFixtures, TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.make_gate_world()
+        cls.doc = User.objects.create_user(username='dep_doc', password='pw', role='document_team')
+
+    def _my_task_titles(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/v1/me/tasks/', {'page_size': 500})
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        rows = resp.json()
+        rows = rows['results'] if isinstance(rows, dict) else rows
+        return {(r['shipment'], r['title_key']) for r in rows}
+
+    def test_the_departure_gate_is_the_garawuls_and_still_holds_loading(self):
+        rule = TaskRule.objects.get(step='yuklenme', title_key='tasks.trigger_departure')
+        self.assertEqual(rule.assignee_role, 'garawul')
+        truck = self.make_truck('DG-1', status='yuklenme')
+        self.assertEqual(truck.tasks.get(title_key='tasks.trigger_departure').state, TaskState.OPEN)
+
+    def test_neither_document_team_nor_the_guard_sees_it_on_my_tasks(self):
+        truck = self.make_truck('DG-2', status='yuklenme')
+        self.assertNotIn((truck.pk, 'tasks.trigger_departure'), self._my_task_titles(self.doc))
+        self.assertNotIn((truck.pk, 'tasks.trigger_departure'), self._my_task_titles(self.guard))

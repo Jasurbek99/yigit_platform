@@ -532,9 +532,13 @@ TASK_RULES: list[dict] = [
         'is_active': True,
     },
     {
+        # 27 «Ýyladyşhanadan çykdy»: the garawul marks the departure on the gate
+        # (services/gate.py), which fills departed_at. This rule is the step's
+        # gate; owned by garawul since 2026-09-30 (owner) — My Tasks scopes a
+        # guard to his location's gate tasks, so it shows on nobody's board.
         'step': 'yuklenme',
         'title_key': 'tasks.trigger_departure',
-        'assignee_role': 'document_team',
+        'assignee_role': 'garawul',
         'target_fields': 'departed_at',
         'completion_rule': TaskCompletionRule.ALL_FIELDS_FILLED,
         'target_value': '',
