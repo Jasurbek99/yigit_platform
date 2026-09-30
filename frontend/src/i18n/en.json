@@ -1618,7 +1618,8 @@
       "analytics": "Analytics",
       "me": "Personal",
       "director": "Director",
-      "transport": "Transport"
+      "transport": "Transport",
+      "tir_takip": "Truck Tracking"
     }
   },
   "months": {
