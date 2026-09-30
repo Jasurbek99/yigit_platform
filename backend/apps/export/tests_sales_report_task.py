@@ -83,14 +83,29 @@ class SalesReportTaskTests(TestCase):
     def _reminder(self, shipment: Shipment) -> Task | None:
         return shipment.tasks.filter(title_key=REMINDER_TITLE).first()
 
-    # ── reminder generated on step 4 and is a non-gating MANUAL_DONE task ──────
-    def test_reminder_generated_on_step4_and_is_manual_done(self):
+    # ── one card (owner, 2026-09-30): the reminder closes on the saved report ──
+    def test_reminder_generated_on_step4_closes_on_the_report(self):
         shipment = self._make_shipment_at('0101001/26', 'yola_chykdy')
         reminder = self._reminder(shipment)
         self.assertIsNotNone(reminder)
         self.assertEqual(reminder.assignee_role, 'sales_rep')
-        self.assertEqual(reminder.completion_rule, 'manual_done')
+        self.assertEqual((reminder.completion_rule, reminder.target_fields), ('any_field_filled', 'sales_report'))
+        self.assertFalse(reminder.rule.gates_step)
         self.assertEqual(reminder.state, TaskState.OPEN)
+
+    def test_the_reminder_cannot_be_dismissed_without_a_report(self):
+        shipment = self._make_shipment_at('0101009/26', 'yola_chykdy')
+        client = APIClient()
+        client.force_authenticate(self.user)
+        resp = client.post(f'/api/v1/export/tasks/{self._reminder(shipment).pk}/complete/')
+        self.assertEqual(resp.status_code, 400, resp.content[:200])
+        self.assertEqual(self._reminder(shipment).state, TaskState.OPEN)
+
+    def test_the_satyldy_duplicate_is_retired(self):
+        from apps.export.models import TaskRule
+        self.assertFalse(TaskRule.objects.get(title_key='tasks.trigger_report_received').is_active)
+        shipment = self._make_shipment_at('0101010/26', 'satyldy')
+        self.assertFalse(shipment.tasks.filter(title_key='tasks.trigger_report_received').exists())
 
     def test_open_reminder_does_not_block_step4_advance(self):
         """Filling border_crossed_at advances yola_chykdy → serhet_gechdi even

@@ -101,6 +101,7 @@ class SeedTaskRulesTests(TestCase):
             ('tasks.start_documents_prep', 'document_team'),
             ('tasks.assign_driver', 'transport'),
             ('tasks.trigger_customs_exit', 'document_team'),
+            ('tasks.trigger_report_received', 'sales_rep'),   # item 36, one card
         })
 
     def test_new_catalog_rows_get_effective_from_once(self) -> None:

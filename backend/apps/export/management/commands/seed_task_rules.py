@@ -573,12 +573,17 @@ TASK_RULES: list[dict] = [
         'step': 'yola_chykdy',
         'title_key': 'tasks.submit_sales_report',
         'assignee_role': 'sales_rep',
-        'target_fields': '',
-        'completion_rule': TaskCompletionRule.MANUAL_DONE,
+        # One card from departure to the saved report (owner, 2026-09-30,
+        # docs/Tasks.md item 36): it closes on the report itself, not a
+        # button, and never holds a step (gates_step=False) — a sale can take
+        # weeks. It replaced tasks.trigger_report_received below.
+        'target_fields': 'sales_report',
+        'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
         'target_value': '',
         'deadline_rule': '',
         'condition_field': '',
         'condition_value': '',
+        'gates_step': False,
     },
 
     # ── serhet_gechdi → dest_entry ─────────────────────────────────────────────
@@ -726,6 +731,9 @@ TASK_RULES: list[dict] = [
         'deadline_rule': 'friday_eow',
         'condition_field': '',
         'condition_value': '',
+        # Retired 2026-09-30: a second card for the same report. The reminder
+        # above covers it, and approve_sales_report needs the report anyway.
+        'is_active': False,
     },
     # «Hasabaty gözden geçir we tassykla» (docs/Tasks.md item 37, 2026-09-29):
     # the shipment closes only after an export manager (either; admin / boss /
