@@ -25,6 +25,8 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     condition_field: '',
     condition_value: '',
     is_active: true,
+    depends_on: [],
+    gates_step: true,
   },
   {
     id: 2,
@@ -43,6 +45,8 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     condition_field: '',
     condition_value: '',
     is_active: true,
+    depends_on: [],
+    gates_step: true,
   },
   {
     id: 3,
@@ -61,6 +65,8 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     condition_field: '',
     condition_value: '',
     is_active: true,
+    depends_on: [],
+    gates_step: true,
   },
   {
     id: 4,
@@ -79,6 +85,8 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     condition_field: 'is_gapy_satys',
     condition_value: 'false',
     is_active: true,
+    depends_on: [],
+    gates_step: true,
   },
   {
     id: 5,
@@ -97,5 +105,7 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     condition_field: '',
     condition_value: '',
     is_active: false,
+    depends_on: [],
+    gates_step: true,
   },
 ];

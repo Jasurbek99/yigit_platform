@@ -27,6 +27,8 @@ function rule(overrides: Partial<ITaskRule> = {}): ITaskRule {
     condition_field: '',
     condition_value: '',
     is_active: true,
+    depends_on: [],
+    gates_step: true,
     ...overrides,
   };
 }
@@ -196,5 +198,15 @@ describe('TaskRulesPage', () => {
   it('lists the gate guard kind among the code-driven tasks', () => {
     renderPage([rule()]);
     expect(screen.getByText('Gate guard: mark arrival and exit')).toBeInTheDocument();
+  });
+  it('shows what a chained rule waits for and labels a confirm button', () => {
+    renderPage([rule({
+      id: 2, step: 'gumruk_girish', title_key: 'tasks.print_cmr', target_fields: [],
+      completion_rule: 'confirm', completion_rule_display: 'Button that gates the step',
+      depends_on: ['tasks.prepare_contract', 'tasks.fill_gross_net'],
+    })]);
+    expect(screen.getByText('Button (holds the step)')).toBeInTheDocument();
+    expect(screen.getByText('After:')).toBeInTheDocument();
+    expect(screen.getByText('Gross/net: pick the packing')).toBeInTheDocument();
   });
 });

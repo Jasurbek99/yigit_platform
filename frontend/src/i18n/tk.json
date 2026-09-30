@@ -3006,14 +3006,18 @@
       "quality.hil_sertifikaty": "Hil sertifikaty",
       "quality.kalibrowka_analiz": "Kalibrowka analizi",
       "sales_report.approved_at": "Hasabat tassyklandy",
-      "has_peregruz": "Peregruz bar"
+      "has_peregruz": "Peregruz bar",
+      "truck_head_id": "Çekiji",
+      "packing_template": "Gaplaýyş şablony (brut/net)",
+      "advance_links": "Awans",
+      "customs_exit_at": "Gümrük çykyş"
     },
     "edit_in_detail": "Iberişiň jikme-jikliginde redaktirle",
     "fill_loading_data": "Ýüklemek maglumatyny doldur",
-    "set_destination": "Baryljak ýeri belle",
+    "set_destination": "Eksport maglumatlaryny dolduryň",
     "pick_export_firms": "Eksport firmalaryny saý",
     "set_border_point": "Serhet nokadyny belle",
-    "assign_driver": "Sürüji bel",
+    "assign_driver": "Transport maglumatlaryny dolduryň",
     "give_documents": "Resminamalary gowşur",
     "give_documents_gapy": "Gapy Satys resminamalaryny tabşyr",
     "start_documents_prep": "Gümrük resminamalaryny taýynlamagy başla",
@@ -3052,7 +3056,39 @@
     "ack_failed": "«Tanyşdym» ýatda saklanmady.",
     "missed": "Ýerine ýetirilmedi",
     "deadline_at": "Möhlet: {{time}}",
-    "weekly_plan_late_until_sunday": "Gijä galdy — ýekşenbä çenli doldurup bolýar"
+    "weekly_plan_late_until_sunday": "Gijä galdy — ýekşenbä çenli doldurup bolýar",
+    "join_supply": "Ýükleme bölegi birikdir",
+    "choose_truck": "Maşyn saýla",
+    "prepare_contract": "Kontrakt saýla ýa-da döret we ýükle",
+    "fill_gross_net": "Brutto/netto: gaplamany saýla",
+    "prepare_transport_docs": "Transport resminamalaryny taýýarla",
+    "print_cmr": "CMR çap et",
+    "print_tir": "TIR karnet çap et",
+    "print_ct1": "CT-1 (gelip çykyş) taýýarla, çap et",
+    "print_phyto": "Fitosanitar taýýarla, çap et",
+    "ct1_phyto_sent": "CT-1 we fitosanitar haty ugradyldy",
+    "print_customs_request": "Gümrük haty çap et",
+    "docs_to_stamp": "Resminamalar peçada ugradyldy",
+    "docs_from_stamp": "Resminamalar peçatdan geldi",
+    "give_advance": "Ýük üçin awans ber",
+    "prepare_declaration": "Deklarasiýa taýýarla",
+    "docs_to_customs": "Resminamalar gümrüge ugradyldy",
+    "docs_from_customs": "Resminamalar gümrükden geldi",
+    "open_assign_board": "Birikdirme tagtasy",
+    "button": {
+      "prepare_transport_docs": "Taýýarladym",
+      "prepare_declaration": "Taýýarladym",
+      "print_cmr": "Çap etdim",
+      "print_tir": "Çap etdim",
+      "print_ct1": "Çap etdim",
+      "print_phyto": "Çap etdim",
+      "print_customs_request": "Çap etdim",
+      "ct1_phyto_sent": "Ugradyldy",
+      "docs_to_stamp": "Ugradyldy",
+      "docs_to_customs": "Ugradyldy",
+      "docs_from_stamp": "Geldi",
+      "prepare_contract": "Taýýar"
+    }
   },
   "me": {
     "board": {
@@ -3826,7 +3862,9 @@
     "kind_gate_trigger": "Belgili maşyn garawulyň ýerine gelmeli bolanda (şu gün −30 … ertir)",
     "kind_gate_completes": "Derwezede «Geldi» / «Çykdy» basylanda",
     "other_kinds_note": "Bular düzgün däl-de kod bilen döredilýär, şonuň üçin olary bu sahypadan-da, hukuk matrisasyndan-da üýtgetmek bolmýar — deploý gerek.",
-    "retired_rule_note": "Bu ýerde düzgüni ýok rol üçin hem açyk ýumuş bolup biler. Düzgünler diňe ädime girilende işleýär, şonuň üçin düzgün başga rola berilmezden ýa-da öçürilmezden öň döredilen ýumuş öňki rolunda galýar."
+    "retired_rule_note": "Bu ýerde düzgüni ýok rol üçin hem açyk ýumuş bolup biler. Düzgünler diňe ädime girilende işleýär, şonuň üçin düzgün başga rola berilmezden ýa-da öçürilmezden öň döredilen ýumuş öňki rolunda galýar.",
+    "completes_confirm": "Düwme (ädimi saklaýar)",
+    "after": "Soňra:"
   },
   "tir_takip": {
     "title": "Maşyn Yzarlamasy (Tır Takip)",

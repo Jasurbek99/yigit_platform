@@ -14,6 +14,7 @@ const RULE_COLOR: Record<ITaskRule['completion_rule'], string> = {
   any_field_filled: 'green',
   field_equals: 'blue',
   field_set: 'green',
+  confirm: 'orange',
   manual_done: 'orange',
 };
 
@@ -172,7 +173,9 @@ export default function TaskRulesPage() {
           <Tag color={RULE_COLOR[rule.completion_rule]}>
             {rule.completion_rule === 'manual_done'
               ? t('task_rules.completes_manual')
-              : t('task_rules.completes_auto')}
+              : rule.completion_rule === 'confirm'
+                ? t('task_rules.completes_confirm')
+                : t('task_rules.completes_auto')}
           </Tag>
           {rule.target_fields.length > 0 && (
             <Space size={4} wrap>
@@ -183,6 +186,14 @@ export default function TaskRulesPage() {
                     ? ` = ${rule.target_value}`
                     : ''}
                 </Tag>
+              ))}
+            </Space>
+          )}
+          {rule.depends_on.length > 0 && (
+            <Space size={4} wrap>
+              <Text type="secondary" style={{ fontSize: 12 }}>{t('task_rules.after')}</Text>
+              {rule.depends_on.map((key) => (
+                <Tag key={key} color="default" style={{ margin: 0 }}>{t(key)}</Tag>
               ))}
             </Space>
           )}

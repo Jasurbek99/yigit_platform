@@ -1777,7 +1777,7 @@ export interface ICancelShipmentResponse extends IShipmentDetail {
 export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 
 export type TaskCompletionRule =
-  | 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'manual_done';
+  | 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'confirm' | 'manual_done';
 
 export type TaskKind =
   | 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation'
@@ -2282,13 +2282,17 @@ export interface ITaskRule {
   assignee_role: string;
   assignee_role_display: string;
   target_fields: string[];
-  completion_rule: 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'manual_done';
+  completion_rule: 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'confirm' | 'manual_done';
   completion_rule_display: string;
   target_value: string;
   deadline_rule: string;
   condition_field: string;
   condition_value: string;
   is_active: boolean;
+  /** title_keys that must be done before this rule creates its task ("after N"). */
+  depends_on: string[];
+  /** false = closes itself but never holds the step (join_supply). */
+  gates_step: boolean;
 }
 
 // ─── Gate guard (garawul) ────────────────────────────────────────────────────

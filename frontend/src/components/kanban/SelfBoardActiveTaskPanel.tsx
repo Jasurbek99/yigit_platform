@@ -2,10 +2,12 @@ import { useRef } from 'react';
 import { Button, Divider, Progress, Space, Tag, Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { SelfBoardShipmentFieldList } from './SelfBoardShipmentFieldList';
 import { isFieldFilled } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
+import { isButtonTask, taskButtonLabel } from '@/utils/taskButtons';
 import type {
   IRowConfig,
   ISheetRowSettingForUser,
@@ -59,7 +61,8 @@ export function SelfBoardActiveTaskPanel({
   const progressPercent =
     totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 0;
 
-  const isManualDone = task.completion_rule === 'manual_done';
+  // manual_done and confirm (PREP/DOCS chain) both close by a button.
+  const isManualDone = isButtonTask(task.completion_rule);
   // A gate task must never close without the guard's actual mark — no
   // generic "Mark done" here (final-fix review F10). GateTaskCard is the
   // path that closes it.
@@ -152,8 +155,11 @@ export function SelfBoardActiveTaskPanel({
             onClick={handleMarkDone}
             loading={completeMutation.isPending}
           >
-            {t('shipment.detail.mark_done')}
+            {taskButtonLabel(t, task.title_key)}
           </Button>
+        )}
+        {task.title_key === 'tasks.join_supply' && !isDone && (
+          <Link to="/export/assign">{t('tasks.open_assign_board')}</Link>
         )}
         {isDone && (
           <Tag color="success" style={{ margin: 0 }}>

@@ -2,10 +2,12 @@ import { useRef } from 'react';
 import { Button, Card, Progress, Tag, Typography, Space, Divider } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { TaskCardEditor } from '@/components/shipment/TaskCardEditor';
 import { isFieldFilled } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
+import { isButtonTask, taskButtonLabel } from '@/utils/taskButtons';
 import { useAuth } from '@/hooks/useAuth';
 import { SUPERVISOR_ROLES } from '@/utils/detailSections';
 import type { IShipmentDetail } from '@/types';
@@ -69,7 +71,8 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
   }
 
   const isOverdue = task.is_overdue;
-  const isManualDone = task.completion_rule === 'manual_done';
+  // manual_done and confirm (PREP/DOCS chain) both close by a button.
+  const isManualDone = isButtonTask(task.completion_rule);
   const canComplete =
     isManualDone &&
     (task.state === 'open' || task.state === 'in_progress');
@@ -161,8 +164,11 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
             onClick={handleMarkDone}
             loading={completeMutation.isPending}
           >
-            {t('shipment.detail.mark_done')}
+            {taskButtonLabel(t, task.title_key)}
           </Button>
+        )}
+        {task.title_key === 'tasks.join_supply' && task.state !== 'done' && (
+          <Link to="/export/assign">{t('tasks.open_assign_board')}</Link>
         )}
         {task.state === 'done' && (
           <Tag color="success" style={{ margin: 0 }}>
