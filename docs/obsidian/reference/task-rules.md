@@ -74,7 +74,7 @@ department's tasks.
 | | 17 Customs letter «Gümrük haty» — *after 12* | document_team | `customs_tk` downloaded, or `confirm` |
 | | 18 Sent to stamp «Peçada ugradyldy» — *after 16, 17* | document_team | `confirm` |
 | | 19 Back from stamp «Peçatdan geldi» — *after 18* | document_team | `confirm` |
-| | 20 Give advance «Awans ber» | finansist | auto: `advance_links` (an advance is linked) |
+| | 20 Give advance «Awans ber» | finansist | auto: `has_current_advance` — an advance is linked; after a truck-change rollback only a NEW advance (created after `documents_reset_at`) counts, the old link stays |
 | | 21a Prepare declaration — *after 19* | document_team | `confirm` |
 | | 21b Sent to customs «Gümrüge ugradyldy» — *after 20, 21a* | document_team | `confirm` — the last task; the step advances when it closes |
 | **Customs exit (TM)** `gumruk_chykysh` | 22 Back from customs «Gümrükden geldi» | document_team | auto: `customs_exit_at`; sets R6 to the «Gümrükden geldi» option |
@@ -144,6 +144,13 @@ Owner's catalog, `docs/Tasks.md` items 5b–22. Spec:
   sale create/update, firm-contract link and agreement download); advances (create + link-shipment);
   join / swap packing (closes `join_supply` only — **a packing move never moves the truck**).
   A closed season changes nothing.
+- **Truck-change rollback** (PR #24, `services/rollback.py`; owner 2026-09-30): the shipment
+  goes back to «Подготовка», `documents_reset_at` is stamped, and the DONE tasks of 11–21b, 22 and
+  20 (advance) are reopened — the truck is printed on the transport documents and everything
+  built on them; the contract (9) and gross/net (10) stay done. Downloads and advances from
+  before the stamp do not count (a second advance is needed; the first stays linked). The
+  reopened tasks are all open at once — the redo is not re-sequenced. The stamp is cleared when
+  «Gümrüge ugradyldy» (21b) closes again.
 - **Deactivated** (rows kept, `is_active=False`): `set_border_point`, `give_documents`,
   `give_documents_gapy`, `start_documents_prep`, the transport `assign_driver`,
   `trigger_customs_exit`. Their open tasks on in-flight shipments still close as before.
