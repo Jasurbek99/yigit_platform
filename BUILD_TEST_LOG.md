@@ -1,3 +1,4 @@
+- [ ] 2026-09-30 — «Eksport firmalaryny saýla» / join_supply close when firms / blocks are saved; legacy duplicate rules off + cancel_retired_duplicate_tasks — NEEDS TEST
 - [ ] 2026-09-30 — Gaplama stored leftover: nightly snapshot into «Düýnki galyndy», board anchors to it, carry-in cell editable in Gaplama day view — NEEDS TEST
   To test (as superuser; real roles can't open Gaplama until `tir_takip.gaplama` is restored):
   (1) Gaplama → Gün, today: click a block's carry-in cell, type a lower number, Enter → the cell

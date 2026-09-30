@@ -154,6 +154,11 @@ Owner's catalog, `docs/Tasks.md` items 5b–22. Spec:
   «Gümrüge ugradyldy» (21b) closes again. While it is set the Sheet, «Подготовка», the shipment
   card, My tasks (reopened tasks only) and the Truck Board show an orange «Maşyn üýtgedi» mark —
   see [[../processes/truck-board#Reaction to a Planning change]].
+- **Legacy duplicates** (2026-09-30): `send_documents_to_customs`, `docs_back_to_office`, `finalize_sale`
+  lived only in the DB, so seeding never turned them off; the seed now lists them inactive and
+  `python manage.py cancel_retired_duplicate_tasks [--dry-run]` cancels their open cards once.
+- **Junction writes** (firm splits, block sources) run the same task refresh as a save, so
+  `pick_export_firms` / `join_supply` close the moment the split is saved.
 - **Deactivated** (rows kept, `is_active=False`): `set_border_point`, `give_documents`,
   `give_documents_gapy`, `start_documents_prep`, the transport `assign_driver`,
   `trigger_customs_exit`. Their open tasks on in-flight shipments still close as before.
