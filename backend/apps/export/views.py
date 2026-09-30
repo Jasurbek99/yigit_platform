@@ -3847,7 +3847,7 @@ class ShipmentViewSet(ModelViewSet):
         This is enforced by the bounded-query test in tests_shipment_board.py.
         """
         from django.core.cache import cache
-        from apps.export.models import Task as _Task
+        from apps.export.models import Task as _Task, TaskKind as _TaskKind
         from apps.export.serializers import BoardItemSerializer
         from apps.export.services.phases import PHASE_ORDER, get_phase
 
@@ -3895,11 +3895,15 @@ class ShipmentViewSet(ModelViewSet):
         # ordering restriction does not apply.
         owner_role = request.query_params.get('owner_role', '').strip()
         if owner_role:
-            # Keep only shipments whose most-recent task (by created_at desc)
-            # has the given assignee_role. Subquery approach is safe for MSSQL
-            # — no Window involved so no Meta.ordering-in-subquery issue.
+            # Keep only shipments whose most-recent NON-gate task (by
+            # created_at desc) has the given assignee_role. Gate tasks are
+            # excluded (final-fix review F3) — otherwise every plated truck's
+            # lazily-created gate task would make it "owned" by garawul.
+            # Subquery approach is safe for MSSQL — no Window involved so no
+            # Meta.ordering-in-subquery issue.
             latest_task_role_sq = (
                 _Task.objects.filter(shipment=OuterRef('pk'))
+                .exclude(kind=_TaskKind.GATE)
                 .order_by('-created_at')
                 .values('assignee_role')[:1]
             )
@@ -4557,7 +4561,7 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
 
         Permission: assignee_role or supervisor roles.
         """
-        from apps.export.models import Task, TaskState, TaskCompletionRule
+        from apps.export.models import Task, TaskKind, TaskState, TaskCompletionRule
         from apps.export.serializers import TaskDetailSerializer
 
         task = self.get_object()
@@ -4584,6 +4588,14 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
             # «Tanyşdym» must record what was seen — only /acknowledge/ does.
             return Response(
                 {'error': 'Use /acknowledge/ for review tasks.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if task.kind == TaskKind.GATE:
+            # A gate task must never close without the guard's actual mark —
+            # only POST /gate/{id}/arrive|depart/ does (final-fix review F2).
+            return Response(
+                {'error': 'gate_task_needs_mark'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

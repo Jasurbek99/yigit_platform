@@ -40,6 +40,7 @@ from apps.export.views_user_preferences import UserSheetPreferencesView
 from apps.export.views_clients_report import ClientsReportViewSet
 from apps.export.views_tir_hasabat import TirHasabatViewSet
 from apps.export.views_gaplama import GaplamaBoardView
+from apps.export.views_gate import GateViewSet
 
 router = DefaultRouter()
 
@@ -62,6 +63,7 @@ router.register('kpi', KpiViewSet, basename='kpi')
 router.register('shipments', ShipmentViewSet, basename='shipment')
 router.register('comments', CommentViewSet, basename='comment')
 router.register('tasks', TaskViewSet, basename='task')
+router.register('gate', GateViewSet, basename='gate')
 # Read-only task-rule catalog — backs the Task Rules reference page.
 router.register('task-rules', TaskRuleViewSet, basename='task-rule')
 router.register('sales-rep-coverage', SalesRepCoverageViewSet, basename='sales-rep-coverage')

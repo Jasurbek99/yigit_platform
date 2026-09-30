@@ -35,6 +35,7 @@ from apps.export.models import (
     ShipmentComment,
     Task,
     TaskCompletionRule,
+    TaskKind,
     TaskRule,
     TaskState,
 )
@@ -2382,6 +2383,12 @@ class TaskListSerializer(serializers.ModelSerializer):
         source='scope_block.code', read_only=True, default=None,
     )
 
+    # Gate tasks (kind='gate'): the plate the card shows and the gate it
+    # belongs to (a supervisor's card sends it as ?location=).
+    truck_plate = serializers.CharField(
+        source='shipment.truck_plate', read_only=True, default=None,
+    )
+
     def get_phase(self, obj) -> str | None:
         """Resolve phase from the task's parent shipment status.
 
@@ -2409,6 +2416,8 @@ class TaskListSerializer(serializers.ModelSerializer):
             'scope_week',
             'scope_block',
             'scope_block_code',
+            'scope_location',
+            'truck_plate',
             'scope_date',
             'cancelled_reason',
             'step',
@@ -2550,16 +2559,21 @@ class BoardItemSerializer(serializers.ModelSerializer):
         return resolve_phase(code)
 
     def get_owner_role(self, obj) -> str | None:
-        """Assignee role of the most-recently-created task on this shipment.
+        """Assignee role of the most-recently-created NON-gate task on this shipment.
 
         Reads from the prefetched tasks queryset (ordered by -created_at).
-        Returns None when the shipment has no tasks.
+        Gate tasks are excluded (final-fix review F3): they are lazily
+        created for every plated truck, so counting them would make a garawul
+        "own" every board card the moment its truck is due. Filtered in
+        Python, not `.exclude()`, to stay on the prefetched queryset — see
+        BoardQueryCountTests' assertNumQueries cap.
+        Returns None when the shipment has no other tasks.
         """
-        tasks = obj.tasks.all()
-        if not tasks:
-            return None
         # tasks is prefetched ordered by -created_at (set in the viewset).
-        return tasks[0].assignee_role
+        for task in obj.tasks.all():
+            if task.kind != TaskKind.GATE:
+                return task.assignee_role
+        return None
 
     def get_time_in_phase_seconds(self, obj) -> int | None:
         """Seconds since the shipment entered its current phase.

@@ -107,8 +107,15 @@ class MeTaskListView(APIView):
         # 06:05 beat (a GET that creates would race on every badge poll).
         resolve_daily_plan_tasks()
 
+        # Gate tasks are code-driven too — sync the guard's own gate on read.
+        from apps.core.roles import GATE_GUARD_ROLE
+        guard_location_id = getattr(request.user, 'loading_location_id', None)
+        if role == GATE_GUARD_ROLE and guard_location_id:
+            from apps.export.services.gate_tasks import sync_gate_tasks
+            sync_gate_tasks(request.user.loading_location)
+
         qs = Task.objects.select_related(
-            'shipment__status', 'rule', 'assignee_user', 'scope_block',
+            'shipment__status', 'rule', 'assignee_user', 'scope_block', 'scope_location',
         ).all()
 
         # Hide tasks whose shipment was soft-deleted — they are not live work.
@@ -151,6 +158,12 @@ class MeTaskListView(APIView):
             qs = qs.filter(assignee_role__in=task_roles_for(role)).filter(
                 Q(assignee_user__isnull=True) | Q(assignee_user=request.user)
             )
+            if role == GATE_GUARD_ROLE:
+                # One guard per gate: another location's trucks are not his work.
+                qs = (
+                    qs.filter(scope_location_id=guard_location_id)
+                    if guard_location_id else qs.none()
+                )
         else:
             # Supervisors see every role by default; ?assignee_role= narrows to one.
             # Fetching the role as its own query makes the result complete, rather
@@ -270,22 +283,27 @@ class MeKpiTodayView(APIView):
             on_time_rate: fraction of tasks with deadline where completed_at
                 <= deadline; None if no such tasks
         """
+        from apps.core.roles import GATE_GUARD_ROLE
         from apps.export.models import Task, TaskState
 
         if role is None:
             role = getattr(user, 'role', None)
 
         midnight = _today_midnight_utc()
-        today_tasks = list(
-            Task.objects.filter(
-                # Same helper as the task list, so the tiles and the columns
-                # below them always count the same set — a deputy's "Done today"
-                # must include the head's tasks they actually completed.
-                assignee_role__in=task_roles_for(role),
-                state=TaskState.DONE,
-                completed_at__gte=midnight,
-            ).only('started_at', 'completed_at', 'deadline')
+        qs = Task.objects.filter(
+            # Same helper as the task list, so the tiles and the columns
+            # below them always count the same set — a deputy's "Done today"
+            # must include the head's tasks they actually completed.
+            assignee_role__in=task_roles_for(role),
+            state=TaskState.DONE,
+            completed_at__gte=midnight,
         )
+        if role == GATE_GUARD_ROLE:
+            # One guard per gate: another location's gate tasks are not his
+            # work — same scoping as MeTaskListView. No location → count nothing.
+            location_id = getattr(user, 'loading_location_id', None)
+            qs = qs.filter(scope_location_id=location_id) if location_id else qs.none()
+        today_tasks = list(qs.only('started_at', 'completed_at', 'deadline'))
 
         done_count = len(today_tasks)
 

@@ -33,6 +33,7 @@ class TaskKind(models.TextChoices):
     TRANSPORT_PLAN  = 'transport_plan',  _('Transport truck planning («Tanyşdym»)')
     DAILY_LOADING   = 'daily_loading',   _('Daily loading plan (Gaplama)')
     DAILY_EXPORT    = 'daily_export',    _('Daily export plan')
+    GATE            = 'gate',            _('Gate guard task')
 
 
 class TaskCompletionRule(models.TextChoices):
@@ -207,6 +208,12 @@ class Task(models.Model):
                   'truck_allocation task, or what was seen at «Tanyşdym» on '
                   'alloc_review / transport_plan tasks',
     )
+    scope_location = models.ForeignKey(
+        'core.LoadingLocation', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+        help_text='Greenhouse gate a gate task belongs to — only that '
+                  'location\'s garawul sees it. Always null for other kinds.',
+    )
 
     state = models.CharField(
         max_length=16, choices=TaskState.choices,
@@ -263,6 +270,13 @@ class Task(models.Model):
                     state__in=['open', 'in_progress'],
                 ),
                 name='export_task_one_open_ack_per_week',
+            ),
+            # One «gelmeli» and one «çykmaly» task per truck, even when two
+            # guards' screens sync at the same moment (services/gate_tasks.py).
+            models.UniqueConstraint(
+                fields=['shipment', 'step'],
+                condition=models.Q(kind='gate'),
+                name='export_task_one_gate_per_shipment_step',
             ),
         ]
 

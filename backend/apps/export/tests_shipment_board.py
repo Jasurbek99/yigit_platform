@@ -16,11 +16,12 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.core.models import Country, Customer, Season, ShipmentStatusType, User
+from apps.core.models import Country, Customer, LoadingLocation, Season, ShipmentStatusType, User
 from apps.export.models import (
     Shipment,
     Task,
     TaskCompletionRule,
+    TaskKind,
     TaskRule,
     TaskState,
 )
@@ -494,6 +495,62 @@ class BoardFilterTests(TestCase):
         self.assertIn('BRD_FA1', codes)
         # ship_b has no tasks — should be excluded by the owner_role filter.
         self.assertNotIn('BRD_FB1', codes)
+
+
+class BoardOwnerRoleExcludesGateTasksTests(TestCase):
+    """A lazily-created gate task must not make a truck "owned" by garawul —
+    get_owner_role and the ?owner_role= subquery both skip kind='gate'
+    (final-fix review F3)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = _make_user('brd_owner_user')
+        cls.season = _make_season('brd-ownr')
+        cls.location = LoadingLocation.objects.create(name='Board Owner Dusak')
+        cls.shipment = _make_shipment('BRD_OWN1', 'yuklenme', season=cls.season)
+        cls.rule_task = _make_task(cls.shipment, assignee_role='document_team')
+        cls.gate_task = Task.objects.create(
+            shipment=cls.shipment, kind=TaskKind.GATE, step='gate_arrive',
+            title_key='tasks.gate_arrive', assignee_role='garawul',
+            scope_location=cls.location, completion_rule=TaskCompletionRule.MANUAL_DONE,
+            state=TaskState.OPEN,
+        )
+        # created_at is auto_now_add — force the gate task to be the newer one
+        # so a naive "most recent task" read would (wrongly) pick it.
+        Task.objects.filter(pk=cls.gate_task.pk).update(
+            created_at=cls.rule_task.created_at + datetime.timedelta(seconds=5),
+        )
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        _auth(self.client, self.user)
+
+    def _all_codes(self, resp) -> set[str]:
+        return {
+            item['shipment_code']
+            for items in resp.json()['columns'].values()
+            for item in items
+        }
+
+    def _get_item(self, resp, shipment_code: str) -> dict:
+        for items in resp.json()['columns'].values():
+            for item in items:
+                if item['shipment_code'] == shipment_code:
+                    return item
+        self.fail(f"{shipment_code} not found in board response")
+
+    def test_item_owner_role_is_the_rule_tasks_role_not_the_newer_gate_task(self) -> None:
+        resp = self.client.get(BOARD_URL)
+        item = self._get_item(resp, 'BRD_OWN1')
+        self.assertEqual(item['owner_role'], 'document_team')
+
+    def test_owner_role_filter_garawul_excludes_the_truck(self) -> None:
+        resp = self.client.get(BOARD_URL, {'owner_role': 'garawul'})
+        self.assertNotIn('BRD_OWN1', self._all_codes(resp))
+
+    def test_owner_role_filter_the_rule_role_includes_the_truck(self) -> None:
+        resp = self.client.get(BOARD_URL, {'owner_role': 'document_team'})
+        self.assertIn('BRD_OWN1', self._all_codes(resp))
 
 
 # ---------------------------------------------------------------------------
