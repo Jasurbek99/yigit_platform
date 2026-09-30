@@ -3013,7 +3013,8 @@
       "packing_template": "Шаблон упаковки (брутто/нетто)",
       "advance_links": "Аванс",
       "has_current_advance": "Аванс",
-      "customs_exit_at": "Таможня выход"
+      "customs_exit_at": "Таможня выход",
+      "loading_ended_at": "Конец погрузки"
     },
     "edit_in_detail": "Редактировать в деталях отгрузки",
     "fill_loading_data": "Заполнить данные загрузки",
@@ -3079,6 +3080,7 @@
     "docs_from_customs": "Документы вернулись с таможни",
     "open_assign_board": "Доска присоединения",
     "redo_after_truck_change": "Повторно: машина изменена",
+    "loading_ended": "Погрузка закончена",
     "button": {
       "prepare_transport_docs": "Подготовил",
       "prepare_declaration": "Подготовил",

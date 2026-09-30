@@ -3013,7 +3013,8 @@
       "packing_template": "Packing template (gross/net)",
       "advance_links": "Advance",
       "has_current_advance": "Advance",
-      "customs_exit_at": "Customs Exit"
+      "customs_exit_at": "Customs Exit",
+      "loading_ended_at": "Loading ended at"
     },
     "edit_in_detail": "Edit in shipment detail",
     "fill_loading_data": "Fill loading data",
@@ -3079,6 +3080,7 @@
     "docs_from_customs": "Documents back from customs",
     "open_assign_board": "Assignment board",
     "redo_after_truck_change": "Again: truck changed",
+    "loading_ended": "Loading ended",
     "button": {
       "prepare_transport_docs": "Prepared",
       "prepare_declaration": "Prepared",

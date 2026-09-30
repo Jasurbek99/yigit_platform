@@ -61,9 +61,15 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
 
   it('the new target fields have a label in every language', () => {
     for (const lng of ['en', 'ru', 'tk']) {
-      for (const key of ['trip_id', 'truck_head_id', 'packing_template', 'advance_links', 'has_current_advance', 'customs_exit_at']) {
+      for (const key of ['trip_id', 'truck_head_id', 'packing_template', 'advance_links', 'has_current_advance', 'customs_exit_at', 'loading_ended_at']) {
         expect(i18n.getFixedT(lng)(`tasks.field_label.${key}`, { defaultValue: '' })).not.toBe('');
       }
+    }
+  });
+
+  it('the LOAD task «Ýükleme gutardy» has a title in every language', () => {
+    for (const lng of ['en', 'ru', 'tk']) {
+      expect(i18n.getFixedT(lng)('tasks.loading_ended', { defaultValue: '' })).not.toBe('');
     }
   });
 

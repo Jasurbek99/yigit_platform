@@ -3016,7 +3016,8 @@
       "packing_template": "Gaplaýyş şablony (brut/net)",
       "advance_links": "Awans",
       "has_current_advance": "Awans",
-      "customs_exit_at": "Gümrük çykyş"
+      "customs_exit_at": "Gümrük çykyş",
+      "loading_ended_at": "Ýükleme gutardy"
     },
     "edit_in_detail": "Iberişiň jikme-jikliginde redaktirle",
     "fill_loading_data": "Ýüklemek maglumatyny doldur",
@@ -3082,6 +3083,7 @@
     "docs_from_customs": "Resminamalar gümrükden geldi",
     "open_assign_board": "Birikdirme tagtasy",
     "redo_after_truck_change": "Täzeden: maşyn üýtgedi",
+    "loading_ended": "Ýükleme gutardy",
     "button": {
       "prepare_transport_docs": "Taýýarladym",
       "prepare_declaration": "Taýýarladym",
