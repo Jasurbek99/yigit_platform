@@ -49,3 +49,11 @@ def run_weekly_plan_setup() -> None:
     """
     call_command('run_weekly_plan_setup')
     logger.info('run_weekly_plan_setup completed')
+
+
+@shared_task
+def snapshot_gaplama_leftovers() -> None:
+    """Daily 00:05: freeze each block's starting Gaplama leftover (today and 3 days back) where empty."""
+    from apps.export.services.gaplama_snapshot import snapshot_gaplama_leftovers as run
+
+    run(timezone.localdate())

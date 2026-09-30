@@ -522,6 +522,14 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=6, minute=5),
         'options': {'expires': 3600},
     },
+    # Gaplama stored leftover (spec 2026-09-30): just after a day closes, freeze each
+    # block's starting carry-in into HarvestDayEntry.yesterday_rest_value. Writes only
+    # empty fields and catches up 3 days, so a missed night heals on the next run.
+    'snapshot-gaplama-leftovers': {
+        'task': 'apps.export.tasks.snapshot_gaplama_leftovers',
+        'schedule': crontab(hour=0, minute=5),
+        'options': {'expires': 3600},
+    },
 }
 
 # ════════════════════════════════════════════════
