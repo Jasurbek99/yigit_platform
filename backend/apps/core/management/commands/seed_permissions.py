@@ -136,6 +136,8 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     'transport': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD, _BOARD,
         _HARVEST_BOARD,
+        # Transport truck planning (docs/Tasks.md item 3, 2026-09-29).
+        'transport.plan',
     } | _UNIVERSAL,
     # quality_inspector: transport's shipment surfaces minus the harvest board
     # — the inspector works the truck, not the greenhouse plan.
@@ -327,6 +329,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'transport': {
         'shipment': _VE,
         'shipment_comment': _VCE,
+        'truck_allocation': _VIEW,       # /transport/plan reads the week's allocation
     },
     # quality_inspector: edits the shipment's quality readings and owns the
     # quality-certificate record outright. quality_document was previously
