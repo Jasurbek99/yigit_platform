@@ -2296,7 +2296,23 @@
     "hint_invalid": "Bu jübüti birleşdirip ýa-da çalşyp bolmaýar",
     "no_truck": "maşyn ýok",
     "packing_label": "Üpjünçilik",
-    "read_only": "Möwsüm ýapyk — diňe okamak"
+    "read_only": "Möwsüm ýapyk — diňe okamak",
+    "detail": {
+      "blocks": "Bloklar",
+      "date": "Sene",
+      "harvest_status": "Hasylyň ýagdaýy",
+      "variety": "Sort",
+      "destination": "Ýurt",
+      "customer": "Müşderi",
+      "import_firm": "Import firma",
+      "export_firms": "Eksport firmalary",
+      "border_point": "Serhet nokady",
+      "gapy": "Gapy satyş",
+      "truck": "Ulag",
+      "notes": "Bellikler",
+      "export_manager_note": "Eksport menejeriniň belligi",
+      "created": "Döreden"
+    }
   },
   "split": {
     "header_title": "Ýüki bölmek — ulaga paýlamak",

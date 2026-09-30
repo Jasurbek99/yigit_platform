@@ -2,6 +2,8 @@ import { Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IShipmentDraft } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
+import { CardDetails } from './CardDetails';
+import { ExportCode } from './ExportCode';
 
 interface IExportPartCardProps {
   part: IShipmentDraft;
@@ -12,8 +14,7 @@ interface IExportPartCardProps {
 /** Right-column card: a destination plan before loading, its truck and packing. */
 export function ExportPartCard({ part, selected, onSelect }: IExportPartCardProps) {
   const { t } = useTranslation();
-  const blocks = part.block_sources.map((s) => s.block_code).join(' + ');
-  const truck = [part.truck_plate, part.driver_name].filter(Boolean).join(' · ');
+  const hasTruck = Boolean(part.truck_plate || part.driver_name);
 
   return (
     <div
@@ -28,20 +29,21 @@ export function ExportPartCard({ part, selected, onSelect }: IExportPartCardProp
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
         <span style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 12, color: COLORS.primary }}>
           {part.shipment_code}
+          {part.export_code && <ExportCode code={part.export_code} />}
         </span>
         <Tag style={{ marginInlineEnd: 0, fontSize: 10 }}>
           {t(`shipment_status.${part.status_code}`, { defaultValue: part.status_display ?? part.status_code })}
         </Tag>
       </div>
-      <div style={{ fontSize: 11, marginTop: 4 }}>
-        {[part.customer_name, part.country_name].filter(Boolean).join(', ')}
-      </div>
-      <div style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 2 }}>
-        {truck || t('assign.no_truck')}
-      </div>
-      {blocks && (
-        <div style={{ fontSize: 11, color: '#08979c', marginTop: 4 }}>
-          {t('assign.packing_label')}: {blocks}{part.export_code ? ` · ${part.export_code}` : ''}
+      {part.weight_net != null && part.weight_net > 0 && (
+        <div style={{ fontFamily: FONT.mono, fontSize: 11, color: '#08979c', marginTop: 2 }}>
+          {part.weight_net.toLocaleString('ru-RU')} kg
+        </div>
+      )}
+      <CardDetails draft={part} />
+      {!hasTruck && (
+        <div style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 2 }}>
+          {t('assign.no_truck')}
         </div>
       )}
     </div>

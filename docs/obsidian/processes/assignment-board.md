@@ -30,6 +30,20 @@ Three columns (`frontend/src/pages/export/AssignmentBoard.tsx` + `assignment/*`)
 | **Action** (centre, flex, `PackingActionPanel`) | The picked cards + the one action they allow | — |
 | **Export** (right, 340px, `ExportPartCard`), two groups | Destination plans (country + customer set), not yet loading, split into **«Waiting for packing»** and **«With packing»** | Click toggles |
 
+**What a card shows (2026-09-30).** Both cards have the same layout:
+- The header holds the shipment code, the **export code** (orange) and the kg. The export card
+  shows its export code even before any packing is joined.
+- Below the header is a list of **every filled detail** (`CardDetails.tsx`, built by
+  `cardDetails()` in `assignmentHelpers.ts`). Empty fields are left out. The order is: blocks with
+  kg (a block's harvest batches summed), date, harvest status (the option label in the UI
+  language), variety, destination (country, city), customer, import firm (only when it differs
+  from the customer), export firms, border point, Gapy, truck (plate, driver, phone), notes,
+  export-manager note, creator.
+
+A packing part therefore shows its packing facts and an export part its destination facts, from
+the same list. All of these fields already come in the list payload (`ShipmentListSerializer`).
+`useJoinBoard`'s `normalizeDraft` now also coerces `weight_net` from its decimal string.
+
 One query, `useJoinBoard()` (see Data below), feeds all three columns.
 `splitBoardColumns()` (`assignment/boardHelpers.ts`) classifies every row into `free` / `waiting`
 / `joined` from status + packing presence — there is no server-side grouping.
@@ -91,7 +105,8 @@ keeps its own `?status_code=draft` query.
 ## Files
 
 - Page: `frontend/src/pages/export/AssignmentBoard.tsx`, `frontend/src/pages/export/assignment/*`
-  (`BoardColumn`, `SupplyCard`, `ExportPartCard`, `PackingActionPanel`, `boardHelpers.ts`)
+  (`BoardColumn`, `SupplyCard`, `ExportPartCard`, `CardDetails`, `ExportCode`, `PackingActionPanel`,
+  `boardHelpers.ts`, `assignmentHelpers.ts`; tests `assignmentHelpers.test.ts`, `cards.test.tsx`)
 - Route: `/export/assign` (`pageCode: 'export.assign'`)
 - Navigation: sidebar entry in the staff menu's Export group and the boss menu's Prep group — removed from every role's menu 2026-08-24, restored 2026-09-29 (owner request). See [[permissions-system#Sidebar Navigation (2026-08-05)]].
 - Backend: `join` / `unjoin` / `swap_packaging` actions on `ShipmentViewSet`

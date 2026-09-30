@@ -92,4 +92,22 @@ describe('useDrafts', () => {
     // The bug this guards against: string concatenation instead of addition.
     expect(sources.reduce((sum, s) => sum + (s.weight_kg ?? 0), 0)).toBe(8000);
   });
+
+  // weight_net is a DecimalField too — the Assignment board's cards format it
+  // with toLocaleString, which leaves a string untouched ("8000.00 kg").
+  it('coerces weight_net from a decimal string to a number, null stays null', async () => {
+    const base = {
+      shipment_code: '2109001/26', date: '2026-09-21', created_at: '2026-09-21T08:00:00Z',
+      created_by_name: null, export_code: null, previous_platform_id: null,
+      harvest_age_days: 0, freshness: 'today', variety_confidence: 'none', block_sources: [],
+    };
+    vi.mocked(api.get).mockResolvedValue({
+      data: { results: [{ ...base, id: 1, weight_net: '8000.00' }, { ...base, id: 2, weight_net: null }] },
+    });
+
+    const { result } = renderHook(() => useDrafts(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.map((d) => d.weight_net)).toEqual([8000, null]);
+  });
 });

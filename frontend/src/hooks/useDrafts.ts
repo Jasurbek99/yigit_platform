@@ -31,6 +31,7 @@ function sortOldestFirst(drafts: IShipmentDraft[]): IShipmentDraft[] {
 function normalizeDraft(d: IShipmentDraft): IShipmentDraft {
   return {
     ...d,
+    weight_net: d.weight_net != null ? Number(d.weight_net) : null,
     block_sources: (d.block_sources ?? []).map((s) => ({
       ...s,
       weight_kg: s.weight_kg != null ? Number(s.weight_kg) : null,

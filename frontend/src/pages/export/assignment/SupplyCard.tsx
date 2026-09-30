@@ -3,6 +3,8 @@ import dayjs from 'dayjs';
 import { FreshnessPill } from '@/components/FreshnessPill';
 import type { IShipmentDraft } from '@/types';
 import { FRESHNESS_BORDER } from './assignmentHelpers';
+import { CardDetails } from './CardDetails';
+import { ExportCode } from './ExportCode';
 import { COLORS, FONT } from '@/constants/styles';
 
 interface ISupplyCardProps {
@@ -14,7 +16,6 @@ interface ISupplyCardProps {
 export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
   const { t } = useTranslation();
   const freshness = draft.freshness;
-  const sourceCodes = draft.block_sources.map((s) => s.block_code).join(' + ');
   const ageLabel =
     freshness === 'today'
       ? t('assign.age_today_with_hours', {
@@ -44,6 +45,7 @@ export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'center' }}>
         <div style={{ fontFamily: FONT.mono, fontWeight: 600, fontSize: 12, color: COLORS.primary }}>
           {draft.shipment_code}
+          {draft.export_code && <ExportCode code={draft.export_code} />}
         </div>
         <div style={{ fontFamily: FONT.mono, fontSize: 11, color: '#08979c' }}>
           {(draft.weight_net ?? 0).toLocaleString('ru-RU')} kg
@@ -51,11 +53,9 @@ export function SupplyCard({ draft, selected, onSelect }: ISupplyCardProps) {
       </div>
       <div style={{ fontSize: 11, fontWeight: 500, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
         <FreshnessPill freshness={freshness} ageDays={draft.harvest_age_days} size="small" />
-        <span style={{ color: COLORS.textTertiary }}>{sourceCodes}</span>
+        <span style={{ fontSize: 10, color: COLORS.textSecondary, fontStyle: 'italic' }}>{ageLabel}</span>
       </div>
-      <div style={{ fontSize: 10, color: COLORS.textSecondary, marginTop: 2, fontStyle: 'italic' }}>
-        {ageLabel}
-      </div>
+      <CardDetails draft={draft} />
     </div>
   );
 }

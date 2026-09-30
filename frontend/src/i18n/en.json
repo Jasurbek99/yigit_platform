@@ -2296,7 +2296,23 @@
     "hint_invalid": "This pair can't be joined or swapped",
     "no_truck": "no truck",
     "packing_label": "Supply",
-    "read_only": "Season closed — read only"
+    "read_only": "Season closed — read only",
+    "detail": {
+      "blocks": "Blocks",
+      "date": "Date",
+      "harvest_status": "Harvest status",
+      "variety": "Variety",
+      "destination": "Destination",
+      "customer": "Customer",
+      "import_firm": "Import firm",
+      "export_firms": "Export firms",
+      "border_point": "Border point",
+      "gapy": "Gapy satys",
+      "truck": "Truck",
+      "notes": "Notes",
+      "export_manager_note": "Export manager note",
+      "created": "Created by"
+    }
   },
   "split": {
     "header_title": "Split Shipment into Trucks",

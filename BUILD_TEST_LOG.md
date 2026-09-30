@@ -1,3 +1,8 @@
+- [x] 2026-09-30 — Assignment board (/export/assign) cards show the export code and every filled detail (blocks with kg, harvest status, variety, destination, customer, firms, border point, Gapy, truck, notes, creator) — TESTED
+  To test: (1) open /export/assign → a packing card (left) shows «code · EXPORT-CODE» in the header
+  and its blocks with kg, harvest status and variety below; (2) an export card (right) shows its
+  export code even with no packing joined, plus country, customer, truck, notes; (3) empty fields
+  don't appear as blank lines; (4) kg reads «15 000 kg», not «15000.00 kg».
 - [ ] 2026-09-30 — «Eksport firmalaryny saýla» / join_supply close when firms / blocks are saved; legacy duplicate rules off + cancel_retired_duplicate_tasks — NEEDS TEST
 - [ ] 2026-09-30 — Gaplama stored leftover: nightly snapshot into «Düýnki galyndy», board anchors to it, carry-in cell editable in Gaplama day view — NEEDS TEST
   To test (as superuser; real roles can't open Gaplama until `tir_takip.gaplama` is restored):

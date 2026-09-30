@@ -1909,6 +1909,18 @@ export interface IShipmentDraft {
   status_display?: string;
   truck_plate?: string | null;
   driver_name?: string | null;
+  // Scalar ShipmentListSerializer fields the Assignment board's cards list
+  // when filled (2026-09-30). Optional: mock literals don't set them.
+  harvest_status?: string | null;
+  variety_name?: string | null;
+  city_name?: string | null;
+  import_firm_name?: string | null;
+  export_firms_display?: string | null;
+  border_point_name?: string | null;
+  is_gapy_satys?: boolean;
+  driver_phone?: string | null;
+  notes?: string | null;
+  export_manager_note?: string | null;
 }
 
 export interface IDraftFirmSplitInput {
