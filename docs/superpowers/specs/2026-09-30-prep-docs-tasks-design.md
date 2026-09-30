@@ -71,7 +71,7 @@
 | 5b | `set_destination` (текст: «Eksport maglumatlaryny dolduryň») | export_manager | страна, клиент, импортёр | — | да |
 | 6 | `join_supply` «Ýükleme bölek birikdir» | export_manager | есть `block_sources` (упаковка присоединена). Ссылка на Assignment board | 5b | **нет** |
 | 7 | `pick_export_firms` | document_team | есть доли фирм | 5b | да |
-| 8.1 | `choose_truck` «Maşyn saýla» (обычная) | export_manager | выбран тягач TIR (`truck_head_id`) | 5b | да |
+| 8.1 | `choose_truck` «Maşyn saýla» (обычная) | export_manager | присоединён рейс Planning (`trip_id`; решение владельца 2026-09-30 при слиянии с PR #24, было `truck_head_id`) | 5b | да |
 | 8.2 | `assign_driver` (Gapy) | document_team | водитель, номер машины, телефон | 5b | да |
 
 Отгрузка переходит `draft → gumruk_girish`, когда закрыты 5b, 7 и 8. Это «PREP кончается, когда транспорт задан».

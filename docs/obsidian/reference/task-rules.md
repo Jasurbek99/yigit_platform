@@ -61,7 +61,7 @@ department's tasks.
 | **Draft** (PREP) | 5b Set destination «Eksport maglumatlaryny dolduryň» | export_manager | auto: `country` + `customer` + `import_firm` |
 | | 6 Join supply «Ýükleme bölek birikdir» — *after 5b* | export_manager | auto: `block_sources` (packing joined; card links to the Assignment board). **Does not hold the step** |
 | | 7 Pick export firms — *after 5b* | document_team | auto: add a firm split |
-| | 8.1 Choose truck «Maşyn saýla» — *after 5b, only if not gapy-satys* | export_manager | auto: `truck_head_id` (TIR fleet tractor) |
+| | 8.1 Choose truck «Maşyn saýla» — *after 5b, only if not gapy-satys* | export_manager | auto: `trip_id` — a Planning trip joined on the Truck Board (PR #24 rule, kept at the merge 2026-09-30) |
 | | 8.2 Assign driver (gapy) «Transport maglumatlaryny dolduryň» — *after 5b, only if gapy-satys* | document_team | auto: `driver_name` + `truck_plate` + `driver_phone` |
 | **Customs entry (TM)** `gumruk_girish` (DOCS) | 9 Prepare contract — *after 7* | document_team | `confirm` button, or closes itself once every firm on the truck has a non-void sale whose contract's agreement was downloaded |
 | | 10 Fill gross/net — *after 7* | document_team | auto: `packing_template` chosen |
