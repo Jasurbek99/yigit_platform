@@ -809,6 +809,10 @@ def _completion_satisfied(task: Task, shipment) -> bool:
 
     values = [_resolve_value(shipment, t) for t in targets]
 
+    if task.completion_rule == TaskCompletionRule.FIELD_SET:
+        # Any value counts, an explicit False included (yes/no questions).
+        return all(v is not None for v in values)
+
     if task.completion_rule == TaskCompletionRule.ALL_FIELDS_FILLED:
         return all(_is_filled(v) for v in values)
 

@@ -3105,6 +3105,58 @@ class ShipmentViewSet(ModelViewSet):
         detail_serializer = ShipmentDetailSerializer(shipment, context={'request': request})
         return Response(detail_serializer.data)
 
+    @action(detail=True, methods=['post'], url_path='sales-report/approve')
+    def approve_sales_report(self, request, pk=None):
+        """POST /api/v1/export/shipments/{id}/sales-report/approve/
+
+        «Hasabaty gözden geçir we tassykla» (docs/Tasks.md item 37, 2026-09-29).
+        Either export manager — or admin / boss / director, or a superuser —
+        approves the report. The satyldy approve_sales_report task waits on
+        approved_at, so saving it closes the task and auto-advances the shipment
+        to tamamlandy. Approve only, no reject path. Idempotent: a second call
+        keeps the first approval. Returns the full shipment detail.
+        """
+        from apps.export.models import SalesReport
+
+        approve_roles = {'export_manager', 'admin', 'boss', 'director'}
+        if not (request.user.is_superuser or getattr(request.user, 'role', None) in approve_roles):
+            return Response(
+                {'error': 'Only an export manager can approve the sales report.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        shipment = self.get_object()
+        if shipment.deleted_at is not None or shipment.is_archived:
+            return Response(
+                {'error': 'Cannot edit a deleted or archived shipment.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        with transaction.atomic():
+            report = SalesReport.objects.select_for_update().filter(shipment=shipment).first()
+            if report is None:
+                return Response(
+                    {'error': 'There is no sales report to approve yet.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if report.approved_at is None:
+                report.approved_at = timezone.now()
+                report.approved_by = request.user
+                report.save(update_fields=['approved_at', 'approved_by'])
+                logger.info(
+                    'SalesReport for %s approved by %s',
+                    shipment.shipment_code, request.user.username,
+                )
+
+        # Fire the task-engine save chain: resolves approve_sales_report and
+        # auto-advances satyldy → tamamlandy (via transition_to, is_auto=True).
+        shipment.refresh_from_db()
+        shipment.updated_by = request.user
+        shipment.save()
+
+        shipment.refresh_from_db()
+        return Response(ShipmentDetailSerializer(shipment, context={'request': request}).data)
+
     @action(detail=True, methods=['post'], url_path='block-sources')
     def set_block_sources(self, request, pk=None):
         """POST /api/v1/export/shipments/{id}/block-sources/

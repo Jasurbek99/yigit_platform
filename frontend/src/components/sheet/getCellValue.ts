@@ -69,7 +69,9 @@ export function getCellValue(
     case 'transit_days':
       return shipment.transit_days != null ? `${shipment.transit_days}d` : '—';
     case 'has_peregruz':
-      return shipment.has_peregruz ? i18n.t('sheet.has_peregruz_yes') : '—';
+      // Tri-state (docs/Tasks.md item 31): null = not answered yet.
+      if (shipment.has_peregruz == null) return '—';
+      return shipment.has_peregruz ? i18n.t('sheet.has_peregruz_yes') : i18n.t('sheet.has_peregruz_no');
     case 'has_sales_report':
       return shipment.has_sales_report ? '✓' : '❌';
     case 'has_doc_advance':

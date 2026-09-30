@@ -310,8 +310,9 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
 
       case 'peregruz':
       case 'has_peregruz':
+        // «No» is an answer, not a blank — unanswered is null (docs/Tasks.md item 31).
         return [
-          { value: 0, label: '—' },
+          { value: 0, label: t('sheet.has_peregruz_no') },
           { value: 1, label: t('sheet.has_peregruz_yes') },
         ];
 
@@ -607,7 +608,12 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
         return (
           <Select
             size="small"
-            defaultValue={isBoolDropdown ? (currentValue ? 1 : 0) : ((currentValue as number | string | null) ?? undefined)}
+            defaultValue={
+              isBoolDropdown
+                // An unanswered peregruz (null) opens with nothing picked.
+                ? (currentValue == null ? undefined : (currentValue ? 1 : 0))
+                : ((currentValue as number | string | null) ?? undefined)
+            }
             options={options}
             onChange={(val) => save(isBoolDropdown ? Boolean(val) : val)}
             onOpenChange={(open) => {

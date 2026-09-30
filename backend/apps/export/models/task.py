@@ -40,6 +40,10 @@ class TaskCompletionRule(models.TextChoices):
     ALL_FIELDS_FILLED = 'all_fields_filled', _('All target fields filled')
     ANY_FIELD_FILLED  = 'any_field_filled',  _('Any target field filled')
     FIELD_EQUALS      = 'field_equals',      _('Target field equals a specific value')
+    # Answered at all — any non-null value, an explicit False included. For
+    # yes/no questions (has_peregruz) where ALL_FIELDS_FILLED would read «No»
+    # as unanswered (_is_filled treats False as empty).
+    FIELD_SET         = 'field_set',         _('Target field has any value (incl. No)')
     MANUAL_DONE       = 'manual_done',       _('Marked done manually')
 
 

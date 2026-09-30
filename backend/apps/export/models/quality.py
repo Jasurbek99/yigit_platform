@@ -246,6 +246,16 @@ class SalesReport(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # === Approval («Hasabaty tassykla», docs/Tasks.md item 37, 2026-09-29) ===
+    # Set once by POST /shipments/{id}/sales-report/approve/; the satyldy
+    # approve_sales_report task waits on approved_at, so the shipment closes
+    # only after approval.
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        'core.User', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='sales_reports_approved',
+    )
+
     class Meta:
         db_table = schema_table('export', 'sales_reports')
 

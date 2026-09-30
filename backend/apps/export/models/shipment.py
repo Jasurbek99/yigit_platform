@@ -177,7 +177,9 @@ class Shipment(models.Model):
     transport_temp_c = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
     transit_days = models.IntegerField(null=True, blank=True)
     shelf_life_days = models.IntegerField(null=True, blank=True)
-    has_peregruz = models.BooleanField(default=False)
+    # None = the sales rep has not answered «Peregruz barmy?» yet (docs/Tasks.md
+    # item 31, 2026-09-29). Rows from before keep their False/True.
+    has_peregruz = models.BooleanField(null=True, blank=True, default=None)
     peregruz_city = models.CharField(max_length=100, blank=True, null=True, **cyrillic_collation())
     peregruz_date = models.DateTimeField(null=True, blank=True)
 

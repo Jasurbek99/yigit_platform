@@ -230,6 +230,9 @@ class SalesReportSerializer(serializers.ModelSerializer):
     total_expenses_usd = serializers.SerializerMethodField()
     net_income_usd = serializers.SerializerMethodField()
 
+    # Approval (docs/Tasks.md item 37) — set only by the approve endpoint.
+    approved_by_name = serializers.CharField(source='approved_by.username', read_only=True, default=None)
+
     class Meta:
         model = SalesReport
         fields = [
@@ -259,10 +262,16 @@ class SalesReportSerializer(serializers.ModelSerializer):
             # Audit
             'created_at',
             'updated_at',
+            # Approval — POST /shipments/{id}/sales-report/approve/ only
+            'approved_at',
+            'approved_by',
+            'approved_by_name',
         ]
         read_only_fields = [
             'created_at',
             'updated_at',
+            'approved_at',
+            'approved_by',
             # Computed server-side via _recompute_totals() — never trust client values
             'total_sales_local',
             'total_expenses_local',

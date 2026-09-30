@@ -13,6 +13,7 @@ const RULE_COLOR: Record<ITaskRule['completion_rule'], string> = {
   all_fields_filled: 'green',
   any_field_filled: 'green',
   field_equals: 'blue',
+  field_set: 'green',
   manual_done: 'orange',
 };
 

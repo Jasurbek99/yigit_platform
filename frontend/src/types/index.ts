@@ -319,7 +319,8 @@ export interface IShipmentListItem {
   driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
-  has_peregruz: boolean;
+  /** null = «Peregruz barmy?» not answered yet (docs/Tasks.md item 31). */
+  has_peregruz: boolean | null;
   peregruz_city: string | null;
   peregruz_date: string | null;
   // Operational planning
@@ -458,7 +459,8 @@ export interface IShipmentSheetItem {
   driver_2_passport_issue_date: string | null;
   transport_temp_c: number | null;
   transit_days: number | null;
-  has_peregruz: boolean;
+  /** null = «Peregruz barmy?» not answered yet (docs/Tasks.md item 31). */
+  has_peregruz: boolean | null;
   peregruz_city: string | null;
   peregruz_date: string | null;
   // Finance
@@ -1268,6 +1270,10 @@ export interface ISalesReport {
   // Audit
   readonly created_at: string;
   readonly updated_at: string;
+  /** Set by the approve endpoint (docs/Tasks.md item 37); null until approved. */
+  readonly approved_at: string | null;
+  readonly approved_by: number | null;
+  readonly approved_by_name: string | null;
 }
 
 // ─── Sales Report mutation payload ────────────────────────────────────────────
@@ -1768,7 +1774,8 @@ export interface ICancelShipmentResponse extends IShipmentDetail {
 
 export type TaskState = 'open' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
 
-export type TaskCompletionRule = 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'manual_done';
+export type TaskCompletionRule =
+  | 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'manual_done';
 
 export type TaskKind =
   | 'shipment' | 'weekly_plan' | 'local_sell_plan' | 'truck_allocation'
@@ -2268,7 +2275,7 @@ export interface ITaskRule {
   assignee_role: string;
   assignee_role_display: string;
   target_fields: string[];
-  completion_rule: 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'manual_done';
+  completion_rule: 'all_fields_filled' | 'any_field_filled' | 'field_equals' | 'field_set' | 'manual_done';
   completion_rule_display: string;
   target_value: string;
   deadline_rule: string;
