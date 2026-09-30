@@ -47,3 +47,17 @@ class PlanTaskModelTests(TestCase):
         self.assertEqual(data['cancelled_reason'], 'missed')
         self.assertEqual(Task.objects.get(pk=t.pk).ack_snapshot, '')
 
+    def test_old_code_inserting_without_ack_snapshot_still_works(self):
+        # The beta server shares this database but runs code that predates the
+        # column — its INSERTs omit ack_snapshot. The DB-level DEFAULT '' (export
+        # migration 0089) keeps those inserts valid.
+        from django.db import connection
+
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO export_task (kind, step, title_key, assignee_role, target_fields, "
+                "completion_rule, target_value, deadline_rule, link, state, blocked_reason, "
+                "cancelled_reason, created_at) VALUES ('shipment', 'legacy', 'tasks.legacy', "
+                "'export_manager', '', 'manual_done', '', '', '', 'open', '', '', SYSDATETIME())"
+            )
+        self.assertEqual(Task.objects.get(step='legacy').ack_snapshot, '')
