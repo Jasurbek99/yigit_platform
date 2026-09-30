@@ -887,6 +887,7 @@ export function SheetGrid({
               exportCode={shipment.shipment_code}
               officialExportCode={shipment.export_code}
               columnColor={shipment.column_color}
+              documentsResetAt={shipment.documents_reset_at}
               isCancelled={cancelled}
             />
           </div>
@@ -938,6 +939,7 @@ export function SheetGrid({
             exportCode={shipment.shipment_code}
             officialExportCode={shipment.export_code}
             columnColor={shipment.column_color}
+            documentsResetAt={shipment.documents_reset_at}
             isCancelled={cancelled}
           />
         );

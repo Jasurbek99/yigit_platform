@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DocumentsRedoTag } from '@/components/shipment/DocumentsRedoTag';
 import { Button, Modal, Select, Space, Table, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -41,7 +42,12 @@ export function LinkedTripsTab({ canEdit }: ILinkedTripsTabProps) {
       title: '', key: 'conflict',
       render: (_: unknown, trip: IExternalTrip) => {
         const conflict = messages.conflict(trip);
-        return conflict && <Tag color="red">{conflict}</Tag>;
+        return (
+          <>
+            {conflict && <Tag color="red">{conflict}</Tag>}
+            <DocumentsRedoTag resetAt={trip.shipment_documents_reset_at} />
+          </>
+        );
       },
     },
     {

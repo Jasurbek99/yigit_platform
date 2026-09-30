@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DocumentsRedoTag } from '@/components/shipment/DocumentsRedoTag';
 import { useNavigate } from 'react-router-dom';
 import { Button, Spin, Alert, Tag, Typography, Badge } from 'antd';
 import { BarChartOutlined, PlusOutlined } from '@ant-design/icons';
@@ -33,7 +34,7 @@ function formatShipmentCode(raw: string | null): string | null {
   return parts.length > 0 ? parts.join('·') : null;
 }
 
-function DraftCard({ draft }: IDraftCardProps) {
+export function DraftCard({ draft }: IDraftCardProps) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const freshness = draft.freshness;
@@ -114,6 +115,7 @@ function DraftCard({ draft }: IDraftCardProps) {
           )}
         </div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <DocumentsRedoTag resetAt={draft.documents_reset_at} />
           <FreshnessPill freshness={freshness} ageDays={draft.harvest_age_days} size="small" />
           <Tag style={{ margin: 0 }}>
             {draft.block_sources.length} {t('draft.blocks_suffix')}

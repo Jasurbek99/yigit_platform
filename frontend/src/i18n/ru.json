@@ -2889,6 +2889,9 @@
     "close": "Закрыто"
   },
   "shipment": {
+    "documents_redo": "Машина изменена — документы заново",
+    "documents_redo_short": "Машина изменена",
+    "documents_redo_since": "Машину сменили {{date}}",
     "detail": {
       "export_code_label": "Экспортный код",
       "idle_warning": "Простой в фазе",
@@ -3075,6 +3078,7 @@
     "docs_to_customs": "Документы отправлены в таможню",
     "docs_from_customs": "Документы вернулись с таможни",
     "open_assign_board": "Доска присоединения",
+    "redo_after_truck_change": "Повторно: машина изменена",
     "button": {
       "prepare_transport_docs": "Подготовил",
       "prepare_declaration": "Подготовил",

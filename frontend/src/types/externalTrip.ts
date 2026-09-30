@@ -7,6 +7,8 @@ export interface ITripPosition {
 }
 
 export interface IExternalTrip {
+  /** The linked shipment's truck-change rollback stamp. */
+  shipment_documents_reset_at?: string | null;
   id: number;
   integration_trip_id: string;
   trip_number: string | null;

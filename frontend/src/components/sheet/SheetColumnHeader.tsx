@@ -7,6 +7,7 @@ import { SHEET_PRESET_COLORS } from '@/constants/sheetOptions';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useSetColumnColor, useSoftDeleteShipment } from '@/hooks/useShipments';
+import { DocumentsRedoTag } from '@/components/shipment/DocumentsRedoTag';
 
 interface ISheetColumnHeaderProps {
   shipmentId: number;
@@ -27,6 +28,8 @@ interface ISheetColumnHeaderProps {
   columnColor: string | null;
   /** When true, the shipment is cancelled — strike the code + show a red tag. */
   isCancelled?: boolean;
+  /** Truck-change rollback stamp — shows «Truck changed» until the docs are redone. */
+  documentsResetAt?: string | null;
 }
 
 function SheetColumnHeaderInner({
@@ -36,6 +39,7 @@ function SheetColumnHeaderInner({
   officialExportCode,
   columnColor,
   isCancelled = false,
+  documentsResetAt = null,
 }: ISheetColumnHeaderProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -104,6 +108,7 @@ function SheetColumnHeaderInner({
           {t('shipment_status.cancelled')}
         </span>
       )}
+      <DocumentsRedoTag resetAt={documentsResetAt} compact />
       {canSoftDelete && (
         <button
           type="button"

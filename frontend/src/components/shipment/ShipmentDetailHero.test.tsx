@@ -110,6 +110,12 @@ describe('ShipmentDetailHero — transition button gate', () => {
     useUiStore.setState({ bossEditMode: false });
   });
 
+  it('marks a shipment rolled back for a truck change', () => {
+    vi.mocked(useAuth).mockReturnValue({ user: fakeUser(), isLoading: false, isError: false });
+    renderHero({ ...shipment, documents_reset_at: '2026-09-30T08:00:00Z' } as unknown as IShipmentDetail);
+    expect(screen.getByText('Truck changed — redo the documents')).toBeInTheDocument();
+  });
+
   it('hides the transition button for a boss in view mode', () => {
     // Moving a truck through the state machine is the sharpest capability this
     // feature granted. Without the canDo gate the boss could drive the whole

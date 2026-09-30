@@ -245,6 +245,10 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
         {titleLabel}
       </Text>
 
+      {task.documents_redo && (
+        <Tag color="orange" style={{ marginBottom: 4 }}>{t('tasks.redo_after_truck_change')}</Tag>
+      )}
+
       {/* Row 3: deadline indicator */}
       <DeadlineText task={task} />
     </div>

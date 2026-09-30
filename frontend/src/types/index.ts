@@ -255,6 +255,8 @@ export interface IApiError {
 export type VehicleCondition = 'OK' | 'ISSUE' | 'BREAKDOWN' | 'RETURNED';
 
 export interface IShipmentListItem {
+  /** Set when a truck change rolled the shipment back (redo the documents). */
+  documents_reset_at?: string | null;
   /** ExternalTrip pk when a Planning trip is linked — transport fields go read-only. */
   trip_id?: number | null;
   /** Passport expiry sent by Planning for a trip-linked driver (it sends no issue date). */
@@ -390,6 +392,8 @@ export interface ISheetBlockSource {
 }
 
 export interface IShipmentSheetItem {
+  /** Set when a truck change rolled the shipment back (redo the documents). */
+  documents_reset_at?: string | null;
   id: number;
   /** ExternalTrip pk when a Planning trip is linked — transport cells go read-only. */
   trip_id?: number | null;
@@ -1791,6 +1795,8 @@ export type TaskKind =
   | 'gate';
 
 export interface ITaskListItem {
+  /** A document task reopened by a truck-change rollback. */
+  documents_redo?: boolean;
   id: number;
   kind: TaskKind;
   /** Null for `weekly_plan` tasks. */
@@ -1877,6 +1883,8 @@ export interface ITransportPlan {
 // â”€â”€â”€ Draft Shipments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export interface IShipmentDraft {
+  /** Set when a truck change rolled the shipment back (redo the documents). */
+  documents_reset_at?: string | null;
   id: number;
   shipment_code: string;
   date: string;

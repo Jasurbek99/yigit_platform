@@ -2887,6 +2887,9 @@
     "close": "Closed"
   },
   "shipment": {
+    "documents_redo": "Truck changed — redo the documents",
+    "documents_redo_short": "Truck changed",
+    "documents_redo_since": "Truck changed on {{date}}",
     "detail": {
       "export_code_label": "Export Code",
       "idle_warning": "Idle in phase",
@@ -3075,6 +3078,7 @@
     "docs_to_customs": "Documents sent to customs",
     "docs_from_customs": "Documents back from customs",
     "open_assign_board": "Assignment board",
+    "redo_after_truck_change": "Again: truck changed",
     "button": {
       "prepare_transport_docs": "Prepared",
       "prepare_declaration": "Prepared",

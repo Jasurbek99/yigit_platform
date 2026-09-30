@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { DocumentsRedoTag } from './DocumentsRedoTag';
 import { Badge, Button, Flex, Input, Modal, Tag } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -235,6 +236,8 @@ export function ShipmentDetailHero({ shipment, onOpenComments }: IShipmentDetail
         {isIdle && (
           <Tag color="red">{t('shipment.detail.idle_warning')}</Tag>
         )}
+
+        <DocumentsRedoTag resetAt={shipment.documents_reset_at} />
 
         <FreshnessPill freshness={shipment.freshness} ageDays={shipment.harvest_age_days} />
 

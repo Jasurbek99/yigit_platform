@@ -2892,6 +2892,9 @@
     "close": "Ýapyk"
   },
   "shipment": {
+    "documents_redo": "Maşyn üýtgedi — resminamalar täzeden",
+    "documents_redo_short": "Maşyn üýtgedi",
+    "documents_redo_since": "Maşyn {{date}} çalşyldy",
     "detail": {
       "export_code_label": "Eksport kody",
       "idle_warning": "Fazada duralgaç",
@@ -3078,6 +3081,7 @@
     "docs_to_customs": "Resminamalar gümrüge ugradyldy",
     "docs_from_customs": "Resminamalar gümrükden geldi",
     "open_assign_board": "Birikdirme tagtasy",
+    "redo_after_truck_change": "Täzeden: maşyn üýtgedi",
     "button": {
       "prepare_transport_docs": "Taýýarladym",
       "prepare_declaration": "Taýýarladym",
