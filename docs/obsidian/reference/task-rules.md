@@ -80,6 +80,7 @@ department's tasks.
 | **Customs exit (TM)** `gumruk_chykysh` | 22 Back from customs «Gümrükden geldi» | document_team | auto: `customs_exit_at`; sets R6 to the «Gümrükden geldi» option |
 | | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
 | **Loading** `yuklenme` | Fill loading data | loading_dept_head | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
+| | 26 **Loading ended** «Ýükleme gutardy» (`tasks.loading_ended`, 2026-09-30) | loading_dept_head | auto: `loading_ended_at` (R20). Holds the step: a truck the garawul already let out (`departed_at`) waits in `yuklenme` until it is filled, then auto-advances (gapy → `tamamlandy`). New-in-catalog: trucks already loading at deploy leave as before |
 | | **Quality inspection** | quality_inspector | **Mark Done** *(non-gating reminder — 4 quality certificates + `transit_days` + `transport_temp_c` + `shelf_life_days`; see below)* |
 | | Trigger departure | document_team | auto: `departed_at` |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |

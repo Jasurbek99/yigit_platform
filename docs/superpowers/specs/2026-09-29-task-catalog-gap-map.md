@@ -61,7 +61,7 @@
 | 23 | Ýyladyşhana girdi | garawul | **делает другая сессия** (спек garawul 2026-09-29) | По спеку garawul при приезде сам заполняет `loading_started_at`, то есть закрывает и п. 24 |
 | 24 | Ýükleme başlady + bloklar, sort, netto | роль не указана | **есть**: `trigger_loading_start` (:185) и `fill_loading_data` (:202), обе у `loading_dept_head` | Столкновение с garawul, см. выше |
 | 25 | Hil maglumatlary | quality_inspector | **есть**: `quality_inspection` (:220), те же поля | — |
-| 26 | Ýükleme gutardy | роль не указана | **нет**: поле `loading_ended_at` есть, правила нет | Роль? |
+| 26 | Ýükleme gutardy | loading_dept_head | **сделано 2026-09-30**: `tasks.loading_ended` на `loading_ended_at`, держит шаг (выезд guard-а ждёт её) | — |
 | 27 | Ýyladyşhanadan çykdy | garawul | **делает другая сессия**. Сейчас это `trigger_departure` (:268) у document_team | Старое правило удалять? |
 
 ### TRANSIT / DEST
