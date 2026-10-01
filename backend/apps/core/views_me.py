@@ -76,6 +76,7 @@ class MeTaskListView(APIView):
         from apps.export.models import Task, TaskState
         from apps.export.serializers import TaskListSerializer
         from apps.export.services import (
+            announce_next_week_if_complete,
             resolve_all_open_weekly_plan_tasks,
             resolve_daily_plan_tasks,
             resolve_local_sell_plan_tasks,
@@ -103,6 +104,12 @@ class MeTaskListView(APIView):
         # simpler reason that there is no per-user set to resolve.
         resolve_local_sell_plan_tasks()
         resolve_truck_allocation_tasks()
+        # Next week's plan hitting 100% opens the truck-allocation task and
+        # sends the fill summary. It lives here, not in the plan-save path:
+        # greenhouse may not call into export, and the grid refetches this
+        # endpoint after every cell save, so the last cell still announces
+        # within about a second. Costs one indexed query once announced.
+        announce_next_week_if_complete()
         # Daily loading/export tasks: resolve only — creation belongs to the
         # 06:05 beat (a GET that creates would race on every badge poll).
         resolve_daily_plan_tasks()

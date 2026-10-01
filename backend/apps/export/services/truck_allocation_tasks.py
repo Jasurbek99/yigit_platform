@@ -1,7 +1,11 @@
 """Saturday weekly-plan summary + truck-allocation task for the export manager.
 
-Every Saturday 09:00 (Celery beat → apps.export.tasks.send_saturday_plan_summary),
-for NEXT week's plan (due Friday):
+Both fire for NEXT week's plan (the one due Friday), from two paths:
+
+- announce_if_plan_complete — the moment the week reads 100%, from the
+  /me/tasks/ read path and the 30-minute plan-ack beat.
+- run_saturday_plan_summary — Saturday 09:00 (Celery beat), the fallback for a
+  week nobody finished; it does nothing once the instant path has fired.
 
 1. send_weekly_plan_summary — one bell notification to every active
    export_manager, boss and director: the overall plan-fill % plus each
@@ -39,7 +43,13 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 
 from apps.export.models import Notification, Task, TaskCompletionRule, TaskKind, TaskState
-from apps.export.services.plan_task_common import encode_baseline, end_of_local_day, iso_monday
+from apps.export.services.plan_task_common import (
+    encode_baseline,
+    end_of_local_day,
+    iso_monday,
+    local_today,
+    next_iso_week,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +199,7 @@ def generate_truck_allocation_task(year: int, week: int) -> list[Task]:
         ack_snapshot=encode_baseline(needed_trucks_by_day(year, week)),
         state=TaskState.OPEN,
     )
+    _collapse_duplicate_tasks(year, week)
     logger.info('Generated truck_allocation task for W%d/%d', week, year)
     _resolve_task(task)
     return [task]
@@ -279,6 +290,61 @@ def resolve_truck_allocation_tasks() -> list[Task]:
         state__in=[TaskState.OPEN, TaskState.IN_PROGRESS],
     )
     return [t for t in open_tasks if _resolve_task(t)]
+
+
+def announce_if_plan_complete(year: int, week: int) -> bool:
+    """Send the summary + open the task the moment the week's plan reads 100%.
+
+    "100%" = every active (manager, block) assignment has all six Mon–Sat cells
+    filled (an explicit 0 counts). A week with no active assignments is not
+    complete — there is nothing to have filled.
+
+    The existing truck_allocation task for the week is the sentinel, so this is
+    a single indexed query on every later call, and a week the Saturday job has
+    already announced is left alone. Returns True only on the firing call.
+
+    Called from the /me/tasks/ read path (the plan grid refetches it after every
+    cell save, so the last cell announces within about a second) and from the
+    30-minute plan-ack beat as a backstop, since the grid is not always the
+    screen that fills the last cell.
+    """
+    if Task.objects.filter(kind=TaskKind.TRUCK_ALLOCATION, scope_year=year, scope_week=week).exists():
+        return False
+
+    fills = plan_fill_by_manager(year, week)
+    if not fills or any(f.filled < f.total for f in fills):
+        return False
+
+    sent = send_weekly_plan_summary(year, week)
+    created = generate_truck_allocation_task(year, week)
+    logger.info(
+        'Plan complete W%d/%d — announced: %d notifications, %d task(s)', week, year, sent, len(created),
+    )
+    return True
+
+
+def announce_next_week_if_complete(today: date | None = None) -> bool:
+    """announce_if_plan_complete for the week currently being planned."""
+    year, week = next_iso_week(today or local_today())
+    return announce_if_plan_complete(year, week)
+
+
+def _collapse_duplicate_tasks(year: int, week: int) -> None:
+    """Keep the oldest task for the week, drop any twin a concurrent read made.
+
+    Creation is a read-then-write check, and /me/tasks/ is polled by every user,
+    so two reads can pass the check in the same instant. A just-created twin has
+    nothing referencing it, so deleting it is safe.
+    """
+    ids = list(
+        Task.objects
+        .filter(kind=TaskKind.TRUCK_ALLOCATION, scope_year=year, scope_week=week)
+        .order_by('id')
+        .values_list('id', flat=True)
+    )
+    if len(ids) > 1:
+        Task.objects.filter(id__in=ids[1:]).delete()
+        logger.warning('Collapsed %d duplicate truck_allocation tasks for W%d/%d', len(ids) - 1, week, year)
 
 
 def run_saturday_plan_summary(today: date) -> None:

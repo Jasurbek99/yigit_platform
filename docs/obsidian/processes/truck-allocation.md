@@ -155,9 +155,14 @@ truck allocation. It renders only when the week has at least one plan row, and o
 
 **`ITruckDestinationSplit`**: id, destination, destination_name, truck_count
 
-## Saturday plan-fill summary + "fill truck allocation" task (2026-09-18)
+## Plan-fill summary + "fill truck allocation" task (2026-09-18, instant trigger 2026-10-01)
 
-Every **Saturday 09:00** (Asia/Ashgabat), Celery beat runs `apps.export.tasks.send_saturday_plan_summary` for **next week**, the week whose plan was due Friday. Service: `backend/apps/export/services/truck_allocation_tasks.py`.
+Both fire for **next week**, the week whose plan is due Friday. Service: `backend/apps/export/services/truck_allocation_tasks.py`. Two paths, and the first one to fire wins — the week's task is the sentinel, so nothing is ever sent twice:
+
+- **The moment the plan reads 100%** — `announce_if_plan_complete`. "100%" = every active (manager, block) assignment has all six Mon–Sat cells filled. Called from the `/me/tasks/` read path and, as a backstop, from the 30-minute `plan-ack-sync` beat. The plan grid refetches `/me/tasks/` after every cell save, so the last cell announces within about a second. The save itself cannot do it: it lives in `greenhouse`, which may not call into `export`.
+- **Saturday 09:00** (Asia/Ashgabat) — `apps.export.tasks.send_saturday_plan_summary`, the fallback for a week nobody finished. It sends whatever the percentages are.
+
+Creation is a read-then-write check and `/me/tasks/` is polled by every user, so two reads can both create. `_collapse_duplicate_tasks` runs right after each create and keeps the oldest row.
 
 1. **Bell notification** (`kind='weekly_plan_summary'`) to every active `export_manager`, `boss` and `director`, e.g. `W39/2026: 78% · Maral 25% (B, C) · Toyly 100%`. The frontend prefixes it with `notifications.weekly_plan_summary` ("Indiki hepdäniň hasyl plany dolduryldy:").
    - Each greenhouse manager's % = filled Mon–Sat plan cells ÷ (6 × their active block assignments). A week nobody initialized reads **0%**, not complete. An explicit `0` counts as filled; Sunday is not measured.

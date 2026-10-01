@@ -266,7 +266,7 @@ In-app notifications only this iteration. SMS / Telegram / WhatsApp deferred. Th
 
 ### Saturday plan-fill summary to export_manager (Celery beat)
 
-Saturday 09:00: export_manager, boss and director get a bell message with next week's plan-fill % per greenhouse manager and their incomplete blocks. export_manager also gets a "fill truck allocation" task. Details: [[truck-allocation#Saturday plan-fill summary + "fill truck allocation" task (2026-09-18)]].
+As soon as next week's plan reads 100% — or Saturday 09:00 if it never does — export_manager, boss and director get a bell message with the plan-fill % per greenhouse manager and their incomplete blocks. export_manager also gets a "fill truck allocation" task. Details: [[truck-allocation#Saturday plan-fill summary + "fill truck allocation" task (2026-09-18)]].
 
 ### Daily weekly-plan setup (`run_weekly_plan_setup`)
 

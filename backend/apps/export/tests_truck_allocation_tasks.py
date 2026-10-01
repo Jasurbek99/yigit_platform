@@ -9,7 +9,8 @@ Covers:
   - generate_truck_allocation_task: one role-wide export_manager task per week.
   - resolution: closes when every Mon–Sat day that needs a truck has one.
   - run_saturday_plan_summary (the Celery entry point) targets NEXT week.
-  - /me/tasks/ read auto-resolves the task.
+  - announce_if_plan_complete: fires the moment the week reads 100%, once only.
+  - /me/tasks/ read auto-resolves the task and announces a completed plan.
 """
 import datetime
 import unittest
@@ -32,6 +33,8 @@ try:
         NOTIFICATION_KIND,
         build_summary_message,
         generate_truck_allocation_task,
+        announce_if_plan_complete,
+        announce_next_week_if_complete,
         plan_fill_by_manager,
         resolve_truck_allocation_tasks,
         run_saturday_plan_summary,
@@ -314,3 +317,120 @@ class TruckAllocationTaskTests(_Fixture):
         app.loader.import_default_modules()
         name = settings.CELERY_BEAT_SCHEDULE['saturday-plan-summary']['task']
         self.assertIn(name, app.tasks)
+
+
+@unittest.skipUnless(DB_AVAILABLE, "Django models unavailable in this environment")
+class AnnounceOnCompletionTests(_Fixture):
+    """The summary + task must fire as soon as the week reads 100%, not wait for Saturday."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.em = _make_user('tat_em', 'export_manager')
+
+    def _complete_week(self):
+        for block in (self.block_a, self.block_b, self.block_c):
+            self._fill(block, range(6))
+
+    def _notifications(self):
+        return Notification.objects.filter(kind=NOTIFICATION_KIND).count()
+
+    def _tasks(self):
+        return Task.objects.filter(
+            kind=TaskKind.TRUCK_ALLOCATION, scope_year=YEAR, scope_week=WEEK,
+        ).count()
+
+    def test_incomplete_week_announces_nothing(self):
+        self._fill(self.block_a, range(6))        # mgr1 done, mgr2 untouched
+        self._fill(self.block_b, range(5))        # one blank Saturday cell left
+        self.assertFalse(announce_if_plan_complete(YEAR, WEEK))
+        self.assertEqual((self._notifications(), self._tasks()), (0, 0))
+
+    def test_complete_week_sends_summary_and_creates_task(self):
+        self._complete_week()
+        self.assertTrue(announce_if_plan_complete(YEAR, WEEK))
+        self.assertEqual(self._tasks(), 1)
+        note = Notification.objects.get(kind=NOTIFICATION_KIND, user=self.em)
+        self.assertIn('100%', note.message)
+        self.assertEqual(note.link, f'/export/plan?week={WEEK}&year={YEAR}')
+
+    def test_blank_sunday_does_not_hold_it_back(self):
+        self._complete_week()
+        self._fill(self.block_a, [6], value=None)   # Sunday blank — not measured
+        self.assertTrue(announce_if_plan_complete(YEAR, WEEK))
+
+    def test_announces_once(self):
+        self._complete_week()
+        self.assertTrue(announce_if_plan_complete(YEAR, WEEK))
+        self.assertFalse(announce_if_plan_complete(YEAR, WEEK))
+        self.assertEqual((self._notifications(), self._tasks()), (1, 1))
+
+    def test_saturday_job_first_then_completion_adds_nothing(self):
+        run_saturday_plan_summary(datetime.date(2026, 9, 19))   # 0% — Saturday fallback
+        self.assertEqual((self._notifications(), self._tasks()), (1, 1))
+        self._complete_week()
+        self.assertFalse(announce_if_plan_complete(YEAR, WEEK))
+        self.assertEqual((self._notifications(), self._tasks()), (1, 1))
+
+    def test_no_managers_assigned_announces_nothing(self):
+        BlockManagerAssignment.objects.update(is_active=False)
+        self.assertFalse(announce_if_plan_complete(YEAR, WEEK))
+        self.assertEqual((self._notifications(), self._tasks()), (0, 0))
+
+    def test_a_raced_duplicate_task_is_collapsed(self):
+        # Two concurrent /me/tasks/ reads can both pass the exists() check and
+        # both create. Whichever finishes creating heals the week.
+        from apps.export.services.truck_allocation_tasks import _collapse_duplicate_tasks
+
+        first, second = [
+            Task.objects.create(
+                shipment=None, kind=TaskKind.TRUCK_ALLOCATION, step='truck_allocation',
+                title_key='tasks.fill_truck_allocation', assignee_role='export_manager',
+                scope_year=YEAR, scope_week=WEEK, state=TaskState.OPEN,
+            )
+            for _ in range(2)
+        ]
+        _collapse_duplicate_tasks(YEAR, WEEK)
+        self.assertEqual(self._tasks(), 1)
+        self.assertEqual(
+            Task.objects.get(kind=TaskKind.TRUCK_ALLOCATION, scope_year=YEAR, scope_week=WEEK).id,
+            min(first.id, second.id),
+        )
+
+    def test_next_week_wrapper_picks_the_planned_week(self):
+        self._complete_week()
+        # Any day of W38 plans W39 — Friday 2026-09-18 is the deadline day.
+        self.assertTrue(announce_next_week_if_complete(datetime.date(2026, 9, 18)))
+        self.assertEqual(self._tasks(), 1)
+
+    def test_me_tasks_read_announces_a_completed_plan(self):
+        # The read path has no date argument — it always looks at the week being
+        # planned right now, so this fills THAT week rather than the fixture's.
+        from apps.export.services.plan_task_common import iso_monday, local_today, next_iso_week
+
+        year, week = next_iso_week(local_today())
+        monday = iso_monday(year, week)
+        for block in (self.block_a, self.block_b, self.block_c):
+            plan, _ = WeeklyHarvestPlan.objects.get_or_create(
+                season=self.season, block=block, week_number=week, year=year,
+            )
+            for offset in range(6):
+                day = monday + datetime.timedelta(days=offset)
+                HarvestDayEntry.objects.update_or_create(
+                    weekly_plan=plan, entry_date=day,
+                    defaults={
+                        'season': self.season, 'block': block,
+                        'weekday': day.weekday(), 'plan_value': Decimal('100'),
+                    },
+                )
+
+        client = APIClient()
+        client.force_authenticate(self.mgr1)       # the manager who just filled the grid
+        resp = client.get('/api/v1/me/tasks/')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(
+            Task.objects.filter(
+                kind=TaskKind.TRUCK_ALLOCATION, scope_year=year, scope_week=week,
+            ).exists()
+        )
+        self.assertTrue(Notification.objects.filter(kind=NOTIFICATION_KIND, user=self.em).exists())

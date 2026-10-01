@@ -30,7 +30,8 @@ from apps.export.services.plan_task_common import (
     next_iso_week,
 )
 from apps.export.services.truck_allocation_tasks import (
-    allocation_counts, needed_trucks_by_day, resolve_truck_allocation_tasks,
+    allocation_counts, announce_next_week_if_complete, needed_trucks_by_day,
+    resolve_truck_allocation_tasks,
 )
 
 logger = logging.getLogger(__name__)
@@ -277,6 +278,10 @@ def sync_plan_ack_tasks(today: date | None = None) -> list[Task]:
     """Beat entry (every 30 min) for the current and the next ISO week."""
     today = today or local_today()
     resolve_truck_allocation_tasks()
+    # Backstop for announce_if_plan_complete: the /me/tasks/ read path catches
+    # the common case (the grid refetches it after each cell save), this covers
+    # a last cell written from somewhere else.
+    announce_next_week_if_complete(today)
     this_year, this_week, _ = today.isocalendar()
     created = []
     for year, week in ((this_year, this_week), next_iso_week(today)):

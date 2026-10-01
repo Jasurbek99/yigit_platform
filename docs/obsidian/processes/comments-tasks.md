@@ -337,7 +337,7 @@ For existing shipments: `python manage.py backfill_tasks [--dry-run] [--limit N]
 - **Known limit**: a week where *no* firm ever submits (genuinely nothing sells anywhere) stays OPEN indefinitely — like `weekly_plan`, role-wide plan cards have no manual-done affordance (the SelfBoard blocks dragging plan tasks to DONE). The dominant case (some firms sell, empties left as zero drafts) resolves correctly.
 
 **`truck_allocation`**: a shared, role-wide `export_manager` reminder to fill next week's truck allocation ("Maşyn paýlanyşy"). There is one per week (`assignee_user=null`, link `/export/plan?week=…&year=…`).
-- **Generation:** Celery beat, Saturday 09:00, with the plan-fill summary notification.
+- **Generation:** the moment next week's plan reads 100% (`announce_if_plan_complete`, from the `/me/tasks/` read path and the 30-min `plan-ack-sync` beat), or Saturday 09:00 as a fallback — whichever comes first, with the plan-fill summary notification.
 - **Auto-complete (lazy):** `resolve_truck_allocation_tasks` on `/me/tasks/`. It closes once every Mon–Sat day that needs ≥ 1 truck has a destination split with trucks.
 - Service: `apps/export/services/truck_allocation_tasks.py`. Details: [[truck-allocation]].
 
