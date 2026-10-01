@@ -5,6 +5,7 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Changed
+- **Import firm dropdown shows only the destination country's firms (feat(frontend)).** Sheet cell, shipment page (incl. task card and edit drawer) and the destination-plan modal filter `import_firm` options by the shipment's `country`; no country → all active firms; an already-saved firm from another country stays listed. Frontend only — the API still accepts any firm.
 - **Truck Planning page (feat(frontend)).** `/transport/plan` renamed «Truck Planning» (ru «Планирование машин», tk «Maşyn planlamasy»); opens on the current week instead of next week (task links keep their `?week=&year=`), subtitle «Week N · year · Mon–Sat dates», `<` / `>` step one week.
 
 ### Fixed

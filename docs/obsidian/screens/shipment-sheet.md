@@ -499,6 +499,16 @@ Still out of scope (deliberately): **range selection / multi-cell fill** (select
 | `readonly` | None | Display-only; never editable |
 | `comment_count` | None | Display count + icon; click navigates to ShipmentDetail's Changes tab |
 
+### Import firm dropdown — only the destination country's firms (2026-10-01)
+
+The `import_firm` dropdown offers only active firms whose `ImportFirm.country` equals the
+shipment's `country`; with no country set it offers every active firm. The firm already saved
+on the row stays in the list even when it belongs to another country (15 of 110 shipments on
+2026-10-01), so its name still renders. One helper, `utils/importFirmsForCountry.ts`, serves the
+Sheet cell (`SheetCellEditor`), the shipment page / task card / edit drawer (`FieldEditor`,
+`countryId` prop) and the destination-plan modal (`ImportFirmSelect countryId`, which also clears
+the firm when the country changes). Frontend only — the API still accepts any firm.
+
 ### Inline customer create — R11 `customer` (2026-09-03)
 
 The `customer` dropdown carries a **`＋ Add Customer`** footer button (`dropdownRender`) that opens
