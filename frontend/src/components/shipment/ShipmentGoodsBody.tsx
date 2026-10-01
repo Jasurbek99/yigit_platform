@@ -2,10 +2,12 @@ import type { TFunction } from 'i18next';
 import { Flex, Tag } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
+import { DetailExtraFieldRows } from '@/components/shipment/DetailExtraFieldRows';
+import { ShipmentPackingActions } from '@/components/shipment/ShipmentPackingActions';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { VarietyOverrideRow } from '@/components/shipment/VarietyOverrideRow';
 import { compareBatchesByHarvestDate, groupByBlock } from '@/components/shipment/blockSourceGroups';
-import { HARVEST_STATUS_FIELD } from '@/constants/shipmentEditConfig';
+import { DETAIL_EXTRA_FIELDS, HARVEST_STATUS_FIELD, type IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
 import { fmtDate, fmtNum } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import { COLORS } from '@/constants/styles';
@@ -49,6 +51,19 @@ function formatBlockSources(blockSources: IBlockSource[], t: TFunction): string 
     .join(blockSeparator);
 }
 
+/**
+ * Gross / tare / pallets / boxes are entered in the packing panel (Documents
+ * card) since 2026-09-30 — the CMR reads the packing template first, so an
+ * edit here was silently ignored. Hidden on Detail only; EDIT_FIELD_GROUPS
+ * keeps them for the Edit drawer, and the pallet manifest still writes them.
+ */
+const GOODS_ROWS_MOVED_TO_PACKING = ['weight_gross', 'packaging_kg', 'pallet_count', 'box_count'] as const;
+
+/** Shipment.harvest_date is free text («5-10 oktýabr»), separate from the per-block batch dates. */
+const HARVEST_DATE_FIELD: IEditFieldConfig = {
+  key: 'harvest_date', labelKey: 'sheet.row.harvest_date', inputType: 'text',
+};
+
 interface IShipmentGoodsBodyProps {
   shipment: IShipmentDetail;
   missingKeys: Set<string>;
@@ -59,11 +74,13 @@ interface IShipmentGoodsBodyProps {
 }
 
 /**
- * "Goods & Loading" card body, top to bottom: export code, source blocks,
- * harvest status (moved here from Documents & Customs — see
- * `HARVEST_STATUS_FIELD` in shipmentEditConfig.ts), the pallet-derived
- * variety value, its confidence/manual-override row, the editable goods
- * fields and the harvest date.
+ * "Goods & Loading" card body = the packaging part (spec 2026-09-30 §2), top
+ * to bottom: export code, source blocks, the unjoin / swap actions, harvest
+ * status (see `HARVEST_STATUS_FIELD` in shipmentEditConfig.ts), the
+ * pallet-derived variety value, its confidence/manual-override row, the
+ * editable goods fields (net and weight-to-load; gross / tare / pallets /
+ * boxes live in the packing panel), the harvest date as Sheet R39 shows it,
+ * and the loading start / end times.
  */
 export function ShipmentGoodsBody({
   shipment,
@@ -76,6 +93,9 @@ export function ShipmentGoodsBody({
   const { t } = useTranslation();
 
   const blockDisplay = formatBlockSources(shipment.block_sources, t);
+  const blockHarvestDates = [...new Set(
+    shipment.block_sources.map((b) => b.harvest_date).filter((d): d is string => d != null),
+  )].sort();
 
   return (
     <>
@@ -89,6 +109,7 @@ export function ShipmentGoodsBody({
       <div id="section-block-sources">
         <InfoRow label={t('shipment_detail.block_sources')} value={blockDisplay} />
       </div>
+      <ShipmentPackingActions shipment={shipment} readOnly={readOnly} />
 
       <DetailFieldRow
         shipment={shipment}
@@ -126,9 +147,35 @@ export function ShipmentGoodsBody({
         readOnly={readOnly}
         onOpenComments={onOpenComments}
         commentCountsByField={commentCountsByField}
-        excludeKeys={[HARVEST_STATUS_FIELD.key]}
+        excludeKeys={[HARVEST_STATUS_FIELD.key, ...GOODS_ROWS_MOVED_TO_PACKING]}
       />
-      <InfoRow label={t('shipment_detail.harvest_date')} value={fmtDate(shipment.date)} />
+      {/* Same precedence as Sheet R39: the blocks' batch dates first, then the
+          shipment's own text. `shipment.date` is the shipment date — a different field. */}
+      {blockHarvestDates.length > 0 ? (
+        <div id="detail-field-harvest_date">
+          <InfoRow
+            label={t('sheet.row.harvest_date')}
+            value={`${blockHarvestDates.map(fmtDate).join(', ')} (${t('shipment_detail.parts.harvest_by_block')})`}
+          />
+        </div>
+      ) : (
+        <DetailFieldRow
+          shipment={shipment}
+          config={HARVEST_DATE_FIELD}
+          readOnly={readOnly}
+          isMissing={missingKeys.has(HARVEST_DATE_FIELD.key)}
+          onOpenComments={onOpenComments ? () => onOpenComments(HARVEST_DATE_FIELD.key) : undefined}
+          commentCount={commentCountsByField?.[HARVEST_DATE_FIELD.key] ?? 0}
+        />
+      )}
+      <DetailExtraFieldRows
+        shipment={shipment}
+        fields={DETAIL_EXTRA_FIELDS.goods}
+        missingKeys={missingKeys}
+        readOnly={readOnly}
+        onOpenComments={onOpenComments}
+        commentCountsByField={commentCountsByField}
+      />
     </>
   );
 }

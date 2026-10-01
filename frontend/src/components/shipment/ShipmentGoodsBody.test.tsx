@@ -14,6 +14,8 @@ import type { IBlockSource, IShipmentDetail } from '@/types';
 vi.mock('@/services/api', () => ({
   default: { patch: vi.fn(), get: vi.fn(), post: vi.fn() },
 }));
+vi.mock('@/components/shipment/ShipmentPackingActions', () => ({ ShipmentPackingActions: () => null }));
+vi.mock('@/components/shipment/VarietyOverrideRow', () => ({ VarietyOverrideRow: () => null }));
 
 /** "3,000 kg" — matches the "shipment_detail.block_sources_weight_kg" key. */
 function weightLabel(kg: number): string {
@@ -137,5 +139,45 @@ describe('ShipmentGoodsBody block sources', () => {
     const expectedA = `A: ${fmtDate('2026-09-21')} — ${weightLabel(3000)}, ${fmtDate('2026-09-24')} — ${weightLabel(5000)}`;
     const expectedB = `B: ${fmtDate('2026-09-20')} — ${weightLabel(1000)}, ${fmtDate('2026-09-22')} — ${weightLabel(2000)}`;
     expect(row.getByText(`${expectedA}; ${expectedB}`)).toBeInTheDocument();
+  });
+});
+
+function renderGoods(over: Partial<IShipmentDetail>) {
+  const shipment: IShipmentDetail = { ...MOCK_SHIPMENT_DETAIL, ...over };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <ShipmentGoodsBody shipment={shipment} missingKeys={new Set()} readOnly={false} canOverrideVariety={false} />
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+}
+
+describe('ShipmentGoodsBody — packaging part rows', () => {
+  it('drops gross / tare / pallets / boxes (the packing panel owns them) and keeps net', () => {
+    const { container } = renderGoods({});
+    for (const key of ['weight_gross', 'packaging_kg', 'pallet_count', 'box_count']) {
+      expect(container.querySelector(`#detail-field-${key}`)).toBeNull();
+    }
+    expect(container.querySelector('#detail-field-weight_net')).not.toBeNull();
+    expect(container.querySelector('#detail-field-loading_started_at')).not.toBeNull();
+    expect(container.querySelector('#detail-field-loading_ended_at')).not.toBeNull();
+  });
+
+  it('harvest date: block dates win and are read-only', () => {
+    const { container } = renderGoods({
+      harvest_date: '5-10 oktýabr',
+      block_sources: [{ block_code: 'A', block_name: 'A', weight_kg: 1000, harvest_date: '2026-09-21' }],
+    });
+    const row = container.querySelector('#detail-field-harvest_date') as HTMLElement;
+    expect(within(row).getByText(new RegExp(fmtDate('2026-09-21')))).toBeInTheDocument();
+    expect(within(row).queryByText('5-10 oktýabr')).toBeNull();
+  });
+
+  it('harvest date: the shipment text when blocks carry no date', () => {
+    const { container } = renderGoods({ harvest_date: '5-10 oktýabr', block_sources: [] });
+    const row = container.querySelector('#detail-field-harvest_date') as HTMLElement;
+    expect(within(row).getByText('5-10 oktýabr')).toBeInTheDocument();
   });
 });
