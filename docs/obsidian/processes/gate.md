@@ -41,7 +41,7 @@ status not `cancelled`.
 **«Gelmeli» — `expected(L)`.** Live rows at `L`, status in `{draft,
 gumruk_girish, gumruk_chykysh, yuklenme}`, plate filled (`truck_plate` not
 null and not `''` — no trimming), `greenhouse_arrived_at IS NULL`,
-`departed_at IS NULL`, `date` between today−30 and tomorrow (was −7 until 2026-09-30: a truck held up by documents for two weeks disappeared). A **packing part**
+`departed_at IS NULL`, `date` today−30 or later (was −7 until 2026-09-30: a truck held up by documents for two weeks disappeared). No limit ahead since 2026-10-01 (was: up to tomorrow) — an assigned truck is on the gate at once, whatever its date. A **packing part**
 — a `draft` with no `country` and no `customer` — is excluded even if
 everything else matches: Join deletes that row, so a gate stamp on it would be
 lost (owner-approved decision, 2026-09-29; the same exclusion `/me/tasks/`
@@ -169,14 +169,22 @@ first, so a later packaging move no longer drops it off `L`'s lists — see
 [[#Known limits]]. `UniqueConstraint (shipment, step) where kind='gate'` keeps
 two guards syncing at once from ever double-creating a task.
 
-**Lazy, not a beat job.** It runs on every `GET /gate/`, inside each gate
-action (for that one shipment), and on `GET /me/tasks/` for a `garawul` user
-with a location. There is no Celery beat entry — a supervisor's board shows
-gate tasks as of whichever of those reads last ran, not live.
+**On every save, not a beat job** (owner, 2026-10-01 — before, it ran only on
+reads, so a truck's arrive task did not exist until the guard opened his
+screen). `sync_shipment_gate_tasks(shipment_id, actor)` runs at the end of
+every `Shipment.save()` — so assigning a truck (Planning trip, or a plate typed
+on the Sheet) opens the arrive task at once — and after each packing move
+(Join, Unjoin, Swap), which write with `.update()` and bypass `save()`. A truck
+with no packing yet has no location, so its task opens at Join. It syncs every
+location the shipment may be on: its blocks', its `loading_location`, and any
+location holding a live gate task for it. Reads still sync too: every
+`GET /gate/`, each gate action, and `GET /me/tasks/` for a `garawul` user. There
+is no Celery beat entry.
 
-`actor` credits `completed_by` — the gate action passes the acting guard; a
-sync that merely discovers a close (e.g. the loading head hand-corrected R49
-or R21 on the Sheet) credits nobody.
+`actor` credits `completed_by` — the gate action passes the acting guard; the
+save-time sync passes `shipment.updated_by`, the same credit the task engine
+gives any task a save resolves (so a time fixed on the Sheet credits the
+editor); a read-time sync credits nobody.
 
 **A gate task never makes a shipment "owned" by garawul** (final-fix review
 F3). `get_owner_role()` (the Shipment Board item's `owner_role`) and the

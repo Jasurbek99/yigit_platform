@@ -21,7 +21,7 @@ tap to mark «Ýyladyşhana geldi» and one tap to mark «Ýyladyşhanadan çykd
 | What arrival does | Save the time, fill R19 `loading_started_at` if empty (→ status Ýüklenme via auto-advance), notify all loading deputies and the head |
 | What exit does | Fill R21 `departed_at` (→ Ýola çykdy, gapy → Tamamlandy via auto-advance) |
 | One truck, two locations | No. A trip loads at one location |
-| «Gelmeli» list | Regular and gapy trucks, dates from today−30 to tomorrow (7 → 30 on 2026-09-30) |
+| «Gelmeli» list | Regular and gapy trucks, dates from today−30 on (7 → 30 on 2026-09-30); no limit ahead since 2026-10-01 (was tomorrow) |
 | Truck not in his list | Guard cannot mark it; he calls the loading head |
 | Mistakes | Confirm dialog on every tap; guard can undo within 10 min if the status has not moved |
 | Tasks | Yes. Marking on the screen closes the task; the task card can also mark |
@@ -61,8 +61,8 @@ Migration numbers are picked at write time (parallel sessions — see CLAUDE.md)
 The block subquery calls `.order_by()` before being wrapped (MSSQL rule).
 
 - **Gelmeli** `expected(L)` — live row, `location_q(L)`, plate filled, before departure,
-  `greenhouse_arrived_at IS NULL`, `departed_at IS NULL`, `date` between today−30 and
-  today+1. Ordered by `date`, then `id`.
+  `greenhouse_arrived_at IS NULL`, `departed_at IS NULL`, `date` today−30 or later
+  (upper bound today+1 dropped 2026-10-01). Ordered by `date`, then `id`.
 - **Ýyladyşhanada** `inside(L)` — live row, `location_q(L)`, `greenhouse_arrived_at` set,
   `departed_at IS NULL`. Does **not** look at status: a status move never hides a truck
   that is physically inside.
@@ -128,8 +128,14 @@ Fields: `kind='gate'`, `shipment`, `rule=None`, `assignee_role='garawul'`,
 
 It runs on: every gate list read, `MeTaskListView` for a `garawul` user (same lazy pattern
 as the plan tasks), and inside each action for that one shipment. The action closes the
-task with `completed_by = request.user`. A close found only by sync (e.g. admin fixed the
-time on the Sheet) leaves `completed_by` null.
+task with `completed_by = request.user`. A close found only by a read-time sync leaves
+`completed_by` null.
+
+**Changed 2026-10-01 (owner):** the arrive task must open the moment a truck is assigned,
+not when the guard next looks. `sync_shipment_gate_tasks(shipment_id, actor)` now also
+runs at the end of every `Shipment.save()` (actor = `updated_by`, like any task a save
+resolves — so admin fixing the time on the Sheet is credited) and after Join / Unjoin /
+Swap, which bypass `save()`.
 
 `MeTaskListView` shows a guard only gate tasks with `scope_location = his location`.
 
@@ -219,7 +225,7 @@ without the mark. Success invalidates both the task and gate queries.
 ## Testing
 
 Backend (`apps.export` + `apps.core`):
-- Lists: location from blocks and from `loading_location`; date window today−30..tomorrow;
+- Lists: location from blocks and from `loading_location`; date window today−30 on (no upper bound since 2026-10-01);
   plate required; status set; cancelled / deleted / archived excluded; inside ignores status.
 - Scoping: `?location=` ignored for `garawul`, honoured for admin; guard with no location → 400;
   other roles → 403 on `/gate/`; `garawul` → 403 on `/shipments/`.
