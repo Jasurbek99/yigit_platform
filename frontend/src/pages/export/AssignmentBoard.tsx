@@ -8,9 +8,11 @@ import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { useAuth } from '@/hooks/useAuth';
 import { extractPatchError } from '@/hooks/useShipmentPatch';
 import { canUserJoin } from '@/components/sheet/joinHelpers';
+import { canDoBackendGated } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
 import type { IShipmentDraft } from '@/types';
 import { BoardColumn } from './assignment/BoardColumn';
+import { DailyPlanStrip } from './assignment/DailyPlanStrip';
 import { SupplyCard } from './assignment/SupplyCard';
 import { ExportPartCard } from './assignment/ExportPartCard';
 import { PackingActionPanel } from './assignment/PackingActionPanel';
@@ -43,6 +45,7 @@ export default function AssignmentBoard() {
     .filter((r): r is IShipmentDraft => r !== undefined);
   const action = decideBoardAction(selected);
   const canAct = canUserJoin(user) && !isReadOnly;
+  const canCreate = canDoBackendGated(user, 'shipment', 'create') && !isReadOnly;
   const isPending = joinMutation.isPending || unjoinMutation.isPending || swapMutation.isPending;
 
   // Prune before toggling: a picked card can vanish from `rows` on refetch
@@ -93,6 +96,8 @@ export default function AssignmentBoard() {
         <Title level={4} style={{ margin: 0 }}>{t('assign.page_title')}</Title>
         <Text type="secondary" style={{ fontSize: 13 }}>{t('assign.page_subtitle')}</Text>
       </div>
+
+      <DailyPlanStrip canCreate={canCreate} />
 
       {isLoading ? (
         <div style={{ textAlign: 'center', padding: 48 }}><Spin /></div>

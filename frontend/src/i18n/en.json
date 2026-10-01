@@ -1521,6 +1521,7 @@
     "title": "Notifications",
     "mark_all_read": "Mark all read",
     "empty": "No notifications",
+    "open": "Open",
     "action_required": "{{shipment_code}} — your fields need filling",
     "kind_mention": "You were mentioned",
     "kind_task_assigned": "Task assigned to you",
@@ -2331,7 +2332,12 @@
       "notes": "Notes",
       "export_manager_note": "Export manager note",
       "created": "Created by"
-    }
+    },
+    "today_plan": "Today",
+    "week_plan": "Week",
+    "no_plan_today": "No truck plan for today",
+    "add_export_part": "Open export part",
+    "add_export_part_failed": "Could not open the export part"
   },
   "split": {
     "header_title": "Split Shipment into Trucks",

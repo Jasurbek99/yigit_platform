@@ -326,6 +326,36 @@ export function useCreateEmptyColumn() {
   });
 }
 
+// ─── useCreateExportPart ──────────────────────────────────────────────────
+
+/**
+ * «+» on the /export/assign plan strip (spec 2026-10-01): an export part for
+ * today carrying the plan row's country, or the Gapy flag. No `date` — the
+ * server stamps its own local today. The caller opens the new row's page.
+ */
+export function useCreateExportPart() {
+  const queryClient = useQueryClient();
+  const idem = useIdempotencyKey();
+
+  return useMutation({
+    mutationFn: async ({ country, isGapy }: { country?: number | null; isGapy?: boolean }): Promise<IShipmentDraft> => {
+      const body: Record<string, unknown> = { is_draft: true };
+      if (country != null) body.country = country;
+      if (isGapy) body.is_gapy_satys = true;
+      const { data } = await api.post<IShipmentDraft>('/export/shipments/', body, {
+        headers: { [IDEMPOTENCY_HEADER]: idem.key },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      idem.reset();
+      queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-progress'] });
+    },
+  });
+}
+
 // ─── useCreateDestinationDraft ────────────────────────────────────────────
 
 /**

@@ -1521,6 +1521,7 @@
     "title": "Habarlar",
     "mark_all_read": "Hemmesini okaldy belgile",
     "empty": "Habar ýok",
+    "open": "Aç",
     "action_required": "{{shipment_code}} — meýdanlaryňyzy doldurmaly",
     "kind_mention": "Sizi agzadylar",
     "kind_task_assigned": "Size wezipe bellenildi",
@@ -2331,7 +2332,12 @@
       "notes": "Bellikler",
       "export_manager_note": "Eksport menejeriniň belligi",
       "created": "Döreden"
-    }
+    },
+    "today_plan": "Şu gün",
+    "week_plan": "Hepde",
+    "no_plan_today": "Şu güne maşyn plany ýok",
+    "add_export_part": "Eksport bölegini aç",
+    "add_export_part_failed": "Eksport bölegini açyp bolmady"
   },
   "split": {
     "header_title": "Ýüki bölmek — ulaga paýlamak",
