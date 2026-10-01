@@ -2,6 +2,7 @@ import logging
 import re
 from datetime import datetime
 
+from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -26,32 +27,43 @@ def parse_device_name(name: str) -> tuple[str, str | None]:
 
 
 def sync_devices(client: TraccarClient | None = None) -> int:
-    """Upsert Truck + TraccarDevice rows from Traccar. Returns device count."""
+    """Upsert Truck + TraccarDevice rows from Traccar. Returns devices synced."""
     client = client or TraccarClient()
-    devices = client.get_devices()
-    for device in devices:
-        plate, fleet_no = parse_device_name(device.get('name', ''))
-        truck_fields = {'fleet_no': fleet_no, 'category': device.get('category') or 'unknown'}
-        # A known device keeps its truck even when renamed in Traccar; matching by
-        # plate alone would insert a second row with the same unique fleet_no.
-        known = TraccarDevice.objects.filter(traccar_id=device['id']).select_related('truck').first()
-        if known and known.truck:
-            truck = known.truck
-            Truck.objects.filter(pk=truck.pk).update(plate=plate, **truck_fields)
-        else:
-            truck, _ = Truck.objects.update_or_create(plate=plate, defaults=truck_fields)
-        TraccarDevice.objects.update_or_create(
-            traccar_id=device['id'],
-            defaults={
-                'imei': device.get('uniqueId'),
-                'name': device.get('name', ''),
-                'category': device.get('category'),
-                'truck': truck,
-                'status': device.get('status', 'unknown'),
-                'last_seen': parse_datetime(device['lastUpdate']) if device.get('lastUpdate') else None,
-            },
-        )
-    return len(devices)
+    synced = 0
+    for device in client.get_devices():
+        try:
+            with transaction.atomic():
+                _sync_device(device)
+        except Exception:
+            # One bad device must not stop every other truck from updating.
+            logger.exception('Skipping Traccar device id=%s name=%r', device.get('id'), device.get('name'))
+            continue
+        synced += 1
+    return synced
+
+
+def _sync_device(device: dict) -> None:
+    plate, fleet_no = parse_device_name(device.get('name', ''))
+    truck_fields = {'fleet_no': fleet_no, 'category': device.get('category') or 'unknown'}
+    # A known device keeps its truck even when renamed in Traccar; matching by
+    # plate alone would insert a second row with the same unique fleet_no.
+    known = TraccarDevice.objects.filter(traccar_id=device['id']).select_related('truck').first()
+    if known and known.truck:
+        truck = known.truck
+        Truck.objects.filter(pk=truck.pk).update(plate=plate, **truck_fields)
+    else:
+        truck, _ = Truck.objects.update_or_create(plate=plate, defaults=truck_fields)
+    TraccarDevice.objects.update_or_create(
+        traccar_id=device['id'],
+        defaults={
+            'imei': device.get('uniqueId'),
+            'name': device.get('name', ''),
+            'category': device.get('category'),
+            'truck': truck,
+            'status': device.get('status', 'unknown'),
+            'last_seen': parse_datetime(device['lastUpdate']) if device.get('lastUpdate') else None,
+        },
+    )
 
 
 def sync_positions(client: TraccarClient | None = None) -> int:
@@ -85,28 +97,42 @@ def sync_positions(client: TraccarClient | None = None) -> int:
                 pos.get('deviceId'),
             )
             continue
-        attrs = pos.get('attributes') or {}
-        raw_speed = pos.get('speed')
-        speed_kmh = round(raw_speed * 1.852, 2) if raw_speed is not None else None
-        fix_time = parse_datetime(pos['fixTime']) if pos.get('fixTime') else None
-        geofence = _current_geofence(pos, geofences)
-        DevicePosition.objects.update_or_create(
-            device=device,
-            defaults={
-                'latitude': pos['latitude'],
-                'longitude': pos['longitude'],
-                'speed': speed_kmh,
-                'course': pos.get('course'),
-                'address': (pos.get('address') or '')[:300] or None,
-                'ignition': attrs.get('ignition'),
-                'fix_time': fix_time,
-                'valid': pos.get('valid', True),
-                'current_geofence': geofence,
-                'geofence_since': _geofence_since(geofence, fix_time, previous.get(device.pk)),
-            },
-        )
+        try:
+            with transaction.atomic():
+                _write_position(pos, device, geofences, previous.get(device.pk))
+        except Exception:
+            logger.exception('Skipping position for deviceId=%s', pos.get('deviceId'))
+            continue
         written += 1
     return written
+
+
+def _write_position(
+    pos: dict,
+    device: TraccarDevice,
+    geofences: dict[int, TraccarGeofence],
+    previous: tuple[int | None, datetime | None] | None,
+) -> None:
+    attrs = pos.get('attributes') or {}
+    raw_speed = pos.get('speed')
+    speed_kmh = round(raw_speed * 1.852, 2) if raw_speed is not None else None
+    fix_time = parse_datetime(pos['fixTime']) if pos.get('fixTime') else None
+    geofence = _current_geofence(pos, geofences)
+    DevicePosition.objects.update_or_create(
+        device=device,
+        defaults={
+            'latitude': pos['latitude'],
+            'longitude': pos['longitude'],
+            'speed': speed_kmh,
+            'course': pos.get('course'),
+            'address': (pos.get('address') or '')[:300] or None,
+            'ignition': attrs.get('ignition'),
+            'fix_time': fix_time,
+            'valid': pos.get('valid', True),
+            'current_geofence': geofence,
+            'geofence_since': _geofence_since(geofence, fix_time, previous),
+        },
+    )
 
 
 def sync_geofences(client: TraccarClient | None = None) -> int:

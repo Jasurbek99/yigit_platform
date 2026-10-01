@@ -103,6 +103,40 @@ class SyncTests(TestCase):
         self.assertEqual((truck.plate, truck.fleet_no), ('2613AHF', 'TR076'))
         self.assertEqual(TraccarDevice.objects.get(traccar_id=11).truck_id, truck_id)
 
+    def test_sync_devices_skips_a_failing_device_and_syncs_the_rest(self):
+        # One bad device must not freeze the whole fleet (TR076 did for 8 days).
+        Truck.objects.create(plate='OLD1', fleet_no='TR076')  # unlinked → the insert collides
+        client = MagicMock()
+        client.get_devices.return_value = [
+            {'id': 11, 'uniqueId': 'imei-11', 'name': '2613AHF TR076',
+             'category': None, 'status': 'online', 'lastUpdate': None},
+            {'id': 74, 'uniqueId': 'imei-74', 'name': '2189AHF TR038',
+             'category': None, 'status': 'online', 'lastUpdate': None},
+        ]
+        with self.assertLogs('apps.transport.services.sync', level='ERROR'):
+            count = sync_devices(client=client)
+        self.assertEqual(count, 1)
+        self.assertFalse(TraccarDevice.objects.filter(traccar_id=11).exists())
+        self.assertEqual(TraccarDevice.objects.get(traccar_id=74).truck.plate, '2189AHF')
+
+    def test_sync_positions_skips_a_failing_position_and_writes_the_rest(self):
+        client = MagicMock()
+        client.get_devices.return_value = [
+            {'id': 1, 'uniqueId': 'imei-1', 'name': 'AAA TR001',
+             'category': None, 'status': 'online', 'lastUpdate': None},
+            {'id': 2, 'uniqueId': 'imei-2', 'name': 'BBB TR002',
+             'category': None, 'status': 'online', 'lastUpdate': None},
+        ]
+        sync_devices(client=client)
+        client.get_positions.return_value = [
+            {'deviceId': 1, 'latitude': 'not-a-number', 'longitude': 58.4925, 'valid': True},
+            {'deviceId': 2, 'latitude': 37.9734, 'longitude': 58.4925, 'valid': True},
+        ]
+        with self.assertLogs('apps.transport.services.sync', level='ERROR'):
+            written = sync_positions(client=client)
+        self.assertEqual(written, 1)
+        self.assertEqual(DevicePosition.objects.get().device.traccar_id, 2)
+
     def test_sync_devices_allows_multiple_null_fleet_no(self):
         # Regression test: Truck.fleet_no is unique=True, null=True. On MSSQL
         # this maps to a FILTERED unique index (WHERE fleet_no IS NOT NULL),
