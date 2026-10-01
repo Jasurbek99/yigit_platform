@@ -17,3 +17,10 @@ describe('gate route', () => {
     expect(canSeePage(guard({ 'export.gate': false }), '/export/gate')).toBe(false);
   });
 });
+
+describe('pomidor dukany route', () => {
+  it('maps /export/pomidor-dukany to the export.pomidor_dukany page code', () => {
+    expect(canSeePage(guard({ 'export.pomidor_dukany': true }), '/export/pomidor-dukany')).toBe(true);
+    expect(canSeePage(guard({ 'export.pomidor_dukany': false }), '/export/pomidor-dukany')).toBe(false);
+  });
+});
