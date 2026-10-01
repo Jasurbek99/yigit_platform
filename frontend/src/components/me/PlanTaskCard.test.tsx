@@ -47,6 +47,30 @@ describe('PlanTaskCard', () => {
     expect(screen.getByText('Missed')).toBeInTheDocument();
   });
 
+  const day = {
+    date: '2026-09-28', day_of_week: 1,
+    rows: [
+      { key: 'country:3', label: 'Russia', country_id: 3, is_gapy: false, plan: 4, fact: 3 },
+      { key: 'gapy', label: 'Gapy Satys', country_id: null, is_gapy: true, plan: 1, fact: 1 },
+    ],
+    plan_total: 5, export_parts: 4, export_parts_packed: 3, packed: 3, loading_target: 6,
+  };
+
+  it('shows plan vs fact per row and the packing count on an export task', () => {
+    renderCard(task({ progress: day }));
+    expect(screen.getByText('Russia 3/4 · Gapy Satys 1/1 · packing 3/4')).toBeInTheDocument();
+  });
+
+  it('shows packed of target on a loading task', () => {
+    renderCard(task({ kind: 'daily_loading', title_key: 'tasks.daily_loading_plan', progress: day }));
+    expect(screen.getByText('Packed 3 of 6')).toBeInTheDocument();
+  });
+
+  it('shows no progress line on a done task', () => {
+    renderCard(task({ state: 'done', progress: day }));
+    expect(screen.queryByTestId('plan-task-progress')).not.toBeInTheDocument();
+  });
+
   it('tells a late weekly-plan manager they can still fill until Sunday', () => {
     renderCard(task({
       kind: 'weekly_plan', title_key: 'tasks.fill_weekly_plan', is_overdue: true, scope_date: null,

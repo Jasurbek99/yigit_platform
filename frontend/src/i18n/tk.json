@@ -3148,7 +3148,9 @@
       "docs_to_customs": "Ugradyldy",
       "docs_from_stamp": "Geldi",
       "prepare_contract": "Taýýar"
-    }
+    },
+    "progress_packing": "gaplama {{done}}/{{total}}",
+    "progress_packed": "Gaplandy {{done}} / {{total}}"
   },
   "me": {
     "board": {
@@ -3917,10 +3919,10 @@
     "kind_transport_plan_completes": "«Maşyn planlamasy» sahypasyndaky «Tanyşdym» düwmesi.",
     "kind_daily_loading_name": "Şu güne ýük, maşyn planla",
     "kind_daily_loading_trigger": "Ýekşenbeden başga her gün 06:05-de (Celery beat). Möhleti — günüň ahyry. Ertire çenli edilmese — «Ýerine ýetirilmedi».",
-    "kind_daily_loading_completes": "Şu günüň senesine Gaplamada iň azyndan bir maşyn açylanda.",
+    "kind_daily_loading_completes": "Şu güne gaplanan maşynlar günüň plan maşynlaryndan ýa-da açylan eksport böleklerinden (haýsysy köp bolsa) az däl, iň azyndan bir.",
     "kind_daily_export_name": "Eksport planla",
     "kind_daily_export_trigger": "Ýekşenbeden başga her gün 06:05-de (Celery beat). Möhleti — günüň ahyry. Ertire çenli edilmese — «Ýerine ýetirilmedi».",
-    "kind_daily_export_completes": "Şu günüň senesine ýurdy we müşderisi bolan ýükleme bar bolanda.",
+    "kind_daily_export_completes": "Şu günüň maşyn planyndaky her ýurt we Gapy üçin fakt ≥ plan, şu günüň her eksport böleginiň gaplamasy bar, iň azyndan bir eksport bölegi.",
     "kind_gate_name": "Garawul: gelen we çykan maşynlary bellemek",
     "kind_gate_trigger": "Belgili maşyn garawulyň ýerine gelmeli bolanda (şu gün −30 … ertir)",
     "kind_gate_completes": "Derwezede «Geldi» / «Çykdy» basylanda",

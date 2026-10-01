@@ -1815,6 +1815,37 @@ export type TaskKind =
   | 'alloc_review' | 'transport_plan' | 'daily_loading' | 'daily_export'
   | 'gate';
 
+/** One plan row of a day: a country (its destinations summed) or Gapy. */
+export interface IDailyProgressRow {
+  /** 'country:<id>' | 'gapy' */
+  key: string;
+  label: string;
+  country_id: number | null;
+  is_gapy: boolean;
+  plan: number;
+  fact: number;
+}
+
+/** Plan vs fact for one day (spec 2026-10-01). Every count is a JSON int. */
+export interface IDailyProgressDay {
+  date: string;
+  day_of_week: number;
+  rows: IDailyProgressRow[];
+  plan_total: number;
+  export_parts: number;
+  export_parts_packed: number;
+  packed: number;
+  /** max(plan_total, export_parts) — what the loading department must pack. */
+  loading_target: number;
+}
+
+/** GET /export/truck-allocations/daily-progress/ — Mon–Sat of `date`'s ISO week. */
+export interface IDailyProgress {
+  /** The day asked for, or the server's local today when none was sent. */
+  date: string;
+  days: IDailyProgressDay[];
+}
+
 export interface ITaskListItem {
   /** A document task reopened by a truck-change rollback. */
   documents_redo?: boolean;
@@ -1857,6 +1888,8 @@ export interface ITaskListItem {
   scope_date: string | null;
   /** Why a cancelled task was cancelled; 'missed' = a daily task nobody did. '' otherwise. */
   cancelled_reason: string;
+  /** Plan vs fact for an open daily_loading / daily_export task; null otherwise. */
+  progress?: IDailyProgressDay | null;
 }
 
 export interface ITaskDetail extends ITaskListItem {

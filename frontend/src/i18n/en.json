@@ -3145,7 +3145,9 @@
       "docs_to_customs": "Sent",
       "docs_from_stamp": "Back",
       "prepare_contract": "Done"
-    }
+    },
+    "progress_packing": "packing {{done}}/{{total}}",
+    "progress_packed": "Packed {{done}} of {{total}}"
   },
   "me": {
     "board": {
@@ -3914,10 +3916,10 @@
     "kind_transport_plan_completes": "The «Tanyşdym» button on the Truck Planning page.",
     "kind_daily_loading_name": "Plan today's load and trucks",
     "kind_daily_loading_trigger": "Every day except Sunday at 06:05 (Celery beat). Due end of day. Not done by next morning — «Missed».",
-    "kind_daily_loading_completes": "At least one Gaplama truck is opened for today's date.",
+    "kind_daily_loading_completes": "Trucks packed for today reach the larger of the day's planned trucks and the export parts opened, and at least one.",
     "kind_daily_export_name": "Plan export",
     "kind_daily_export_trigger": "Every day except Sunday at 06:05 (Celery beat). Due end of day. Not done by next morning — «Missed».",
-    "kind_daily_export_completes": "A shipment with a country and a customer exists for today's date.",
+    "kind_daily_export_completes": "For every country and Gapy in today's truck plan, export parts ≥ plan, every export part of today has packing, and there is at least one export part.",
     "kind_gate_name": "Gate guard: mark arrival and exit",
     "kind_gate_trigger": "When a plated truck is due at his location (today −30 … tomorrow)",
     "kind_gate_completes": "When «Arrived» / «Left» is tapped at the gate",

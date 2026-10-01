@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { ITaskListItem } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { exportProgressLine, loadingProgressLine } from './planTaskProgress';
 
 const { Text } = Typography;
 
@@ -129,6 +130,17 @@ export function PlanTaskCard({ task }: IPlanTaskCardProps) {
           {isMissed ? t('tasks.missed') : stateLabel}
         </Tag>
       </div>
+
+      {/* Row 2b: plan vs fact (open daily tasks only) */}
+      {!isDone && task.progress && (
+        <div style={{ marginTop: 4 }} data-testid="plan-task-progress">
+          <Text style={{ fontSize: 11 }}>
+            {task.kind === 'daily_loading'
+              ? loadingProgressLine(task.progress, t)
+              : exportProgressLine(task.progress, t)}
+          </Text>
+        </div>
+      )}
 
       {/* Row 3: deadline — red once overdue */}
       {!isDone && task.deadline && (
