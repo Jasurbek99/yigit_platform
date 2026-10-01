@@ -947,6 +947,12 @@ def close_sales_report_task(shipment, user) -> int:
     shipment.updated_by = user
     shipment.save()
 
+    if reminders:
+        # Closed above, outside the save chain — so spawn what waited on it
+        # («Hasabaty tassykla», item 37) the way any button close does.
+        from apps.export.services.task_chain import after_task_done
+        after_task_done(shipment, user, reminders)
+
     return len(reminders)
 
 

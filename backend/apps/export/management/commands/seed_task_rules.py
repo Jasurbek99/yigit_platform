@@ -749,6 +749,9 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '',
         'condition_field': '',
         'condition_value': '',
+        # 37 follows 36: no «approve» card until the rep has sent the report
+        # (E2E 2026-10-01). Still holds satyldy while pending (E3).
+        'depends_on': 'tasks.submit_sales_report',
     },
     # ── Legacy rows that were never in this file (owner, 2026-09-30) ───────────
     # Created by hand / an old seed; seeding left them ACTIVE, so they kept

@@ -164,7 +164,7 @@ class FullCycleThroughTasksTests(TestCase):
                                  'tasks.trigger_sale_start'})
         self.fill(s, self.rep, city=self.city, sale_started_at=timezone.now())  # 34
         self.fill(s, self.rep, sale_ended_at=timezone.now())                   # 35
-        self.expect(s, 'satyldy', {'tasks.submit_sales_report', 'tasks.approve_sales_report'})
+        self.expect(s, 'satyldy', {'tasks.submit_sales_report'})          # 37 waits for 36
         self.api(self.rep, f'/api/v1/export/shipments/{s.pk}/sales-report/', {})   # 36
         self.expect(s, 'satyldy', {'tasks.approve_sales_report'})
         self.api(self.em, f'/api/v1/export/shipments/{s.pk}/sales-report/approve/')   # 37

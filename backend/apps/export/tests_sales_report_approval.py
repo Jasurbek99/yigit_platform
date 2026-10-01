@@ -12,7 +12,8 @@ from apps.export.management.commands.seed_task_rules import Command as SeedTaskR
 from apps.export.models import SalesReport, Shipment, TaskState
 from apps.export.services.task_rules import generate_tasks_for_status
 
-STATUSES = [('yola_chykdy', 4, 'TRANSIT'), ('satyldy', 11, 'SALES'), ('tamamlandy', 12, 'COMPLETE')]
+STATUSES = [('yola_chykdy', 4, 'TRANSIT'), ('satylyar', 10, 'SALES'), ('satyldy', 11, 'SALES'),
+            ('tamamlandy', 12, 'COMPLETE')]
 
 
 class SalesReportApprovalTests(TestCase):
@@ -85,6 +86,55 @@ class SalesReportApprovalTests(TestCase):
         self.assertEqual(self._approve(self.boss, shipment).status_code, 200)
         report = SalesReport.objects.get(shipment=shipment)
         self.assertEqual((report.approved_at, report.approved_by), (first, self.em))
+
+    def test_approval_waits_for_the_report(self):
+        """E2E 2026-10-01: the truck reached satyldy before the rep sent the
+        report, and the export manager got an «approve» card with nothing to
+        approve. Item 37 follows 36 — the card comes once the report is in."""
+        shipment = Shipment.objects.create(
+            shipment_code='SRA-5', date='2026-01-01', season=self.season,
+            status=ShipmentStatusType.objects.get(code='yola_chykdy'),
+            created_by=self.rep, updated_by=self.rep,
+        )
+        generate_tasks_for_status(shipment, 'yola_chykdy')          # «Hasabat doldur» opens
+        # Test shortcut past the transit steps (not under test here).
+        Shipment.objects.filter(pk=shipment.pk).update(status=ShipmentStatusType.objects.get(code='satyldy'))
+        shipment.refresh_from_db()
+        generate_tasks_for_status(shipment, 'satyldy')
+        self.assertFalse(shipment.tasks.filter(title_key='tasks.approve_sales_report').exists())
+
+        client = APIClient()
+        client.force_authenticate(self.rep)
+        resp = client.post(f'/api/v1/export/shipments/{shipment.id}/sales-report/', {'currency': 'KZT'}, format='json')
+        self.assertIn(resp.status_code, (200, 201), resp.content)
+        self.assertEqual(shipment.tasks.get(title_key='tasks.submit_sales_report').state, TaskState.DONE)
+        self.assertEqual(shipment.tasks.get(title_key='tasks.approve_sales_report').state, TaskState.OPEN)
+
+    def test_a_report_sent_in_transit_gets_its_approval_on_satyldy_entry(self):
+        """The common path: the rep fills the report mid-transit, so «Hasabat
+        doldur» is done long before satyldy. Entering satyldy must then create
+        the approve card at once — else E3 holds the step with no card."""
+        from apps.export.services import transition_to
+
+        shipment = Shipment.objects.create(
+            shipment_code='SRA-6', date='2026-01-01', season=self.season,
+            status=ShipmentStatusType.objects.get(code='yola_chykdy'),
+            created_by=self.rep, updated_by=self.rep,
+        )
+        generate_tasks_for_status(shipment, 'yola_chykdy')
+        client = APIClient()
+        client.force_authenticate(self.rep)
+        resp = client.post(f'/api/v1/export/shipments/{shipment.id}/sales-report/', {'currency': 'KZT'}, format='json')
+        self.assertIn(resp.status_code, (200, 201), resp.content)
+        self.assertFalse(shipment.tasks.filter(title_key='tasks.approve_sales_report').exists())
+
+        # Test shortcut past the transit steps; the satyldy entry itself is real.
+        Shipment.objects.filter(pk=shipment.pk).update(status=ShipmentStatusType.objects.get(code='satylyar'))
+        shipment.refresh_from_db()
+        transition_to(shipment, 'satyldy', self.em, is_auto=True)
+        shipment.refresh_from_db()
+        self.assertEqual(shipment.status.code, 'satyldy')
+        self.assertEqual(shipment.tasks.get(title_key='tasks.approve_sales_report').state, TaskState.OPEN)
 
     def test_no_report_nothing_to_approve(self):
         shipment = self._sold('SRA-4', with_report=False)
