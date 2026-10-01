@@ -44,12 +44,12 @@ const TASK_TARGET_KEYS = [
 
 beforeAll(async () => { await i18n.changeLanguage('en'); });
 
-function renderDetail(shipment: IShipmentDetail) {
+function renderDetail(shipment: IShipmentDetail, missingKeys: Set<string> = new Set()) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <ShipmentDetailStageCards shipment={shipment} isDesktop={false} missingKeys={new Set()} readOnly={false}
+        <ShipmentDetailStageCards shipment={shipment} isDesktop={false} missingKeys={missingKeys} readOnly={false}
           onOpenComments={() => {}} commentCountsByField={{}} canOverrideVariety={false} />
         <ShipmentSaleSection shipment={shipment} missingKeys={new Set()} readOnly={false} canEditSalesReport={false} />
       </QueryClientProvider>
@@ -72,5 +72,25 @@ describe('every task target field is reachable on the Detail page', () => {
     renderDetail({ ...MOCK_SHIPMENT_DETAIL, ...over } as IShipmentDetail);
     const unreachable = keys.filter((key) => target(key) === null);
     expect(unreachable).toEqual([]);
+  });
+});
+
+// E2E 2026-10-01: the Quality card said "complete" with no scan uploaded — its
+// badge was hard-coded to zero missing.
+describe('the Quality card badge', () => {
+  function qualityCardText(): string {
+    const title = [...document.querySelectorAll('.ant-card-head')]
+      .find((head) => head.textContent?.includes('Quality Certificates'));
+    return title?.textContent ?? '';
+  }
+
+  it('counts the certificates still owed', () => {
+    renderDetail(MOCK_SHIPMENT_DETAIL, new Set(['quality.hil_sertifikaty', 'quality.kalibrowka_analiz', 'weight_net']));
+    expect(qualityCardText()).toContain('2 missing');
+  });
+
+  it('reads complete when none is owed', () => {
+    renderDetail(MOCK_SHIPMENT_DETAIL, new Set(['weight_net']));
+    expect(qualityCardText()).toContain('complete');
   });
 });

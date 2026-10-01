@@ -105,7 +105,7 @@ export function ShipmentDetailStageCards({
     <ShipmentStageCard
       key="quality"
       title={t('shipment_detail.section_certs')}
-      missingCount={0}
+      missingCount={[...missingKeys].filter((key) => key.startsWith('quality.')).length}
       isFutureStage={false}
     >
       {/* `!readOnly`, not `canEditAnyField` directly — `readOnly` also folds in
