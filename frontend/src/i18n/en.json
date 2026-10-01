@@ -3074,6 +3074,8 @@
       "customs_entry_at": "Dest. customs done"
     },
     "edit_in_detail": "Edit in shipment detail",
+    "upload_certificates": "Upload certificates",
+    "upload_certificates_first": "Press «Upload certificates» first",
     "fill_loading_data": "Fill loading data",
     "set_destination": "Fill in the export details",
     "pick_export_firms": "Pick export firms",

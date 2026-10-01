@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { SelfBoardShipmentFieldList } from './SelfBoardShipmentFieldList';
 import { TaskDocumentButtons, hasTaskDocuments } from './TaskDocumentButtons';
+import { QualityCertificatesButton } from './QualityCertificatesButton';
 import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
 import { SalesReportApproval } from '@/components/SalesReportApproval';
 import { useAuth } from '@/hooks/useAuth';
@@ -91,12 +92,17 @@ export function SelfBoardActiveTaskPanel({
   const isDone = task.state === 'done';
   const link = taskLink(task.title_key, task.shipment);
   const isOverdue = task.is_overdue;
+  // The quality task is started only by «Upload certificates», and closes only
+  // once started (owner 2026-10-01; the server refuses the same).
+  const isQualityTask = task.title_key === 'tasks.quality_inspection';
+  const needsUploadClick = isQualityTask && task.state === 'open';
 
   const deadlineDisplay = task.deadline
     ? dayjs(task.deadline).format('DD MMM HH:mm')
     : null;
 
   function handleFirstEdit(): void {
+    if (isQualityTask) return;
     if (!hasStartedRef.current && (task.state === 'open' || task.state === 'in_progress')) {
       hasStartedRef.current = true;
       startMutation.mutate({ taskId: task.id, shipmentId: shipment.id });
@@ -186,6 +192,12 @@ export function SelfBoardActiveTaskPanel({
         <TaskDocumentButtons titleKey={task.title_key} shipmentId={task.shipment} />
       )}
 
+      {isQualityTask && task.shipment != null && !isDone && (
+        <div style={{ marginTop: 8 }}>
+          <QualityCertificatesButton task={task} shipmentId={task.shipment} />
+        </div>
+      )}
+
       {/* Footer */}
       <Divider style={{ margin: '10px 0 8px' }} />
       <Space>
@@ -194,9 +206,15 @@ export function SelfBoardActiveTaskPanel({
             type="primary"
             onClick={handleMarkDone}
             loading={completeMutation.isPending}
+            disabled={needsUploadClick}
           >
             {taskButtonLabel(t, task.title_key)}
           </Button>
+        )}
+        {canComplete && needsUploadClick && (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {t('tasks.upload_certificates_first')}
+          </Text>
         )}
         {link && !isDone && <Link to={link.to}>{t(link.labelKey)}</Link>}
         {isDone && (

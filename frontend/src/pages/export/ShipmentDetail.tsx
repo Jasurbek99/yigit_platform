@@ -22,6 +22,7 @@ import { canDo } from '@/utils/permissions';
 import { COLORS } from '@/constants/styles';
 import { EXPORT_MANAGER_LIKE, isExportManagerLike } from '@/constants/roles';
 import { jumpToField } from './ShipmentDetailHelpers.helpers';
+import { useJumpToHash } from './useJumpToHash';
 
 // Roles the backend `CanEditShipment` permission allows to write shipment
 // fields (see backend/apps/transport/permissions.py) — mirrored here so the
@@ -54,6 +55,7 @@ export default function ShipmentDetail() {
   // rollback's `setDraft(persisted)` effect overwrites the local draft with
   // no way to recover it. Gating prevents the PATCH from firing at all.
   const isReadOnly = useSeasonReadOnly();
+  useJumpToHash(shipment != null);
 
   if (isLoading) {
     return (
