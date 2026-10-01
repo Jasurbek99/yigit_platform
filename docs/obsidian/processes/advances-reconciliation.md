@@ -96,7 +96,7 @@ erDiagram
 | 10 | Actions | 100px | Reconcile button (if not reconciled + canCreate) |
 
 **Row Expansion**: Chevron → sub-table showing linked shipments (shipment_code, allocated_amount).
-For users with write access (`finansist`/`export_manager`/`director`) the panel also has an
+For users with write access (`admin`/`finansist`/`director` — `ADVANCE_WRITE`) the panel also has an
 **attach control** (`ShipmentSelect` + allocated-amount input + Attach button →
 `POST /advances/{id}/link-shipment/`) and a **per-row unlink** button
 (→ `DELETE /advances/{id}/unlink-shipment/{shipment_id}/`). Both, plus create-time linking,
@@ -138,10 +138,14 @@ immediately.
 
 | Role | View | Create | Reconcile |
 |------|------|--------|-----------|
+| `admin` | Yes | Yes | Yes |
 | `finansist` | Yes | Yes | Yes |
-| `export_manager` | Yes | Yes | Yes |
 | `director` | Yes | Yes | Yes |
 | Others | No | No | No |
+
+Create / reconcile / link = backend `ADVANCE_WRITE` (`apps/core/roles.py`); the page's
+`CAN_CREATE_ROLES` mirrors it. Until 2026-10-01 the page showed the buttons to
+`export_manager`/`document_team` (whom the API refuses with 403) and hid them from `admin`.
 
 ## Connections to Other Processes
 

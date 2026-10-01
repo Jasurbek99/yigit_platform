@@ -99,4 +99,23 @@ describe('AdvancesTracker', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  // Same roles as the backend's ADVANCE_WRITE — the button used to be hidden
+  // from admin and shown to export_manager, who then got a 403 (test 2026-10-01).
+  it.each(['admin', 'finansist', 'director'])('%s gets the New advance button', (role) => {
+    mockUser.role = role;
+    mockUseAdvances.mockReturnValue({
+      data: { results: [], count: 0 }, isLoading: false, isError: false,
+    });
+    renderAt('/export/advances');
+
+    expect(screen.getByRole('button', { name: /New advance/i })).toBeInTheDocument();
+  });
+
+  it.each(['export_manager', 'document_team'])('%s does not (the API refuses it)', (role) => {
+    mockUser.role = role;
+    renderAt('/export/advances');
+
+    expect(screen.queryByRole('button', { name: /New advance/i })).toBeNull();
+  });
 });
