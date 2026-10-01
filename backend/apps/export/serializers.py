@@ -1908,6 +1908,9 @@ class ShipmentCreateSerializer(serializers.Serializer):
         queryset=ImportFirm.objects.all(), required=False, allow_null=True
     )
     is_draft = serializers.BooleanField(default=False)
+    # «+» on the Gapy row of the /export/assign plan strip (spec 2026-10-01):
+    # the export part is born gapy; country/customer are filled on its page.
+    is_gapy_satys = serializers.BooleanField(default=False)
     block_sources = BlockSourceInputSerializer(many=True, required=False, default=list)
     # Export firm splits — 1-3 firms with per-firm weight and optional amount
     firm_splits = FirmSplitInputSerializer(many=True, required=False, default=list)
@@ -2458,6 +2461,11 @@ class TaskListSerializer(serializers.ModelSerializer):
         source='shipment.truck_plate', read_only=True, default=None,
     )
 
+    # Plan vs fact for an open daily_loading / daily_export task. Computed once
+    # per day by resolve_daily_plan_tasks and handed in through the context
+    # ('daily_progress', set by MeTaskListView); null everywhere else.
+    progress = serializers.SerializerMethodField()
+
     def get_phase(self, obj) -> str | None:
         """Resolve phase from the task's parent shipment status.
 
@@ -2476,6 +2484,17 @@ class TaskListSerializer(serializers.ModelSerializer):
     def get_documents_redo(self, obj) -> bool:
         from apps.export.services.rollback import REDO_TASKS
         return bool(obj.shipment_id and obj.shipment.documents_reset_at and obj.title_key in REDO_TASKS)
+
+    def get_progress(self, obj) -> dict | None:
+        if obj.kind not in (TaskKind.DAILY_LOADING, TaskKind.DAILY_EXPORT):
+            return None
+        if obj.state not in (TaskState.OPEN, TaskState.IN_PROGRESS):
+            return None
+        day = self.context.get('daily_progress', {}).get(obj.scope_date)
+        if day is None:
+            return None
+        from apps.export.services.daily_progress import progress_payload
+        return progress_payload(day)
 
     class Meta:
         model = Task
@@ -2513,6 +2532,7 @@ class TaskListSerializer(serializers.ModelSerializer):
             # needing a separate /tasks/:id/ fetch per blocked card.
             'blocked_reason',
             'documents_redo',
+            'progress',
         ]
         read_only_fields = fields
 

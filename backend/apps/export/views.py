@@ -2289,6 +2289,7 @@ class ShipmentViewSet(ModelViewSet):
                 notes=data.get('notes') or None,
                 weight_net=data.get('weight_net'),
                 harvest_status=data.get('harvest_status') or '',
+                is_gapy_satys=data.get('is_gapy_satys', False),
             )
 
             ShipmentStatusLog.objects.create(

@@ -226,6 +226,27 @@ class WeeklyTruckAllocationViewSet(SeasonScopedMixin, ModelViewSet):
             )
         return Response(build_transport_plan(*parsed, request.user))
 
+    @action(detail=False, methods=['get'], url_path='daily-progress')
+    def daily_progress(self, request):
+        """GET /api/v1/export/truck-allocations/daily-progress/?date=YYYY-MM-DD
+
+        Plan vs fact for Mon–Sat of `date`'s ISO week (spec 2026-10-01). No
+        date → the server's local today (users sit in KZ/RU). Season-scoped,
+        unlike review/transport-plan: it counts shipments by date, so ?season=
+        follows resolve_season (404 / 403) and the close→open gap is empty.
+        """
+        from apps.core.seasons import resolve_season
+        from apps.export.services.daily_progress import progress_payload, week_progress
+
+        raw = (request.query_params.get('date') or '').strip()
+        try:
+            day = datetime.date.fromisoformat(raw) if raw else timezone.localdate()
+        except ValueError:
+            return Response({'error': 'date must be YYYY-MM-DD.'}, status=http_status.HTTP_400_BAD_REQUEST)
+        season = resolve_season(request)
+        days = [] if season is None else [progress_payload(p) for p in week_progress(day, season)]
+        return Response({'date': day.isoformat(), 'days': days})
+
 
 class WeeklyDestinationSelectionViewSet(SeasonScopedMixin, ModelViewSet):
     """

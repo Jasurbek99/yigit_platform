@@ -111,8 +111,10 @@ class MeTaskListView(APIView):
         # within about a second. Costs one indexed query once announced.
         announce_next_week_if_complete()
         # Daily loading/export tasks: resolve only — creation belongs to the
-        # 06:05 beat (a GET that creates would race on every badge poll).
-        resolve_daily_plan_tasks()
+        # 06:05 beat (a GET that creates would race on every badge poll). The
+        # day's plan vs fact is computed once here and reused by the cards.
+        daily_progress: dict = {}
+        resolve_daily_plan_tasks(daily_progress)
 
         # Gate tasks are code-driven too — sync the guard's own gate on read.
         from apps.core.roles import GATE_GUARD_ROLE
@@ -208,13 +210,14 @@ class MeTaskListView(APIView):
 
         qs = qs.order_by('deadline', 'created_at')
 
+        context = {'daily_progress': daily_progress}
         paginator = TaskBoardPagination()
         page = paginator.paginate_queryset(qs, request)
         if page is not None:
-            serializer = TaskListSerializer(page, many=True)
+            serializer = TaskListSerializer(page, many=True, context=context)
             return paginator.get_paginated_response(serializer.data)
 
-        serializer = TaskListSerializer(qs, many=True)
+        serializer = TaskListSerializer(qs, many=True, context=context)
         return Response(serializer.data)
 
 
