@@ -6,10 +6,12 @@ interface IRoleSidebarProps {
   roles: string[];
   selected: string | null;
   onSelect: (role: string) => void;
+  /** Text on the tag; defaults to the raw role code. */
+  getLabel?: (code: string) => string;
 }
 
 /** The role picker: one click switches the whole editor to that role. */
-export function RoleSidebar({ roles, selected, onSelect }: IRoleSidebarProps) {
+export function RoleSidebar({ roles, selected, onSelect, getLabel }: IRoleSidebarProps) {
   return (
     <Flex
       vertical
@@ -37,8 +39,8 @@ export function RoleSidebar({ roles, selected, onSelect }: IRoleSidebarProps) {
           }}
         >
           <Tooltip title={code}>
-            <Tag color={ROLE_COLOR[code] ?? 'default'} style={{ fontSize: 11, marginInlineEnd: 0 }}>
-              {code}
+            <Tag color={ROLE_COLOR[code] ?? 'default'} style={{ fontSize: 11, marginInlineEnd: 0, whiteSpace: 'normal' }}>
+              {getLabel ? getLabel(code) : code}
             </Tag>
           </Tooltip>
         </Flex>
