@@ -63,13 +63,15 @@ export function getFieldValue(shipment: IShipmentDetail, fieldKey: string): unkn
  * For junction tables (firm_splits, block_sources) checks array length.
  * For nested paths checks non-null value.
  * For scalars checks non-null/non-empty.
+ * A quality.* flag is `false` exactly when its scan is missing, so only `true`
+ * counts there; elsewhere a boolean `false` is a real "No" answer.
  */
 export function isFieldFilled(shipment: IShipmentDetail, fieldKey: string): boolean {
   if (fieldKey === 'firm_splits') return shipment.firm_splits.length > 0;
   if (fieldKey === 'block_sources') return shipment.block_sources.length > 0;
   const value = getFieldValue(shipment, fieldKey);
   if (value == null) return false;
-  if (typeof value === 'boolean') return true;
+  if (typeof value === 'boolean') return fieldKey.startsWith('quality.') ? value : true;
   if (typeof value === 'string') return value.trim().length > 0;
   if (typeof value === 'number') return true;
   return false;
