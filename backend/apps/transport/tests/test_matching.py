@@ -1,9 +1,19 @@
+from datetime import timedelta
+
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 
 from apps.core.models import Season, ShipmentStatusType
 from apps.export.models import Shipment
-from apps.transport.models import Truck, TraccarDevice, DevicePosition, ShipmentDeviceLink
-from apps.transport.services.matching import normalize_plate, resolve_device_for_shipment
+from apps.transport.models import (
+    Truck, TraccarDevice, DevicePosition, ShipmentDeviceLink, TruckHead,
+)
+from apps.transport.services.matching import (
+    CURRENT_LOAD_DAYS, current_shipment_by_device, normalize_plate,
+    resolve_device_for_shipment, resolve_devices_for_shipments,
+)
 
 
 def _status():
@@ -179,3 +189,92 @@ class DevicePreferenceTests(TestCase):
         device, how = resolve_device_for_shipment(_shipment('TIER3BBB'))
         self.assertEqual(device, first_by_name)
         self.assertEqual(how, 'auto')
+
+
+class _FleetFixture(TestCase):
+    """One season and one GPS truck (plate 4378AHF) for the batch tests."""
+
+    def setUp(self):
+        self.season = Season.objects.create(
+            name='S', start_date='2026-01-01', end_date='2026-12-31', is_active=True,
+        )
+        truck = Truck.objects.create(plate='4378AHF', fleet_no='TR050')
+        self.device = TraccarDevice.objects.create(
+            traccar_id=67, name='4378AHF TR050', truck=truck,
+        )
+
+    def _ship(self, code, status_code='draft', days_ago=0, plate='4378AHF', truck_head_id=None):
+        return Shipment.objects.create(
+            shipment_code=code, date=timezone.localdate() - timedelta(days=days_ago),
+            season=self.season, status=ShipmentStatusType.objects.get(code=status_code),
+            truck_plate=plate, truck_head_id=truck_head_id,
+        )
+
+
+class BatchResolveTests(_FleetFixture):
+    def test_every_path_resolves_like_the_single_resolver(self):
+        other = TraccarDevice.objects.create(traccar_id=99, name='other')
+        head = TruckHead.objects.create(id=500, plate_number='ZZZ999', traccar_device=other)
+        no_gps = TruckHead.objects.create(id=501, plate_number='NOGPS1')
+        manual = self._ship('M')
+        ShipmentDeviceLink.objects.create(shipment=manual, device=other)
+        by_head = self._ship('H', plate='nomatch', truck_head_id=head.id)
+        head_without_gps = self._ship('N', truck_head_id=no_gps.id)  # plate WOULD match
+        by_plate = self._ship('P', plate='4378AHF/2602TAH')
+        unmatched = self._ship('Z', plate='7463LBE')
+
+        resolved = resolve_devices_for_shipments(
+            [manual, by_head, head_without_gps, by_plate, unmatched],
+        )
+
+        self.assertEqual(resolved, {
+            manual.pk: (other, 'manual'),
+            by_head.pk: (other, 'auto'),
+            head_without_gps.pk: (None, 'none'),
+            by_plate.pk: (self.device, 'auto'),
+            unmatched.pk: (None, 'none'),
+        })
+
+    def test_query_count_does_not_grow_with_the_number_of_shipments(self):
+        # The Fleet Map resolves every open shipment on each 30 s poll.
+        head = TruckHead.objects.create(id=500, plate_number='ZZZ999', traccar_device=self.device)
+        few = [self._ship('A1'), self._ship('A2', truck_head_id=head.id), self._ship('A3')]
+        ShipmentDeviceLink.objects.create(shipment=few[0], device=self.device)
+        many = few + [self._ship(f'B{i}') for i in range(6)]
+
+        with CaptureQueriesContext(connection) as small:
+            resolve_devices_for_shipments(few)
+        with CaptureQueriesContext(connection) as large:
+            resolve_devices_for_shipments(many)
+
+        self.assertEqual(len(small), len(large))
+
+
+class CurrentShipmentByDeviceTests(_FleetFixture):
+    """Which shipment the Fleet Map pins on a truck."""
+
+    def test_loaded_shipment_inside_the_window_is_current(self):
+        shipment = self._ship('A', 'yola_chykdy', days_ago=5)
+        self.assertEqual(current_shipment_by_device(), {self.device.pk: shipment})
+
+    def test_stalled_shipment_older_than_the_window_is_ignored(self):
+        self._ship('A', 'yola_chykdy', days_ago=CURRENT_LOAD_DAYS + 1)
+        self.assertEqual(current_shipment_by_device(), {})
+
+    def test_completed_shipment_is_ignored(self):
+        self._ship('A', 'tamamlandy', days_ago=1)
+        self.assertEqual(current_shipment_by_device(), {})
+
+    def test_load_beats_a_newer_plan(self):
+        loaded = self._ship('A', 'yola_chykdy', days_ago=5)
+        self._ship('B', 'draft', days_ago=0)
+        self.assertEqual(current_shipment_by_device(), {self.device.pk: loaded})
+
+    def test_plan_shows_when_the_truck_has_no_load(self):
+        plan = self._ship('B', 'draft', days_ago=0)
+        self.assertEqual(current_shipment_by_device(), {self.device.pk: plan})
+
+    def test_newest_load_wins(self):
+        self._ship('A', 'yola_chykdy', days_ago=10)
+        newer = self._ship('B', 'yuklenme', days_ago=2)
+        self.assertEqual(current_shipment_by_device(), {self.device.pk: newer})

@@ -56,6 +56,52 @@ class LivePositionSerializer(serializers.ModelSerializer):
         return age.total_seconds() > settings.TRACCAR_STALE_MINUTES * 60
 
 
+class FleetShipmentSerializer(serializers.Serializer):
+    """The load a Fleet Map truck carries now. Names mirror ShipmentListSerializer."""
+
+    id = serializers.IntegerField()
+    code = serializers.CharField(source='shipment_code')
+    export_code = serializers.CharField(allow_null=True)
+    status_code = serializers.CharField(source='status.code')
+    country_code = serializers.CharField(source='country.code', default=None)
+    country_name = serializers.CharField(source='country.name_en', default=None)
+    import_firm_name = serializers.SerializerMethodField()
+    export_firms_display = serializers.SerializerMethodField()
+
+    def get_import_firm_name(self, obj) -> str | None:
+        firm = obj.import_firm
+        if not firm:
+            return None
+        return firm.name_short or firm.name_company
+
+    def get_export_firms_display(self, obj) -> str | None:
+        names = [
+            (split.export_firm.name_short or split.export_firm.code)
+            for split in obj.firm_splits.all()
+            if split.export_firm_id and (split.export_firm.name_short or split.export_firm.code)
+        ]
+        return ', '.join(names) if names else None
+
+
+class FleetLivePositionSerializer(LivePositionSerializer):
+    """Fleet Map row: a position plus the shipment that truck carries now.
+
+    A subclass, not a field on LivePositionSerializer: the shipment-side
+    position endpoint already knows its shipment, and the geofence grouping
+    subclasses the base. The view passes `shipments_by_device` (TraccarDevice
+    pk -> Shipment) in the context so the lookup is one batch per request.
+    """
+
+    shipment = serializers.SerializerMethodField()
+
+    class Meta(LivePositionSerializer.Meta):
+        fields = LivePositionSerializer.Meta.fields + ['shipment']
+
+    def get_shipment(self, obj: DevicePosition) -> dict | None:
+        shipment = self.context.get('shipments_by_device', {}).get(obj.device_id)
+        return FleetShipmentSerializer(shipment).data if shipment else None
+
+
 class GeofenceTruckSerializer(LivePositionSerializer):
     """One truck inside a geofence group. `since` = geofence_since (first poll seen there)."""
 

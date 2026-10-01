@@ -18,20 +18,23 @@ from apps.transport.permissions import (
 )
 from apps.transport.serializers import (
     CurrentGeofenceSerializer, DriverAdminSerializer, DriverDocumentSerializer,
-    DriverSerializer, LivePositionSerializer, TrailerSerializer,
+    DriverSerializer, FleetLivePositionSerializer, LivePositionSerializer, TrailerSerializer,
     TransportDeviceSerializer, TruckHeadDocumentSerializer, TruckHeadSerializer,
 )
 from apps.transport.services.files import (
     MAX_FILES_PER_RECORD, detect_mime, sanitise_filename, validate_fleet_document,
 )
 from apps.transport.services.geofences import group_by_geofence
-from apps.transport.services.matching import resolve_device_for_shipment
+from apps.transport.services.matching import (
+    current_shipment_by_device, resolve_device_for_shipment,
+)
 
 
 class LivePositionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    """Latest position per device, served from our DB (never Traccar live)."""
+    """Latest position per device, served from our DB (never Traccar live),
+    each with the shipment that truck carries now (or null)."""
 
-    serializer_class = LivePositionSerializer
+    serializer_class = FleetLivePositionSerializer
     # The only endpoint the Fleet Map page reads, so the only one the seller's
     # exclusion from that page (owner request, 2026-08-23) has to be enforced on.
     permission_classes = [IsAuthenticated, CanViewFleetMap]
@@ -44,6 +47,11 @@ class LivePositionViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             .select_related('device', 'device__truck', 'current_geofence')
             .order_by('device__name')
         )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['shipments_by_device'] = current_shipment_by_device()
+        return context
 
 
 class CurrentGeofencesView(APIView):

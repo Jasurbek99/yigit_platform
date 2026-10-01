@@ -107,3 +107,55 @@ class LivePositionsApiTests(TestCase):
         row = self.client.get('/api/v1/transport/live-positions/').json()[0]
         self.assertIsNone(row['geofence_name'])
         self.assertIsNone(row['geofence_since'])
+
+
+class LivePositionShipmentTests(TestCase):
+    """Each Fleet Map row carries the shipment its truck is on now (or null)."""
+
+    def setUp(self):
+        call_command('seed_permissions')
+        cache.clear()
+        self.client = APIClient()
+        self.client.force_authenticate(User.objects.create_user(username='op', password='x'))
+        truck = Truck.objects.create(plate='2189AHF', fleet_no='TR038')
+        device = TraccarDevice.objects.create(traccar_id=74, name='2189AHF TR038', truck=truck)
+        DevicePosition.objects.create(
+            device=device, latitude='37.97', longitude='58.49', fix_time=timezone.now(),
+        )
+
+    def test_carries_the_trucks_current_shipment(self):
+        from apps.core.models import Country, ExportFirm, ImportFirm, Season, ShipmentStatusType
+        from apps.export.models import Shipment, ShipmentFirmSplit
+
+        shipment = Shipment.objects.create(
+            shipment_code='3009001/26', export_code='30|09|001|A|26|01',
+            date=timezone.localdate(),
+            season=Season.objects.create(
+                name='S', start_date='2026-01-01', end_date='2026-12-31', is_active=True,
+            ),
+            status=ShipmentStatusType.objects.get(code='yola_chykdy'),
+            country=Country.objects.create(code='ZZ', name_tk='Zet', name_en='Zetland'),
+            import_firm=ImportFirm.objects.create(name_company='Buyer LLP', name_short='Buyer'),
+            truck_plate='2189AHF/2602TAH',
+        )
+        ShipmentFirmSplit.objects.create(
+            shipment=shipment, weight_kg='18000',
+            export_firm=ExportFirm.objects.create(code='TSTFIRM', name_tk='T', name_short='Ak'),
+        )
+
+        row = self.client.get('/api/v1/transport/live-positions/').json()[0]
+
+        self.assertEqual(row['shipment'], {
+            'id': shipment.id,
+            'code': '3009001/26',
+            'export_code': '30|09|001|A|26|01',
+            'status_code': 'yola_chykdy',
+            'country_code': 'ZZ',
+            'country_name': 'Zetland',
+            'import_firm_name': 'Buyer',
+            'export_firms_display': 'Ak',
+        })
+
+    def test_shipment_is_null_for_a_truck_without_a_load(self):
+        row = self.client.get('/api/v1/transport/live-positions/').json()[0]
+        self.assertIsNone(row['shipment'])
