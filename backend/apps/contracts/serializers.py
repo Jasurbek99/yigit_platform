@@ -588,6 +588,9 @@ class DocumentPacketSerializer(serializers.Serializer):
     # office calls the shipment, so the Documents page shows it in place of the
     # platform-generated shipment_code; shipment_code stays the deep-link key.
     export_code = serializers.CharField(read_only=True, allow_null=True)
+    # A regular truck gets driver + plate from its Planning trip, a gapy one has
+    # them typed in — the page words a missing driver/plate by this.
+    is_gapy_satys = serializers.BooleanField(read_only=True)
     date = serializers.DateField(read_only=True)
     status_code = serializers.CharField(source='status.code', read_only=True)
     status_display = serializers.CharField(source='status.name_en', read_only=True)

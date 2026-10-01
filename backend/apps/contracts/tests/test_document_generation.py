@@ -1947,6 +1947,9 @@ class DocumentPacketEndpointTest(_SeededPermsMixin, TestCase):
         self.assertFalse(pkt['is_ready'])
         self.assertIn('driver_name', pkt['missing_setup'])
         self.assertIn('truck_plate', pkt['missing_setup'])
+        # The page words a missing driver/plate by it: a regular truck gets them
+        # from a Planning trip, a gapy truck has them typed in.
+        self.assertIs(pkt['is_gapy_satys'], False)
 
     def test_truck_without_firms_hidden(self):
         # floor: no export firm assigned → nothing to invoice / no CMR sender, hidden
