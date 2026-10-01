@@ -3,16 +3,20 @@
 Spec: docs/superpowers/specs/2026-09-29-planning-tasks-design.md §2.
 """
 import datetime
+from unittest import mock
 
 from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import (
-    Country, Customer, GreenhouseBlock, GreenhouseConfig, Season, ShipmentStatusType, User,
+    Country, Customer, GreenhouseBlock, GreenhouseConfig, Season, ShipmentStatusType,
+    TruckDestination, User,
 )
 from apps.export.models import (
     Shipment, ShipmentBlockSource, Task, TaskCancelReason, TaskKind, TaskState,
+    TruckDestinationSplit, WeeklyTruckAllocation,
 )
+from apps.export.services import daily_progress as daily_progress_module
 from apps.export.services.daily_plan_tasks import (
     cancel_missed_daily_tasks, generate_daily_plan_tasks, resolve_daily_plan_tasks,
     run_daily_plan_tasks,
@@ -46,6 +50,7 @@ class DailyPlanTaskTests(TestCase):
         cls.block = GreenhouseBlock.objects.create(code='DPT-A', name='A', is_active=True)
         cls.country = Country.objects.create(name_tk='DPT land', code='DP')
         cls.customer = Customer.objects.create(name='DPT customer')
+        cls.dest = TruckDestination.objects.create(name='DPT dest', country=cls.country, sort_order=1)
 
     def setUp(self):
         self.n = 0
@@ -66,6 +71,13 @@ class DailyPlanTaskTests(TestCase):
     def _task(self, kind, day):
         return Task.objects.get(kind=kind, scope_date=day)
 
+    def _plan(self, day, trucks):
+        year, week, dow = day.isocalendar()
+        alloc = WeeklyTruckAllocation.objects.create(
+            season=self.season, year=year, week_number=week, day_of_week=dow,
+        )
+        TruckDestinationSplit.objects.create(truck_allocation=alloc, destination=self.dest, truck_count=trucks)
+
     def test_generates_two_tasks_monday_to_saturday_not_sunday(self):
         created = generate_daily_plan_tasks(MONDAY)
         self.assertEqual({t.kind for t in created}, {TaskKind.DAILY_LOADING, TaskKind.DAILY_EXPORT})
@@ -75,7 +87,7 @@ class DailyPlanTaskTests(TestCase):
         self.assertEqual(loading.title_key, 'tasks.daily_loading_plan')
         self.assertEqual(loading.deadline, end_of_local_day(MONDAY))
         export = self._task(TaskKind.DAILY_EXPORT, MONDAY)
-        self.assertEqual((export.assignee_role, export.link), ('export_manager', '/export/drafts'))
+        self.assertEqual((export.assignee_role, export.link), ('export_manager', '/export/assign'))
         self.assertEqual(len(generate_daily_plan_tasks(SATURDAY)), 2)
         self.assertEqual(generate_daily_plan_tasks(SUNDAY), [])
 
@@ -95,14 +107,57 @@ class DailyPlanTaskTests(TestCase):
         self.assertEqual(self._task(TaskKind.DAILY_LOADING, MONDAY).state, TaskState.DONE)
         self.assertEqual(self._task(TaskKind.DAILY_EXPORT, MONDAY).state, TaskState.OPEN)
 
-    def test_export_done_needs_country_and_customer(self):
+    def test_export_done_needs_country_customer_and_packing(self):
         generate_daily_plan_tasks(MONDAY)
         self._shipment(MONDAY, country=self.country)      # no customer yet
         resolve_daily_plan_tasks()
         self.assertEqual(self._task(TaskKind.DAILY_EXPORT, MONDAY).state, TaskState.OPEN)
-        self._shipment(MONDAY, country=self.country, customer=self.customer)
+        part = self._shipment(MONDAY, country=self.country, customer=self.customer)
+        resolve_daily_plan_tasks()
+        self.assertEqual(self._task(TaskKind.DAILY_EXPORT, MONDAY).state, TaskState.OPEN)
+        ShipmentBlockSource.objects.create(shipment=part, block=self.block, weight_kg=1000)
         resolve_daily_plan_tasks()
         self.assertEqual(self._task(TaskKind.DAILY_EXPORT, MONDAY).state, TaskState.DONE)
+
+    def test_export_waits_until_every_planned_truck_is_opened(self):
+        self._plan(MONDAY, 2)
+        generate_daily_plan_tasks(MONDAY)
+        self._truck(MONDAY, country=self.country, customer=self.customer)
+        resolve_daily_plan_tasks()
+        self.assertEqual(self._task(TaskKind.DAILY_EXPORT, MONDAY).state, TaskState.OPEN)
+        self._truck(MONDAY, country=self.country, customer=self.customer)
+        resolve_daily_plan_tasks()
+        self.assertEqual(self._task(TaskKind.DAILY_EXPORT, MONDAY).state, TaskState.DONE)
+
+    def test_loading_waits_for_the_plan_even_when_packing_comes_first(self):
+        self._plan(MONDAY, 2)
+        generate_daily_plan_tasks(MONDAY)
+        self._truck(MONDAY)                                # free packing, no export part yet
+        resolve_daily_plan_tasks()
+        self.assertEqual(self._task(TaskKind.DAILY_LOADING, MONDAY).state, TaskState.OPEN)
+        self._truck(MONDAY)
+        resolve_daily_plan_tasks()
+        self.assertEqual(self._task(TaskKind.DAILY_LOADING, MONDAY).state, TaskState.DONE)
+
+    def test_loading_target_grows_with_export_parts_above_plan(self):
+        self._plan(MONDAY, 1)
+        generate_daily_plan_tasks(MONDAY)
+        self._shipment(MONDAY, country=self.country, customer=self.customer)
+        self._shipment(MONDAY, country=self.country, customer=self.customer)
+        self._truck(MONDAY)
+        resolve_daily_plan_tasks()
+        self.assertEqual(self._task(TaskKind.DAILY_LOADING, MONDAY).state, TaskState.OPEN)
+
+    def test_resolver_computes_each_day_once_and_hands_it_back(self):
+        generate_daily_plan_tasks(MONDAY)                 # two open tasks, same day
+        cache = {}
+        with mock.patch(
+            'apps.export.services.daily_plan_tasks.day_progress',
+            wraps=daily_progress_module.day_progress,
+        ) as spy:
+            resolve_daily_plan_tasks(cache)
+        self.assertEqual(spy.call_count, 1)
+        self.assertEqual(list(cache), [MONDAY])
 
     def test_deleted_cancelled_archived_or_other_day_do_not_count(self):
         generate_daily_plan_tasks(MONDAY)
