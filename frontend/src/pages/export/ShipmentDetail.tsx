@@ -6,6 +6,7 @@ import { ShipmentGuidanceLine } from '@/components/shipment/ShipmentGuidanceLine
 import { ShipmentCompletenessBar } from '@/components/shipment/ShipmentCompletenessBar';
 import { ShipmentDetailStageCards } from '@/components/shipment/ShipmentDetailStageCards';
 import { ShipmentSaleSection } from '@/components/shipment/ShipmentSaleSection';
+import { ShipmentDocumentsPrintCard } from '@/components/shipment/ShipmentDocumentsPrintCard';
 import { RouteTimelineRail } from '@/components/shipment/RouteTimelineRail';
 import { ShipmentCustomsExpensesCard } from '@/components/customsExpense/ShipmentCustomsExpensesCard';
 import { ShipmentTruckLocationCard } from '@/components/shipment/ShipmentTruckLocationCard';
@@ -111,6 +112,12 @@ export default function ShipmentDetail() {
         onOpenComments={comments.open}
         commentCountsByField={comments.countsByField}
         canOverrideVariety={canOverrideVariety}
+      />
+
+      <ShipmentDocumentsPrintCard
+        shipmentId={shipment.id}
+        firmCount={shipment.firm_splits.length}
+        shipmentUpdatedAt={shipment.updated_at}
       />
 
       <ShipmentSaleSection {...groupProps} canEditSalesReport={canEditSalesReport} />
