@@ -6,7 +6,7 @@ related: [[shipment-lifecycle]], [[comments-tasks]], [[../screens/shipment-list-
 
 # Detail vs Sheet — process flow comparison
 
-Same data, two surfaces. The Sheet is the "Excel replacement"; the Detail page is the "what should I do next on this one shipment" view. After Stream G + the Detail-usable fix, both let you edit every operationally-relevant field — but the workflow they optimise for is different.
+Same data, two surfaces. The Sheet is the "Excel replacement"; the Detail page is the "everything about this one shipment" view. Since 2026-09-30 both show every Sheet field — but the workflow they optimise for is different.
 
 This doc walks through how a shipment is actually worked on through each surface, then contrasts them.
 
@@ -14,46 +14,38 @@ This doc walks through how a shipment is actually worked on through each surface
 
 ## Part 1 — Working a shipment on the **Detail page**
 
-URL: `/export/shipments/:id`
+URL: `/shipments/:id` (rewritten 2026-09-30 — spec `docs/superpowers/specs/2026-09-30-shipment-detail-full-design.md`).
+
+Since 2026-09-30 the Detail page shows **every Sheet field** and lets you work all **three parts** of a shipment (transport / packaging / export — see `docs/SHIPMENT_THREE_PARTS_RU.md`) without leaving it.
 
 ### What you see when you open it
 
-A single-column layout (sticky right rail on desktop), top to bottom:
+Top to bottom:
 
-1. **Hero bar** — Shipment Code (top, bold), Export Code (small, below), status pill, phase tag, idle warning if the shipment has been in this phase longer than the historical average × 1.5, FreshnessPill (today / yesterday / aged), and right-aligned action buttons (Manifest, Promote to Loading when applicable, Transition).
-2. **MyTaskCard** — the user's currently-assigned task on this shipment (one card, prominent). Renders only when the requester has an active task. Supervisors see no card here — they see no task and no banner. Other operational roles with no task but other tasks active see a soft "{N} tasks with other roles. You'll be notified when it's your turn."
-3. **PhaseContextStrip** — three small cells: "In phase: 2d 4h" / "Avg for step: 1d 12h" / "Tasks open: 2/5".
-4. **OtherTasksRow** — a clickable list of every other task on this shipment, with state icon + role label + deadline.
-5. **Five collapsible sections** — Logistika / Ulag / Haryt / Dokument / Maliýe. All expanded by default. Each section has labeled rows of inline editors plus any special widgets (variety override, firm splits table, quality checkboxes, sales report form).
-6. **Right rail** (≥md): 12-step status route timeline (mapped by `status_code`, not array index).
-7. Below the collapse, a single "View activity log" tag links to `/shipments/:id/activity`.
+1. **Hero** — Shipment Code, Export Code, status, phase, idle / freshness tags, actions (comments, Manifest, QR label, Promote, **Join supply**, Transition, Cancel).
+2. **Guidance line** and **completeness bar** — every key in `completeness.missing_fields` (from `TaskRule.target_fields`) is a chip that jumps to its row or card. An acceptance test (`components/shipment/detailCoverage.test.tsx`) proves every seeded task target has a place to land.
+3. **Stage cards** (two columns on desktop, one on mobile):
+   - **Destination** — country, customer, city, import firm, gapy flag, export firms, and the **contracts panel** per firm (contract number, link a framework contract, create a one-time one, .docx). The panel shows once a firm is picked.
+   - **Transport (transport part)** — regular shipments: the Planning trip banner, **«Выбрать рейс»** (free trips, country must match, unknown country asks first; only in Preparation, only with the Truck Board grant + `shipment_assign.edit`), **«Отвязать»** on the banner. Truck and driver are read-only (they come from the trip). Gapy: typed truck and driver. Then driver phone, vehicle responsible/condition, transit days, temperature, border point, live position, transport docs given, shelf life, second rig, greenhouse arrival/departure, border exit, country entry, peregruz (Да/Нет, time, city), arrival.
+   - **Loading (packaging part)** — export code, blocks, **«Отсоединить» / «Поменять упаковку»** (before loading; unjoin needs a destination), harvest status, variety, net, weight to load, harvest date (as Sheet R39: block batch dates first, else the shipment's own text), loading start / end.
+   - **Documents** — documents status, planned customs day, documents note, TM customs closed, destination customs passed, advance given, and the **packing panel** (packing template → whole-truck gross/net/boxes for the CMR, per-firm gross/boxes/pallets).
+   - **Notes** — legacy notes, Gadam's / warehouse / Arap notes, and every admin **custom Sheet row**.
+   - **Quality** — the four certificate uploads.
+4. **«Документы — печать»** — the truck's whole document packet, as a Documents-page row: readiness banner, ZIP, CMR, TIR carnet, each firm's invoice / letters. Printed in-page; visible with the `sale` grant.
+5. **Sale** — price, total, sale start / end, report date, firm splits, sales report.
+6. Quota, customs expenses, GPS cards; link to the activity log.
 
-### Process: how a warehouse_chief acts here
+Gross / tare / pallets / boxes are **not** editable rows on Detail any more: the CMR reads the packing template first, so an edit there was silently ignored. They are entered in the packing panel. The Edit drawer and the pallet manifest still write the shipment columns (CMR fallback when no template).
 
-User logs in, opens a `yuklenme` shipment. Walkthrough:
+### Field permissions on Detail
 
-1. **Hero shows status = Loading, phase = LOAD, idle warning = no.** The Shipment Code says "—" because Soltanmyrat hasn't tagged the pallets yet; the Export Code is `0205893/26` (the auto code).
-2. **MyTaskCard renders the `tasks.fill_loading_data` task.** Title visible, deadline 4h after status entry, progress bar shows "0 of 5 fields filled." The card body has 5 inline editors for shipment_code, block_sources, variety, weight_net, weight_gross.
-3. User starts typing in `weight_net`. After ~700 ms the autosave fires; the spinner blinks; the value persists. Critically, the input is NOT disabled during the save — typing keeps working.
-4. As fields fill, the progress bar updates. After the 5th field saves, `Shipment.save()` triggers `resolve_for_shipment` server-side; the task auto-resolves to DONE; `MyTaskCard` re-renders showing the "Done" tag.
-5. User scrolls down to the **Haryt** section to verify variety, **Dokument** to flip quality checkboxes, **Maliýe** to skim weight totals. Every editable field in those sections uses the same `<DetailFieldRow>` widget — same UX as MyTaskCard.
-6. The Shipment Code in the Hero is still empty. User opens the **Logistika** section, types the physical pallet tag in the Shipment Code row, tabs out. Saves on blur. The Hero re-renders with the new code on the top line.
-7. User leaves. Next time the page loads, this shipment may be in `gumruk_girish` (document_team picked it up); MyTaskCard now empty for warehouse_chief; OtherTasksRow shows "Send documents to customs" being worked on by Sirin.
-
-### What clicking a task in OtherTasksRow does
-
-Stream G fix #4 made these rows interactive:
-
-- Click an OPEN task → the page expands the section containing the task's first target field, smooth-scrolls to that row, focuses the input. If the current user matches the task's `assignee_role`, also fires `POST /tasks/:id/start/` so the state flips to IN_PROGRESS.
-- Click a DONE task → expands the section, scrolls. Fields are read-only for non-assignees but visible for review.
-- Click a BLOCKED task → opens a modal with `blocked_reason` and an Unblock button (gated to the assignee_role or supervisors).
+Rows are editable whenever the page is editable for you (page-level grant + open season). `DetailFieldRow` does not check per-field grants — a role without a field's grant sees the row editable and gets an error toast when the backend refuses the PATCH. Trip actions, packing actions and the print card are gated by their own grants (see above).
 
 ### When to use Detail
 
-- You are working on **one shipment** and need full context — the task you own, what other roles are doing, the timeline, every field, the activity log.
-- You are a **supervisor** wanting to see how a single shipment is progressing.
-- You need to **promote a draft** — the "Promote to Loading" button only appears here.
-- You need to **review history** — the right-rail timeline + activity log live here.
+- You work on **one shipment** end to end: choose its truck, move its packing, settle gross/net, link contracts, print its documents.
+- You follow a completeness chip from a task.
+- You need to **promote a draft**, read the route timeline, or the activity log.
 
 ---
 
@@ -84,7 +76,7 @@ User opens the Sheet. Walkthrough:
 
 ### Tasks on the Sheet
 
-The Sheet doesn't have a MyTaskCard or OtherTasksRow. Instead:
+The Sheet has no per-task cards. Instead:
 
 - The toolbar shows an "open tasks assigned to me" badge with the count (sum across all shipments visible).
 - Per-cell **comment counts** and **task indicators** appear as small markers on the cell. Clicking opens the Comments Drawer for that cell.
@@ -111,7 +103,7 @@ Same `Shipment` model. Different serializers, different concerns:
 | Scope | One shipment, full payload | Every shipment in the active season |
 | Pagination | N/A — single record | None — full season array |
 | Per-user prefs | None | `UserSheetRowPref` (which rows hidden, what order) |
-| Includes tasks? | `my_task` + `other_tasks` (full TaskListSerializer rows) | Only counts (`task_counts[shipment_id]`) per shipment column |
+| Includes tasks? | `my_task` + `other_tasks` in the payload (not rendered) + `completeness` chips | Only counts (`task_counts[shipment_id]`) per shipment column |
 | Includes comments? | Inline `comments[]` array on the payload | `comment_counts[shipment_id][field_key]` markers per cell |
 | Includes timeline? | `status_log[]` array (used by RouteTimelineRail) | Not in the Sheet payload — Sheet doesn't show timelines |
 | Includes phase context? | `in_phase_seconds`, `phase_avg_seconds`, `can_promote_from_draft` | Not — Sheet's column header just shows status |
@@ -130,7 +122,7 @@ When you save on Detail, the optimistic cache update on `['shipments']` ALSO ref
 | **Optimal use** | Deep work on one shipment | Wide work across many shipments |
 | **Navigation cost** | One click from List or kanban → full context for that one shipment | One click from sidebar → see entire season at once |
 | **Edit interaction** | Click cell → inline editor, debounced save (700 ms text / immediate Select) | Click cell → inline editor, save on Enter / blur |
-| **Task awareness** | First-class — MyTaskCard at top, OtherTasksRow below, clickable rows scroll to fields | Implicit — task counts shown on cells, no per-task UI |
+| **Task awareness** | Completeness chips jump to each owed field | Implicit — task counts shown on cells, no per-task UI |
 | **Cross-shipment compare** | Hard — page is one shipment | Trivial — columns are side by side |
 | **Status transitions** | Hero buttons (Manifest, Promote, Transition) | Not exposed — go to Detail to transition |
 | **Comments / threads** | Activity log page (`/shipments/:id/activity`) | Per-cell drawer + filter chips |
@@ -140,7 +132,7 @@ When you save on Detail, the optimistic cache update on `['shipments']` ALSO ref
 
 ### Logical asymmetries to remember
 
-1. **Detail's MyTaskCard is the only place a task auto-starts** when you begin editing its target fields. The Sheet doesn't track "this user is editing this field for this task" — it just saves the field value, and the task auto-resolves server-side when all targets are filled. This is fine in practice, but if a manager is wondering "who started this task?", the answer comes from Detail-page edits or explicit `/start/` API calls. Sheet edits never set `started_at` directly.
+1. **Choosing the truck, moving packing and printing documents now work on both** — Detail has them in-page (trip picker, unjoin/swap, print card); the Sheet / Truck Board / Assignment Board / Documents page keep their own entry points. Same endpoints underneath.
 
 2. **Promote to Loading button only exists on Detail.** Drafts can be edited on the Sheet (Shipment Code, blocks, customer, etc.) but the "ready to promote" check (`can_promote_from_draft`) and the button live on the Detail Hero. To advance a draft, you must visit Detail.
 
@@ -150,7 +142,7 @@ When you save on Detail, the optimistic cache update on `['shipments']` ALSO ref
    - On Sheet: click the indicator → small Drawer scoped to that cell.
    - On Detail: comments appear under the activity log page, organised by shipment-level and field-level. Cell-anchor jumps from notification deeplinks open the Sheet's Drawer, not Detail.
 
-5. **Custom rows (admin-created in Phase 5c)** are Sheet-only. The Detail page's section content is hard-coded against `EDIT_FIELD_GROUPS`; admin-defined custom rows show only on the Sheet.
+5. **Custom rows (admin-created in Phase 5c)** show on both: the Sheet as rows, Detail in the Notes card (`custom_fields` on the detail API, written through `PATCH /shipments/{id}/custom-fields/`).
 
 ### Process asymmetries to remember
 
@@ -189,13 +181,15 @@ User edits the same `weight_net` on Sheet — exact same flow. Different React-q
 |---|---|
 | Fill the same field across 10 shipments | **Sheet** |
 | Move a draft to Loading | **Detail** (Promote button) |
-| See who's working on what across one shipment's task graph | **Detail** (OtherTasksRow + MyTaskCard) |
+| Choose / unlink the Planning trip of one shipment | **Detail** (Transport card) or the Truck Board |
+| Unjoin / swap packing of one shipment | **Detail** (Loading card) or the Assignment Board / Sheet |
+| Print the CMR / TIR / invoices of one truck | **Detail** («Документы — печать») or the Documents page |
 | Triage your own task queue across all shipments | `/me/board` (then click into Detail) |
 | See the season at a glance — which phase, which stuck, which late | `/export/shipments/board` (Shipment Kanban) |
 | Read the full status timeline for one shipment | **Detail** (right rail) |
 | Read or post comments anchored to a specific cell | **Sheet** (Comments Drawer) |
 | Read the activity log (status changes + shipment-level comments) | `/shipments/:id/activity` (linked from Detail) |
-| Edit admin-defined custom rows | **Sheet** only |
+| Edit admin-defined custom rows | **Sheet** or **Detail** (Notes card) |
 | Promote a draft to Loading once prep is done | **Detail** (button) |
 | Override the variety of a shipment | **Detail** (Variety section) |
 | Generate / regenerate the Export Code | **Nothing** — auto-generated server-side |
