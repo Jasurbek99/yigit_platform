@@ -125,6 +125,7 @@ See [[roles-matrix]] for the full capability matrix.
 - [[screens/permissions-admin]] — Role-first permission editor at `/admin/permissions` — pages / resources / fields for one role on one screen, plus the ⚠ list of resources the matrix does not actually enforce
 - [[screens/tir-takip]] — Tır Takip (Maşyn Yzarlamasy) at `/tir-takip` — nine-tab shell in the cloned sera-butce-web design; 10 page codes (container + one per tab) open to all 15 roles and revocable per tab; Önümçilik (Weekly Plan grid), Tırlar (Shipment Sheet, iOS variant pinned) and Hasabat (live report aggregates via `GET /export/tir-hasabat/`, gated on `analytics.clients` too) and Datalar (Shipment Settings page, gated on `admin.shipment_settings` too) filled, the other five still placeholders
 - [[screens/season-switcher]] — Header season switcher, read-only mode, and admin Close/Open on `/admin/seasons` (AD-16) — close a season (frozen + hidden), open the next one, browse a closed season read-only
+- [[screens/notification-bell]] — Header bell + pop-up alerts — unread counter, toast with «Открыть» and a chime for notifications that arrive while the app is open (60 s poll, also in background tabs)
 
 ## Reference
 

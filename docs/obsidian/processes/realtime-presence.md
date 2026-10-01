@@ -141,4 +141,4 @@ python manage.py test apps.export.tests.SheetPokeTests
 - **Phase 3 — work-time logging.** Reuses the same WS; adds `worklog.heartbeat` channel and a `core.work_sessions` table. Decisions already locked in: every user can see everyone's hours, "tab open at all" counts as working, reaper runs as a cron-driven management command.
 - **Cell-cursor sharing.** Show "user B is editing `weight_net` on row 47" as a coloured ring around the cell. Same WS, new channel `presence.sheet.cursor`.
 - **Per-row sheet delta instead of a full refetch.** `sheet.changed` currently triggers a whole-season refetch. The endpoint already supports `?shipment=<id>`; switch when `/sheet/` p95 passes ~1.5 s or a client sustains >20 sheet GETs/min.
-- **Push notifications.** Retire the 60 s `useNotifications` poll once the WS is proven in production.
+- **Push notifications.** Retire the 60 s `useNotifications` poll once the WS is proven in production. Pop-ups and the chime already exist ([[../screens/notification-bell]]) and react to the query data, so the push only needs to invalidate `['notifications']`.
