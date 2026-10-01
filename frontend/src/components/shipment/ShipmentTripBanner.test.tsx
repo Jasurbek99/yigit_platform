@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { Modal } from 'antd';
 import i18n from '@/i18n';
 import { ShipmentTripBanner } from './ShipmentTripBanner';
 import * as trips from '@/hooks/useExternalTrips';
@@ -7,10 +8,13 @@ import * as trips from '@/hooks/useExternalTrips';
 vi.mock('@/hooks/useExternalTrips');
 beforeAll(async () => { await i18n.changeLanguage('en'); });
 
-function renderBanner(trip: object | null) {
+function renderBanner(trip: object | null, canUnlink = false) {
   vi.mocked(trips.useShipmentTrip).mockReturnValue({ data: trip } as any);
   vi.mocked(trips.useAcceptTripChange).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
-  return render(<ShipmentTripBanner shipmentId={7} canEdit />);
+  const unassign = { mutate: vi.fn(), isPending: false };
+  vi.mocked(trips.useUnassignTrip).mockReturnValue(unassign as any);
+  const view = render(<ShipmentTripBanner shipmentId={7} canEdit canUnlink={canUnlink} />);
+  return { ...view, unassign };
 }
 
 describe('ShipmentTripBanner', () => {
@@ -36,5 +40,22 @@ describe('ShipmentTripBanner', () => {
   it('renders nothing without a trip', () => {
     const { container } = renderBanner(null);
     expect(container).toBeEmptyDOMElement();
+  });
+  it('unlinks after confirmation when allowed', () => {
+    const confirm = vi.spyOn(Modal, 'confirm').mockImplementation((cfg) => {
+      cfg.onOk?.();
+      return { destroy: vi.fn(), update: vi.fn() } as any;
+    });
+    const { unassign } = renderBanner(
+      { id: 3, trip_number: 'T1', status: 'PLANNED', conflict_kind: null, last_push_error: null }, true,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Unlink' }));
+    expect(unassign.mutate).toHaveBeenCalledWith({ tripId: 3 }, expect.anything());
+    confirm.mockRestore();
+  });
+
+  it('hides unlink without the right', () => {
+    renderBanner({ id: 3, trip_number: 'T1', status: 'PLANNED', conflict_kind: null, last_push_error: null });
+    expect(screen.queryByRole('button', { name: 'Unlink' })).toBeNull();
   });
 });

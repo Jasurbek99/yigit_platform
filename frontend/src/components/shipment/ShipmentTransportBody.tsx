@@ -1,13 +1,18 @@
+import { useState } from 'react';
+import { Button, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
+import { DetailExtraFieldRows } from '@/components/shipment/DetailExtraFieldRows';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
-import { ShipmentTruckSelector } from '@/components/shipment/ShipmentTruckSelector';
-import { ShipmentDriverSelector } from '@/components/shipment/ShipmentDriverSelector';
 import { ShipmentTripBanner } from '@/components/shipment/ShipmentTripBanner';
-import { TRUCK_PLATE_FIELD, DRIVER_NAME_FIELD } from '@/constants/shipmentEditConfig';
+import { TripPickerModal } from '@/components/shipment/TripPickerModal';
+import { canManageTrips } from '@/components/shipment/tripAccess';
+import {
+  DETAIL_EXTRA_FIELDS, DRIVER_NAME_FIELD, SECOND_RIG_KEYS, TRUCK_PLATE_FIELD,
+} from '@/constants/shipmentEditConfig';
+import { useAuth } from '@/hooks/useAuth';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
 import { TRIP_LOCKED_FIELDS } from '@/utils/sheetPermissions';
-import { fmt } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import type { IShipmentDetail } from '@/types';
 
 interface IShipmentTransportBodyProps {
@@ -19,21 +24,14 @@ interface IShipmentTransportBodyProps {
 }
 
 /**
- * "Transport & Transit" card body: the editable `transport` field group
- * (now including `border_point`, moved here from Destination & Plan) plus
- * the border/arrival timestamps, which are read-only because only
- * `transition_to()` writes them.
+ * "Transport & Transit" card = the transport part (spec 2026-09-30 §1).
  *
- * `truck_plate` and `driver_name` (the group's first two fields) render
- * standalone ahead of the rest of the group — Gapy-Satys shipments (no fleet
- * linkage, buyer's own truck and own driver) keep the plain text
- * `DetailFieldRow`, everyone else gets `ShipmentTruckSelector` (fleet
- * head/trailer dropdowns that derive `truck_plate`) and
- * `ShipmentDriverSelector` (registry dropdown that writes `driver_id`
- * alongside the name). Same pull-one-field-out pattern as `harvest_status` in
- * ShipmentGoodsBody — `excludeKeys` skips them in the group loop so the
- * completeness chip still counts each once. `driver_phone` deliberately stays
- * inside the group as a plain text row.
+ * Regular shipments get their truck from a Planning trip (transport-trips
+ * spec D9/D10): the trip block offers «choose» while the shipment is in
+ * Preparation without a trip, and «unlink» on the banner once linked. Truck
+ * and driver are then read-only here — they come from the trip (or, for
+ * shipments from before trips, from the old fleet pick). Gapy-Satys keeps
+ * typed-in truck and driver.
  */
 export function ShipmentTransportBody({
   shipment,
@@ -43,54 +41,37 @@ export function ShipmentTransportBody({
   commentCountsByField,
 }: IShipmentTransportBodyProps) {
   const { t } = useTranslation();
-  // A Planning trip owns tractor/trailer/driver (backend PATCH refuses them
-  // with 400 trip_locked); they change only by unlinking on the Truck Board.
-  const isTripLinked = !!shipment.trip_id && !shipment.is_gapy_satys;
-  const transportReadOnly = readOnly || isTripLinked;
+  const { user } = useAuth();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const isGapy = shipment.is_gapy_satys;
+  // A Planning trip owns tractor/trailer/driver (backend PATCH refuses them with 400 trip_locked).
+  const isTripLinked = !!shipment.trip_id && !isGapy;
+  const canTrips = !readOnly && canManageTrips(user);
+  const showChoose = canTrips && !shipment.trip_id && shipment.status_code === 'draft';
 
-  const timestamps: [string, string | null][] = [
-    ['shipment_detail.border_crossed', shipment.border_crossed_at],
-    ['shipment_detail.arrived', shipment.arrived_at],
-  ];
+  const rowProps = (key: string) => ({
+    isMissing: missingKeys.has(key),
+    onOpenComments: onOpenComments ? () => onOpenComments(key) : undefined,
+    commentCount: commentCountsByField?.[key] ?? 0,
+  });
 
   return (
     <>
-      {!shipment.is_gapy_satys && <ShipmentTripBanner shipmentId={shipment.id} canEdit={!readOnly} />}
-      {shipment.is_gapy_satys ? (
-        // DetailFieldRow assigns its own `#detail-field-truck_plate` id —
-        // no wrapper needed, and one would create a duplicate id in the DOM.
-        <DetailFieldRow
-          shipment={shipment}
-          config={TRUCK_PLATE_FIELD}
-          readOnly={readOnly}
-          isMissing={missingKeys.has(TRUCK_PLATE_FIELD.key)}
-          onOpenComments={onOpenComments ? () => onOpenComments(TRUCK_PLATE_FIELD.key) : undefined}
-          commentCount={commentCountsByField?.[TRUCK_PLATE_FIELD.key] ?? 0}
-        />
-      ) : (
-        // ShipmentTruckSelector has no built-in id — wrap it so the
-        // scroll-jump target (#detail-field-truck_plate, used by
-        // OtherTasksRow / ShipmentDetailHelpers.jumpToField) still resolves.
-        <div id="detail-field-truck_plate">
-          <ShipmentTruckSelector shipment={shipment} readOnly={transportReadOnly} />
+      {!isGapy && (
+        <div id="detail-field-trip_id" style={{ marginBottom: 8 }}>
+          <ShipmentTripBanner shipmentId={shipment.id} canEdit={!readOnly} canUnlink={canTrips} />
+          {showChoose && (
+            <Tooltip title={shipment.country_code ? undefined : t('shipment_detail.parts.need_country')}>
+              <Button type="primary" size="small" disabled={!shipment.country_code} onClick={() => setPickerOpen(true)}>
+                {t('shipment_detail.parts.choose_trip')}
+              </Button>
+            </Tooltip>
+          )}
+          {pickerOpen && <TripPickerModal shipment={shipment} onClose={() => setPickerOpen(false)} />}
         </div>
       )}
-      {shipment.is_gapy_satys ? (
-        <DetailFieldRow
-          shipment={shipment}
-          config={DRIVER_NAME_FIELD}
-          readOnly={readOnly}
-          isMissing={missingKeys.has(DRIVER_NAME_FIELD.key)}
-          onOpenComments={onOpenComments ? () => onOpenComments(DRIVER_NAME_FIELD.key) : undefined}
-          commentCount={commentCountsByField?.[DRIVER_NAME_FIELD.key] ?? 0}
-        />
-      ) : (
-        // Same id-wrapper reason as truck_plate above — the selector has no
-        // built-in id, and jumpToField targets #detail-field-driver_name.
-        <div id="detail-field-driver_name">
-          <ShipmentDriverSelector shipment={shipment} readOnly={transportReadOnly} />
-        </div>
-      )}
+      <DetailFieldRow shipment={shipment} config={TRUCK_PLATE_FIELD} readOnly={readOnly || !isGapy} {...rowProps(TRUCK_PLATE_FIELD.key)} />
+      <DetailFieldRow shipment={shipment} config={DRIVER_NAME_FIELD} readOnly={readOnly || !isGapy} {...rowProps(DRIVER_NAME_FIELD.key)} />
       <ShipmentFieldGroup
         shipment={shipment}
         groupKey="transport"
@@ -104,11 +85,15 @@ export function ShipmentTransportBody({
       {isTripLinked && shipment.driver_passport_expiry && (
         <InfoRow label={t('truck_board.passport_valid_until')} value={shipment.driver_passport_expiry} />
       )}
-      <div style={{ marginTop: 12 }}>
-        {timestamps.map(([labelKey, value]) => (
-          <InfoRow key={labelKey} label={t(labelKey)} value={fmt(value)} />
-        ))}
-      </div>
+      <DetailExtraFieldRows
+        shipment={shipment}
+        fields={DETAIL_EXTRA_FIELDS.transport}
+        missingKeys={missingKeys}
+        readOnly={readOnly}
+        lockedKeys={isTripLinked ? SECOND_RIG_KEYS : undefined}
+        onOpenComments={onOpenComments}
+        commentCountsByField={commentCountsByField}
+      />
     </>
   );
 }

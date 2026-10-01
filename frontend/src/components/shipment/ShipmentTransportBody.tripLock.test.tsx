@@ -1,48 +1,87 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import i18n from '@/i18n';
 import { ShipmentTransportBody } from './ShipmentTransportBody';
+import { canManageTrips } from '@/components/shipment/tripAccess';
 import type { IShipmentDetail } from '@/types';
 
-// The selectors write truck_head_id / driver_id — refused by the backend with
-// 400 trip_locked once a Planning trip is linked, so they must render read-only.
-vi.mock('@/components/shipment/ShipmentTruckSelector', () => ({
-  ShipmentTruckSelector: ({ readOnly }: { readOnly: boolean }) => <div>truck-selector readOnly={String(readOnly)}</div>,
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 1 } }) }));
+vi.mock('@/components/shipment/tripAccess', () => ({ canManageTrips: vi.fn(() => true) }));
+vi.mock('@/components/shipment/ShipmentTripBanner', () => ({
+  ShipmentTripBanner: ({ canUnlink }: { canUnlink?: boolean }) => <div>banner canUnlink={String(!!canUnlink)}</div>,
 }));
-vi.mock('@/components/shipment/ShipmentDriverSelector', () => ({
-  ShipmentDriverSelector: ({ readOnly }: { readOnly: boolean }) => <div>driver-selector readOnly={String(readOnly)}</div>,
+vi.mock('@/components/shipment/TripPickerModal', () => ({ TripPickerModal: () => <div>trip-picker</div> }));
+vi.mock('@/components/shipment/DetailFieldRow', () => ({
+  DetailFieldRow: ({ config, readOnly }: { config: { key: string }; readOnly?: boolean }) => (
+    <div>row {config.key} readOnly={String(!!readOnly)}</div>
+  ),
 }));
-vi.mock('@/components/shipment/ShipmentTripBanner', () => ({ ShipmentTripBanner: () => null }));
 vi.mock('@/components/shipment/ShipmentFieldGroup', () => ({
   ShipmentFieldGroup: ({ lockedKeys }: { lockedKeys?: readonly string[] }) => (
     <div>group-locked={(lockedKeys ?? []).join(',')}</div>
   ),
 }));
 
-function renderBody(tripId: number | null, expiry: string | null = null) {
+beforeAll(async () => { await i18n.changeLanguage('en'); });
+
+function renderBody(over: Partial<IShipmentDetail> = {}, readOnly = false) {
   const shipment = {
-    id: 1, is_gapy_satys: false, trip_id: tripId, driver_passport_expiry: expiry,
+    id: 1, is_gapy_satys: false, trip_id: null, driver_passport_expiry: null,
+    status_code: 'draft', country_code: 'KZ', ...over,
   } as unknown as IShipmentDetail;
-  render(<ShipmentTransportBody shipment={shipment} missingKeys={new Set()} readOnly={false} />);
+  return render(<ShipmentTransportBody shipment={shipment} missingKeys={new Set()} readOnly={readOnly} />);
 }
 
-describe('ShipmentTransportBody with a Planning trip', () => {
-  it('locks the truck and driver selectors while a trip is linked', () => {
-    renderBody(5);
-    expect(screen.getByText('truck-selector readOnly=true')).toBeInTheDocument();
-    expect(screen.getByText('driver-selector readOnly=true')).toBeInTheDocument();
+const chooseLabel = () => i18n.t('shipment_detail.parts.choose_trip');
+
+describe('ShipmentTransportBody — transport part', () => {
+  it('offers «choose trip» on a regular draft without a trip and opens the picker', () => {
+    renderBody();
+    fireEvent.click(screen.getByRole('button', { name: chooseLabel() }));
+    expect(screen.getByText('trip-picker')).toBeInTheDocument();
+  });
+
+  it('keeps truck and driver read-only on a regular shipment (no TIR selectors)', () => {
+    renderBody();
+    expect(screen.getByText('row truck_plate readOnly=true')).toBeInTheDocument();
+    expect(screen.getByText('row driver_name readOnly=true')).toBeInTheDocument();
+  });
+
+  it('disables «choose trip» until the country is set', () => {
+    renderBody({ country_code: null });
+    expect(screen.getByRole('button', { name: chooseLabel() })).toBeDisabled();
+  });
+
+  it('no choose button after draft', () => {
+    renderBody({ status_code: 'gumruk_girish' });
+    expect(screen.queryByRole('button', { name: chooseLabel() })).toBeNull();
+  });
+
+  it('no trip actions without the truck-board grant', () => {
+    vi.mocked(canManageTrips).mockReturnValueOnce(false);
+    renderBody();
+    expect(screen.queryByRole('button', { name: chooseLabel() })).toBeNull();
+    expect(screen.getByText('banner canUnlink=false')).toBeInTheDocument();
+  });
+
+  it('no trip actions in read-only', () => {
+    renderBody({}, true);
+    expect(screen.queryByRole('button', { name: chooseLabel() })).toBeNull();
+    expect(screen.getByText('banner canUnlink=false')).toBeInTheDocument();
+  });
+
+  it('with a trip: no choose button, unlink offered, trip fields and second rig locked', () => {
+    const { container } = renderBody({ trip_id: 5 });
+    expect(screen.queryByRole('button', { name: chooseLabel() })).toBeNull();
+    expect(screen.getByText('banner canUnlink=true')).toBeInTheDocument();
     expect(screen.getByText(/group-locked=.*driver_phone/)).toBeInTheDocument();
+    expect(screen.getByText('row truck_plate_2 readOnly=true')).toBeInTheDocument();
+    expect(container.querySelector('#detail-field-trip_id')).not.toBeNull();
   });
 
-  it('leaves them editable without a trip', () => {
-    renderBody(null);
-    expect(screen.getByText('truck-selector readOnly=false')).toBeInTheDocument();
-  });
-
-  it('shows the Planning passport expiry of a linked trip', async () => {
-    const i18n = (await import('@/i18n')).default;
-    await i18n.changeLanguage('en');
-    renderBody(5, '2029-04-08');
-    expect(screen.getByText('2029-04-08')).toBeInTheDocument();
-    expect(screen.getByText('Passport valid until')).toBeInTheDocument();
+  it('gapy: editable truck and driver, no trip block', () => {
+    const { container } = renderBody({ is_gapy_satys: true });
+    expect(screen.getByText('row truck_plate readOnly=false')).toBeInTheDocument();
+    expect(container.querySelector('#detail-field-trip_id')).toBeNull();
   });
 });

@@ -55,6 +55,8 @@ function useTripAction<TVars>(path: (vars: TVars) => string, body: (vars: TVars)
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRIPS_KEY });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      // Shipment detail keys are ['shipment', id] — trip_id and the transport fields changed.
+      queryClient.invalidateQueries({ queryKey: ['shipment'] });
     },
   });
 }
