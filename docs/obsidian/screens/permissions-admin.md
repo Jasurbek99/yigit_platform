@@ -112,3 +112,10 @@ to the roles a department head may manage (`MANAGEABLE_BY_ROLE`, ADR-022) and to
 pages that head can already see. Its PUT is a surgical upsert, so it never
 touches rows outside that set. Folding it into this screen as a restricted mode
 is planned but not done.
+
+Since 2026-10-01 it uses this screen's role-first layout: `RoleSidebar` (with
+`getLabel` → translated role names) on the left, the shared `PagesSection`
+(grouped checkboxes + search) on the right, and a header Save button with an
+unsaved-changes counter. Edits across several roles stay in one draft and go out
+in one PUT. It replaced a page × role switch matrix (~20 role columns for an
+admin). Page labels are still the English `PAGE_REGISTRY` strings, same as here.
