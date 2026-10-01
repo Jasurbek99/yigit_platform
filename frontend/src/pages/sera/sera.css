@@ -840,6 +840,18 @@
   font-size: 11px;
 }
 
+/* Plan strip (spec 2026-10-01) — packed vs target, stock, shortfall. */
+.sera-page .sera-gaplama-plan-strip {
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+/* Same red as .sera-gaplama-cell-over. */
+.sera-page .sera-gaplama-plan-short {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .sera-page .sera-gaplama-grid {
   width: 100%;
   border-collapse: collapse;

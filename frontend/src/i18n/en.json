@@ -4063,7 +4063,10 @@
         "carry_window": "❄ {{days}} d",
         "oldest_batch": "oldest: {{days}} d",
         "insufficient_harvest": "Not enough harvest in this block — contact the greenhouse manager; if there is surplus harvest, have them change it in the program"
-      }
+      },
+      "plan_packed": "Packed {{done}} of {{total}}",
+      "plan_stock": "stock for {{count}} more trucks",
+      "plan_short": "{{count}} trucks short"
     }
   },
   "scan": {

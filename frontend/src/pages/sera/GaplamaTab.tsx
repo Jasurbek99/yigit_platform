@@ -15,6 +15,7 @@ import { canDoBackendGated, canSeePage } from '@/utils/permissions';
 import { useSeasonReadOnly } from '@/hooks/useSeasonReadOnly';
 import { BlockFilterSelect } from './BlockFilterSelect';
 import GaplamaTruckForm from './GaplamaTruckForm';
+import { GaplamaPlanStrip } from './GaplamaPlanStrip';
 import { sumByLocation, trucksForDay, isPartialTruck, truckCountByLocation, truckTotalKg, buildBlockBatches } from './GaplamaTab.totals';
 import type { IGaplamaFormBatch } from './GaplamaTab.totals';
 import type { IGaplamaDay, IGaplamaTruck, IGreenhouseBlock } from '@/types';
@@ -77,6 +78,11 @@ export default function GaplamaTab(): JSX.Element {
   const fetchFrom = weekStart.format('YYYY-MM-DD');
   const fetchTo = weekStart.add(DAY_COUNT - 1, 'day').format('YYYY-MM-DD');
   const { data: board, isLoading, isError, dataUpdatedAt } = useGaplamaBoard(fetchFrom, fetchTo);
+  // The plan strip's stock: every block's available kg on the selected day,
+  // ignoring the location/block filters (stock is the whole greenhouse's).
+  const availableOnDay = (board?.days ?? [])
+    .filter((r) => r.date === selectedDay)
+    .reduce((sum, r) => sum + r.available_kg, 0);
 
   // A Gaplama truck is always a draft — the Üýtget button only ever shows
   // for status_code==='draft' (see `canEdit` below) — so the drafts endpoint
@@ -395,6 +401,10 @@ export default function GaplamaTab(): JSX.Element {
       <div className="sera-gaplama-formula">
         {t('tir_takip.gaplama.formula_hint')}
       </div>
+
+      {mode === 'day' && board && (
+        <GaplamaPlanStrip day={selectedDay} availableKg={availableOnDay} truckCapacityKg={truckCapacityKg} />
+      )}
 
       {isError ? (
         <Alert type="error" message={t('tir_takip.gaplama.error_load')} showIcon />

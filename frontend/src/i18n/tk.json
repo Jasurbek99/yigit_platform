@@ -4066,7 +4066,10 @@
         "carry_window": "❄ {{days}} gün",
         "oldest_batch": "iň köne: {{days}} gün",
         "insufficient_harvest": "Bu blokda ýeterlik hasyl ýok, ýyladyşhananyň müdiri bilen habarlaşyň egerde artykmaç hasyl bolsa programmada üýtgetsin"
-      }
+      },
+      "plan_packed": "Gaplandy {{done}} / {{total}}",
+      "plan_stock": "ammarda ýene {{count}} maşynlyk",
+      "plan_short": "{{count}} maşyn ýetmeýär"
     }
   },
   "scan": {
