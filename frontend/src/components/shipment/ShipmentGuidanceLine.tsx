@@ -32,7 +32,11 @@ export function ShipmentGuidanceLine({ shipment }: IShipmentGuidanceLineProps) {
       };
     }
     if (shipment.status_code === 'draft') {
-      return { text: t('shipment.detail.guide.draft'), tone: 'draft' };
+      const destinationSet = Boolean(shipment.country_name && shipment.customer_name);
+      return {
+        text: t(destinationSet ? 'shipment.detail.guide.draft_ready' : 'shipment.detail.guide.draft'),
+        tone: 'draft',
+      };
     }
     if (shipment.status_code === 'cancelled') {
       return { text: t('shipment.detail.guide.cancelled'), tone: 'info' };

@@ -1,0 +1,1845 @@
+openapi: 3.1.0
+
+info:
+  title: Planning Integration API
+  version: "1.4-draft"
+  summary: Обмен данными рейса между Planning и программой заказчика с признаком внешнего обмена.
+  description: |
+    Черновик контракта (contract-first). Swagger внешней программы отсутствует, поэтому
+    контракт составлен нами по требованиям владельца и передаётся разработчикам внешней
+    программы для согласования.
+
+    Область обмена определяется **заказчиком рейса** (D32): обмениваются только рейсы
+    заказчика, у которого в справочнике установлен признак «работает через внешнюю программу».
+    Такой рейс обязан быть международным с отправлением из Туркменистана в другую страну (D33);
+    рейсы внутри Туркменистана и рейсы в Туркменистан не обмениваются никогда.
+    Рейсы остальных заказчиков наружу не передаются и внешней программой не изменяются.
+
+    Обмениваются только рейсы, созданные после запуска; перенос прежних рейсов не выполняется (D36).
+
+    **Код экспорта и есть номер рейса** (D37). До прихода кода рейс номера не имеет,
+    и в исходящих сообщениях `tripNumber` пустой. Рейс всегда адресуется отдельным неизменяемым
+    идентификатором `integrationTripId` (UUID), никогда номером.
+
+    Главный жизненный цикл рейса внешней программой не управляется: события места погрузки,
+    код экспорта и таможенная очистка — отдельные сведения с собственной историей (D4, D5).
+
+    **Завершённый рейс сведений больше не принимает** (D70). Как только рейс **закрыт**,
+    **отменён** либо **архивирован**, любая операция записи отклоняется кодом `409`
+    `TRIP_CLOSED`, и ничего не изменяется. Правило распространяется на все семь операций записи:
+    город и место погрузки, город назначения, продукт, события места погрузки,
+    код экспорта, таможенная очистка, отклонение рейса.
+
+    **Чтение остаётся доступным всегда.** Ни состояние рейса (`GET /trips/{id}`),
+    ни лист A4 (`GET /trips/{id}/document`) правилом D70 не затронуты: завершённый рейс
+    по-прежнему читается и его документ по-прежнему выдаётся.
+
+    **Состав сведений о рейсе** (решения D58–D61):
+    тягач и прицеп — государственный номер, марка и модель, название компании-владельца,
+    происхождение `GARAGE` (наш парк) либо `THIRD_PARTY` (сторонний перевозчик);
+    водитель — ФИО, телефон, заграничный паспорт (серия и номер, дата окончания действия)
+    и все действующие визы без сканов. Дата выдачи заграничного паспорта **не передаётся** (D58).
+    Лист A4 передаётся только ссылкой с аутентификацией (D20, D60).
+
+    Часть перечисленных реквизитов сегодня в системе не хранится либо не заполнена.
+    Перечень и текущее состояние — `CONTRACT-NOTES.md`, раздел «Что доступно сейчас».
+
+    **Необязательные поля, ещё не включённые.** Часть полей описана как целевая и **до
+    включения приходит пустой** (`null`) либо отсутствует. Такие поля необязательны
+    в схеме, и разбор ответа не должен на них полагаться. Перечень и состояние каждого —
+    `CONTRACT-NOTES.md`, раздел «Что доступно сейчас». Поля, объявленные обязательными
+    (`required`), приходят всегда.
+
+    **Обмен начинается с выдачи по запросу** (D79): сначала внешняя программа **сама
+    запрашивает** рейсы и их состав, и только потом, отдельной фазой, Planning начинает
+    отправлять уведомления на её адрес. Поэтому в этой редакции появился перечень рейсов
+    `GET /trips` с признаком «изменено с момента» — X опрашивает его сама и так узнаёт
+    о новых рейсах, о смене ресурсов и об отменах (D81).
+
+    **Перечень содержит все рейсы заказчиков с признаком**, включая **отменённые, закрытые
+    и архивные**, у каждого свой статус (D81). **Статус рейса X видит, но не меняет** (D82):
+    значения передаются ровно те, что есть в Planning, без свёртки и без отдельного
+    «внешнего» перечня; операции смены статуса в контракте нет.
+
+    **Операции записи включены** (D89 снято фазой P6). Город и место погрузки, город
+    назначения, продукт, события места погрузки, код экспорта, таможенная очистка и
+    отклонение рейса принимаются и сохраняются. Состав их запросов и ответов не изменился
+    относительно 1.1 — как и было обещано при объявлении: убран только ответ `501`,
+    которого больше не бывает.
+
+    **Повтор не создаёт второй записи.** Заголовок `Idempotency-Key` обязателен и совпадает
+    с `eventId` тела; повтор с тем же значением возвращает прежний результат с признаком
+    `duplicate: true`. Распознавание **переживает перезапуск** нашего приложения.
+    Один ключ обозначает ровно одно сообщение: тот же ключ с **другим** телом отклоняется
+    кодом `409` `IDEMPOTENCY_KEY_REUSED`, и ничего не изменяется — для нового сообщения
+    нужен новый ключ. Сообщения с нарушенным порядком поступления принимаются: хронология
+    истории строится по `occurredAt`, а не по времени приёма.
+
+    **Состояние рейса и лист A4 читаются уже сейчас.** Если гаражный модуль недоступен,
+    оба маршрута отвечают явной ошибкой `503` `GARAGE_UNAVAILABLE` и **никогда не отдают
+    частичные данные** (D28, D91). С редакции 1.4 то же правило действует и для перечня
+    рейсов: он тоже выдаёт состав и потому тоже зависит от гаражного модуля (D116).
+
+    **Тягач, прицеп и водитель у рейса есть всегда.** Блоки `tractor`, `trailer` и `driver`
+    присутствуют в ответе и **никогда не равны `null`** — ни в перечне, ни в состоянии рейса.
+    Все три ресурса обязательны при создании рейса и при их замене (правило `BR-008`),
+    хранятся обязательными полями и защищены внешними ключами, поэтому «рейс без тягача»
+    либо «рейс с потерянной ссылкой на водителя» в выдаче не встречается. Пустыми бывают
+    только отдельные поля внутри блоков — по правилам, описанным у схем `VehicleRef`
+    и `DriverRef` (D115).
+
+    Версия контракта: **1.4-draft**, редакция **2026-09-29**.
+
+    Изменение 1.4 относительно 1.3 — **одно добавление**: каждая строка перечня рейсов
+    (`TripListItem`) получает блоки `tractor`, `trailer` и `driver`. Это **те же** схемы
+    `VehicleRef` и `DriverRef`, что и у `TripIntegrationState`, с теми же правилами пустых
+    значений и тем же источником данных; `GET /trips/{integrationTripId}` не изменился,
+    поля `total`, `page` и `pageSize` не изменились. Следствие: перечень теперь может
+    ответить `503` `GARAGE_UNAVAILABLE`, если состав хотя бы одного рейса страницы
+    относится к нашему парку, а гаражный модуль недоступен (D116). Клиент, читающий только
+    прежние поля строки, изменения не заметит.
+
+    Изменение 1.3 относительно 1.2 — **одно добавление**: код `IDEMPOTENCY_KEY_REUSED`
+    и ответ `409` у семи операций записи на случай, когда один и тот же `Idempotency-Key`
+    приходит с разным телом. Прежде такой случай контракт не описывал вовсе. Адреса, поля
+    запросов и поля ответов не изменились; клиент, который не переиспользует ключи, этого
+    ответа не увидит никогда.
+
+    Изменение 1.2 относительно 1.1 — ровно одно и **сужающее перечень ответов**: у семи
+    операций записи убран ответ `501` `OPERATION_NOT_ENABLED`, а сам код удалён из перечня
+    `ErrorCode` — он не применяется больше ни одним ответом контракта, а кодов «про запас»
+    в перечне нет. Ни один адрес, ни одно поле запроса и ни одно поле ответа не изменились:
+    состав, обещанный при объявлении операций (D89), сохранён дословно. Клиент, написанный
+    по 1.1, работает по 1.2 без правок — ответ, которого он ждал только до включения приёма,
+    просто перестал приходить.
+
+    Изменения 1.1 относительно 1.0 были **только добавлениями**: перечень рейсов `GET /trips`,
+    статус рейса и состав ресурсов в `GET /trips/{id}`, код `OPERATION_NOT_ENABLED` (D89)
+    и ответ `503` у чтения рейса (D91). Ни одно существующее поле не удалено и не изменило
+    тип. Реквизиты, значившиеся в 1.0 как «приходит пустым до включения» для решений
+    **D64** (заграничный паспорт нашего водителя), **D66** (марка и модель стороннего
+    прицепа) и **D69** (компания-владелец нашего ТС), **включены** и приходят заполненными,
+    если заполнен справочник.
+
+    Статус документа: **PROPOSED — реализован целиком.** Маршруты чтения
+    (`GET /trips`, `GET /trips/{id}`, `GET /trips/{id}/document`) и все семь операций записи
+    реализованы и отвечают настоящими результатами. Контракт проверен локально
+    на симуляторах (D62) и прогоном коллекции по работающему Planning;
+    с внешней программой не согласован.
+  contact:
+    name: Владелец системы Logistics
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+
+servers:
+  - url: https://{host}/api/v1/external
+    description: Planning, маршруты внешней программы
+    variables:
+      host:
+        default: localhost:8444
+        description: Адрес Planning за обратным прокси
+
+tags:
+  - name: loading
+    description: Город и место погрузки (D40, D43)
+  - name: destination
+    description: Город назначения (D40, D42, D43)
+  - name: cargo
+    description: Продукт рейса (D18, D41, D43)
+  - name: events
+    description: События места погрузки (D4, D11, D40)
+  - name: export
+    description: Код экспорта — он же номер рейса (D37)
+  - name: customs
+    description: Таможенная очистка (D5)
+  - name: rejection
+    description: Отклонение планируемого рейса (D39)
+  - name: trips
+    description: Чтение состояния рейса
+  - name: documents
+    description: Лист A4 со сканами документов рейса (D20, D22, D60)
+
+security:
+  - externalApiKey: []
+
+paths:
+  /trips:
+    get:
+      tags: [trips]
+      operationId: listTrips
+      summary: Перечень рейсов заказчиков с признаком
+      description: |
+        Отдаёт рейсы **всех** заказчиков с признаком «работает через внешнюю программу»,
+        созданные после запуска обмена (D36), включая **отменённые, закрытые и архивные** —
+        у каждого свой статус (D81). Рейсы остальных заказчиков в перечень не попадают
+        никогда.
+
+        **Опрос по изменению.** `changedSince` отбирает рейсы, изменившиеся **строго после**
+        указанного момента: новые рейсы, смена ресурсов, отмена, закрытие, архивирование,
+        присвоение и исправление кода экспорта. Без параметра отдаются все рейсы обмена.
+        Порядок — по времени изменения возрастающе, затем по идентификатору: опрос можно
+        продолжать от `changedAt` последнего полученного рейса, не пропуская записи.
+
+        **Состав рейса входит в каждую строку** (D115): блоки `tractor`, `trailer`
+        и `driver` — те же схемы и те же значения, что отдаёт
+        `GET /trips/{integrationTripId}` для того же рейса. Отдельный запрос за составом
+        нужен только ради полей, которых в строке перечня нет: направления, города,
+        груза, места погрузки и таможенной отметки.
+      parameters:
+        - $ref: '#/components/parameters/ChangedSince'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница перечня рейсов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripListPage'
+              example:
+                items:
+                  - integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                    tripNumber: 04AP034/26
+                    status: ON_THE_WAY
+                    plannedDeparture: '2026-10-02'
+                    changedAt: '2026-10-02T06:10:04+05:00'
+                    tractor:
+                      plateNumber: AG-1234-TM
+                      brand: MAN
+                      model: TGX 18.440
+                      companyName: Ak Yol Logistics HJ
+                      source: GARAGE
+                    trailer:
+                      plateNumber: AG-9999-TM
+                      brand: Schmitz
+                      model: SKO 24
+                      companyName: Ak Yol Logistics HJ
+                      source: GARAGE
+                    driver:
+                      fullName: Иванов Иван Иванович
+                      phone: '+99361000000'
+                      foreignPassport:
+                        seriesNumber: I-AB1234567
+                        expiryDate: '2029-04-30'
+                      visas:
+                        - country: TR
+                          expiryDate: '2027-03-15'
+                      source: GARAGE
+                  - integrationTripId: 8a2d4b6c-1e3f-4a5b-8c7d-9e0f1a2b3c4d
+                    tripNumber: null
+                    status: CREATED
+                    plannedDeparture: '2026-10-05'
+                    changedAt: '2026-10-02T09:15:00+05:00'
+                    tractor:
+                      plateNumber: AA-0001
+                      brand: MAN
+                      model: TGX
+                      companyName: Сторонний перевозчик
+                      source: THIRD_PARTY
+                    trailer:
+                      plateNumber: BB-0002
+                      brand: null
+                      model: null
+                      companyName: null
+                      source: THIRD_PARTY
+                    driver:
+                      fullName: Сторонов Сергей Сергеевич
+                      phone: '+99361000000'
+                      foreignPassport: null
+                      visas: []
+                      source: THIRD_PARTY
+                total: 2
+                page: 1
+                pageSize: 50
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/UnprocessableValue'
+        '503':
+          $ref: '#/components/responses/GarageUnavailable'
+
+  /trips/{integrationTripId}:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+    get:
+      tags: [trips]
+      operationId: getTrip
+      summary: Текущее состояние рейса глазами интеграции
+      description: "Сверка: что Planning знает о рейсе после применения присланных сведений."
+      responses:
+        '200':
+          description: Состояние рейса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripIntegrationState'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                tripNumber: 04AP034/26
+                status: ON_THE_WAY
+                plannedDeparture: '2026-10-02'
+                tractor:
+                  plateNumber: AG-1234-TM
+                  brand: MAN
+                  model: TGX 18.440
+                  companyName: Ak Yol Logistics HJ
+                  source: GARAGE
+                trailer:
+                  plateNumber: AG-9999-TM
+                  brand: Schmitz
+                  model: SKO 24
+                  companyName: Ak Yol Logistics HJ
+                  source: GARAGE
+                driver:
+                  fullName: Ivanov Ivan Ivanovich
+                  phone: '+99361000000'
+                  foreignPassport:
+                    seriesNumber: I-AB1234567
+                    expiryDate: '2029-04-30'
+                  visas:
+                    - country: TR
+                      expiryDate: '2027-03-15'
+                  source: GARAGE
+                departureCountryCode: TM
+                destinationCountryCode: TR
+                loadingCity: Ashgabat
+                loadingPlace:
+                  ref: EXT-PLACE-A
+                  name: блок А
+                destinationCity: Istanbul
+                cargoName: томаты свежие
+                customsClearedAt: '2026-10-03T11:05:00+05:00'
+                events:
+                  - type: ARRIVED_AT_PLACE
+                    occurredAt: '2026-10-02T04:40:00+05:00'
+                    receivedAt: '2026-10-02T04:40:03+05:00'
+                    place:
+                      ref: EXT-PLACE-A
+                      name: блок А
+                  - type: LOADED
+                    occurredAt: '2026-10-02T06:10:00+05:00'
+                    receivedAt: '2026-10-02T06:10:04+05:00'
+                  - type: DEPARTED_FROM_PLACE
+                    occurredAt: '2026-10-02T07:00:00+05:00'
+                    receivedAt: '2026-10-02T07:00:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/NotIntegrationCustomer'
+        '503':
+          $ref: '#/components/responses/GarageUnavailable'
+
+  /trips/{integrationTripId}/loading:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags: [loading]
+      operationId: setTripLoading
+      summary: Город и место погрузки
+      description: |
+        Город погрузки и место погрузки внутри города (например «блок А») приходят из внешней
+        программы и **замещают** ранее указанные значения, даже если их задал специалист (D43).
+        Каждое замещение сохраняется в истории: прежнее значение, новое, время, источник.
+
+        Неизвестный город автоматически добавляется в справочник городов Planning (D41).
+        Место погрузки справочником не ведётся: сохраняется как название и, если есть, код.
+
+        Для рейса заказчика без признака внешнего обмена операция отклоняется кодом `409`
+        `NOT_INTEGRATION_CUSTOMER` (D32). Для закрытого либо отменённого рейса — кодом `409`
+        `TRIP_CLOSED`, и ничего не изменяется (D70).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoadingUpdate'
+            example:
+              eventId: EXT-2026-000101
+              occurredAt: '2026-10-01T07:15:00+05:00'
+              source: EXTERNAL
+              city: Ashgabat
+              cityRef: EXT-CITY-014
+              place:
+                ref: EXT-PLACE-A
+                name: блок А
+      responses:
+        '200':
+          description: Сведения приняты либо повтор ранее принятого события
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/ConflictInbound'
+        '422':
+          $ref: '#/components/responses/UnprocessableValue'
+
+  /trips/{integrationTripId}/destination-city:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags: [destination]
+      operationId: setTripDestinationCity
+      summary: Город назначения
+      description: |
+        Город назначения приходит из внешней программы и **замещает** ранее указанное
+        значение, с историей (D43). Неизвестный город автоматически добавляется в справочник (D41).
+
+        Город обязан принадлежать стране назначения рейса. Иначе обращение отклоняется кодом
+        `422` `CITY_COUNTRY_MISMATCH`, и **ничего не изменяется** (D42).
+
+        Для рейса заказчика без признака — `409` `NOT_INTEGRATION_CUSTOMER`.
+        Для закрытого либо отменённого рейса — `409` `TRIP_CLOSED` (D70).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DestinationCityUpdate'
+            example:
+              eventId: EXT-2026-000102
+              occurredAt: '2026-10-01T07:20:00+05:00'
+              source: EXTERNAL
+              city: Istanbul
+              cityRef: EXT-CITY-771
+      responses:
+        '200':
+          description: Город принят либо повтор ранее принятого события
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/ConflictInbound'
+        '422':
+          $ref: '#/components/responses/CityCountryMismatch'
+
+  /trips/{integrationTripId}/cargo:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags: [cargo]
+      operationId: setTripCargo
+      summary: Продукт (вид груза)
+      description: |
+        Продукт приходит из внешней программы и **замещает** ранее указанное значение, даже если
+        его задал специалист (D18, D43). Каждое замещение сохраняется в истории: прежнее
+        значение, новое, время, источник.
+
+        Неизвестный продукт автоматически добавляется в справочник видов груза Planning (D41).
+
+        Для рейса заказчика без признака внешнего обмена операция отклоняется кодом `409`
+        `NOT_INTEGRATION_CUSTOMER`: продукт там задаётся вручную и внешней программой
+        не изменяется (D32).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CargoUpdate'
+            example:
+              eventId: EXT-2026-000103
+              occurredAt: '2026-10-01T07:25:00+05:00'
+              source: EXTERNAL
+              cargoName: томаты свежие
+              cargoRef: EXT-PROD-0042
+      responses:
+        '200':
+          description: Груз принят либо повтор ранее принятого события
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/ConflictInbound'
+        '422':
+          $ref: '#/components/responses/UnprocessableValue'
+
+  /trips/{integrationTripId}/events:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags: [events]
+      operationId: postLoadingPlaceEvent
+      summary: Событие места погрузки
+      description: |
+        Ровно три вида событий (D11, D40): прибытие на место, погрузка, выезд с места.
+        Событие сохраняется как история и **не изменяет** главный статус рейса (D4).
+
+        Повтор с тем же `eventId` не создаёт второй записи и возвращает прежний результат.
+        События с нарушенным порядком поступления принимаются: хронология строится по
+        `occurredAt`, а не по времени приёма.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoadingPlaceEvent'
+            example:
+              eventId: EXT-2026-000104
+              occurredAt: '2026-10-02T04:40:00+05:00'
+              source: EXTERNAL
+              type: ARRIVED_AT_PLACE
+              place:
+                ref: EXT-PLACE-A
+                name: блок А
+      responses:
+        '201':
+          description: Событие сохранено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '200':
+          description: Повтор ранее принятого события; новая запись не создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/ConflictInbound'
+        '422':
+          $ref: '#/components/responses/UnprocessableValue'
+
+  /trips/{integrationTripId}/export-code:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags: [export]
+      operationId: setExportCode
+      summary: Код экспорта — он же номер рейса
+      description: |
+        Код экспорта формирует внешняя программа; Planning его никогда не генерирует.
+        **Код экспорта становится номером рейса** (D37): до его прихода рейс номера не имеет,
+        а интерфейс показывает «ожидает кода».
+
+        Внешняя программа может **исправить** код: новое значение замещает номер рейса,
+        прежнее сохраняется в истории (было → стало, время, источник). Менять номер рейса
+        такого заказчика может только внешняя программа.
+
+        Формат кода **не задан** и не проверяется. Пример `04AP034/26` — только пример.
+
+        Код обязан быть уникальным среди всех рейсов. При совпадении с номером другого рейса
+        обращение отклоняется кодом `409` `DUPLICATE_EXPORT_CODE`, и ничего не изменяется.
+
+        Каждое присвоение сохраняется с отметкой времени и попадает в историю (D5).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportCodeUpdate'
+            example:
+              eventId: EXT-2026-000105
+              occurredAt: '2026-10-02T09:00:00+05:00'
+              source: EXTERNAL
+              exportCode: 04AP034/26
+      responses:
+        '200':
+          description: Код принят либо повтор ранее принятого события
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/ConflictExportCode'
+        '422':
+          $ref: '#/components/responses/UnprocessableValue'
+
+  /trips/{integrationTripId}/rejection:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags: [rejection]
+      operationId: rejectTrip
+      summary: Отклонение планируемого рейса
+      description: |
+        Внешняя программа отклоняет планируемый рейс — как правило из-за тягача или водителя (D39).
+        Отклонение сохраняется как история с причиной, временем и источником; главный статус
+        рейса не изменяется (D4).
+
+        Дальнейшее действие — за специалистом: он меняет тягач, прицеп или водителя, после чего
+        рейс отправляется внешней программе снова как изменённый (`trip.changed`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripRejection'
+            example:
+              eventId: EXT-2026-000106
+              occurredAt: '2026-10-02T09:30:00+05:00'
+              source: EXTERNAL
+              reason: Тягач не соответствует требованиям загрузки; предложите другой.
+      responses:
+        '200':
+          description: Отклонение принято либо повтор ранее принятого события
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/ConflictInbound'
+        '422':
+          $ref: '#/components/responses/UnprocessableValue'
+
+  /trips/{integrationTripId}/customs:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - $ref: '#/components/parameters/CorrelationId'
+    post:
+      tags: [customs]
+      operationId: setCustomsCleared
+      summary: Таможенная очистка
+      description: Отметка о прохождении таможни с временем события и историей (D5).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomsUpdate'
+            example:
+              eventId: EXT-2026-000107
+              occurredAt: '2026-10-03T11:05:00+05:00'
+              source: EXTERNAL
+              cleared: true
+      responses:
+        '200':
+          description: Отметка принята либо повтор ранее принятого события
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WriteAck'
+              example:
+                integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+                eventId: EXT-2026-000101
+                accepted: true
+                duplicate: false
+                storedAt: '2026-10-01T07:15:02+05:00'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/ConflictInbound'
+        '422':
+          $ref: '#/components/responses/UnprocessableValue'
+
+  /trips/{integrationTripId}/document:
+    parameters:
+      - $ref: '#/components/parameters/IntegrationTripId'
+    get:
+      tags: [documents]
+      operationId: getTripDocument
+      summary: Документ A4 по рейсу
+      description: |
+        Один лист A4 книжной ориентации со сканами документов рейса.
+
+        Раскладка: шесть рамок в два столбца, книжная ориентация. Каждый скан растягивается
+        на всю рамку. Точные размеры рамок задаются на нашей стороне и на разбор ответа
+        не влияют — приходит готовый PDF.
+        Расположение: левая колонка сверху вниз — лицензия тягача, лицензия прицепа, заграничный
+        паспорт водителя; правая колонка сверху вниз — технический паспорт тягача,
+        технический паспорт прицепа, пустое место, в котором ничего не рисуется (D22, D30).
+
+        Сканы наших ТС и водителей берутся из гаражного модуля, сторонних — из Planning (D27).
+        Поддерживаются JPEG и PNG; PDF в лист не попадает (D16).
+
+        Если отдельный документ отсутствует или его формат не поддержан, в его рамке выводится
+        надпись «нет документа», а лист выдаётся — при условии, что собран хотя бы один
+        документ (D25).
+
+        Документ собирается **на каждый запрос**, не сохраняется и не кешируется (D46).
+        Поэтому ответ может занимать заметное время: Planning обращается за сканами
+        к гаражному модулю.
+      responses:
+        '200':
+          description: Файл документа
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/TripNotFound'
+        '409':
+          $ref: '#/components/responses/NotIntegrationCustomer'
+        '422':
+          $ref: '#/components/responses/NoDocuments'
+        '503':
+          $ref: '#/components/responses/GarageUnavailable'
+
+webhooks:
+  tripCreated:
+    post:
+      operationId: onTripCreated
+      summary: Планируемый рейс создан
+      description: |
+        Planning отправляет уведомление сразу после успешного создания рейса заказчика
+        с признаком внешнего обмена — как **планируемый** рейс (D36).
+        Рейсы остальных заказчиков не отправляются (D32).
+
+        В этот момент номера у рейса ещё нет: `tripNumber` пустой, пока внешняя программа
+        не пришлёт код экспорта (D37).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripNotification'
+            example:
+              eventId: PLN-2026-000501
+              eventType: trip.created
+              occurredAt: '2026-10-01T06:00:00+05:00'
+              integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+              tripNumber: null
+              departureCountryCode: TM
+              destinationCountryCode: TR
+              plannedDeparture: '2026-10-05'
+              tractor:
+                plateNumber: AG-1234-TM
+                brand: MAN
+                model: TGX 18.440
+                companyName: Ak Yol Logistics HJ
+                source: GARAGE
+              trailer:
+                plateNumber: AG-5678-TM
+                brand: Schmitz
+                model: SKO 24
+                companyName: Ak Yol Logistics HJ
+                source: GARAGE
+              driver:
+                fullName: Довлетов Мурат Какаевич
+                phone: '+99361000000'
+                foreignPassport:
+                  seriesNumber: I-AG 0123456
+                  expiryDate: '2029-04-30'
+                visas:
+                  - country: Turkiye
+                    expiryDate: '2027-03-15'
+                  - country: Iran
+                    expiryDate: '2026-12-01'
+                source: GARAGE
+      responses:
+        '200':
+          description: Уведомление принято
+        '202':
+          description: Уведомление принято к обработке
+        '409':
+          description: Уведомление с этим `eventId` уже обработано; повторная обработка не выполнена
+
+  tripChanged:
+    post:
+      operationId: onTripChanged
+      summary: Состав рейса изменён
+      description: |
+        Отправляется при изменении назначенных ресурсов — тягача, прицепа либо водителя
+        (существующий сценарий переназначения). Страна отправления после создания рейса
+        не изменяется: сценария изменения рейса в системе нет (D1), поэтому уведомление
+        о смене страны не предусмотрено.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripNotification'
+            example:
+              eventId: PLN-2026-000502
+              eventType: trip.changed
+              occurredAt: '2026-10-02T12:30:00+05:00'
+              integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+              tripNumber: 04AP034/26
+              departureCountryCode: TM
+              destinationCountryCode: TR
+              plannedDeparture: '2026-10-05'
+              tractor:
+                plateNumber: AG-9900-TM
+                brand: MAN
+                model: TGS 18.430
+                companyName: Ak Yol Logistics HJ
+                source: GARAGE
+              trailer:
+                plateNumber: AG-5678-TM
+                brand: Schmitz
+                model: SKO 24
+                companyName: Ak Yol Logistics HJ
+                source: GARAGE
+              driver:
+                fullName: Довлетов Мурат Какаевич
+                phone: '+99361000000'
+                foreignPassport:
+                  seriesNumber: I-AG 0123456
+                  expiryDate: '2029-04-30'
+                visas:
+                  - country: Turkiye
+                    expiryDate: '2027-03-15'
+                  - country: Iran
+                    expiryDate: '2026-12-01'
+                source: GARAGE
+      responses:
+        '200':
+          description: Уведомление принято
+        '202':
+          description: Уведомление принято к обработке
+
+  tripCancelled:
+    post:
+      operationId: onTripCancelled
+      summary: Рейс отменён
+      description: |
+        Отмена рейса существует в текущем жизненном цикле и является окончательной
+        операцией. Уведомление содержит время отмены; причина не передаётся.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripCancelledNotification'
+            example:
+              eventId: PLN-2026-000504
+              eventType: trip.cancelled
+              occurredAt: '2026-10-04T15:20:00+05:00'
+              integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+              tripNumber: 04AP034/26
+      responses:
+        '200':
+          description: Уведомление принято
+        '202':
+          description: Уведомление принято к обработке
+
+  tripDocumentAvailable:
+    post:
+      operationId: onTripDocumentAvailable
+      summary: Документ A4 доступен
+      description: Передаётся ссылка на документ; файл не вкладывается.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripDocumentNotification'
+            example:
+              eventId: PLN-2026-000505
+              eventType: trip.document.available
+              occurredAt: '2026-10-04T08:00:00+05:00'
+              integrationTripId: 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+              documentUrl: https://logistics.local/api/v1/external/trips/6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70/document
+      responses:
+        '200':
+          description: Уведомление принято
+        '202':
+          description: Уведомление принято к обработке
+
+components:
+
+  securitySchemes:
+    externalApiKey:
+      type: http
+      scheme: bearer
+      description: |
+        ASSUMPTION: предлагается ключ внешней программы в заголовке
+        `Authorization: Bearer <ключ>` — тот же приём, что уже применяется в этой системе
+        для внешнего доступа. Окончательная схема согласуется с разработчиками внешней
+        программы; допустимой альтернативой является OAuth 2.0 client credentials.
+
+  parameters:
+    IntegrationTripId:
+      name: integrationTripId
+      in: path
+      required: true
+      description: Интеграционный идентификатор рейса, выданный Planning.
+      schema:
+        $ref: '#/components/schemas/IntegrationTripId'
+
+    ChangedSince:
+      name: changedSince
+      in: query
+      required: false
+      description: |
+        Отбирать рейсы, изменившиеся **строго после** этого момента. Формат — дата и время
+        с часовым поясом (RFC 3339). Без параметра отдаются все рейсы обмена.
+      schema:
+        type: string
+        format: date-time
+      examples:
+        since:
+          value: '2026-10-02T06:00:00+05:00'
+
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Номер страницы, начиная с 1. Значение меньше 1 приводится к 1.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      description: |
+        Размер страницы. Значение приводится к диапазону 1…200 — тот же предел, что
+        у существующего перечня журнала Planning.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        Идентификатор операции. Совпадает с `eventId` в теле запроса. Повтор с тем же
+        значением не создаёт второй записи и возвращает прежний результат; распознавание
+        переживает перезапуск нашего приложения. Тот же ключ с **другим** телом отклоняется
+        кодом `409` `IDEMPOTENCY_KEY_REUSED`.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      description: Сквозной идентификатор обращения для разбора инцидентов.
+      schema:
+        type: string
+        maxLength: 64
+
+  responses:
+    Unauthorized:
+      description: Ключ не предъявлен либо недействителен
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://logistics.local/problems/unauthorized
+            title: Обращение не аутентифицировано
+            status: 401
+            code: UNAUTHORIZED
+            detail: Заголовок Authorization отсутствует либо ключ недействителен.
+            correlationId: 7f3b1c90-0e44-4a1f-9a2b-55d0c9a81b02
+
+    TripNotFound:
+      description: Рейс с таким интеграционным идентификатором не найден
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://logistics.local/problems/trip-not-found
+            title: Рейс не найден
+            status: 404
+            code: TRIP_NOT_FOUND
+            detail: Рейс с указанным integrationTripId отсутствует в Planning.
+
+    NotIntegrationCustomer:
+      description: |
+        Рейс существует, но его заказчик не имеет признака «работает через внешнюю программу»
+        (D32) либо рейс не является международным рейсом из Туркменистана в другую страну (D33).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://logistics.local/problems/not-integration-customer
+            title: Рейс не относится к заказчику внешнего обмена
+            status: 409
+            code: NOT_INTEGRATION_CUSTOMER
+            detail: Обмен ведётся только по рейсам заказчика с признаком внешнего обмена.
+
+    ConflictInbound:
+      description: |
+        Сведения не приняты, и **ничего не изменено**. Две причины:
+
+        - `NOT_INTEGRATION_CUSTOMER` — заказчик рейса не имеет признака «работает через
+          внешнюю программу» (D32) либо рейс не является международным рейсом
+          из Туркменистана в другую страну (D33);
+        - `TRIP_CLOSED` — рейс **закрыт**, **отменён** либо **архивирован**, и сведений
+          больше не принимает (D70). Повторять обращение бессмысленно: из этих состояний
+          рейс не возвращается;
+        - `IDEMPOTENCY_KEY_REUSED` — этот `Idempotency-Key` уже использован с **другим**
+          телом. Один ключ обозначает одно сообщение; для нового нужен новый ключ.
+
+        Ответ на чтение состояния рейса и на выдачу листа A4 кодом `TRIP_CLOSED`
+        не бывает: чтение завершённого рейса остаётся доступным (D70).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            notIntegrationCustomer:
+              summary: Заказчик без признака внешнего обмена
+              value:
+                type: https://logistics.local/problems/not-integration-customer
+                title: Рейс не относится к заказчику внешнего обмена
+                status: 409
+                code: NOT_INTEGRATION_CUSTOMER
+                detail: Обмен ведётся только по рейсам заказчика с признаком внешнего обмена.
+            tripClosed:
+              summary: Рейс закрыт, отменён либо архивирован
+              value:
+                type: https://logistics.local/problems/trip-closed
+                title: Рейс завершён
+                status: 409
+                code: TRIP_CLOSED
+                detail: Рейс закрыт, отменён либо архивирован и сведений больше не принимает.
+                correlationId: 7f3b1c90-0e44-4a1f-9a2b-55d0c9a81b04
+            idempotencyKeyReused:
+              summary: Ключ уже использован с другим сообщением
+              value:
+                type: https://logistics.local/problems/idempotency-key-reused
+                title: Ключ уже использован с другим сообщением
+                status: 409
+                code: IDEMPOTENCY_KEY_REUSED
+                detail: Один ключ обозначает одно сообщение; для нового сообщения нужен новый ключ.
+
+    ConflictExportCode:
+      description: |
+        Код экспорта не принят, и **ничего не изменено**. Три причины:
+
+        - `DUPLICATE_EXPORT_CODE` — код уже является номером другого рейса; номера
+          уникальны (D37);
+        - `NOT_INTEGRATION_CUSTOMER` — заказчик без признака внешнего обмена либо
+          направление не то (D32, D33);
+        - `TRIP_CLOSED` — рейс закрыт, отменён либо архивирован (D70);
+        - `IDEMPOTENCY_KEY_REUSED` — ключ уже использован с другим телом.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            exportCodeConflict:
+              summary: Код уже занят другим рейсом
+              value:
+                type: https://logistics.local/problems/duplicate-export-code
+                title: Код экспорта уже занят
+                status: 409
+                code: DUPLICATE_EXPORT_CODE
+                detail: Такой код уже является номером другого рейса.
+            notIntegrationCustomer:
+              summary: Заказчик без признака внешнего обмена
+              value:
+                type: https://logistics.local/problems/not-integration-customer
+                title: Рейс не относится к заказчику внешнего обмена
+                status: 409
+                code: NOT_INTEGRATION_CUSTOMER
+                detail: Обмен ведётся только по рейсам заказчика с признаком внешнего обмена.
+            tripClosed:
+              summary: Рейс закрыт, отменён либо архивирован
+              value:
+                type: https://logistics.local/problems/trip-closed
+                title: Рейс завершён
+                status: 409
+                code: TRIP_CLOSED
+                detail: Рейс закрыт, отменён либо архивирован и сведений больше не принимает.
+            idempotencyKeyReused:
+              summary: Ключ уже использован с другим сообщением
+              value:
+                type: https://logistics.local/problems/idempotency-key-reused
+                title: Ключ уже использован с другим сообщением
+                status: 409
+                code: IDEMPOTENCY_KEY_REUSED
+                detail: Один ключ обозначает одно сообщение; для нового сообщения нужен новый ключ.
+
+    CityCountryMismatch:
+      description: |
+        Город не принадлежит стране назначения рейса (D42). Ничего не изменено;
+        справочник городов не пополнялся.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://logistics.local/problems/city-country-mismatch
+            title: Город не принадлежит стране назначения
+            status: 422
+            code: CITY_COUNTRY_MISMATCH
+            detail: Проверьте пару «страна назначения — город назначения».
+
+    NoDocuments:
+      description: |
+        Не собрано ни одного документа: лист A4 не формируется (D29).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://logistics.local/problems/no-documents
+            title: Нет ни одного документа
+            status: 422
+            code: NO_DOCUMENTS
+            detail: Ни один из пяти сканов не доступен; лист не формируется.
+
+    GarageUnavailable:
+      description: |
+        Гаражный модуль недоступен, ответил с задержкой либо ошибкой, отличной от
+        «документ не найден». Лист A4 не формируется; обращение следует повторить позже (D28).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://logistics.local/problems/garage-unavailable
+            title: Источник сканов недоступен
+            status: 503
+            code: GARAGE_UNAVAILABLE
+            detail: Повторите обращение позже.
+
+    UnprocessableValue:
+      description: |
+        Значение не принято: тело запроса не соответствует схеме либо обязательное
+        поле отсутствует. Ничего не изменено.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://logistics.local/problems/validation-failed
+            title: Значение не принято
+            status: 422
+            code: VALIDATION_FAILED
+            detail: Поле «city» обязательно и не может быть пустым.
+            correlationId: 7f3b1c90-0e44-4a1f-9a2b-55d0c9a81b03
+
+  schemas:
+
+    IntegrationTripId:
+      type: string
+      format: uuid
+      description: |
+        Идентификатор рейса для внешней программы. Выдаётся Planning при создании рейса,
+        неизменен, не переиспользуется. Внутренний первичный ключ наружу не передаётся.
+      examples:
+        - 6f1c2a3e-8f0b-4c7d-9a10-2b3c4d5e6f70
+
+    Problem:
+      type: object
+      description: Модель ошибки по RFC 9457 (problem details) с добавленным полем `code`.
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        correlationId:
+          type: string
+      required: [title, status, code]
+
+    ErrorCode:
+      type: string
+      enum:
+        - UNAUTHORIZED
+        - TRIP_NOT_FOUND
+        - NOT_INTEGRATION_CUSTOMER
+        - TRIP_CLOSED
+        - DUPLICATE_EXPORT_CODE
+        - CITY_COUNTRY_MISMATCH
+        - NO_DOCUMENTS
+        - GARAGE_UNAVAILABLE
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REUSED
+      description: |
+        Машиночитаемый код ошибки. Перечень исчерпывающий: каждый код применяется
+        хотя бы одним ответом этого контракта. Кодов «про запас» в перечне нет.
+
+    EventEnvelope:
+      type: object
+      description: Общая часть каждого входящего сообщения.
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Идентификатор события во внешней программе; совпадает с `Idempotency-Key`.
+        occurredAt:
+          type: string
+          format: date-time
+          description: |
+            Время события по данным внешней программы, ISO 8601 со смещением; хронология
+            истории строится по этому значению, а не по времени приёма.
+        source:
+          $ref: '#/components/schemas/EventSource'
+      required: [eventId, occurredAt, source]
+
+    EventSource:
+      type: string
+      enum: [EXTERNAL]
+      description: Источник сведений. Для входящих сообщений всегда `EXTERNAL`.
+
+    LoadingPlaceEventType:
+      type: string
+      enum:
+        - ARRIVED_AT_PLACE
+        - LOADED
+        - DEPARTED_FROM_PLACE
+      description: |
+        Ровно три вида событий; события выгрузки не предусмотрено (D11, D40).
+
+        Соответствие прежним черновым названиям (контракт не был реализован, поэтому
+        переименование ничего не ломает): `ARRIVED_AT_GREENHOUSE` → `ARRIVED_AT_PLACE`,
+        `LOADED` → `LOADED` (без изменений), `DEPARTED_GREENHOUSE` → `DEPARTED_FROM_PLACE`.
+
+    LoadingPlaceRef:
+      type: object
+      description: |
+        Место погрузки по данным внешней программы (например «блок А»). Справочник мест
+        погрузки в Planning не ведётся: значение сохраняется как название и, если есть, код (D40).
+      properties:
+        ref:
+          type: string
+          maxLength: 128
+          description: Код места погрузки во внешней программе.
+        name:
+          type: string
+          maxLength: 256
+          description: Название места погрузки.
+      required: [name]
+
+    LoadingPlaceEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            type:
+              $ref: '#/components/schemas/LoadingPlaceEventType'
+            place:
+              $ref: '#/components/schemas/LoadingPlaceRef'
+          required: [type]
+
+    LoadingUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            city:
+              type: string
+              minLength: 1
+              maxLength: 256
+              description: |
+                Название города погрузки. Если города нет в справочнике Planning,
+                он добавляется автоматически (D41).
+            cityRef:
+              type: string
+              maxLength: 128
+              description: Код города во внешней программе, если он есть.
+            place:
+              $ref: '#/components/schemas/LoadingPlaceRef'
+          required: [city]
+
+    DestinationCityUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            city:
+              type: string
+              minLength: 1
+              maxLength: 256
+              description: |
+                Название города назначения. Обязан принадлежать стране назначения рейса (D42).
+                Неизвестный город добавляется в справочник автоматически (D41).
+            cityRef:
+              type: string
+              maxLength: 128
+          required: [city]
+
+    CargoUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            cargoName:
+              type: string
+              minLength: 1
+              maxLength: 256
+              description: |
+                Название продукта. Если такого вида груза нет в справочнике Planning,
+                он добавляется автоматически (D41).
+            cargoRef:
+              type: string
+              maxLength: 128
+          required: [cargoName]
+
+    ExportCodeUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            exportCode:
+              type: string
+              minLength: 1
+              maxLength: 50
+              description: |
+                Код экспорта, сформированный внешней программой. **Становится номером рейса**
+                (D37). Формат не задан и не проверяется; пример `04AP034/26`.
+                Повторная присылка иного значения исправляет номер, прежний уходит в историю.
+                Предел длины совпадает с пределом колонки номера рейса.
+          required: [exportCode]
+
+    TripRejection:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            reason:
+              type: string
+              minLength: 1
+              maxLength: 512
+              description: |
+                Причина отклонения планируемого рейса — как правило замечание к тягачу
+                или водителю (D39). Сохраняется в истории.
+          required: [reason]
+
+    CustomsUpdate:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          properties:
+            cleared:
+              type: boolean
+              description: Признак прохождения таможни.
+          required: [cleared]
+
+    WriteAck:
+      type: object
+      description: Подтверждение приёма. При повторе возвращается прежний результат без новой записи.
+      properties:
+        integrationTripId:
+          $ref: '#/components/schemas/IntegrationTripId'
+        eventId:
+          type: string
+        accepted:
+          type: boolean
+        duplicate:
+          type: boolean
+          description: Сообщение с таким `eventId` уже принималось ранее.
+        storedAt:
+          type: string
+          format: date-time
+      required: [integrationTripId, eventId, accepted, duplicate]
+
+    VehicleSource:
+      type: string
+      enum: [GARAGE, THIRD_PARTY]
+      description: |
+        Происхождение ресурса. `GARAGE` — ресурс гаражного модуля; `THIRD_PARTY` — сторонний,
+        ведётся только в Planning. Значение вычисляется и отдельно не хранится.
+
+    VehicleRef:
+      type: object
+      description: |
+        Тягач либо прицеп рейса (D61): государственный номер, марка и модель,
+        название компании-владельца и происхождение ресурса.
+      properties:
+        plateNumber:
+          type: string
+          maxLength: 32
+          description: Государственный регистрационный номер.
+          examples:
+            - AG-1234-TM
+        brand:
+          type: string
+          maxLength: 128
+          description: |
+            Марка. Необязательна.
+
+            У тягача — и нашего, и стороннего — передаётся сразу. У **прицепа нашего парка**
+            тоже. У **прицепа стороннего перевозчика** поля марки и модели **заведены**
+            решением D66 (редакция 1.1) — значение приходит заполненным,
+            если оно указано в справочнике прицепов Planning.
+          examples:
+            - MAN
+        model:
+          type: string
+          maxLength: 128
+          description: |
+            Модель. Необязательна; то же, что у марки: у прицепа стороннего перевозчика
+            поле заведено решением D66 и приходит заполненным, если указано.
+          examples:
+            - TGX 18.440
+        companyName:
+          type: string
+          maxLength: 256
+          description: |
+            Название компании — владельца транспорта (D35, D61, D68). Передаётся названием,
+            не идентификатором. Необязательно.
+
+            Для **стороннего** ресурса — компания из справочника Planning; передаётся сразу.
+
+            Для ресурса **нашего парка** — **конкретная** компания-владелец из гаражного
+            модуля: наших компаний несколько, и «наш парк» одной компанией не описывается
+            (D68). Выдача владельца в ответе гаражного модуля **включена** решением D69
+            (редакция 1.1) — значение приходит заполненным, если справочник владельцев
+            заполнен, и пустым, если нет.
+          examples:
+            - Ak Yol Logistics HJ
+        source:
+          $ref: '#/components/schemas/VehicleSource'
+      required: [plateNumber, source]
+
+    ForeignPassport:
+      type: object
+      description: |
+        Заграничный паспорт водителя. Внешней программе передаются **серия и номер**
+        и **дата окончания действия** (D58). Объект целиком необязателен.
+
+        Для водителя **стороннего** перевозчика реквизит ведётся в Planning и передаётся
+        сразу, как только он заполнен.
+
+        Для водителя **нашего парка** выдача **включена** решением D64 (редакция 1.1):
+        значения хранятся в гаражном модуле и выходят в ответ интеграции. Объект приходит
+        заполненным, если заграничный паспорт водителя заведён, и отсутствует, если нет.
+
+        Дата выдачи наружу не передаётся: требование снято решением D58, которое заменяет
+        D14 и часть D19, касавшуюся даты выдачи. Отдельного изменения гаражного модуля
+        ради даты выдачи не производится.
+      properties:
+        seriesNumber:
+          type: string
+          maxLength: 64
+          description: |
+            Серия и номер одной строкой — так реквизит хранится сегодня и в гаражном
+            модуле, и в Planning.
+          examples:
+            - I-AG 0123456
+        expiryDate:
+          type: string
+          format: date
+          description: |
+            Дата окончания действия заграничного паспорта. В схеме необязательна:
+            в обеих системах реквизит необязателен, и обязательным решением владельца
+            он не объявлялся.
+          examples:
+            - '2029-04-30'
+      required: [seriesNumber]
+
+    Visa:
+      type: object
+      description: |
+        Виза водителя (D59). Передаются **все действующие** (не истёкшие на момент
+        отправки уведомления) визы водителя. Сканы виз внешней программе не передаются.
+
+        Состав полей — **страна и дата окончания действия** (D65). Номер визы и дата начала
+        действия **не передаются и не вводятся**: таких реквизитов в системе нет.
+
+        Визы передаются **только по водителям нашего парка** (`source: GARAGE`).
+        По водителям сторонних перевозчиков визы наружу не передаются (D67): у таких
+        водителей массив `visas` отсутствует либо пуст.
+      properties:
+        country:
+          type: string
+          maxLength: 128
+          description: |
+            Страна визы. Свободная строка: справочника стран у виз нет.
+          examples:
+            - Turkiye
+        expiryDate:
+          type: string
+          format: date
+          description: Дата окончания действия визы. Визы с прошедшей датой не передаются.
+          examples:
+            - '2027-03-15'
+      required: [country, expiryDate]
+
+    DriverRef:
+      type: object
+      description: |
+        Водитель рейса. Телефон, заграничный паспорт (D19, D58) и действующие визы (D59)
+        входят в состав уведомления; сведения сверх перечисленных не передаются.
+      properties:
+        fullName:
+          type: string
+          maxLength: 256
+          description: ФИО одной строкой.
+          examples:
+            - Довлетов Мурат Какаевич
+        phone:
+          type: string
+          maxLength: 32
+          description: Номер телефона водителя.
+          examples:
+            - '+99361000000'
+        foreignPassport:
+          $ref: '#/components/schemas/ForeignPassport'
+        visas:
+          type: array
+          description: |
+            Все действующие визы водителя на момент отправки уведомления (D59).
+            Истёкшие визы не передаются.
+
+            Передаются **только для водителей нашего парка** (`source: GARAGE`).
+            Для водителей сторонних перевозчиков массив не передаётся (D67).
+            Пустой массив означает, что действующих виз нет.
+          items:
+            $ref: '#/components/schemas/Visa'
+        source:
+          $ref: '#/components/schemas/VehicleSource'
+      required: [fullName, source]
+
+    TripNotification:
+      type: object
+      description: |
+        Состав рейса, передаваемый внешней программе. Набор ограничен требуемым
+        внешней программой (D19, D58, D59, D61): телефон водителя, заграничный паспорт
+        (серия и номер, дата окончания) и действующие визы входят в состав; сведения
+        сверх перечисленных не передаются.
+      properties:
+        eventId:
+          type: string
+          maxLength: 128
+          description: Идентификатор уведомления; при повторной отправке не изменяется.
+        eventType:
+          type: string
+          enum: [trip.created, trip.changed]
+        occurredAt:
+          type: string
+          format: date-time
+        integrationTripId:
+          $ref: '#/components/schemas/IntegrationTripId'
+        tripNumber:
+          type: [string, "null"]
+          maxLength: 50
+          description: |
+            Номер рейса. Он же код экспорта (D37). **Пустой, пока внешняя программа не пришлёт
+            код**: у нового рейса номера нет. Справочное поле, ключом не является —
+            рейс адресуется `integrationTripId`.
+        departureCountryCode:
+          type: string
+          minLength: 2
+          maxLength: 3
+          description: Код страны отправления; всегда `TM` (D33).
+        destinationCountryCode:
+          type: string
+          minLength: 2
+          maxLength: 3
+          description: Код страны назначения; никогда не `TM` (D33).
+        plannedDeparture:
+          type: string
+          format: date
+          description: |
+            Планируемая дата выезда, заданная при создании рейса. Существующий реквизит рейса;
+            внешней программой не изменяется.
+          examples:
+            - '2026-10-05'
+        tractor:
+          $ref: '#/components/schemas/VehicleRef'
+        trailer:
+          $ref: '#/components/schemas/VehicleRef'
+        driver:
+          $ref: '#/components/schemas/DriverRef'
+      required:
+        - eventId
+        - eventType
+        - occurredAt
+        - integrationTripId
+        - departureCountryCode
+        - destinationCountryCode
+        - tractor
+        - trailer
+        - driver
+
+    TripCancelledNotification:
+      type: object
+      properties:
+        eventId:
+          type: string
+          maxLength: 128
+        eventType:
+          type: string
+          enum: [trip.cancelled]
+        occurredAt:
+          type: string
+          format: date-time
+        integrationTripId:
+          $ref: '#/components/schemas/IntegrationTripId'
+        tripNumber:
+          type: [string, "null"]
+          maxLength: 50
+          description: Пустой, если код экспорта так и не был присвоен (D37).
+      required: [eventId, eventType, occurredAt, integrationTripId]
+
+    TripDocumentNotification:
+      type: object
+      properties:
+        eventId:
+          type: string
+          maxLength: 128
+        eventType:
+          type: string
+          enum: [trip.document.available]
+        occurredAt:
+          type: string
+          format: date-time
+        integrationTripId:
+          $ref: '#/components/schemas/IntegrationTripId'
+        documentUrl:
+          type: string
+          format: uri
+          description: Ссылка на документ A4; доступ по ключу внешней программы.
+      required: [eventId, eventType, occurredAt, integrationTripId, documentUrl]
+
+    LoadingPlaceEventRecord:
+      type: object
+      properties:
+        type:
+          $ref: '#/components/schemas/LoadingPlaceEventType'
+        occurredAt:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+        place:
+          $ref: '#/components/schemas/LoadingPlaceRef'
+      required: [type, occurredAt, receivedAt]
+
+    TripIntegrationState:
+      type: object
+      description: Что Planning знает о рейсе после применения присланных сведений.
+      properties:
+        integrationTripId:
+          $ref: '#/components/schemas/IntegrationTripId'
+        tripNumber:
+          type: [string, "null"]
+          maxLength: 50
+          description: |
+            Номер рейса, он же код экспорта. Пустой, пока код не присвоен (D37);
+            в интерфейсе Planning в этом случае показывается «ожидает кода».
+        status:
+          $ref: '#/components/schemas/TripStatus'
+        plannedDeparture:
+          type: string
+          format: date
+          description: Плановая дата выезда.
+        tractor:
+          $ref: '#/components/schemas/VehicleRef'
+        trailer:
+          $ref: '#/components/schemas/VehicleRef'
+        driver:
+          $ref: '#/components/schemas/DriverRef'
+        departureCountryCode:
+          type: string
+          maxLength: 3
+        destinationCountryCode:
+          type: string
+          maxLength: 3
+        loadingCity:
+          type: string
+          maxLength: 256
+          description: Город погрузки.
+        loadingPlace:
+          $ref: '#/components/schemas/LoadingPlaceRef'
+        destinationCity:
+          type: string
+          maxLength: 256
+        cargoName:
+          type: string
+          maxLength: 256
+          description: Продукт.
+        customsClearedAt:
+          type: string
+          format: date-time
+        rejectedAt:
+          type: string
+          format: date-time
+          description: Время последнего отклонения рейса внешней программой (D39), если было.
+        events:
+          type: array
+          description: История событий места погрузки, упорядоченная по времени события.
+          items:
+            $ref: '#/components/schemas/LoadingPlaceEventRecord'
+      required: [integrationTripId, status, departureCountryCode, destinationCountryCode]
+
+    TripStatus:
+      type: string
+      description: |
+        Статус рейса ровно в том виде, в каком он есть в Planning (**D82**): свёртки нет,
+        отдельного «внешнего» перечня нет. Значение только читается — внешняя программа
+        статус не меняет ни одной операцией этого контракта.
+
+        Порядок жизненного цикла: `CREATED` → `PLANNED` → `DOCUMENTS_READY` → `ON_THE_WAY` →
+        `ARRIVED_FOR_LOADING` → `LOADED` → `BORDER_CROSSING` → `ARRIVED` → `UNLOADED` →
+        `CLOSED`. `CANCELLED` и `ARCHIVED` в этой последовательности не стоят: отмена
+        и архивирование — отдельные действия.
+      enum:
+        - CREATED
+        - PLANNED
+        - DOCUMENTS_READY
+        - ON_THE_WAY
+        - ARRIVED_FOR_LOADING
+        - LOADED
+        - BORDER_CROSSING
+        - ARRIVED
+        - UNLOADED
+        - CLOSED
+        - CANCELLED
+        - ARCHIVED
+
+    TripListItem:
+      type: object
+      description: |
+        Строка перечня рейсов вместе с составом (D115). Блоки `tractor`, `trailer`
+        и `driver` — те же схемы `VehicleRef` и `DriverRef`, что и у `TripIntegrationState`,
+        с теми же правилами пустых значений и тем же источником данных: для одного и того же
+        рейса их содержимое совпадает поле в поле с ответом
+        `GET /trips/{integrationTripId}`.
+
+        Все три блока обязательны и `null` не бывают: тягач, прицеп и водитель у рейса
+        есть всегда (`BR-008`).
+      properties:
+        integrationTripId:
+          $ref: '#/components/schemas/IntegrationTripId'
+        tripNumber:
+          type: [string, "null"]
+          maxLength: 50
+          description: Номер рейса, он же код экспорта. Пустой, пока код не присвоен (D37).
+        status:
+          $ref: '#/components/schemas/TripStatus'
+        plannedDeparture:
+          type: string
+          format: date
+        changedAt:
+          type: string
+          format: date-time
+          description: |
+            Время последнего изменения рейса. Именно это значение следует передавать
+            в `changedSince` при следующем опросе.
+        tractor:
+          $ref: '#/components/schemas/VehicleRef'
+        trailer:
+          $ref: '#/components/schemas/VehicleRef'
+        driver:
+          $ref: '#/components/schemas/DriverRef'
+      required:
+        - integrationTripId
+        - status
+        - plannedDeparture
+        - changedAt
+        - tractor
+        - trailer
+        - driver
+
+    TripListPage:
+      type: object
+      description: |
+        Страница перечня. Состав полей тот же, что у существующего перечня журнала
+        Planning: записи, общее число, номер страницы и её размер.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripListItem'
+        total:
+          type: integer
+          minimum: 0
+          description: Общее число рейсов, подходящих под условие отбора.
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 200
+      required: [items, total, page, pageSize]

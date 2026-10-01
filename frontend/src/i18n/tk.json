@@ -2969,6 +2969,7 @@
       "guide": {
         "your_task": "Siziň tabşyrygyňyz: {{task}}",
         "draft": "Bu ýük taýýarlykda — barjak ýeri we müşderi entek bellenmedi. Aşakdaky meýdanlary dolduryp, ony geçirmäge taýýarlaň.",
+        "draft_ready": "Bu ýük taýýarlykda. Bu ädimiň tabşyryklary ýapylanda ýagdaý özi üýtgär.",
         "cancelled": "Bu ýük ýatyryldy.",
         "completed": "Tamamlandy — satuw hasabaty taýýarlandy.",
         "active": "Häzirki ýagdaý: {{status}}. Indiki ädime taýýar bolanda «Ýagdaýy üýtget» düwmesini ulanyň."

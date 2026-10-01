@@ -1,10 +1,13 @@
-- [ ] 2026-10-01 — Document readiness notice: regular truck's missing driver/plate → «выберите рейс Planning» (not «в Листе»); on the shipment page «Сначала заполните на этой странице:» with links that scroll to the row; same wording on Documents page + task-card print buttons — NEEDS TEST
-  To test: (1) regular shipment with a firm, no trip → «Документы — печать» shows «Сначала заполните на этой странице: машина — выберите рейс Planning» → click → scrolls to «Выбрать рейс»; (2) /contracts/documents same truck → «Машина приходит из рейса Planning — привяжите рейс на доске «Машины ↔ Отгрузки»»; (3) gapy truck without driver → «Сначала заполните в Листе: водитель».
 - [ ] 2026-10-01 — Кнопка «Новый аванс» (и «Сверить», привязка отгрузок) теперь у admin / finansist / director — как в API; у export_manager / document_team убрана (у них был 403) — NEEDS TEST
   To test: (1) зайти admin → Лист → клик R24 → «Новый аванс» есть, у отгрузки без аванса окно открывается само → создать → R24 ✓; (2) finansist — то же; (3) export_manager → кнопки нет.
 
 - [ ] 2026-10-01 — Авансы: статистика во вкладке «Статистика»; режим одной отгрузки (`?shipment=`) из Листа / деталей отгрузки / задачи «Awans ber» — NEEDS TEST
   To test: (1) /export/advances → сверху нет плиток TMT, вкладка «Статистика» показывает 4 карточки + TMT + «По категориям»; (2) в Листе клик по ✓/❌ R24 → баннер «Показаны только авансы и расходы отгрузки X», вкладки «Статистика» нет, в обеих таблицах только эта отгрузка; (3) у отгрузки без аванса сразу открывается «Новый аванс» с кодом отгрузки → создать → R24 становится ✓, задача «Awans ber» закрывается; (4) «Добавить расход» во вкладке расходов — отгрузка уже подставлена; (5) «Показать все» убирает фильтр; (6) детали отгрузки → строка «Аванс» — ссылка; карточка задачи «Awans ber» → ссылка ведёт на эту отгрузку.
+
+- [ ] 2026-10-01 — Document readiness notice: regular truck's missing driver/plate → «выберите рейс Planning» (not «в Листе»); on the shipment page «Сначала заполните на этой странице:» with links that scroll to the row; same wording on Documents page + task-card print buttons — NEEDS TEST
+  To test: (1) regular shipment with a firm, no trip → «Документы — печать» shows «Сначала заполните на этой странице: машина — выберите рейс Planning» → click → scrolls to «Выбрать рейс»; (2) /contracts/documents same truck → «Машина приходит из рейса Planning — привяжите рейс на доске «Машины ↔ Отгрузки»»; (3) gapy truck without driver → «Сначала заполните в Листе: водитель».
+- [ ] 2026-10-01 — Shipment detail guidance banner: «пункт назначения и клиент ещё не указаны» only when country or customer is empty; filled draft shows «Статус сменится сам, когда задачи этапа будут закрыты» — NEEDS TEST
+  To test: (1) open /shipments/723 (draft, country + customer set) → new text; (2) open a draft without country/customer → old text.
 
 - [ ] 2026-10-01 — Сводка по плану и задача «Maşyn paýlanyşyny dolduryň» приходят сразу, как план на следующую неделю заполнен на 100% (не ждут субботы 09:00). **Как проверить (тест 2 октября, пятница):** (1) менеджеры теплиц заполняют план на W41 (Пн–Сб по всем своим блокам) на экране «Hepdelik plan»; (2) как только последняя клетка сохранена — у export_manager, boss и director в колокольчике появляется «Indiki hepdäniň hasyl plany dolduryldy: W41/2026: 100% · …» (обновление в пределах минуты, раньше — если открыть «Мои задачи»); (3) у export_manager в «Мои задачи» появляется карточка «Maşyn paýlanyşyny dolduryň» со сроком субботы; (4) клик по карточке открывает план на W41; (5) заполнить машины по дням в таблице «Maşyn paýlanyşy» → карточка закрывается сама; (6) обновить страницу несколько раз — второго уведомления и второй задачи не появляется; (7) если план НЕ дозаполнили — в субботу 09:00 сводка приходит с процентами, как раньше. **Деплой:** `update.sh` + пересборка `celery-worker celery-beat`. Тесты: `tests_truck_allocation_tasks` 32/32, `tests_plan_ack_tasks` + `tests_weekly_plan_tasks` зелёные, 205 тестов по всем наборам, читающим `/me/tasks/` (кроме 2 известных падений в `tests_season_scoping`). — NEEDS TEST
 
@@ -17,7 +20,7 @@
 - [ ] 2026-10-01 — Shipment detail: every Sheet field + three parts (choose/unlink Planning trip, unjoin/swap packing, packing gross/net + contracts panels, «Документы — печать» card, notes/custom rows, editable timestamps) — NEEDS TEST
   To test: (1) regular draft without trip, country set → «Выбрать рейс» → pick a same-country trip → banner shows it; «Отвязать» → back; (2) Loading card on a pre-loading row with blocks → «Отсоединить» / «Поменять упаковку»; (3) Documents card: pick packing template, edit per-firm gross; Destination: contracts panel; (4) «Документы — печать»: CMR/TIR/invoice download; (5) click any timestamp row (e.g. «Въезд в страну»), pick day + time, OK → value saved; (6) Перегрузка Да/Нет; (7) a custom admin row edits and shows on the Sheet.
 - [ ] 2026-09-30 — Print from the task card: CMR / TIR / CT-1 / fito / customs letter dialogs on the print tasks; downloading closes the task — NEEDS TEST
-- [ ] 2026-09-30 — Task card: packing-template select on «Brutto/netto», contracts panel on «Kontrakt», Truck Board link on «Maşyn saýla», filled fields first in the lower list; template choice closes the task — NEEDS TEST
+- [ ] 2026-09-30 — Task card: packing-template select on «Brutto/netto», contracts panel on «Kontrakt», filled fields first in the lower list; template choice closes the task — NEEDS TEST
 - [x] 2026-09-30 — Gaplama Tır Aç: «Elýeterli» per batch row is now what is still free (net of trucks already opened that day), not the gross plan — TESTED
   To test: (1) Gaplama → today → + Tır Aç → pick block A (18 500 planned, truck 3009001/26 already
   holds 18 500) → its today row must read «Elýeterli 0», and typing any kg turns red; (2) a block
@@ -77,7 +80,7 @@
   (6) as a role that cannot edit that field (e.g. finansist), the Yes must be refused with a clear
   message; (7) as greenhouse_manager or seller, opening the page must be refused entirely.
 
-- [ ] 2026-09-27 — Pallet QR scan endpoint: `GET|POST /api/v1/export/shipments/{id}/scan/` — NEEDS TEST
+- [] 2026-09-27 — Pallet QR scan endpoint: `GET|POST /api/v1/export/shipments/{id}/scan/` — NEEDS TEST
   To test (API, no page yet): on a test shipment in «yola_chykdy», log in as transport → GET shows `field: border_crossed_at`; POST `{"field":"border_crossed_at"}` → status becomes serhet_gechdi; POST again → `recorded:false`, nothing changes. Check a sales_rep can record dest_entry_at / customs_entry_at / arrived_at (depends on the Sheet field grants on the live DB).
 - [x] 2026-09-27 — Pallet QR label PDF: `GET /api/v1/export/shipments/{id}/label/` (A5, QR + export code) — NEEDS TEST
   To test: open the URL for a shipment that has an export code → A5 PDF downloads; print on the office printer; scan with a phone camera → opens `<site>/scan/{id}` (page itself not built yet, 404 in SPA is expected). Shipment without export code → 400.
@@ -314,7 +317,7 @@
   repeat by clicking "Üýtget" on a second truck without submitting the first edit — the form must
   reset to the second truck's own values each time, never carrying over the previous truck's
   in-progress edit.
-- [x] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — TESTED
+- [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
 - [x] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — TESTED
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
@@ -375,14 +378,14 @@
 
 - [x] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
 # Build / Test Log
-- [x] 2026-09-22 — document_team's My tasks board scoped to its own tasks only (no longer sees every role's) — NEEDS TEST
+- [ ] 2026-09-22 — document_team's My tasks board scoped to its own tasks only (no longer sees every role's) — NEEDS TEST
   To test: (1) log in as a document_team user, open My tasks (`/me/board`): only document_team-assigned
   tasks appear, no role filter dropdown; (2) log in as export_manager: role filter dropdown still
   present, still shows every role's tasks when no role is selected; (3) `python manage.py test
   apps.export.tests_task_api` — 59/59 pass (ran locally, includes 3 new document_team-specific cases).
 
 - [ ] 2026-09-22 — Trial merge of Copy_Gadams_UI into main (write-cell 202 approval fix, core/0053 merge migration, WeeklyPlanGrid + HarvestCell reconciliation) — NEEDS TEST
-- [x] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
+- [ ] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
   To test: (1) open the Sheet, find a shipment whose truck plate matches a currently-positioned
   device: the R15 "Vehicle Current Position" cell shows "<operator text> · <GPS address>" (or just
   the address if the cell was empty), truncated with the rest of the cell; (2) a matched truck whose

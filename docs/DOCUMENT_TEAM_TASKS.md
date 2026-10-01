@@ -1,81 +1,100 @@
 # Document team (Şirin / Sulgun) — tasks & triggers
 
-Status: inventory + proposals. Nothing below is implemented by this document.
+Re-checked against the code on **2026-10-01**. The first version of this file
+(2026-09-22) is obsolete — the PREP/DOCS task chain landed in between. What
+changed is in §4.
+
 Sources: `backend/apps/export/management/commands/seed_task_rules.py`,
-`backend/apps/export/sheet_rows.py`, `backend/apps/core/views_me.py`,
-`backend/apps/export/models/task.py`.
+`backend/apps/export/models/task.py`, `backend/apps/export/services/task_chain.py`,
+`backend/apps/export/sheet_rows.py`, `backend/apps/core/views_me.py`.
 
-## 0. Board scoping — already fixed
+Catalog totals: **48 rules, of which 21 belong to document_team** (16 active,
+5 retired). Next largest owner: sales_rep with 13.
 
-`views_me.py:31` carves `document_team` out of `_SUPERVISOR_ROLES`, so
-`/api/v1/me/tasks/` returns only document_team's own queue, not every role's.
-That closes the "My tasks shows all tasks" report. No action needed.
+## 1. Active document_team tasks — `draft`
 
-Open limit: `TaskRule` has `assignee_role` only — there is **no per-user
-assignment for shipment tasks**. Şirin and Sulgun are separated on the Sheet by
-`who_key`, but on /me they both see the entire document_team queue. Splitting
-them = model change (`TaskRule.assignee_user` or a second role code). **Decision
-needed.**
+| Task (`title_key`) | After (`depends_on`) | Closes on | Deadline |
+|---|---|---|---|
+| `tasks.pick_export_firms` | `tasks.set_destination` | `firm_splits` filled (ANY) | 24h after status |
+| `tasks.assign_driver` | `tasks.set_destination` | `driver_name` + `driver_phone` + `truck_plate` (ALL) | — |
 
-## 1. What already generates today (6 rules)
+`assign_driver` is conditional: `is_gapy_satys=True` only. For a normal export
+truck the same task belongs to `transport`.
 
-| # | Step (status) | Task (`title_key`) | Trigger field(s) | Completion rule | Deadline | Condition | Gates auto-advance? |
-|---|---|---|---|---|---|---|---|
-| 1 | `draft` | `tasks.pick_export_firms` | `firm_splits` | ANY_FIELD_FILLED | 24h after status | — | Yes |
-| 2 | `draft` | `tasks.assign_driver` | `driver_name`, `driver_phone`, `truck_plate` | ALL_FIELDS_FILLED | 24h after status | `is_gapy_satys=True` | Yes (gapy only) |
-| 3 | `draft` | `tasks.give_documents_gapy` | — | MANUAL_DONE | Friday EOW | `is_gapy_satys=True` | No |
-| 4 | `draft` | `tasks.start_documents_prep` | `documents_status` | FIELD_EQUALS `ready` | 24h after status | — | Yes |
-| 5 | `gumruk_girish` | `tasks.trigger_customs_exit` | `customs_exit_at` | ALL_FIELDS_FILLED | 13:00 same day | — | Yes |
-| 6 | `yuklenme` | `tasks.trigger_departure` | `departed_at` | ALL_FIELDS_FILLED | 24h after status | — | Yes |
+## 2. Active document_team tasks — `gumruk_girish` (the document chain)
 
-Rules 4, 5, 6 are the lifecycle triggers: they move the truck
-`draft → gumruk_girish → gumruk_chykysh` and `yuklenme → yola_chykdy`.
+All 13 are `CONFIRM`: a button on the task card, and each one **holds the step**
+(`gates_step=True`). They open in dependency order, not all at once:
 
-**Question on #6:** `departed_at` is Sheet row 21, whose owner is Mergen →
-`transport` per `WHO_TO_ROLE` in `backfill_sheet_row_defaults.py`. The task rule
-says `document_team`. Rule and row owner disagree — which is correct?
+```
+pick_export_firms ─┬─> prepare_contract ──────────────┐
+                   └─> fill_gross_net ────────────────┤
+choose_truck + assign_driver ─> prepare_transport_docs ┴─> print_cmr ─┬─> print_ct1 ─> print_phyto ─┐
+                                                                     │                             ├─> ct1_phyto_sent ─┐
+                                                                     └─> print_customs_request ────────────────────────┴─> docs_to_stamp
+                                                                                                                              │
+          give_advance (finansist) ─┐                                                                                         v
+                                    ├─> docs_to_customs                             prepare_declaration <─ docs_from_stamp <───┘
+          prepare_declaration ──────┘
+```
 
-## 2. Fields document_team owns with NO task rule
+| # | Task | After | Note |
+|---|---|---|---|
+| 1 | `tasks.prepare_contract` | `pick_export_firms` | closes when the agreements are downloaded |
+| 2 | `tasks.fill_gross_net` | `pick_export_firms` | closes on `packing_template` (ALL_FIELDS_FILLED, not a button) |
+| 3 | `tasks.prepare_transport_docs` | `choose_truck`, `assign_driver` | |
+| 4 | `tasks.print_cmr` | 1, 2, 3 | closes on download |
+| 5 | `tasks.print_tir` | 3 | closes on download |
+| 6 | `tasks.print_ct1` | 4 | closes on download |
+| 7 | `tasks.print_phyto` | 6 | closes on download |
+| 8 | `tasks.ct1_phyto_sent` | 6, 7 | |
+| 9 | `tasks.print_customs_request` | 4 | closes on download |
+| 10 | `tasks.docs_to_stamp` | 8, 9 | |
+| 11 | `tasks.docs_from_stamp` | 10 | |
+| 12 | `tasks.prepare_declaration` | 11 | |
+| 13 | `tasks.docs_to_customs` | `give_advance` (finansist), 12 | effect: clears `documents_reset_at` |
 
-These are Sheet rows whose `default_who_key` is `sirin` / `sulgun` but which
-never produce a Task. Each proposal is one row added to `TASK_RULES` in
-`seed_task_rules.py` + one i18n key — no new machinery.
+## 3. Active document_team task — `gumruk_chykysh`
 
-| Field (Sheet row) | Proposed step | Proposed completion rule | Gating? | Note |
-|---|---|---|---|---|
-| `customs_clearance_planned_day` (R45) | `draft` | MANUAL_DONE reminder | No | **Regression.** The v1 rule required this field; the v2 rewrite of `start_documents_prep` dropped it (see the comment in `seed_task_rules.py`). Re-adding it as ALL_FIELDS_FILLED would restore the gate and freeze drafts — keep it MANUAL_DONE. |
-| `transport_docs_given_at` (R4) | `draft` | MANUAL_DONE reminder | No | "Transport handed over the docs at <time>". As ALL_FIELDS_FILLED it becomes a new precondition for leaving `draft`. |
-| `document_note` (R18) | — | — | — | Freeform note. No task; nothing to complete. |
-
-**Gating rule (why the column above matters):** every non-MANUAL_DONE task on a
-step is a precondition for `auto_advance_if_ready`. Add an auto-resolving rule
-and the truck cannot leave that step until the field is filled. The seed file
-records this failure twice (`submit_sales_report`, the v1→v2
-`start_documents_prep` rewrite). Default every new *reminder* to MANUAL_DONE.
-For any FIELD_EQUALS rule, point `target_value` at the **terminal** enum value —
-operators walk `pending → in_progress → ready` and a mid-value target can never
-re-fire.
-
-## 3. Work that cannot reach the board at all today
-
-`TaskKind` = `shipment | weekly_plan | local_sell_plan | truck_allocation`, and
-the shipment rule engine fires only on status entry. The following document-team
-work has **no path onto /me** and needs new machinery (a new `TaskKind` + a
-generator service + a resolver, in the pattern of
-`services/truck_allocation_tasks.py`):
-
-| Work | Where it lives now | What it would need |
+| Task | Closes on | Effect |
 |---|---|---|
-| Contract generation (per firm split) | `contracts/services/shipment_firm_contracts.py` | New `TaskKind`, generator keyed on contract-missing firm splits |
-| Invoice / CMR / TIR carnet / packing list render | `contracts/services/document_render.py` | Same; "documents rendered" has no stored state to resolve against |
-| Quota usage approval (draft → approved) | `export/services_quota.py:687` | New `TaskKind`, resolver on `QuotaUsageRecord.status` |
-| Passport / scan uploads | `contracts/models/attachment.py` | Attachment-exists resolver |
+| `tasks.docs_from_customs` | `customs_exit_at` filled | writes `documents_status` (audited) |
 
-Estimated effort: rows in §2 ≈ a seed edit + `seed_task_rules` re-run.
-Each row in §3 ≈ a vertical slice (model choice, service, resolver, tests).
+## 4. What changed since the 2026-09-22 version of this file
 
-## Open decisions
+- **6 rules → 21.** The whole `gumruk_girish` document chain (§2) is new.
+- **New machinery that did not exist then:** `TaskRule.depends_on` (CSV of
+  `title_key`s — "after N"), `gates_step`, `effective_from`, the `CONFIRM` and
+  `FIELD_SET` completion rules, and `services/task_chain.py`
+  (`spawn_ready_tasks` / `after_task_done` / per-task effects).
+- **§3 of the old file is mostly answered.** Contract generation, CMR, TIR, CT-1,
+  phyto, customs request, declaration and the stamping round-trip all reach the
+  board now. They are shipment tasks with `CONFIRM` — no new `TaskKind` was
+  needed. (`TaskKind` did grow by 5: `alloc_review`, `transport_plan`,
+  `daily_loading`, `daily_export`, `gate` — none of them document_team's.)
+- **The `trigger_departure` question is settled:** that task is now `garawul`
+  (gate guard), not document_team.
+- **5 rules were retired** (`is_active=False`, kept as rows so old shipments
+  keep their history): `give_documents_gapy`, `start_documents_prep`,
+  `trigger_customs_exit`, `send_documents_to_customs`, `docs_back_to_office`.
+  The work they stood for is now done by the §2 chain.
+- **Board scoping** (`views_me.py`): document_team is still carved out of
+  `_SUPERVISOR_ROLES`, so /me shows only their own queue. Unchanged, still correct.
 
-1. Per-person boards (Şirin vs Sulgun) — accept the shared queue, or change the model?
-2. `trigger_departure` owner — `document_team` or `transport`?
-3. Which §3 items are actually wanted, and in what order?
+## 5. Still open
+
+1. **Şirin vs Sulgun share one queue.** `TaskRule` has `assignee_role` only —
+   no `assignee_user`. `Task.assignee_user` exists but is used by weekly-plan
+   tasks, never by the shipment engine. Both see all 21. Splitting them is a
+   model change (a second role code, or per-rule user assignment). **Decision
+   needed.**
+2. **Three owned fields still have no task** (unchanged since 09-22):
+   `customs_clearance_planned_day` (R45), `transport_docs_given_at` (R4),
+   `document_note` (R18). R45 is the one worth adding — the v1 rule required it
+   and the v2 rewrite dropped it. Add it as MANUAL_DONE or `gates_step=False`:
+   a plain gating rule at `draft` would freeze trucks until the day is picked.
+3. **Quota usage approval** (`services_quota.py` — records stay draft until
+   document_team approves) and **passport / scan uploads** still have no task of
+   any kind. These are the only §3 items from the old file that remain unbuilt.
+4. **Deploy note:** none of §2 exists on a server until `seed_task_rules` runs
+   there.

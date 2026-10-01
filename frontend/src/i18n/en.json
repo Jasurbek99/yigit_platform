@@ -2964,6 +2964,7 @@
       "guide": {
         "your_task": "Your task here: {{task}}",
         "draft": "This shipment is in Preparation — destination and customer aren't set yet. Fill in the fields below to ready it for promotion.",
+        "draft_ready": "This shipment is in Preparation. The status moves on by itself once this step's tasks are closed.",
         "cancelled": "This shipment was cancelled.",
         "completed": "Completed — the sales report is finalized.",
         "active": "Current status: {{status}}. Use “Change Status” when it's ready to advance."
