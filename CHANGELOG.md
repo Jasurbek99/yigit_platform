@@ -5,6 +5,7 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Changed
+- **Quality task: «Upload certificates» first (feat(p3), feat(frontend)).** The quality task card shows «Upload certificates»: it starts the task and opens the shipment scrolled to its certificate slots (Detail now scrolls to a URL hash once loaded). «Done» stays disabled until then, field edits on the card no longer start this task, and `/tasks/{id}/complete/` refuses an `open` quality task with 400. Owner 2026-10-01. **Deploy:** `update.sh` on beta; no migration.
 - **Import firm dropdown shows only the destination country's firms (feat(frontend)).** Sheet cell, shipment page (incl. task card and edit drawer) and the destination-plan modal filter `import_firm` options by the shipment's `country`; no country → all active firms; an already-saved firm from another country stays listed. Frontend only — the API still accepts any firm.
 - **Truck Planning page (feat(frontend)).** `/transport/plan` renamed «Truck Planning» (ru «Планирование машин», tk «Maşyn planlamasy»); opens on the current week instead of next week (task links keep their `?week=&year=`), subtitle «Week N · year · Mon–Sat dates», `<` / `>` step one week.
 

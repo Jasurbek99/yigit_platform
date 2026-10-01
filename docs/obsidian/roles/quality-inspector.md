@@ -133,11 +133,16 @@ saw the task.
 
 1. **Take the task**: My Tasks → "Hil barlagy" → shelf life inline in the task
    list, transit days / temperature in «Shipment fields» → "Transit Days & Temp"
-2. **Upload certificates**: ShipmentDetail → quality certificates → one upload
-   slot per document (the `quality.*` rows on the task card stay read-only —
-   dotted paths — so the scans are attached here, not on the card)
+2. **Upload certificates**: the card's «Upload certificates» button starts the
+   task and opens the shipment at its certificate slots
+   (`/shipments/:id#detail-field-quality.azyk_maglumatnama`) → one upload slot
+   per document (the `quality.*` rows on the card stay read-only — dotted paths)
 3. **Record transit readings**: or on the Sheet → row 26 → type `"5 4"` → days=5, temp=4°C
-4. **Close the task**: Mark Done once the cargo is inspected
+4. **Close the task**: Mark Done once the cargo is inspected. Done stays
+   disabled — and `/complete/` returns 400 — while the task is still `open`,
+   i.e. until «Upload certificates» was pressed (owner 2026-10-01). Field
+   edits on the card do not start this task. An admin closing a stale quality
+   task has to press the button (or `/start/`) first too.
 5. **Flag a problem**: add a shipment comment (AD-2 — no free-text status notes)
 
 ## Test Login

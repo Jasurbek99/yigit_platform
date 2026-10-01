@@ -397,6 +397,13 @@ change): `GET /contracts/shipments/{id}/cmr/` → `tasks.print_cmr`, `…/tir/` 
 `Contract.agreement_downloaded_at` (first time) and may close `tasks.prepare_contract`. A
 closed season records and closes nothing; the file is still served.
 
+**Quality task needs «Upload certificates» first (2026-10-01):** `POST /api/v1/export/tasks/{id}/complete/`
+on a `tasks.quality_inspection` task still in state `open` returns 400
+`{"error": "Press «Upload certificates» before closing the quality task."}`. The card's
+«Upload certificates» button calls `/start/` (→ `in_progress`) and opens
+`/shipments/{id}#detail-field-quality.azyk_maglumatnama`; field edits on the card no longer
+start this task.
+
 **Truck-change rollback mark (2026-09-30):** `documents_reset_at` (ISO datetime or null) on the
 shipment list, detail and sheet items — set when a Planning truck change rolled the shipment back
 to draft, cleared when `tasks.docs_to_customs` closes again. Task list items gain
