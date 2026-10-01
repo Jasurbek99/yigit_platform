@@ -144,6 +144,29 @@ class QualityInspectionTaskTests(TestCase):
             ).exists(),
         )
 
+    def test_the_task_cannot_be_closed_before_upload_certificates_is_pressed(self):
+        """Owner 2026-10-01: «Готово» only after «Загрузить сертификаты».
+
+        That button starts the task (open → in_progress) on its way to the
+        shipment page, so an OPEN quality task was never opened for upload.
+        """
+        inspector = User.objects.create_user(
+            username='qi_closer', password='pw', role='quality_inspector',
+        )
+        shipment = self._fill_loading_start(self._shipment_at_customs_exit('QI-7'))
+        task = Task.objects.get(shipment=shipment, title_key='tasks.quality_inspection')
+        client = APIClient()
+        client.force_authenticate(inspector)
+
+        refused = client.post(f'/api/v1/export/tasks/{task.pk}/complete/')
+        self.assertEqual(refused.status_code, 400, refused.content[:300])
+        task.refresh_from_db()
+        self.assertEqual(task.state, TaskState.OPEN)
+
+        client.post(f'/api/v1/export/tasks/{task.pk}/start/')
+        closed = client.post(f'/api/v1/export/tasks/{task.pk}/complete/')
+        self.assertEqual(closed.status_code, 200, closed.content[:300])
+
     def test_the_task_lists_all_seven_fields_to_fill(self):
         shipment = self._fill_loading_start(self._shipment_at_customs_exit('QI-3'))
         task = Task.objects.get(

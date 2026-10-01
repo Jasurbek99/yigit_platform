@@ -4701,6 +4701,16 @@ class TaskViewSet(SeasonScopedMixin, viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Owner 2026-10-01: the quality task closes only after «Upload
+        # certificates» was pressed. That button starts the task on its way to
+        # the shipment page; the task card does not auto-start this one from
+        # field edits, so OPEN means the upload page was never opened.
+        if task.title_key == 'tasks.quality_inspection' and task.state == TaskState.OPEN:
+            return Response(
+                {'error': 'Press «Upload certificates» before closing the quality task.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Gapy-Satys: documents cannot be handed to a driver nobody has
         # identified yet. Fails OPEN when no assign_driver task exists at all
         # (legacy shipments predating this rule, or a season that never ran

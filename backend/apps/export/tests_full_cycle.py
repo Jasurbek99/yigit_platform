@@ -81,6 +81,14 @@ class FullCycleThroughTasksTests(TestCase):
         self.assertEqual(resp.status_code, 200, (title, resp.content[:300]))
         s.refresh_from_db()
 
+    def start(self, s, title, user):
+        """A card button that starts the task first (quality: «Upload certificates»)."""
+        client = APIClient()
+        client.force_authenticate(user)
+        task = s.tasks.get(title_key=title)
+        resp = client.post(f'/api/v1/export/tasks/{task.pk}/start/')
+        self.assertEqual(resp.status_code, 200, (title, resp.content[:300]))
+
     def api(self, user, path, data=None):
         client = APIClient()
         client.force_authenticate(user)
@@ -122,6 +130,7 @@ class FullCycleThroughTasksTests(TestCase):
                                     'tasks.quality_inspection', 'tasks.trigger_departure',
                                     'tasks.gate_depart'})               # the guard's own card
         self.fill(s, self.head, variety=self.variety, weight_net=Decimal('18000'))   # 24
+        self.start(s, 'tasks.quality_inspection', self.qi)                     # 25 «Upload certificates»
         self.press(s, 'tasks.quality_inspection', self.qi)                     # 25
         gate.depart(s.pk, self.dusak, self.guard)                              # 27 before 26
         self.expect(s, 'yuklenme', {'tasks.loading_ended'})
