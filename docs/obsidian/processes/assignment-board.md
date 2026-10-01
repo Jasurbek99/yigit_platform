@@ -128,6 +128,14 @@ keeps its own `?status_code=draft` query.
   `can_create` gate.
 - Closed season → the board is read-only (`useSeasonReadOnly`); action buttons render disabled.
 
+## Plan strip (2026-10-01)
+
+`assignment/DailyPlanStrip.tsx` above the columns: «Today: <row> fact/plan [+] … · packing n/m»
+from `GET /export/truck-allocations/daily-progress/` (server's today), «Week» toggles a Mon–Sat ×
+row table. «+» (needs `shipment.create`, writable season) creates an export part for today with the
+row's country — or `is_gapy_satys=true` on the Gapy row — and opens `/shipments/{id}`. This is the
+page the «Eksport planla» task opens (spec `2026-10-01-daily-plan-progress-tasks-design.md`).
+
 ## Related
 
 - [[draft-shipments]] — two-phase creation and the "Late join, detach, swap (2026-09-29)" section

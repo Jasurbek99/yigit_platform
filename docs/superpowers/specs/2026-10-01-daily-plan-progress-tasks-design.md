@@ -167,7 +167,7 @@ document_team, admin, boss, director). Все числа — JSON int.
 берётся с сервера, выделение «сегодня» — по `date` из ответа):
    - «Сегодня: RU 3/4 [+] · KZ 2/2 [+] · Gapy 1/1 [+] · упаковка 5/7»;
    - «+» — `POST /export/shipments/` `{is_draft: true, country}` **без `date`** — сервер
-     ставит `localdate()` (gapy: `{is_draft: true, is_gapy_satys: true}` без страны) → переход на карточку `/export/shipments/{id}`
+     ставит `localdate()` (gapy: `{is_draft: true, is_gapy_satys: true}` без страны) → переход на карточку `/shipments/{id}`
      (там все поля Sheet, клиента заполняют там). Не на Sheet: deep-link Sheet открывает
      панель комментариев, а не редактирование. «+» только при
      `canDoBackendGated(user, 'shipment', 'create')` и не в закрытом сезоне;
@@ -208,6 +208,10 @@ document_team, admin, boss, director). Все числа — JSON int.
 - Доступ проверен 2026-10-01 на общей БД: у `loading_dept_head(+deputy)` и `export_manager`
   открыты `tir_takip.gaplama`, `export.plan`, `export.assign`, `export.shipments` и
   `truck_allocation.can_view`.
+
+- Beta работает на той же БД со старым кодом: пока его не обновили, его опросы `/me/tasks/` закрывают
+  дневные задачи первой машиной, а beat в 06:05 создаёт `daily_export` со ссылкой `/export/drafts`.
+  Деплоить вместе и пересобрать `celery-worker` + `celery-beat`.
 
 ## Testing
 

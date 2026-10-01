@@ -229,6 +229,15 @@ to either total, and gets one empty row to fill. Also: the local `IGaplamaBatch`
 now a type alias of the exported `GaplamaTab.totals.ts`'s `IGaplamaFormBatch`, not a second
 hand-kept copy of the same shape.
 
+## Plan strip (2026-10-01)
+
+Day view only, under the formula hint: «Packed X of Y · stock for N more trucks», plus red
+«K trucks short» when what is left to pack (`loading_target − packed`) exceeds
+`⌊Σ available_kg of the day / truck_capacity_kg⌋`. Stock ignores the location/block filters.
+`GaplamaPlanStrip.tsx`, data from `GET /export/truck-allocations/daily-progress/?date=<selected day>`.
+Shows in both entry points (Tır Takip tab and `/export/gaplama`). Y = the loading task's target:
+max(planned trucks, export parts opened).
+
 ## Opening a truck
 
 The **+ Tır Aç** button is shown to any role holding `shipment.create`

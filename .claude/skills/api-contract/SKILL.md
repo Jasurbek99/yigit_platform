@@ -903,6 +903,34 @@ Task list/detail payloads gained `scope_date` (`"YYYY-MM-DD"` for `daily_loading
 `daily_export`, else null) and `cancelled_reason` (`"missed"` = a daily task nobody
 did; `""` when not cancelled).
 
+### Daily plan progress (2026-10-01)
+
+`GET /api/v1/export/truck-allocations/daily-progress/?date=YYYY-MM-DD[&season=]` — plan vs fact
+for Mon–Sat of `date`'s ISO week. Spec: `docs/superpowers/specs/2026-10-01-daily-plan-progress-tasks-design.md`.
+Gate: `truck_allocation.can_view`. No `date` → the **server's** local today. Malformed →
+`400 {"error": "date must be YYYY-MM-DD."}`. **Season-scoped** (unlike `review` / `transport-plan`,
+because it counts shipments): `?season=` per `resolve_season`, `days: []` during the gap. Every count
+is a JSON int.
+
+```json
+{ "date": "2026-10-01",
+  "days": [ { "date": "2026-09-28", "day_of_week": 1,
+    "rows": [ { "key": "country:3", "label": "Moskwa + Piter", "country_id": 3, "is_gapy": false, "plan": 4, "fact": 3 },
+              { "key": "gapy", "label": "Gapy Satys", "country_id": null, "is_gapy": true, "plan": 1, "fact": 1 } ],
+    "plan_total": 5, "export_parts": 4, "export_parts_packed": 3, "packed": 3, "loading_target": 5 } ] }
+```
+
+- Rows: the day's splits grouped by country (labels joined with « + »); destinations with no country
+  form the `gapy` row, matched by `is_gapy_satys`. A country exported but not planned → `plan: 0`,
+  label = `Country.name_en`.
+- `fact` = live shipments dated that day with country + customer (gapy row: `is_gapy_satys=true`;
+  country rows: `false`). `packed` = live rows with `block_sources`, free or joined.
+  `loading_target` = `max(plan_total, export_parts)`.
+
+`/me/tasks/` items gain `progress` — the same day object for an **open** `daily_export` /
+`daily_loading` task, `null` otherwise. `POST /export/shipments/` (draft path) accepts
+`is_gapy_satys` (bool, default `false`).
+
 ### Gate: `/api/v1/export/gate/` (2026-09-29)
 
 The gate guard's screen (garawul). Spec:

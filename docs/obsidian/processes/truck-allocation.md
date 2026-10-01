@@ -187,6 +187,20 @@ Creation is a read-then-write check and `/me/tasks/` is polled by every user, so
 
 **Deploy:** `update.sh` rebuilds only backend/frontend/redis. After deploying new task code, rebuild the Celery containers too: `docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml up -d --build celery-worker celery-beat`.
 
+## Daily tasks follow the plan (2026-10-01)
+
+Spec `docs/superpowers/specs/2026-10-01-daily-plan-progress-tasks-design.md`. Service
+`backend/apps/export/services/daily_progress.py` compares a day's splits with that day's shipments
+(rows by country; `country=NULL` destinations = the Gapy row ↔ `is_gapy_satys`).
+- `daily_export` («Eksport planla», export_manager, link `/export/assign`) closes when every row has
+  fact ≥ plan, every export part has packing, and there is ≥1 export part. The export manager joins.
+- `daily_loading` («Ýük planla», loading) closes when packed trucks ≥ max(plan, export parts), ≥1.
+- Editing today's allocation is allowed (and reopens transport's «Tanyşdym» for that day).
+- Endpoint `GET /export/truck-allocations/daily-progress/`; strips on [[assignment-board]] and
+  [[../screens/gaplama|Gaplama]]; task cards show the same numbers.
+- Beta shares the DB: until it runs this code, its `/me/tasks/` polls still close these tasks on the
+  first truck.
+
 ## Roles & Permissions
 
 | Role | Can View | Can Edit |
