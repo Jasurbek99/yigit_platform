@@ -126,6 +126,24 @@ class QualityInspectionTaskTests(TestCase):
         self.assertEqual(task.assignee_role, 'quality_inspector')
         self.assertEqual(task.state, TaskState.OPEN)
 
+    def test_the_quality_inspector_is_notified_when_loading_starts(self):
+        """E2E 2026-10-01: the task appeared, but only the loading heads were
+        told — the inspector had a sidebar badge and no bell entry, while
+        loading is a short window and the truck can leave without the scans.
+        """
+        from apps.export.models import Notification
+
+        inspector = User.objects.create_user(
+            username='qi_inspector', password='pw', role='quality_inspector',
+        )
+        shipment = self._fill_loading_start(self._shipment_at_customs_exit('QI-6'))
+        self.assertTrue(
+            Notification.objects.filter(
+                user=inspector, kind='action_required',
+                link=f'/shipments/{shipment.id}',
+            ).exists(),
+        )
+
     def test_the_task_lists_all_seven_fields_to_fill(self):
         shipment = self._fill_loading_start(self._shipment_at_customs_exit('QI-3'))
         task = Task.objects.get(

@@ -157,7 +157,10 @@ STATUS_NOTIFY_ROLES: dict[str, list[str]] = {
     # "action required" ping for loading reached nobody. _notify_action_required
     # resolves this with a plain role__in filter and does NOT expand
     # TASK_ROLE_EQUIVALENTS, so the deputies must be listed explicitly.
-    'yuklenme':        ['loading_dept_head', 'loading_dept_head_deputy'],
+    # quality_inspector: tasks.quality_inspection opens here, and loading is a
+    # short window — without a bell entry the truck could leave before the
+    # inspector even saw the task (E2E 2026-10-01).
+    'yuklenme':        ['loading_dept_head', 'loading_dept_head_deputy', 'quality_inspector'],
     'yola_chykdy':     ['transport'],
     'serhet_gechdi':   ['transport'],
     'dest_entry':      ['sales_rep'],
