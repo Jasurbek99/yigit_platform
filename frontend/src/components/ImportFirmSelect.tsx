@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAdminImportFirms } from '@/hooks/useAdmin';
 import { buildSearchBlob, normalizeSearch } from '@/utils/normalizeSearch';
+import { importFirmsForCountry } from '@/utils/importFirmsForCountry';
 
 interface IImportFirmSelectProps {
   value?: number | null;
@@ -12,6 +13,8 @@ interface IImportFirmSelectProps {
   placeholder?: string;
   size?: 'small' | 'middle' | 'large';
   style?: React.CSSProperties;
+  /** Destination country: only its firms are offered. Omitted → all firms. */
+  countryId?: number | null;
 }
 
 interface IFirmOption {
@@ -34,14 +37,14 @@ export function ImportFirmSelect({
   placeholder,
   size,
   style,
+  countryId,
 }: IImportFirmSelectProps) {
   const { t } = useTranslation();
   const { data: firms = [], isLoading } = useAdminImportFirms();
 
   const options = useMemo<IFirmOption[]>(
     () =>
-      firms
-        .filter((f) => f.is_active)
+      importFirmsForCountry(firms, countryId, value)
         .map((f) => {
           const displayName = f.name_short || f.name_company;
           const showCode = f.code && f.code !== displayName;
@@ -55,7 +58,7 @@ export function ImportFirmSelect({
             ]),
           };
         }),
-    [firms],
+    [firms, countryId, value],
   );
 
   return (

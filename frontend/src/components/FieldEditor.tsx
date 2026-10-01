@@ -12,12 +12,13 @@ import {
 } from '@/hooks/useAdmin';
 import type { IEditFieldConfig } from '@/constants/shipmentEditConfig';
 import { OPTION_CATEGORY_BY_FIELD } from '@/constants/shipmentEditConfig';
+import { importFirmsForCountry } from '@/utils/importFirmsForCountry';
 
 interface IFieldEditorProps {
   config: IEditFieldConfig;
   value: unknown;
   onChange: (value: unknown) => void;
-  /** Used by city dropdown to filter by country. */
+  /** Used by the city and import-firm dropdowns to filter by country. */
   countryId?: number | null;
   disabled?: boolean;
   /** Focus the control as soon as it mounts (click-to-edit rows). */
@@ -68,8 +69,7 @@ export function FieldEditor({
       case 'customers':
         return (customers ?? []).map((c) => ({ value: c.id, label: c.name }));
       case 'importFirms':
-        return (importFirms ?? [])
-          .filter((f) => f.is_active)
+        return importFirmsForCountry(importFirms ?? [], countryId, typeof value === 'number' ? value : null)
           .map((f) => ({ value: f.id, label: f.name_short ?? f.name_company }));
       case 'varieties':
         return (varieties ?? []).map((v) => ({ value: v.id, label: v.name }));

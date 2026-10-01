@@ -250,7 +250,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
           </label>
           <CountrySelect
             value={country}
-            onChange={(v) => { setCountry(v); setCity(null); }}
+            onChange={(v) => { setCountry(v); setCity(null); setImportFirm(null); }}
             style={{ width: '100%' }}
           />
         </div>
@@ -288,6 +288,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
           <ImportFirmSelect
             value={importFirm}
             onChange={setImportFirm}
+            countryId={country}
             style={{ width: '100%' }}
           />
         </div>

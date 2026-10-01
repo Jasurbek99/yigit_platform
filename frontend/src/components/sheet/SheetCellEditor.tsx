@@ -33,6 +33,7 @@ import {
 } from '@/hooks/useAdmin';
 import { useQuotaFirmBalances } from '@/hooks/useQuotaDashboard';
 import { firmHasNoQuota as isFirmBlocked } from '@/utils/quotaFirms';
+import { importFirmsForCountry } from '@/utils/importFirmsForCountry';
 import { QuotaPageLink } from '@/components/QuotaPageLink';
 import { useAuth } from '@/hooks/useAuth';
 import { canWriteReferenceData } from '@/utils/permissions';
@@ -286,7 +287,8 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
 
       case 'importFirms':
       case 'import_firm':
-        return (importFirms ?? []).filter((f) => f.is_active).map((f) => ({ value: f.id, label: f.name_short ?? f.name_company }));
+        return importFirmsForCountry(importFirms ?? [], shipment.country, shipment.import_firm)
+          .map((f) => ({ value: f.id, label: f.name_short ?? f.name_company }));
 
       case 'blocks':
       case 'block_sources':
