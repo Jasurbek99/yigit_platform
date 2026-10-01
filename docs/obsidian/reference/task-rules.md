@@ -74,7 +74,7 @@ department's tasks.
 | | 17 Customs letter «Gümrük haty» — *after 12* | document_team | `customs_tk` downloaded, or `confirm` |
 | | 18 Sent to stamp «Peçada ugradyldy» — *after 16, 17* | document_team | `confirm` |
 | | 19 Back from stamp «Peçatdan geldi» — *after 18* | document_team | `confirm` |
-| | 20 Give advance «Awans ber» | finansist | auto: `has_current_advance` — an advance is linked; after a truck-change rollback only a NEW advance (created after `documents_reset_at`) counts, the old link stays |
+| | 20 Give advance «Awans ber» | finansist | auto: `has_current_advance` — an advance is linked; after a truck-change rollback only a NEW advance (created after `documents_reset_at`) counts, the old link stays. The card links to the Advances page (2026-10-01) |
 | | 21a Prepare declaration — *after 19* | document_team | `confirm` |
 | | 21b Sent to customs «Gümrüge ugradyldy» — *after 20, 21a* | document_team | `confirm` — the last task; the step advances when it closes |
 | **Customs exit (TM)** `gumruk_chykysh` | 22 Back from customs «Gümrükden geldi» | document_team | auto: `customs_exit_at`; sets R6 to the «Gümrükden geldi» option |
@@ -95,7 +95,7 @@ department's tasks.
 | | Trigger sale start | sales_rep | auto: `sale_started_at` |
 | **Selling** `satylyar` | Trigger sale end | sales_rep | auto: `sale_ended_at` |
 | **Sold** `satyldy` | ~~Trigger report received~~ | sales_rep | **inactive since 2026-09-30** — a second card for the same report; `approve_sales_report` needs the report anyway |
-| | **Approve the report** (`tasks.approve_sales_report`, 2026-09-29) | export_manager (either; admin / boss / director may too) | auto: `sales_report.approved_at` — set by `POST /shipments/{id}/sales-report/approve/`. The shipment closes only after approval; approve only, no reject |
+| | **Approve the report** (`tasks.approve_sales_report`, 2026-09-29) | export_manager (either; admin / boss / director may too) | auto: `sales_report.approved_at` — set by `POST /shipments/{id}/sales-report/approve/`. The shipment closes only after approval; approve only, no reject. Since 2026-10-01 `depends_on=tasks.submit_sales_report` (created once the report is saved) and the card carries the «Утвердить отчёт» button |
 
 `hasabat` was retired in state machine v2 (merged into `tamamlandy`) and has no rules. `tamamlandy` and
 `cancelled` are terminal and generate no tasks.
@@ -233,6 +233,11 @@ truck usually sells before the system status catches up. Two rules cooperate:
   `sales_report.approved_at`): the report alone no longer closes the shipment — it waits at
   `satyldy` until an export manager approves it (`POST /shipments/{id}/sales-report/approve/`,
   which sets `approved_at` / `approved_by` and saves the shipment to fire auto-advance).
+  Since 2026-10-01 (E2E finding) the card is **created only after the report is saved**
+  (`depends_on=tasks.submit_sales_report`; `close_sales_report_task` runs `after_task_done`
+  so it spawns) — before, a truck that reached `satyldy` first gave the export manager an
+  «approve» card with nothing to approve. While pending it still holds `satyldy` (E3). The
+  card itself has the approve button (`SalesReportApproval`), not only a pointer to the page.
 - ~~**Step 11 trigger**~~ (`tasks.trigger_report_received`) — **inactive since 2026-09-30**:
   on a late fill it put a second card for the same report next to the reminder, and the
   approval task already needs the report. Open ones on in-flight shipments still close when

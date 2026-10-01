@@ -145,7 +145,7 @@ This component powers both sections (task panel + other fields) with a single im
 | `disabled` | Either | Override all rows to read-only (used when task is done/cancelled). |
 | `isLoading` | Either | Show skeleton while sheet is fetching. |
 
-Value formatter: `getCellValue(sheetItem, row)` from `src/components/sheet/getCellValue.ts` (extracted from SheetCell, imported by both SheetCell and the drawer).
+Value formatter: `getCellValue(sheetItem, row, options)` from `src/components/sheet/getCellValue.ts` (extracted from SheetCell, imported by both SheetCell and the drawer). Since 2026-10-01 the drawer passes the shipment options (`useShipmentOptions`) like the Sheet does, so `harvest_status` / `documents_status` show their label, not the stored code (`ok`, `in_progress`).
 
 ### Fallback (done / cancelled / not-your-task)
 
