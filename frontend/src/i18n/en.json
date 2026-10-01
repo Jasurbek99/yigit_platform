@@ -955,6 +955,9 @@
     "drawer_title": "Sales Report"
   },
   "advances": {
+    "shipment_filter": "Showing only advances and expenses of shipment {{code}}",
+    "show_all": "Show all",
+    "tab_stats": "Statistics",
     "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Advances Tracker",
     "total_advances": "Total Advances",

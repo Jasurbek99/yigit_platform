@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { DetailExtraFieldRows } from '@/components/shipment/DetailExtraFieldRows';
 import { ShipmentPackingPanel } from '@/components/sheet/ShipmentPackingPanel';
@@ -51,7 +52,11 @@ export function ShipmentDocumentsBody({
       <div id="detail-field-has_current_advance">
         <InfoRow
           label={t('sheet.row.doc_advance')}
-          value={shipment.has_current_advance ? t('common.yes') : t('common.no')}
+          value={
+            <Link to={`/export/advances?shipment=${shipment.id}`}>
+              {shipment.has_current_advance ? t('common.yes') : t('common.no')}
+            </Link>
+          }
         />
       </div>
       <div id="detail-field-packing_template" style={{ marginTop: 12 }}>

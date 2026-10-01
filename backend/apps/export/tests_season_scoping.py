@@ -1281,9 +1281,9 @@ class FinansistAdvanceJoinScopedEndpointTests(TestCase):
             defaults={'can_view': True},
         )
 
-        active_shipment_1 = _make_scoped_shipment(cls.active, 'FAJ-ACT1', country, status)
+        cls.active_shipment_1 = active_shipment_1 = _make_scoped_shipment(cls.active, 'FAJ-ACT1', country, status)
         active_shipment_2 = _make_scoped_shipment(cls.active, 'FAJ-ACT2', country, status)
-        closed_shipment = _make_scoped_shipment(cls.closed, 'FAJ-CLS', country, status)
+        cls.closed_shipment = closed_shipment = _make_scoped_shipment(cls.closed, 'FAJ-CLS', country, status)
 
         # Two links, both in the active season — proves shipment_count_ann
         # survives the season filter.
@@ -1354,6 +1354,32 @@ class FinansistAdvanceJoinScopedEndpointTests(TestCase):
         )
         response = client.get(f'/api/v1/export/advances/?season={self.closed.pk}')
         self.assertEqual(response.status_code, 403)
+
+    def test_shipment_filter_returns_only_that_shipments_advances(self):
+        """?shipment=<id> (Advances page opened from the Sheet / a task) keeps
+        only advances linked to that shipment — and, being Exists()-based,
+        leaves the advance's own shipment_count (2 links) intact.
+        """
+        rows = self._rows_by_code(self._login(self.admin).get(
+            f'/api/v1/export/advances/?shipment={self.active_shipment_1.pk}'
+        ))
+        self.assertEqual(set(rows), {'ADV-ACT'})
+        self.assertEqual(rows['ADV-ACT']['shipment_count'], 2)
+
+    def test_shipment_filter_reaches_closed_season_with_permission(self):
+        """Same relaxation as /customs-expenses/?shipment=: a prior-season
+        shipment opened by direct link shows its own advances.
+        """
+        rows = self._rows_by_code(self._login(self.admin).get(
+            f'/api/v1/export/advances/?shipment={self.closed_shipment.pk}'
+        ))
+        self.assertEqual(set(rows), {'ADV-CLS'})
+
+    def test_shipment_filter_stays_scoped_without_closed_permission(self):
+        rows = self._rows_by_code(self._login(self.blocked).get(
+            f'/api/v1/export/advances/?shipment={self.closed_shipment.pk}'
+        ))
+        self.assertEqual(rows, {})
 
 
 class MeTasksScopedEndpointTests(TestCase):

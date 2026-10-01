@@ -136,8 +136,10 @@ fees only; batch fees with `shipment=null` do not appear — query the list endp
 ## Frontend
 
 - **`/export/advances`** (`AdvancesTracker`) is a tabbed page: **Advances** (the existing money-in
-  table) + **Customs expenses** (this ledger). A summary header shows in / out / balance tiles and a
-  by-category breakdown over a date range (`useCustomsLedger`). The expenses tab is a CRUD ProTable
+  table) + **Customs expenses** (this ledger) + **Statistics** (since 2026-10-01: in / out / balance
+  tiles and a by-category breakdown over the date range, `useCustomsLedger`, plus the USD advance
+  cards). With `?shipment=<id>` both tables narrow to that shipment, «Add expense» is prefilled with
+  it, and Statistics is hidden (season-wide figures) — see [[advances-reconciliation]]. The expenses tab is a CRUD ProTable
   (`components/customsExpense/CustomsExpensesTab.tsx`) with an add/edit modal
   (`CustomsExpenseModal.tsx`) and a summary card (`CustomsLedgerSummary.tsx`).
 - The modal's category field is `CustomsExpenseCategorySelect.tsx`: options come from

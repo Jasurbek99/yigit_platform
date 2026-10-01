@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Button,
@@ -36,6 +37,7 @@ import type {
   IAdvanceShipmentLink,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useCustomsLedger } from '@/hooks/useCustomsExpenses';
 import { CustomsLedgerSummary } from '@/components/customsExpense/CustomsLedgerSummary';
 import { CustomsExpensesTab, CUSTOMS_EXPENSE_WRITE_ROLES } from '@/components/customsExpense/CustomsExpensesTab';
@@ -229,9 +231,17 @@ interface INewAdvanceFormValues {
 interface INewAdvanceModalProps {
   open: boolean;
   onClose: () => void;
+  /** Page opened from one shipment: the advance is linked to it, no picker. */
+  shipmentId?: number;
+  shipmentCode?: string;
 }
 
-function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps): React.ReactElement {
+function NewAdvanceModal({
+  open,
+  onClose,
+  shipmentId,
+  shipmentCode,
+}: INewAdvanceModalProps): React.ReactElement {
   const { t } = useTranslation();
   const createAdvance = useCreateAdvance();
   const [form] = Form.useForm<INewAdvanceFormValues>();
@@ -244,7 +254,9 @@ function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps): React.ReactE
       currency: values.currency,
       purpose: values.purpose || undefined,
       notes: values.notes || undefined,
-      shipment_ids: values.shipment_ids?.length ? values.shipment_ids : undefined,
+      shipment_ids: shipmentId
+        ? [shipmentId]
+        : values.shipment_ids?.length ? values.shipment_ids : undefined,
     } as ICreateAdvancePayload;
 
     createAdvance.mutate(payload, {
@@ -318,16 +330,22 @@ function NewAdvanceModal({ open, onClose }: INewAdvanceModalProps): React.ReactE
         <Form.Item name="purpose" label={t('advances.purpose')}>
           <Input />
         </Form.Item>
-        <Form.Item
-          name="shipment_ids"
-          label={t('advances.link_shipments')}
-          tooltip={t('advances.link_shipments_help')}
-        >
-          <ShipmentMultiSelect
-            placeholder={t('advances.link_shipments_placeholder')}
-            style={{ width: '100%' }}
-          />
-        </Form.Item>
+        {shipmentId ? (
+          <Form.Item label={t('advances.link_shipments')}>
+            <Text strong style={{ fontFamily: FONT.mono }}>{shipmentCode ?? shipmentId}</Text>
+          </Form.Item>
+        ) : (
+          <Form.Item
+            name="shipment_ids"
+            label={t('advances.link_shipments')}
+            tooltip={t('advances.link_shipments_help')}
+          >
+            <ShipmentMultiSelect
+              placeholder={t('advances.link_shipments_placeholder')}
+              style={{ width: '100%' }}
+            />
+          </Form.Item>
+        )}
         <Form.Item name="notes" label={t('advances.notes')}>
           <Input.TextArea rows={3} />
         </Form.Item>
@@ -367,43 +385,27 @@ function StatCard({
 
 interface IAdvancesTabProps {
   canCreate: boolean;
+  shipmentId?: number;
+  shipmentCode?: string;
 }
 
-function AdvancesTab({ canCreate }: IAdvancesTabProps): React.ReactElement {
+function AdvancesTab({ canCreate, shipmentId, shipmentCode }: IAdvancesTabProps): React.ReactElement {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<ReconcileFilter>('all');
   const [newAdvanceOpen, setNewAdvanceOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<readonly React.Key[]>([]);
+  const autoOpenedFor = useRef<number | null>(null);
 
   const reconcileFilter =
     filter === 'all' ? undefined : filter === 'reconciled' ? true : false;
 
-  const { data, isLoading, isError } = useAdvances({ reconciled: reconcileFilter });
+  const { data, isLoading, isError } = useAdvances({
+    reconciled: reconcileFilter,
+    shipment: shipmentId,
+  });
   const reconcileAdvance = useReconcileAdvance();
 
   const advances = useMemo(() => data?.results ?? [], [data?.results]);
-
-  const {
-    totalCount,
-    totalAmount,
-    unreconciledCount,
-    unreconciledAmount,
-    summaryCurrency,
-  } = useMemo(() => {
-    const unreconciled = advances.filter((a) => !a.reconciled);
-    const currencies = new Set(advances.map((a) => a.currency));
-    return {
-      totalCount: data?.count ?? 0,
-      totalAmount: advances.reduce((sum, a) => sum + Number(a.total_amount), 0),
-      unreconciledCount: unreconciled.length,
-      unreconciledAmount: unreconciled.reduce(
-        (sum, a) => sum + Number(a.total_amount),
-        0,
-      ),
-      // Show the currency code only when every loaded advance shares one.
-      summaryCurrency: currencies.size === 1 ? [...currencies][0] : undefined,
-    };
-  }, [advances, data?.count]);
 
   function handleReconcile(id: number): void {
     reconcileAdvance.mutate(id, {
@@ -535,6 +537,15 @@ function AdvancesTab({ canCreate }: IAdvancesTabProps): React.ReactElement {
     },
   ];
 
+  // Opened from a shipment that has no advance yet: go straight to creating
+  // one for it. Once per shipment, so closing the modal doesn't reopen it.
+  useEffect(() => {
+    if (!shipmentId || !canCreate || !data || filter !== 'all') return;
+    if (autoOpenedFor.current === shipmentId) return;
+    autoOpenedFor.current = shipmentId;
+    if (data.count === 0) setNewAdvanceOpen(true);
+  }, [shipmentId, canCreate, data, filter]);
+
   if (isError) {
     return (
       <Alert type="error" message={t('advances.error_load')} showIcon style={{ margin: 16 }} />
@@ -543,32 +554,6 @@ function AdvancesTab({ canCreate }: IAdvancesTabProps): React.ReactElement {
 
   return (
     <>
-      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} sm={6}>
-          <StatCard title={t('advances.total_advances')} value={totalCount} />
-        </Col>
-        <Col xs={12} sm={6}>
-          <StatCard
-            title={t('advances.total_amount')}
-            value={formatMoney(totalAmount, summaryCurrency)}
-          />
-        </Col>
-        <Col xs={12} sm={6}>
-          <StatCard
-            title={t('advances.unreconciled')}
-            value={unreconciledCount}
-            color={unreconciledCount > 0 ? COLORS.orange : undefined}
-          />
-        </Col>
-        <Col xs={12} sm={6}>
-          <StatCard
-            title={t('advances.unreconciled_amount')}
-            value={formatMoney(unreconciledAmount, summaryCurrency)}
-            color={unreconciledAmount > 0 ? COLORS.orange : undefined}
-          />
-        </Col>
-      </Row>
-
       <Space style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Radio.Group
           value={filter}
@@ -628,7 +613,74 @@ function AdvancesTab({ canCreate }: IAdvancesTabProps): React.ReactElement {
       <NewAdvanceModal
         open={newAdvanceOpen}
         onClose={() => setNewAdvanceOpen(false)}
+        shipmentId={shipmentId}
+        shipmentCode={shipmentCode}
       />
+    </>
+  );
+}
+
+// ─── AdvancesStatsTab ────────────────────────────────────────────────────────
+
+interface IAdvancesStatsTabProps {
+  ledgerFilters: { date_from?: string; date_to?: string };
+}
+
+function AdvancesStatsTab({ ledgerFilters }: IAdvancesStatsTabProps): React.ReactElement {
+  const { t } = useTranslation();
+  const { data } = useAdvances();
+  const { data: ledger, isLoading: ledgerLoading } = useCustomsLedger(ledgerFilters);
+
+  const {
+    totalAmount,
+    unreconciledCount,
+    unreconciledAmount,
+    summaryCurrency,
+  } = useMemo(() => {
+    const advances = data?.results ?? [];
+    const unreconciled = advances.filter((a) => !a.reconciled);
+    const currencies = new Set(advances.map((a) => a.currency));
+    return {
+      totalAmount: advances.reduce((sum, a) => sum + Number(a.total_amount), 0),
+      unreconciledCount: unreconciled.length,
+      unreconciledAmount: unreconciled.reduce(
+        (sum, a) => sum + Number(a.total_amount),
+        0,
+      ),
+      // Show the currency code only when every loaded advance shares one.
+      summaryCurrency: currencies.size === 1 ? [...currencies][0] : undefined,
+    };
+  }, [data?.results]);
+
+  return (
+    <>
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={12} sm={6}>
+          <StatCard title={t('advances.total_advances')} value={data?.count ?? 0} />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatCard
+            title={t('advances.total_amount')}
+            value={formatMoney(totalAmount, summaryCurrency)}
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatCard
+            title={t('advances.unreconciled')}
+            value={unreconciledCount}
+            color={unreconciledCount > 0 ? COLORS.orange : undefined}
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <StatCard
+            title={t('advances.unreconciled_amount')}
+            value={formatMoney(unreconciledAmount, summaryCurrency)}
+            color={unreconciledAmount > 0 ? COLORS.orange : undefined}
+          />
+        </Col>
+      </Row>
+
+      <CustomsLedgerSummary ledger={ledger} isLoading={ledgerLoading} />
     </>
   );
 }
@@ -638,6 +690,12 @@ function AdvancesTab({ canCreate }: IAdvancesTabProps): React.ReactElement {
 export default function AdvancesTracker(): React.ReactElement {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // ?shipment=<id> — opened from the Sheet, Shipment Detail or a task:
+  // both tables show only that shipment's rows and new ones are linked to it.
+  const shipmentId = Number(searchParams.get('shipment')) || undefined;
+  const { data: shipment } = useShipmentDetail(shipmentId);
 
   // Shared date range: filters both the ledger summary and the expenses tab.
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
@@ -648,12 +706,16 @@ export default function AdvancesTracker(): React.ReactElement {
     date_to: dateTo ? dateTo.format('YYYY-MM-DD') : undefined,
   };
 
-  const { data: ledger, isLoading: ledgerLoading } = useCustomsLedger(ledgerFilters);
-
   const canCreateAdvance = user ? CAN_CREATE_ROLES.has(user.role) : false;
   const canWriteExpense =
     (user ? CUSTOMS_EXPENSE_WRITE_ROLES.has(user.role) : false) ||
     user?.is_superuser === true;
+
+  function handleShowAll(): void {
+    const next = new URLSearchParams(searchParams);
+    next.delete('shipment');
+    setSearchParams(next);
+  }
 
   return (
     <div style={{ padding: '0 4px' }}>
@@ -679,7 +741,23 @@ export default function AdvancesTracker(): React.ReactElement {
         </div>
       </div>
 
-      {/* Shared date-range filter — applies to ledger tiles AND expenses tab */}
+      {shipmentId && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={t('advances.shipment_filter', {
+            code: shipment?.shipment_code ?? shipmentId,
+          })}
+          action={
+            <Button size="small" onClick={handleShowAll}>
+              {t('advances.show_all')}
+            </Button>
+          }
+        />
+      )}
+
+      {/* Shared date-range filter — applies to the statistics tab AND expenses tab */}
       <Space style={{ marginBottom: 16 }}>
         <Text type="secondary" style={{ fontSize: 13 }}>
           {t('customs_expense.date_range')}:
@@ -695,17 +773,20 @@ export default function AdvancesTracker(): React.ReactElement {
         />
       </Space>
 
-      {/* Ledger TMT summary (above tabs — currency: TMT, separate from USD advances) */}
-      <CustomsLedgerSummary ledger={ledger} isLoading={ledgerLoading} />
-
-      {/* Tabbed view */}
+      {/* Tabbed view. Statistics are season-wide, so hidden in shipment mode. */}
       <Tabs
         defaultActiveKey="advances"
         items={[
           {
             key: 'advances',
             label: t('customs_expense.tab_advances'),
-            children: <AdvancesTab canCreate={canCreateAdvance} />,
+            children: (
+              <AdvancesTab
+                canCreate={canCreateAdvance}
+                shipmentId={shipmentId}
+                shipmentCode={shipment?.shipment_code}
+              />
+            ),
           },
           {
             key: 'expenses',
@@ -715,9 +796,20 @@ export default function AdvancesTracker(): React.ReactElement {
                 canWrite={canWriteExpense}
                 dateFrom={dateFrom}
                 dateTo={dateTo}
+                shipmentId={shipmentId}
+                shipmentExportCode={shipment?.export_code}
               />
             ),
           },
+          ...(shipmentId
+            ? []
+            : [
+                {
+                  key: 'stats',
+                  label: t('advances.tab_stats'),
+                  children: <AdvancesStatsTab ledgerFilters={ledgerFilters} />,
+                },
+              ]),
         ]}
       />
     </div>

@@ -36,6 +36,8 @@ export interface IAdvanceFilters {
   page_size?: number;
   reconciled?: boolean;
   search?: string;
+  /** Only advances linked to this shipment. */
+  shipment?: number;
 }
 
 export function useAdvances(filters: IAdvanceFilters = {}) {
@@ -44,12 +46,14 @@ export function useAdvances(filters: IAdvanceFilters = {}) {
     queryKey: ['advances', seasonId, filters],
     queryFn: async (): Promise<IApiListResponse<IFinansistAdvanceListItem>> => {
       if (USE_MOCK) {
-        const results =
-          filters.reconciled === undefined
-            ? MOCK_ADVANCES_RESPONSE.results
-            : MOCK_ADVANCES_RESPONSE.results.filter(
-                (a) => a.reconciled === filters.reconciled,
-              );
+        const results = MOCK_ADVANCES_RESPONSE.results.filter(
+          (a) =>
+            (filters.reconciled === undefined || a.reconciled === filters.reconciled) &&
+            (filters.shipment === undefined ||
+              (MOCK_ADVANCE_DETAILS[a.id]?.shipment_links ?? []).some(
+                (l) => l.shipment === filters.shipment,
+              )),
+        );
         return { ...MOCK_ADVANCES_RESPONSE, results, count: results.length };
       }
 
@@ -59,6 +63,7 @@ export function useAdvances(filters: IAdvanceFilters = {}) {
       if (filters.reconciled !== undefined)
         params.set('reconciled', String(filters.reconciled));
       if (filters.search) params.set('search', filters.search);
+      if (filters.shipment) params.set('shipment', String(filters.shipment));
       if (seasonId != null) params.set('season', String(seasonId));
 
       const { data } = await api.get<IApiListResponse<IFinansistAdvanceListItem>>(

@@ -40,12 +40,17 @@ interface ICustomsExpensesTabProps {
   canWrite: boolean;
   dateFrom: Dayjs | null;
   dateTo: Dayjs | null;
+  /** Pins the list (and the Add modal) to one shipment — page opened from it. */
+  shipmentId?: number;
+  shipmentExportCode?: string | null;
 }
 
 export function CustomsExpensesTab({
   canWrite,
   dateFrom,
   dateTo,
+  shipmentId,
+  shipmentExportCode,
 }: ICustomsExpensesTabProps): React.ReactElement {
   const { t } = useTranslation();
 
@@ -59,6 +64,7 @@ export function CustomsExpensesTab({
     date_from: dateFrom ? dateFrom.format('YYYY-MM-DD') : undefined,
     date_to: dateTo ? dateTo.format('YYYY-MM-DD') : undefined,
     search: search || undefined,
+    shipment: shipmentId,
   };
 
   const { data, isLoading } = useCustomsExpenses(filters);
@@ -257,6 +263,8 @@ export function CustomsExpensesTab({
         open={addOpen || editTarget !== null}
         onClose={handleModalClose}
         editTarget={editTarget}
+        prefilledShipmentId={shipmentId}
+        prefilledExportCode={shipmentExportCode}
       />
     </>
   );

@@ -74,7 +74,7 @@ export function MyTaskCard({ shipment }: IMyTaskCardProps) {
   const isOverdue = task.is_overdue;
   // manual_done and confirm (PREP/DOCS chain) both close by a button.
   const isManualDone = isButtonTask(task.completion_rule);
-  const link = taskLink(task.title_key);
+  const link = taskLink(task.title_key, shipment.id);
   const canComplete =
     isManualDone &&
     (task.state === 'open' || task.state === 'in_progress');

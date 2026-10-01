@@ -82,6 +82,7 @@ def _scope_advances_to_season(qs, season) -> QuerySet:
 class FinansistAdvanceViewSet(ModelViewSet):
     """
     GET    /api/v1/export/advances/                               — list all advances
+                                                                    (?shipment=<id>: only that shipment's)
     GET    /api/v1/export/advances/{id}/                          — detail with linked shipments
     POST   /api/v1/export/advances/                               — create new advance (finansist)
     PATCH  /api/v1/export/advances/{id}/reconcile/                — mark as reconciled
@@ -139,7 +140,22 @@ class FinansistAdvanceViewSet(ModelViewSet):
             season = resolve_season(self.request)
             if season is None:
                 return qs.none()
-            qs = _scope_advances_to_season(qs, season)
+            # ?shipment=<id>: the Advances page opened from one shipment.
+            # Exists(), not a filterset join — a second join on shipment_links
+            # would corrupt the Count/Sum annotations above. A shipment in a
+            # closed season is reachable only with closed-season view rights,
+            # same rule as /customs-expenses/?shipment=.
+            shipment_id = self.request.query_params.get('shipment', '')
+            if not shipment_id.isdigit():
+                shipment_id = None
+            if not (shipment_id and can_view_closed(self.request.user)):
+                qs = _scope_advances_to_season(qs, season)
+            if shipment_id:
+                qs = qs.filter(Exists(
+                    FinansistAdvanceShipment.objects.filter(
+                        advance_id=OuterRef('pk'), shipment_id=shipment_id,
+                    ).order_by()
+                ))
 
         return qs
 

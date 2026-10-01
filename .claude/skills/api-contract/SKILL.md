@@ -1348,6 +1348,14 @@ Not season-scoped.
 `code` is server-generated from `label_tk` (slugified, upper-case, `_2`… on collision, `CAT` when
 the name has no Latin letters) and read-only.
 
+### Advances by shipment: `GET /api/v1/export/advances/?shipment=<id>` (2026-10-01)
+
+Only advances linked to that shipment (via `FinansistAdvanceShipment`), same list shape.
+`Exists()`-based, so `shipment_count` / `allocated_total` still count **all** of the advance's
+links. Season scope relaxes for callers with `closed_season.can_view` — same rule as
+`/customs-expenses/?shipment=`. Backs the Advances page opened from the Sheet, Shipment Detail
+or the «Awans ber» task.
+
 ### Ledger summary: `GET /api/v1/export/customs-expenses/ledger/`
 
 Cash-float balance over an optional date window (same `?date_from`/`?date_to` params). All aggregation is DB-side.

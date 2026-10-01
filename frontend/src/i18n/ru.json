@@ -957,6 +957,9 @@
     "drawer_title": "Отчёт о продажах"
   },
   "advances": {
+    "shipment_filter": "Показаны только авансы и расходы отгрузки {{code}}",
+    "show_all": "Показать все",
+    "tab_stats": "Статистика",
     "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Отслеживание авансов",
     "total_advances": "Всего авансов",

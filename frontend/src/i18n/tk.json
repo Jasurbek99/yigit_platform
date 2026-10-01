@@ -955,6 +955,9 @@
     "drawer_title": "Satyş hasabaty"
   },
   "advances": {
+    "shipment_filter": "Diňe {{code}} ugradylyşyň awanslary we çykdajylary görkezilýär",
+    "show_all": "Hemmesini görkez",
+    "tab_stats": "Statistika",
     "batch_code_placeholder": "ADV-2026-XXX",
     "title": "Avanslary yzarlamak",
     "total_advances": "Jemi avanslar",

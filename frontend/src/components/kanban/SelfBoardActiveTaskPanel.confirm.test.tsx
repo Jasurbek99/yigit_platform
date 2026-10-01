@@ -117,7 +117,7 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
       title_key: 'tasks.give_advance', completion_rule: 'all_fields_filled',
       target_fields_list: ['has_current_advance'], assignee_role: 'finansist',
     }));
-    expect(screen.getByRole('link', { name: 'Advances' })).toHaveAttribute('href', '/export/advances');
+    expect(screen.getByRole('link', { name: 'Advances' })).toHaveAttribute('href', '/export/advances?shipment=7');
   });
 
   it('«Approve the report» approves right on the card (E2E 2026-10-01)', async () => {

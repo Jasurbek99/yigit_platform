@@ -89,7 +89,7 @@ export function SelfBoardActiveTaskPanel({
     (task.state === 'open' || task.state === 'in_progress') &&
     task.kind !== 'gate';
   const isDone = task.state === 'done';
-  const link = taskLink(task.title_key);
+  const link = taskLink(task.title_key, task.shipment);
   const isOverdue = task.is_overdue;
 
   const deadlineDisplay = task.deadline

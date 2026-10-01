@@ -52,7 +52,7 @@ erDiagram
 | POST | `/api/v1/export/advances/{id}/link-shipment/` | Link one shipment (`{shipment_id, allocated_amount?}`) |
 | DELETE | `/api/v1/export/advances/{id}/unlink-shipment/{shipment_id}/` | Remove a shipment link |
 
-**Filters**: `?reconciled=true/false`, `?search=` (batch_code)
+**Filters**: `?reconciled=true/false`, `?search=` (batch_code), `?shipment=<id>` (only advances linked to that shipment — `Exists()`, so `shipment_count`/`allocated_total` still count all links; closed-season shipments reachable with `closed_season.can_view`, same as `/customs-expenses/?shipment=`)
 
 ## Frontend Implementation
 
@@ -60,7 +60,18 @@ erDiagram
 
 **File**: `frontend/src/pages/export/AdvancesTracker.tsx`
 
-**Stat Cards** (4-column grid):
+**Tabs** (2026-10-01): «Авансы» · «Таможенные расходы» · «Статистика». The date range above the tabs filters Expenses and Statistics.
+
+**Shipment mode** — `/export/advances?shipment=<id>`, opened from the Sheet R24 cell, the Shipment Detail «Аванс» row, or the «Awans ber» task card (`taskLink(titleKey, shipmentId)`):
+- info banner with the shipment code + «Показать все» (drops the param);
+- both tables show only that shipment's rows;
+- «Новый аванс» is linked to the shipment (picker replaced by the code); «Добавить расход» is prefilled with it;
+- when the shipment has no advance yet, the New advance form opens by itself (once);
+- the Statistics tab is hidden — its figures are season-wide.
+
+**Statistics tab** — the 4 USD stat cards (over all advances, not the reconcile filter) + the TMT ledger summary (`CustomsLedgerSummary`, see [[customs-expense-ledger]]).
+
+**Stat Cards** (4-column grid, Statistics tab):
 | Card | Value | Color |
 |------|-------|-------|
 | Total Advances | Count | Default |
