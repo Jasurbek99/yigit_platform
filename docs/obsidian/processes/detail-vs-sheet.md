@@ -31,7 +31,7 @@ Top to bottom:
    - **Documents** — documents status, planned customs day, documents note, TM customs closed, destination customs passed, advance given, and the **packing panel** (packing template → whole-truck gross/net/boxes for the CMR, per-firm gross/boxes/pallets).
    - **Notes** — legacy notes, Gadam's / warehouse / Arap notes, and every admin **custom Sheet row**.
    - **Quality** — the four certificate uploads.
-4. **«Документы — печать»** — the truck's whole document packet, as a Documents-page row: readiness banner, ZIP, CMR, TIR carnet, each firm's invoice / letters. Printed in-page; visible with the `sale` grant.
+4. **«Документы — печать»** — the truck's whole document packet, as a Documents-page row: readiness banner, ZIP, CMR, TIR carnet, each firm's invoice / letters. Printed in-page; visible with the `sale` grant. The readiness banner says «fill on this page» and links each missing item to its row; a regular truck's missing driver/plate show as one «choose a Planning trip» link to the trip block.
 5. **Sale** — price, total, sale start / end, report date, firm splits, sales report.
 6. Quota, customs expenses, GPS cards; link to the activity log.
 

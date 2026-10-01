@@ -109,7 +109,8 @@ GET /api/v1/contracts/document-packets/?date=&date_from=&date_to=&status=&firm=
   **regardless of status** (a draft qualifies). Missing buyer / country / driver / plate /
   packing do NOT hide the truck — they surface as `is_ready=false` + `missing_setup[]` so the
   team sees what to fill. Defaults to the active season. Returns `packing_complete` +
-  `missing_packing[]`, `is_ready` + `missing_setup[]`, and `firms[]` (each with `sale_id`).
+  `missing_packing[]`, `is_ready` + `missing_setup[]`, `is_gapy_satys`, and `firms[]` (each
+  with `sale_id`).
 - Carries **both** codes: `shipment_code` (platform-generated) and `export_code` (the
   operator-typed Export Code from the Sheet). The page's first column is headed
   **Shipment** and prints `export_code` when it is filled, falling back to
@@ -843,7 +844,12 @@ what to fill rather than wondering why it isn't listed; only a truck with no fir
 at all is out of scope. Defaults to the active season; filters `?date=` (exact),
 `?date_from=` / `?date_to=` (range), `?status=` (code), `?firm=` (export firm id).
 Gated by the `sale` resource. The page shows a **Ready / Setup needed** badge and,
-in the expanded panel, a banner listing the missing fields.
+in the expanded panel, a banner listing the missing fields (`components/documentSetupNotice.ts`,
+2026-10-01): a regular truck's missing driver / plate become one item «link a Planning trip on
+the Truck Board» (they come from the trip, not the Sheet); a gapy truck keeps them as Sheet
+fields. The task-card print buttons use the same wording. On the shipment page
+(«Документы — печать») the banner reads «Сначала заполните на этой странице:» and each item is a
+link that scrolls to its row (the truck item → the trip block).
 
 The frontend **Documents page** (`/documents`, page code `contracts.documents`,
 default-visible to admin / director / export_manager / document_team) is a

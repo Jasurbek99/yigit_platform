@@ -1,3 +1,5 @@
+- [ ] 2026-10-01 — Document readiness notice: regular truck's missing driver/plate → «выберите рейс Planning» (not «в Листе»); on the shipment page «Сначала заполните на этой странице:» with links that scroll to the row; same wording on Documents page + task-card print buttons — NEEDS TEST
+  To test: (1) regular shipment with a firm, no trip → «Документы — печать» shows «Сначала заполните на этой странице: машина — выберите рейс Planning» → click → scrolls to «Выбрать рейс»; (2) /contracts/documents same truck → «Машина приходит из рейса Planning — привяжите рейс на доске «Машины ↔ Отгрузки»»; (3) gapy truck without driver → «Сначала заполните в Листе: водитель».
 - [ ] 2026-10-01 — Кнопка «Новый аванс» (и «Сверить», привязка отгрузок) теперь у admin / finansist / director — как в API; у export_manager / document_team убрана (у них был 403) — NEEDS TEST
   To test: (1) зайти admin → Лист → клик R24 → «Новый аванс» есть, у отгрузки без аванса окно открывается само → создать → R24 ✓; (2) finansist — то же; (3) export_manager → кнопки нет.
 
