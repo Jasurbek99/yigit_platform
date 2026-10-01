@@ -22,6 +22,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from apps.core.models import RolePagePermission, User
+from apps.export.views_admin import DELEGABLE_ADMIN_PAGES
 
 USERS_URL = '/api/v1/export/admin/users/'
 MPP_URL = '/api/v1/export/admin/managed-page-permissions/'
@@ -180,8 +181,31 @@ class DelegatedUserMgmtTests(TestCase):
         self.assertSetEqual(set(resp.data['roles']), {'loading_dept_head_deputy', 'weight_master'})
         page_codes = {p['code'] for p in resp.data['pages']}
         self.assertIn('export.shipments', page_codes)
-        # No admin.* page may be grantable (privilege-leak guard).
-        self.assertFalse(any(c.startswith('admin.') for c in page_codes))
+        # Only DELEGABLE_ADMIN_PAGES may be grantable (privilege-leak guard).
+        for code in ('admin.permissions', 'admin.staff_access', 'admin.seasons', 'admin.shipment_settings'):
+            RolePagePermission.objects.update_or_create(
+                role='loading_dept_head', page_code=code, defaults={'is_visible': True},
+            )
+        page_codes = {p['code'] for p in self.client.get(MPP_URL).data['pages']}
+        self.assertFalse({c for c in page_codes if c.startswith('admin.')} - DELEGABLE_ADMIN_PAGES)
+
+    def test_mpp_get_offers_delegable_admin_page_the_head_sees(self):
+        RolePagePermission.objects.update_or_create(
+            role='loading_dept_head', page_code='admin.blocks', defaults={'is_visible': True},
+        )
+        RolePagePermission.objects.update_or_create(
+            role='loading_dept_head', page_code='admin.firms', defaults={'is_visible': False},
+        )
+        self._auth(self.head)
+        page_codes = {p['code'] for p in self.client.get(MPP_URL).data['pages']}
+        self.assertIn('admin.blocks', page_codes)
+        self.assertNotIn('admin.firms', page_codes)  # delegable, but the head can't see it
+
+    def test_mpp_get_admin_sees_every_delegable_admin_page(self):
+        self._auth(self.admin)
+        page_codes = {p['code'] for p in self.client.get(MPP_URL).data['pages']}
+        self.assertTrue(DELEGABLE_ADMIN_PAGES <= page_codes)
+        self.assertNotIn('admin.permissions', page_codes)
 
     def test_mpp_get_denied_for_non_manager(self):
         self._auth(self.sales)
@@ -211,9 +235,12 @@ class DelegatedUserMgmtTests(TestCase):
         )
 
     def test_mpp_put_rejects_admin_page(self):
+        RolePagePermission.objects.update_or_create(
+            role='loading_dept_head', page_code='admin.permissions', defaults={'is_visible': True},
+        )
         self._auth(self.head)
         resp = self.client.put(MPP_URL, {
-            'matrix': {'weight_master': {'admin.users': True}},
+            'matrix': {'weight_master': {'admin.permissions': True}},
         }, format='json')
         self.assertEqual(resp.status_code, 403, resp.data)
 

@@ -997,14 +997,32 @@ class UserPermissionsView(APIView):
 # Delegated page-visibility management (ADR-022)
 # ---------------------------------------------------------------------------
 
+# The only ``admin.*`` pages Staff Page Access may grant (owner request
+# 2026-10-01). None of these codes gates a backend write — reference-data writes
+# stay on REFERENCE_DATA_WRITE / resource rows and user writes on
+# MANAGEABLE_BY_ROLE — so the page is visibility only. Every other ``admin.*``
+# page (permissions, staff_access, seasons, shipment_settings, any new one)
+# stays out. Note: ``admin.users`` gives a role that manages nobody a page whose
+# list call 403s.
+DELEGABLE_ADMIN_PAGES = frozenset({
+    'admin.firms', 'admin.import_firms', 'admin.customers',
+    'admin.blocks', 'admin.truck_dest', 'admin.users',
+})
+
+
+def _is_delegable_page(code: str) -> bool:
+    return not code.startswith('admin.') or code in DELEGABLE_ADMIN_PAGES
+
+
 class ManagedPagePermissionsView(APIView):
     """Let a department head grant page visibility to the roles they manage.
 
     A bounded exception to AD-15: the admin permission-matrix CRUD stays
     admin-only, but a delegated manager (e.g. loading_dept_head) may toggle page
     visibility for the roles in their manageable set — limited to the pages the
-    manager's OWN role can already see, and never an ``admin.*`` page (that would
-    leak user/permission administration to subordinates).
+    manager's OWN role can already see, and never an ``admin.*`` page outside
+    DELEGABLE_ADMIN_PAGES (that would leak permission administration to
+    subordinates).
 
     GET /api/v1/export/admin/managed-page-permissions/
         → { roles: [code...], pages: [{code,label}...], matrix: {role: {page: bool}} }
@@ -1024,20 +1042,20 @@ class ManagedPagePermissionsView(APIView):
         return sorted(manageable_roles(actor) - {getattr(actor, 'role', None), 'admin'})
 
     def _grantable_pages(self, actor) -> list[str]:
-        """Page codes the manager may delegate: own visible, non-admin pages.
+        """Page codes the manager may delegate: own visible, delegable pages.
 
-        Full admins may delegate any non-admin page. A delegated manager may
-        delegate only the non-admin pages their own role can currently see.
+        Full admins may delegate any delegable page. A delegated manager may
+        delegate only the delegable pages their own role can currently see.
         Order follows PAGE_REGISTRY for a stable UI.
         """
         if _is_full_admin(actor):
-            return [c for c in PAGE_REGISTRY if not c.startswith('admin.')]
+            return [c for c in PAGE_REGISTRY if _is_delegable_page(c)]
         visible = set(
             RolePagePermission.objects
             .filter(role=actor.role, is_visible=True)
             .values_list('page_code', flat=True)
         )
-        return [c for c in PAGE_REGISTRY if c in visible and not c.startswith('admin.')]
+        return [c for c in PAGE_REGISTRY if c in visible and _is_delegable_page(c)]
 
     def get(self, request):
         actor = request.user
