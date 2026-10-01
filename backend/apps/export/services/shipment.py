@@ -680,7 +680,7 @@ def generate_shipment_codes(n: int, today=None) -> list[str]:
     Args:
         n: Number of distinct codes to generate (must be >= 1).
         today: Optional date — used by tests to make output deterministic.
-            Defaults to timezone.now().date() in the active TM timezone.
+            Defaults to timezone.localdate() — the Ashgabat day, not UTC.
 
     Returns:
         Ordered list of n unique shipment code strings.
@@ -691,7 +691,7 @@ def generate_shipment_codes(n: int, today=None) -> list[str]:
     if n < 1:
         raise ValueError('n must be >= 1')
     if today is None:
-        today = timezone.now().date()
+        today = timezone.localdate()
     dd = f'{today.day:02d}'
     mm = f'{today.month:02d}'
     yy = f'{today.year % 100:02d}'
@@ -725,7 +725,7 @@ def generate_shipment_code(today=None) -> str:
 
     Args:
         today: Optional date — used by tests to make output deterministic.
-            Defaults to timezone.now().date() in the active TM timezone.
+            Defaults to timezone.localdate() — the Ashgabat day, not UTC.
     """
     return generate_shipment_codes(1, today=today)[0]
 

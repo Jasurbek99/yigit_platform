@@ -2161,7 +2161,7 @@ class ShipmentViewSet(ModelViewSet):
         from django.utils import timezone as _tz
 
         shipment_code = data.get('shipment_code') or generate_shipment_code()
-        ship_date = data.get('date') or _tz.now().date()
+        ship_date = data.get('date') or _tz.localdate()
         # Mutate the validated data so downstream paths see the resolved values.
         data['shipment_code'] = shipment_code
         data['date'] = ship_date

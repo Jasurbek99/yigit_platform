@@ -2070,9 +2070,10 @@ class ShipmentCreateSerializer(serializers.Serializer):
 
             # Cap 2: forecast pool.
             # Uses a single get_remaining_for_date() call (one grouped DB query, no N+1).
+            from django.utils import timezone as _tz
             from apps.export.services.harvest_forecast import get_remaining_for_date
 
-            ship_date = attrs.get('date') or datetime.date.today()
+            ship_date = attrs.get('date') or _tz.localdate()
             remaining_rows = get_remaining_for_date(ship_date)
             remaining_map: dict[int, D] = {
                 row['block_id']: row['remaining_kg']
