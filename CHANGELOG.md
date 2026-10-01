@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Changed
+- **Truck Planning page (feat(frontend)).** `/transport/plan` renamed «Truck Planning» (ru «Планирование машин», tk «Maşyn planlamasy»); opens on the current week instead of next week (task links keep their `?week=&year=`), subtitle «Week N · year · Mon–Sat dates», `<` / `>` step one week.
+
 ### Fixed
 - **Document readiness notice no longer sends everyone to the Sheet (fix(frontend), feat(p3)).** A regular truck's missing driver / plate now read «link a Planning trip» (they come from the trip); gapy keeps them as Sheet fields. On the shipment page the notice says «fill on this page» and each item scrolls to its row. Same wording on the Documents page and the task-card print buttons. `document-packets` gains `is_gapy_satys`.
 
