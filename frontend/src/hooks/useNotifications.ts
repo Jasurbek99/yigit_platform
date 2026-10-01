@@ -13,9 +13,11 @@ export function useNotifications() {
       return data.results ?? [];
     },
     // Polls app-wide (NotificationBell lives in AppLayout). 60s halves the
-    // steady-state request rate vs 30s; v5 already pauses the interval while
-    // the tab is backgrounded (refetchIntervalInBackground defaults to false).
+    // steady-state request rate vs 30s. Keeps polling while the tab is in the
+    // background so the new-notification chime (useNotificationAlerts) still
+    // reaches a user who has switched to another tab or window.
     refetchInterval: 60_000,
+    refetchIntervalInBackground: true,
     staleTime: 60_000,
   });
 }
