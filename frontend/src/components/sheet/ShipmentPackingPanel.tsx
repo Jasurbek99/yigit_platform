@@ -13,6 +13,8 @@ const { Text } = Typography;
 
 interface IProps {
   shipmentId: number;
+  /** Sheet cell popover = 380px (default); the Detail card passes '100%'. */
+  width?: number | string;
 }
 
 const num = (v: string | number | null): string =>
@@ -29,7 +31,7 @@ function apiError(err: unknown, fallback: string): string {
  * its whole-truck line feeds the CMR, and each firm share is copied onto that firm
  * (editable here) and sets the firm weight (quota-safe). Two firms are swappable.
  */
-export function ShipmentPackingPanel({ shipmentId }: IProps) {
+export function ShipmentPackingPanel({ shipmentId, width = 380 }: IProps) {
   const { t } = useTranslation();
   const { data, isLoading } = useShipmentPacking(shipmentId);
   const setPacking = useSetShipmentPacking();
@@ -56,7 +58,7 @@ export function ShipmentPackingPanel({ shipmentId }: IProps) {
     <div
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
-      style={{ marginTop: 8, padding: 8, background: '#fafafa', borderRadius: 4, width: 380 }}
+      style={{ marginTop: 8, padding: 8, background: '#fafafa', borderRadius: 4, width }}
     >
       <Text strong style={{ fontSize: 12 }}>{t('sheet.packing.title')}</Text>
 

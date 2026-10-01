@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
+import { DetailExtraFieldRows } from '@/components/shipment/DetailExtraFieldRows';
+import { ShipmentPackingPanel } from '@/components/sheet/ShipmentPackingPanel';
+import { DETAIL_EXTRA_FIELDS } from '@/constants/shipmentEditConfig';
 import { InfoRow } from '@/pages/export/ShipmentDetailHelpers';
-import { fmt } from '@/pages/export/ShipmentDetailHelpers.helpers';
 import type { IShipmentDetail } from '@/types';
 
 interface IShipmentDocumentsBodyProps {
@@ -13,13 +15,11 @@ interface IShipmentDocumentsBodyProps {
 }
 
 /**
- * "Documents & Customs" card body: the editable `status` field group (docs
- * status, planned customs day) and the loading/customs timestamps, which
- * are read-only because only `transition_to()` writes them. Harvest status
- * moved to the Goods & Loading card (see `HARVEST_STATUS_FIELD` in
- * shipmentEditConfig.ts). The quality certificates and the
- * border/arrival/sale timestamps moved to their own Quality Certificates,
- * Transport & Transit, and Sale cards respectively.
+ * "Documents & Customs" card — the documents half of the export part (spec
+ * 2026-09-30 §3): docs status and planned customs day, the documents note,
+ * both customs timestamps, the advance answer (give_advance target), and the
+ * packing panel — the ONE place gross / boxes / pallets are entered; the CMR
+ * reads its template first.
  */
 export function ShipmentDocumentsBody({
   shipment,
@@ -29,12 +29,6 @@ export function ShipmentDocumentsBody({
   commentCountsByField,
 }: IShipmentDocumentsBodyProps) {
   const { t } = useTranslation();
-
-  const timestamps: [string, string | null][] = [
-    ['shipment_detail.loading_started', shipment.loading_started_at],
-    ['shipment_detail.customs_entry', shipment.customs_entry_at],
-    ['shipment_detail.customs_exit', shipment.customs_exit_at],
-  ];
 
   return (
     <>
@@ -46,14 +40,26 @@ export function ShipmentDocumentsBody({
         onOpenComments={onOpenComments}
         commentCountsByField={commentCountsByField}
       />
-
-      <div style={{ marginTop: 12 }}>
-        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
-          {t('shipment_detail.section_timestamps')}
-        </div>
-        {timestamps.map(([labelKey, value]) => (
-          <InfoRow key={labelKey} label={t(labelKey)} value={fmt(value)} />
-        ))}
+      <DetailExtraFieldRows
+        shipment={shipment}
+        fields={DETAIL_EXTRA_FIELDS.status}
+        missingKeys={missingKeys}
+        readOnly={readOnly}
+        onOpenComments={onOpenComments}
+        commentCountsByField={commentCountsByField}
+      />
+      <div id="detail-field-has_current_advance">
+        <InfoRow
+          label={t('sheet.row.doc_advance')}
+          value={shipment.has_current_advance ? t('common.yes') : t('common.no')}
+        />
+      </div>
+      <div id="detail-field-packing_template" style={{ marginTop: 12 }}>
+        {readOnly ? (
+          <InfoRow label={t('sheet.packing.title')} value={shipment.packing_template_name ?? '—'} />
+        ) : (
+          <ShipmentPackingPanel shipmentId={shipment.id} width="100%" />
+        )}
       </div>
     </>
   );
