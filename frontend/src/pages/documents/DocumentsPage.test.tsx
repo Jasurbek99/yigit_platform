@@ -30,6 +30,7 @@ const packet = (over: Partial<IDocumentPacket>): IDocumentPacket => ({
   packing_complete: true,
   missing_packing: [],
   missing_setup: [],
+  is_gapy_satys: false,
   is_ready: true,
   firms: [],
   ...over,

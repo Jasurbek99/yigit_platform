@@ -3754,11 +3754,14 @@
     "ready": "Taýýar",
     "setup_needed": "Doldurmaly",
     "complete_on_sheet": "Ilki Listde dolduryň: {{fields}}",
+    "complete_here": "Ilki şu sahypada dolduryň:",
+    "choose_trip": "Ulag Planning reýsinden gelýär — «Maşynlar ↔ Ugratmalar» tagtasynda reýs baglaň.",
     "field": {
       "import_firm": "alyjy",
       "country": "ýurt",
       "driver_name": "sürüji",
-      "truck_plate": "ulag belgisi"
+      "truck_plate": "ulag belgisi",
+      "truck": "ulag — Planning reýsini saýlaň"
     },
     "download_packet": "Bukjany ýükle"
   },

@@ -3751,11 +3751,14 @@
     "ready": "Готово",
     "setup_needed": "Нужно заполнить",
     "complete_on_sheet": "Сначала заполните в Листе: {{fields}}",
+    "complete_here": "Сначала заполните на этой странице:",
+    "choose_trip": "Машина приходит из рейса Planning — привяжите рейс на доске «Машины ↔ Отгрузки».",
     "field": {
       "import_firm": "покупатель",
       "country": "страна",
       "driver_name": "водитель",
-      "truck_plate": "номер машины"
+      "truck_plate": "номер машины",
+      "truck": "машина — выберите рейс Planning"
     },
     "download_packet": "Скачать пакет"
   },

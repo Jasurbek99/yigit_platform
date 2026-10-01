@@ -2286,6 +2286,8 @@ export interface IDocumentPacket {
   readonly id: number;                  // shipment (truck) id
   readonly shipment_code: string;
   readonly export_code: string | null;  // operator-typed; shown instead of shipment_code when filled
+  /** Regular trucks get driver + plate from a Planning trip; gapy ones have them typed in. */
+  readonly is_gapy_satys: boolean;
   readonly date: string | null;
   readonly status_code: string | null;
   readonly status_display: string | null;

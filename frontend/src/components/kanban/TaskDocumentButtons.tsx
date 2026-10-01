@@ -6,6 +6,7 @@ import { InvoiceDocumentsButton } from '@/components/InvoiceDocumentsButton';
 import { TirCarnetButton } from '@/components/TirCarnetButton';
 import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
 import { useShipmentDocumentPacket } from '@/hooks/useDocumentPackets';
+import { setupItems, setupNoticeText } from '@/components/documentSetupNotice';
 
 type DocKind = 'cmr' | 'tir' | 'letters';
 
@@ -51,19 +52,13 @@ export function TaskDocumentButtons({ titleKey, shipmentId }: ITaskDocumentButto
   if (isLoading) return <Spin size="small" />;
   if (!packet) return null;
 
-  const missing = [
-    ...packet.missing_setup.map((f) => t(`documents_page.field.${f}`)),
-    ...(packet.packing_complete ? [] : [t('tasks.field_label.packing_template')]),
-  ];
+  const items = setupItems(packet.missing_setup, packet.is_gapy_satys);
+  const packingLabels = packet.packing_complete ? [] : [t('tasks.field_label.packing_template')];
 
   return (
     <Space direction="vertical" size="small" style={{ width: '100%', marginTop: 8 }}>
-      {!packet.is_ready && missing.length > 0 && (
-        <Alert
-          type="warning"
-          showIcon
-          message={t('documents_page.complete_on_sheet', { fields: missing.join(', ') })}
-        />
+      {!packet.is_ready && (items.length > 0 || packingLabels.length > 0) && (
+        <Alert type="warning" showIcon message={setupNoticeText(items, packingLabels, t)} />
       )}
       <Space wrap>
         {kinds.includes('cmr') && (

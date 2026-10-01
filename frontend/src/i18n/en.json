@@ -3751,11 +3751,14 @@
     "ready": "Ready",
     "setup_needed": "Setup needed",
     "complete_on_sheet": "Complete on the Sheet first: {{fields}}",
+    "complete_here": "Complete on this page first:",
+    "choose_trip": "The truck comes from a Planning trip — link one on the Truck Board.",
     "field": {
       "import_firm": "buyer",
       "country": "country",
       "driver_name": "driver",
-      "truck_plate": "truck plate"
+      "truck_plate": "truck plate",
+      "truck": "truck — choose a Planning trip"
     },
     "download_packet": "Download packet"
   },

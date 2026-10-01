@@ -9,7 +9,9 @@ vi.mock('@/hooks/useDocumentPackets', () => ({ useShipmentDocumentPacket: vi.fn(
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 1 } }) }));
 vi.mock('@/utils/permissions', () => ({ canDo: vi.fn() }));
 vi.mock('@/components/DocumentPacketPanel', () => ({
-  DocumentPacketPanel: ({ packet }: { packet: { shipment_code: string } }) => <div>packet {packet.shipment_code}</div>,
+  DocumentPacketPanel: ({ packet, onJumpTo }: { packet: { shipment_code: string }; onJumpTo?: unknown }) => (
+    <div>packet {packet.shipment_code} jump={String(typeof onJumpTo === 'function')}</div>
+  ),
 }));
 beforeAll(async () => { await i18n.changeLanguage('en'); });
 
@@ -28,7 +30,8 @@ describe('ShipmentDocumentsPrintCard', () => {
   it('shows the truck packet (CMR, TIR, ZIP, per-firm invoices) in-page', () => {
     setup(true, { id: 9, shipment_code: '0101009/26' });
     expect(screen.getByText(i18n.t('shipment_detail.parts.documents_title'))).toBeInTheDocument();
-    expect(screen.getByText('packet 0101009/26')).toBeInTheDocument();
+    // The notice links to rows on this page instead of sending the user to the Sheet.
+    expect(screen.getByText('packet 0101009/26 jump=true')).toBeInTheDocument();
   });
 
   it('explains the empty state before an export firm is chosen', () => {

@@ -5,6 +5,7 @@ import { DocumentPacketPanel } from '@/components/DocumentPacketPanel';
 import { useShipmentDocumentPacket } from '@/hooks/useDocumentPackets';
 import { useAuth } from '@/hooks/useAuth';
 import { canDo } from '@/utils/permissions';
+import { jumpToSection } from '@/pages/export/ShipmentDetailHelpers.helpers';
 
 interface IShipmentDocumentsPrintCardProps {
   shipmentId: number;
@@ -57,7 +58,7 @@ export function ShipmentDocumentsPrintCard({
       {isPending ? (
         <Spin style={{ display: 'block', margin: '12px auto' }} />
       ) : packet ? (
-        <DocumentPacketPanel packet={packet} />
+        <DocumentPacketPanel packet={packet} onJumpTo={jumpToSection} />
       ) : (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('shipment_detail.parts.documents_no_firm')} />
       )}
