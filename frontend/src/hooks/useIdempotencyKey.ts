@@ -7,7 +7,7 @@ export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
  * HTTP at 10.10.11.25:8080, where it is undefined — without this fallback
  * idempotency would be silently dead on the one server where it gets tested.
  */
-function newKey(): string {
+export function newIdempotencyKey(): string {
   if (typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -31,11 +31,11 @@ export interface IIdempotencyKey {
  * the first one's response and never create its own record.
  */
 export function useIdempotencyKey(): IIdempotencyKey {
-  const ref = useRef<string>(newKey());
+  const ref = useRef<string>(newIdempotencyKey());
   return {
     key: ref.current,
     reset: (): void => {
-      ref.current = newKey();
+      ref.current = newIdempotencyKey();
     },
   };
 }

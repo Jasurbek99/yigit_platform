@@ -24,5 +24,7 @@ export function useDailyProgress(date?: string) {
     },
     enabled: USE_MOCK || isReady,
     staleTime: 30_000,
+    // Other people open trucks and fill export parts too; poll like the task list.
+    refetchInterval: 60_000,
   });
 }

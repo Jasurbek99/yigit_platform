@@ -1,9 +1,10 @@
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import api from '@/services/api';
 import { getShipmentDetailKey } from './useShipmentDetail';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
-import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
+import { IDEMPOTENCY_HEADER, newIdempotencyKey, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { MOCK_DRAFTS } from '@/mock/drafts';
 import { PRE_LOADING_STATUSES } from '@/components/sheet/joinHelpers';
 import type {
@@ -142,6 +143,8 @@ export function useCreateDraft() {
       idem.reset();
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
+      // A new truck moves the plan strips' «packed» count (spec 2026-10-01).
+      queryClient.invalidateQueries({ queryKey: ['daily-progress'] });
       // Creating a draft draws down the forecast pool — refresh "remaining".
       queryClient.invalidateQueries({
         predicate: (q) => q.queryKey[0] === 'harvest-forecast-remaining',
@@ -328,6 +331,15 @@ export function useCreateEmptyColumn() {
 
 // ─── useCreateExportPart ──────────────────────────────────────────────────
 
+interface IExportPartArgs {
+  country?: number | null;
+  isGapy?: boolean;
+}
+
+function exportPartRow({ country, isGapy }: IExportPartArgs): string {
+  return isGapy ? 'gapy' : `country:${country ?? ''}`;
+}
+
 /**
  * «+» on the /export/assign plan strip (spec 2026-10-01): an export part for
  * today carrying the plan row's country, or the Gapy flag. No `date` — the
@@ -335,20 +347,27 @@ export function useCreateEmptyColumn() {
  */
 export function useCreateExportPart() {
   const queryClient = useQueryClient();
-  const idem = useIdempotencyKey();
+  // One key PER ROW, not one for the strip: each «+» is a different create,
+  // and the server replays a recorded outcome for a reused key — a lost RU
+  // response must not come back as the Gapy row's answer. A retry of the same
+  // row keeps its key; a success frees it for the row's next part.
+  const keysByRow = useRef(new Map<string, string>());
 
   return useMutation({
-    mutationFn: async ({ country, isGapy }: { country?: number | null; isGapy?: boolean }): Promise<IShipmentDraft> => {
+    mutationFn: async ({ country, isGapy }: IExportPartArgs): Promise<IShipmentDraft> => {
+      const row = exportPartRow({ country, isGapy });
+      const key = keysByRow.current.get(row) ?? newIdempotencyKey();
+      keysByRow.current.set(row, key);
       const body: Record<string, unknown> = { is_draft: true };
       if (country != null) body.country = country;
       if (isGapy) body.is_gapy_satys = true;
       const { data } = await api.post<IShipmentDraft>('/export/shipments/', body, {
-        headers: { [IDEMPOTENCY_HEADER]: idem.key },
+        headers: { [IDEMPOTENCY_HEADER]: key },
       });
       return data;
     },
-    onSuccess: () => {
-      idem.reset();
+    onSuccess: (_data, vars) => {
+      keysByRow.current.delete(exportPartRow(vars));
       queryClient.invalidateQueries({ queryKey: ['drafts'] });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['daily-progress'] });
@@ -442,6 +461,7 @@ export function useJoinShipments() {
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
       queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.targetId) });
+      queryClient.invalidateQueries({ queryKey: ['daily-progress'] });
     },
   });
 }
@@ -454,6 +474,7 @@ function invalidatePackingQueries(
   queryClient.invalidateQueries({ queryKey: ['drafts'] });
   queryClient.invalidateQueries({ queryKey: ['shipments'] });
   queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+  queryClient.invalidateQueries({ queryKey: ['daily-progress'] });
   ids.forEach((id) => queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(id) }));
 }
 
