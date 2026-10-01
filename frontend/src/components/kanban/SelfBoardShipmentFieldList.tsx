@@ -2,16 +2,31 @@ import { Skeleton, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { SheetCellEditor } from '@/components/sheet/SheetCellEditor';
 import { getCellValue } from '@/components/sheet/getCellValue';
+import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
+import { fieldKeyToConfig } from '@/components/shipment/TaskCardEditor.helpers';
 import { useShipmentOptions } from '@/hooks/useAdmin';
 import { useSheetStore } from '@/stores/sheetStore';
-import type { IRowConfig, ISheetRowSettingForUser, IShipmentSheetItem } from '@/types';
+import type { IRowConfig, ISheetRowSettingForUser, IShipmentDetail, IShipmentSheetItem } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
 import { PackingTemplateField } from './PackingTemplateField';
 
 const { Text } = Typography;
 
+/**
+ * Task target fields with no Sheet row at all, edited on the card with the
+ * Detail page's autosaving row instead. An explicit list, not "any field
+ * without a row": `rows` also drops rows a user hid in their own Sheet, and
+ * those must stay read-only stubs here. Shelf life is the quality inspector's
+ * third reading (E2E 2026-10-01); transit days and temperature are NOT here —
+ * they are edited through the combined Sheet row `transit_days_temp`, and a
+ * second editor would show stale values (a Detail PATCH skips the sheet cache).
+ */
+const DETAIL_EDITED_TASK_FIELDS = new Set(['shelf_life_days']);
+
 interface ISelfBoardShipmentFieldListProps {
   shipmentId: number;
+  /** Needed only for DETAIL_EDITED_TASK_FIELDS; without it they render as stubs. */
+  shipment?: IShipmentDetail;
   sheetItem: IShipmentSheetItem | null;
   rows: IRowConfig[];
   rowSettings: Record<string, ISheetRowSettingForUser>;
@@ -50,6 +65,7 @@ interface ISelfBoardShipmentFieldListProps {
  */
 export function SelfBoardShipmentFieldList({
   shipmentId,
+  shipment,
   sheetItem,
   rows,
   rowSettings,
@@ -85,6 +101,11 @@ export function SelfBoardShipmentFieldList({
             return <PackingTemplateField key={fieldKey} shipmentId={shipmentId} disabled={disabled} />;
           }
           const row = rows.find((r) => r.field_key === fieldKey);
+
+          const detailConfig = DETAIL_EDITED_TASK_FIELDS.has(fieldKey) ? fieldKeyToConfig(fieldKey) : null;
+          if (row == null && shipment && detailConfig) {
+            return <DetailFieldRow key={fieldKey} shipment={shipment} config={detailConfig} readOnly={disabled} />;
+          }
 
           // Dotted paths (quality.*) and truly unknown keys — read-only stub.
           if (row == null) {

@@ -155,6 +155,7 @@ export function SelfBoardActiveTaskPanel({
         <div onClick={handleFirstEdit} onKeyDown={handleFirstEdit} role="presentation">
           <SelfBoardShipmentFieldList
             shipmentId={task.shipment ?? 0}
+            shipment={shipment}
             sheetItem={sheetItem}
             rows={rows}
             rowSettings={rowSettings}
