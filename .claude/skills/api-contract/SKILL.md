@@ -821,6 +821,26 @@ geofence). Frontend: `ILivePosition`/`ITruckPosition` both carry the two fields;
 `ShipmentTruckLocationBlock.tsx` (shared by the Detail card and the Sheet modal) and
 `FleetMap.tsx` render `geofence_name` as a purple Tag when present.
 
+### Truck's current shipment on the Fleet Map (2026-10-01)
+
+`GET /transport/live-positions/` only (`FleetLivePositionSerializer`; the shipment position
+endpoint keeps the plain shape) — each row adds `shipment`, the load that truck is on now:
+
+```jsonc
+"shipment": {
+  "id": 812, "code": "3009001/26",            // code = DB shipment_code
+  "export_code": "30|09|001|A|26|01",         // null until typed
+  "status_code": "yola_chykdy",
+  "country_code": "KZ", "country_name": "Kazakhstan",   // country.name_en, both null on a plan
+  "import_firm_name": "Buyer",                 // name_short, else name_company
+  "export_firms_display": "Ak Bulut, Gök"      // firm splits, comma-joined, null if none
+}
+```
+
+`null` when the truck has none. Picked from shipments dated in the last 30 days, not
+complete or cancelled; a loaded one beats a `draft` plan, else newest `date` wins. Names
+match `ShipmentListSerializer`. Frontend: `ILiveShipment` in `useLivePositions.ts`.
+
 ### Planning tasks: review, transport plan, acknowledge (2026-09-29)
 
 Backs the «Tanyşdym» planning tasks (`docs/Tasks.md` items 2b and 3). Spec:

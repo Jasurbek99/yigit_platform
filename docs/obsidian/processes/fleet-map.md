@@ -503,6 +503,38 @@ is available in the same field on each row (devices Traccar stopped reporting ke
 old `updated_at`, so the spread across rows is wide: as of 2026-09-03 the live DB held
 rows last written 2026-08-10 alongside rows written seconds ago).
 
+### Truck's current shipment (2026-10-01)
+
+Each `live-positions/` row carries `shipment` — the load that truck is on now, or `null`.
+The popup shows system code, export code, country, export firms, import firm and the
+status, plus an «Открыть отгрузку» link to `/shipments/:id`. The link is hidden for a role
+that sees the map but not `export.shipments` (today only `greenhouse_manager`); the codes
+and firm names still show for that role. The sidebar row adds `code → country`, a
+«Только с отгрузкой» checkbox filters to loaded trucks, and the search box also matches
+the system and export codes.
+
+Picked by `current_shipment_by_device()` in `services/matching.py`:
+
+- candidates: shipments dated within `CURRENT_LOAD_DAYS` (30) and not in phase
+  `COMPLETE`/`CANCELLED`, each resolved to a device with the same rules as the
+  Shipment↔Truck resolver below (batch form, `resolve_devices_for_shipments`);
+- a loaded shipment (any status past «Подготовка») beats a plan; a plan shows only on a
+  truck with no load; otherwise the newest by `date` wins.
+
+The 30-day window is the owner's pick: statuses are advanced by hand and many stall. On
+2026-10-01, 30 of the 31 open shipments that resolved to a device were June rows still
+in «Yola çykdy» while their trucks sat in Garaž — without the window those trucks
+would show a four-month-old load. A stalled shipment inside the window still shows.
+
+Known gap: the resolver reads `truck_head_id` / `truck_plate` only, so a second head
+swapped in mid-route (`truck_head_2_id`, transshipment) does not show the load.
+
+`FleetLivePositionSerializer` (a subclass) adds the field; the base
+`LivePositionSerializer` stays as it was because the shipment position endpoint and the
+geofence grouping also use it. The view builds the map once per request
+(`get_serializer_context`); the resolver runs a fixed number of queries however many
+shipments there are (test: `test_query_count_does_not_grow_with_the_number_of_shipments`).
+
 ## Shipment ↔ Truck link
 
 Links a `Shipment` to the `TraccarDevice` carrying its GPS, so `ShipmentDetail` can show
@@ -527,7 +559,10 @@ resolver on every read.
 ### Resolver: `resolve_device_for_shipment(shipment)`
 
 `backend/apps/transport/services/matching.py` — `resolve_device_for_shipment(shipment) ->
-(device: TraccarDevice | None, resolved_by: 'manual' | 'auto' | 'none')`. Order:
+(device: TraccarDevice | None, resolved_by: 'manual' | 'auto' | 'none')`. Since 2026-10-01
+it is a one-item call of the batch form `resolve_devices_for_shipments(shipments) ->
+{shipment.pk: (device, resolved_by)}`, which the Fleet Map uses; one implementation, so
+the two cannot drift. Order:
 
 1. **Manual** — a `ShipmentDeviceLink` row for the shipment, if one exists.
 2. **Explicit truck-head** — if `Shipment.truck_head_id` is set, return that `TruckHead`'s
@@ -877,7 +912,7 @@ is edited). Full shapes: [[../reference/api-endpoint-map|API endpoint map]].
 | Migrations | [`backend/apps/transport/migrations/0001_initial.py`](../../../backend/apps/transport/migrations/0001_initial.py), [`0002_shipmentdevicelink.py`](../../../backend/apps/transport/migrations/0002_shipmentdevicelink.py) |
 | Traccar client | [`backend/apps/transport/services/traccar_client.py`](../../../backend/apps/transport/services/traccar_client.py) |
 | Sync service | [`backend/apps/transport/services/sync.py`](../../../backend/apps/transport/services/sync.py) |
-| Shipment↔device resolver | [`backend/apps/transport/services/matching.py`](../../../backend/apps/transport/services/matching.py) — `resolve_device_for_shipment` |
+| Shipment↔device resolver | [`backend/apps/transport/services/matching.py`](../../../backend/apps/transport/services/matching.py) — `resolve_device_for_shipment`, batch `resolve_devices_for_shipments`, Fleet Map `current_shipment_by_device` |
 | Permissions | [`backend/apps/transport/permissions.py`](../../../backend/apps/transport/permissions.py) — `CanViewFleetMap` (`transport.map`), `CanEditFleet` (`fleet` resource), `CanEditShipment` (device-link override only) |
 | Seed command | [`backend/apps/transport/management/commands/seed_traccar_devices.py`](../../../backend/apps/transport/management/commands/seed_traccar_devices.py) |
 | Poll command (manual one-shot) | [`backend/apps/transport/management/commands/poll_traccar_positions.py`](../../../backend/apps/transport/management/commands/poll_traccar_positions.py) |
