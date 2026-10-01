@@ -2415,7 +2415,15 @@
     "resolved_manual": "manual",
     "sheet_open_map": "Show truck on map",
     "current_geofence": "Current Location",
-    "sheet_set_truck": "Set the truck first — fill the Truck / Trailer Plate row."
+    "sheet_set_truck": "Set the truck first — fill the Truck / Trailer Plate row.",
+    "only_with_shipment": "With shipment only",
+    "shipment": "Shipment",
+    "system_code": "System code",
+    "export_code": "Export code",
+    "country": "Country",
+    "export_firms": "Export firms",
+    "import_firm": "Import firm",
+    "open_shipment": "Open shipment"
   },
   "pallet": {
     "title": "Pallet manifest",

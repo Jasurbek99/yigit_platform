@@ -6,6 +6,7 @@ import React from 'react';
 import i18n from '@/i18n';
 import FleetMap from './FleetMap';
 import { useLivePositions } from '@/hooks/useLivePositions';
+import { useAuth } from '@/hooks/useAuth';
 
 // react-leaflet needs real DOM measurements (getBoundingClientRect etc.) that
 // happy-dom doesn't implement — mock the map primitives so this stays a
@@ -51,6 +52,17 @@ vi.mock('@/hooks/useLivePositions', () => ({
   useLivePositions: vi.fn(),
 }));
 
+vi.mock('@/hooks/useAuth', () => ({ useAuth: vi.fn() }));
+
+function signInWith(pagePermissions: Record<string, boolean>) {
+  vi.mocked(useAuth).mockReturnValue({
+    user: { is_superuser: false, page_permissions: pagePermissions },
+    isLoading: false,
+    isError: false,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
+}
+
 function renderFleetMap() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -76,6 +88,18 @@ const basePosition = {
   updated_at: '2026-07-30T05:30:00Z',
   is_online: true,
   is_stale: false,
+  shipment: null,
+};
+
+const loadedShipment = {
+  id: 812,
+  code: '3009001/26',
+  export_code: '30|09|001|A|26|01',
+  status_code: 'yola_chykdy',
+  country_code: 'KZ',
+  country_name: 'Kazakhstan',
+  import_firm_name: 'Buyer',
+  export_firms_display: 'Ak Bulut',
 };
 
 describe('FleetMap', () => {
@@ -85,6 +109,7 @@ describe('FleetMap', () => {
 
   beforeEach(() => {
     leaflet.flyTo.mockClear();
+    signInWith({ 'transport.map': true, 'export.shipments': true });
   });
 
   it('mounts without throwing and renders one truck pin from useLivePositions', () => {
@@ -243,6 +268,67 @@ describe('FleetMap', () => {
     renderFleetMap();
 
     expect(screen.queryByText(/Current Location/)).toBeNull();
+  });
+
+  it('shows the truck shipment in the popup with a link to open it', () => {
+    vi.mocked(useLivePositions).mockReturnValue({
+      data: [{ ...basePosition, shipment: loadedShipment }],
+      isLoading: false,
+      isError: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderFleetMap();
+
+    expect(screen.getByText('System code: 3009001/26')).toBeInTheDocument();
+    expect(screen.getByText('Export code: 30|09|001|A|26|01')).toBeInTheDocument();
+    expect(screen.getByText('Country: Kazakhstan')).toBeInTheDocument();
+    expect(screen.getByText('Export firms: Ak Bulut')).toBeInTheDocument();
+    expect(screen.getByText('Import firm: Buyer')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open shipment' })).toHaveAttribute('href', '/shipments/812');
+    // Sidebar row names the load too, so it can be found without opening pins.
+    expect(screen.getByText('3009001/26 → Kazakhstan')).toBeInTheDocument();
+  });
+
+  it('hides the open link from a role that cannot see shipment pages', () => {
+    signInWith({ 'transport.map': true });
+    vi.mocked(useLivePositions).mockReturnValue({
+      data: [{ ...basePosition, shipment: loadedShipment }],
+      isLoading: false,
+      isError: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderFleetMap();
+
+    expect(screen.getByText('System code: 3009001/26')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open shipment' })).toBeNull();
+  });
+
+  it('filters to trucks with a shipment and finds a truck by shipment code', () => {
+    vi.mocked(useLivePositions).mockReturnValue({
+      data: [
+        { ...basePosition, device_id: 1, plate: 'AAA111', shipment: loadedShipment },
+        { ...basePosition, device_id: 2, plate: 'BBB222' },
+      ],
+      isLoading: false,
+      isError: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    renderFleetMap();
+    expect(screen.getAllByTestId('truck-pin')).toHaveLength(2);
+
+    fireEvent.click(screen.getByLabelText('With shipment only'));
+    expect(screen.getAllByTestId('truck-pin')).toHaveLength(1);
+    expect(screen.queryByText('BBB222')).toBeNull();
+
+    fireEvent.click(screen.getByLabelText('With shipment only'));
+    fireEvent.change(screen.getByPlaceholderText('Search plate / fleet / place'), {
+      target: { value: '3009001' },
+    });
+    expect(screen.getAllByTestId('truck-pin')).toHaveLength(1);
+    expect(screen.getAllByText('AAA111').length).toBeGreaterThan(0);
   });
 
   it('shows the load-error alert when the query fails', () => {

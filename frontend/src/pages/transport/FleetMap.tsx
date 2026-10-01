@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { Input, List, Badge, Spin, Alert, Tag, Typography } from 'antd';
+import { Input, List, Badge, Spin, Alert, Tag, Typography, Checkbox } from 'antd';
 import { useTranslation } from 'react-i18next';
 import dayjs, { type Dayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import 'leaflet/dist/leaflet.css';
-import { useLivePositions, type ILivePosition } from '@/hooks/useLivePositions';
+import { useLivePositions, type ILivePosition, type ILiveShipment } from '@/hooks/useLivePositions';
+import { useAuth } from '@/hooks/useAuth';
+import { canSeePage } from '@/utils/permissions';
 import { pinIcon, truckState, STATE_COLOR } from '@/utils/truckPin';
 
 const TILE_URL =
@@ -44,10 +47,40 @@ function FlyToSelected({ target }: { target: ILivePosition | null }) {
   return null;
 }
 
+/** The truck's current load inside its popup. `canOpen` is false for roles
+ *  that see the map but not the shipment pages (greenhouse_manager). */
+function ShipmentInfo({ shipment, canOpen }: { shipment: ILiveShipment; canOpen: boolean }) {
+  const { t } = useTranslation();
+  const rows: [string, string | null][] = [
+    [t('fleet_map.system_code'), shipment.code],
+    [t('fleet_map.export_code'), shipment.export_code],
+    [t('fleet_map.country'), shipment.country_name],
+    [t('fleet_map.export_firms'), shipment.export_firms_display],
+    [t('fleet_map.import_firm'), shipment.import_firm_name],
+  ];
+  return (
+    <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #f0f0f0' }}>
+      <strong>{t('fleet_map.shipment')}</strong>{' '}
+      <Tag style={{ marginLeft: 4 }}>
+        {t(`shipment_status.${shipment.status_code}`, { defaultValue: shipment.status_code })}
+      </Tag>
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          {label}: {value ?? '—'}
+        </div>
+      ))}
+      {canOpen && <Link to={`/shipments/${shipment.id}`}>{t('fleet_map.open_shipment')}</Link>}
+    </div>
+  );
+}
+
 export default function FleetMap() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canOpenShipment = canSeePage(user, 'export.shipments');
   const { data, isLoading, isError } = useLivePositions();
   const [search, setSearch] = useState('');
+  const [onlyWithShipment, setOnlyWithShipment] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   // Newest write across ALL rows, not the filtered `rows` — the stamp describes
@@ -66,16 +99,18 @@ export default function FleetMap() {
   }, [data]);
 
   const rows = useMemo(() => {
-    const items = data ?? [];
+    const items = onlyWithShipment ? (data ?? []).filter((p) => p.shipment) : (data ?? []);
     if (!search.trim()) return items;
     const q = search.toLowerCase();
     return items.filter(
       (p) =>
         (p.plate ?? '').toLowerCase().includes(q) ||
         (p.fleet_no ?? '').toLowerCase().includes(q) ||
-        (p.address ?? '').toLowerCase().includes(q),
+        (p.address ?? '').toLowerCase().includes(q) ||
+        (p.shipment?.code ?? '').toLowerCase().includes(q) ||
+        (p.shipment?.export_code ?? '').toLowerCase().includes(q),
     );
-  }, [data, search]);
+  }, [data, search, onlyWithShipment]);
 
   // Resolved against the unfiltered `data`: typing in the search box must not
   // drop the selection out from under the map.
@@ -100,6 +135,13 @@ export default function FleetMap() {
           onChange={(e) => setSearch(e.target.value)}
           style={{ marginBottom: 8 }}
         />
+        <Checkbox
+          checked={onlyWithShipment}
+          onChange={(e) => setOnlyWithShipment(e.target.checked)}
+          style={{ marginBottom: 8 }}
+        >
+          {t('fleet_map.only_with_shipment')}
+        </Checkbox>
         <List
           size="small"
           dataSource={rows}
@@ -126,6 +168,12 @@ export default function FleetMap() {
                     </Tag>
                   )}
                 </div>
+                {p.shipment && (
+                  <Typography.Text style={{ fontSize: 12 }}>
+                    {p.shipment.code}
+                    {p.shipment.country_name ? ` → ${p.shipment.country_name}` : ''}
+                  </Typography.Text>
+                )}
               </div>
             </List.Item>
           )}
@@ -162,6 +210,7 @@ export default function FleetMap() {
                 <br />
                 {t('fleet_map.last_fix')}:{' '}
                 {p.fix_time ? dayjs(p.fix_time).tz(TM_TZ).format(STAMP_FORMAT) : '—'}
+                {p.shipment && <ShipmentInfo shipment={p.shipment} canOpen={canOpenShipment} />}
               </Popup>
             </Marker>
           ))}

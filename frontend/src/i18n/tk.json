@@ -2419,7 +2419,15 @@
     "resolved_manual": "el bilen",
     "sheet_open_map": "Maşyny kartada görkez",
     "current_geofence": "Ýerleşýän ýeri",
-    "sheet_set_truck": "Ilki maşyny belläň — «Maşyn / Tyr belgisi» setirini dolduryň."
+    "sheet_set_truck": "Ilki maşyny belläň — «Maşyn / Tyr belgisi» setirini dolduryň.",
+    "only_with_shipment": "Diňe ýükli",
+    "shipment": "Ýük",
+    "system_code": "Ulgam kody",
+    "export_code": "Eksport kody",
+    "country": "Ýurt",
+    "export_firms": "Eksport firmalar",
+    "import_firm": "Import firma",
+    "open_shipment": "Ýügi aç"
   },
   "pallet": {
     "title": "Palet manifest",

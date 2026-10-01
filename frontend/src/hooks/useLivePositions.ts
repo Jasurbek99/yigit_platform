@@ -1,6 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/services/api';
 
+/** The shipment a truck carries now: open, dated in the last 30 days; a
+ *  «Подготовка» plan only when the truck has no loaded shipment. */
+export interface ILiveShipment {
+  id: number;
+  code: string;
+  export_code: string | null;
+  status_code: string;
+  country_code: string | null;
+  country_name: string | null;
+  import_firm_name: string | null;
+  export_firms_display: string | null;
+}
+
 export interface ILivePosition {
   device_id: number;
   plate: string | null;
@@ -22,6 +35,7 @@ export interface ILivePosition {
   /** When our poller first saw the truck in `geofence_name` (not Traccar's
    *  enter event) — understates dwell right after a deploy. Null with `geofence_name`. */
   geofence_since: string | null;
+  shipment: ILiveShipment | null;
 }
 
 export function useLivePositions() {
