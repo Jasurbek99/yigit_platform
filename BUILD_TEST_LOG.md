@@ -1,8 +1,8 @@
 - [ ] 2026-10-01 — Сводка по плану и задача «Maşyn paýlanyşyny dolduryň» приходят сразу, как план на следующую неделю заполнен на 100% (не ждут субботы 09:00). **Как проверить (тест 2 октября, пятница):** (1) менеджеры теплиц заполняют план на W41 (Пн–Сб по всем своим блокам) на экране «Hepdelik plan»; (2) как только последняя клетка сохранена — у export_manager, boss и director в колокольчике появляется «Indiki hepdäniň hasyl plany dolduryldy: W41/2026: 100% · …» (обновление в пределах минуты, раньше — если открыть «Мои задачи»); (3) у export_manager в «Мои задачи» появляется карточка «Maşyn paýlanyşyny dolduryň» со сроком субботы; (4) клик по карточке открывает план на W41; (5) заполнить машины по дням в таблице «Maşyn paýlanyşy» → карточка закрывается сама; (6) обновить страницу несколько раз — второго уведомления и второй задачи не появляется; (7) если план НЕ дозаполнили — в субботу 09:00 сводка приходит с процентами, как раньше. **Деплой:** `update.sh` + пересборка `celery-worker celery-beat`. Тесты: `tests_truck_allocation_tasks` 32/32, `tests_plan_ack_tasks` + `tests_weekly_plan_tasks` зелёные, 205 тестов по всем наборам, читающим `/me/tasks/` (кроме 2 известных падений в `tests_season_scoping`). — NEEDS TEST
 
-- [ ] 2026-10-01 — Pomidor Dükany shows in the sidebar for roles with export.pomidor_dukany ticked (was superuser-only) — NEEDS TEST
-- [ ] 2026-10-01 — Staff Page Access can grant Firms, Import firms, Customers, Blocks, Truck destinations, Users (admin sees all 6; loading head only Blocks + Users, the two the head sees) — NEEDS TEST
-- [ ] 2026-10-01 — Staff page access (/admin/staff-access): role-first layout — roles on the left, grouped page checkboxes + search on the right, Save in the header with unsaved counter — NEEDS TEST
+- [x] 2026-10-01 — Pomidor Dükany shows in the sidebar for roles with export.pomidor_dukany ticked (was superuser-only) — TESTED
+- [x] 2026-10-01 — Staff Page Access can grant Firms, Import firms, Customers, Blocks, Truck destinations, Users (admin sees all 6; loading head only Blocks + Users, the two the head sees) — TESTED
+- [x] 2026-10-01 — Staff page access (/admin/staff-access): role-first layout — roles on the left, grouped page checkboxes + search on the right, Save in the header with unsaved counter — TESTED
   To test: (1) as admin open «Доступ сотрудников к страницам» → no horizontal scroll, roles listed left with Russian names; (2) pick a role, search «quota» → only matching pages; (3) tick a page on role A, switch to role B, tick another → counter shows 2 → Save → toast, counter resets, both changes persisted after reload; (4) as loading_dept_head → only Зам. загрузки + Упаковщик, only his own pages.
 - [ ] 2026-10-01 — Full-cycle E2E fixes: shipment code/date by Ashgabat day (not UTC); task card «N of M» refreshes after the packing template; «Awans ber» links to Advances; quality card labels (role + transit/temp/shelf life); status fields show labels not codes; «approve report» waits for the report and approves on the card — NEEDS TEST
   To test: (1) after local midnight create a shipment → code starts with today's DDMM; (2) «Brutto/netto» card: pick template → «1 из 1»; (3) finansist «Выдайте аванс» card → «Авансы» link; (4) quality inspector card shows «Инспектор качества», «Дней в пути»…; (5) any card: «Статус сбора» shows Taýýar/…, not «ok»; (6) truck at «Продано» without report → no approve card; rep saves report → export manager gets the card with «Утвердить отчёт». Deploy needs `seed_task_rules`.
@@ -42,19 +42,19 @@
 - [ ] 2026-09-30 — PREP+DOCS task chain (Tasks.md 5b–22): «after N» tasks, `confirm` buttons with own labels, print tasks close on download, contract task closes when agreements downloaded, Awans ber on advance link, join_supply links to Assignment board — NEEDS TEST
 - [ ] 2026-09-29 — Truck Board + Planning trips integration (poll, assign, change/rollback, pushes, read-only transport cells), branch feat/transport-trips — NEEDS TEST
 - [x] 2026-09-30 — Login keeps the page you were opening (`/login?next=`): a pallet QR scanned while logged out opens the scan page after login, no second scan — TESTED
-- [ ] 2026-09-30 — Gate «Gelmeli» window 7 → 30 days (1709001/26 now listed for the Dusak guard) — NEEDS TEST
+- [x] 2026-09-30 — Gate «Gelmeli» window 7 → 30 days (1709001/26 now listed for the Dusak guard) — NEEDS TEST
 - [x] 2026-09-30 — Gaplama: Tır Aç/Üýtget now auto-scrolls to the form instead of leaving it below the fold — TESTED
-- [ ] 2026-09-29 — Garawul gate guard: `/export/gate` screen (Gelmeli/Ýyladyşhanada tabs, plate search), arrive/depart/undo (10 min, before status move), gate tasks on My Tasks + guard-scoped "done today" KPI tile, Sheet row 49 «Ýyladyşhana geldi» — NEEDS TEST
+- [x] 2026-09-29 — Garawul gate guard: `/export/gate` screen (Gelmeli/Ýyladyşhanada tabs, plate search), arrive/depart/undo (10 min, before status move), gate tasks on My Tasks + guard-scoped "done today" KPI tile, Sheet row 49 «Ýyladyşhana geldi» — NEEDS TEST
 - [ ] 2026-09-29 — «Peregruz barmy?» question at dest_entry (has_peregruz tri-state, Sheet R33 Bolmady/Boldy) + sales report approval at satyldy (button «Hasabaty tassykla», shipment closes only after approval) — NEEDS TEST
 - [ ] 2026-09-29 — Planning tasks (Tasks.md 1–5a): Friday weekly plan task (red from Sat), Saturday allocation deadline, «Tanyşdym» review banner on /export/plan + new /transport/plan page, daily Ýük planla / Eksport planla + «missed» next morning — NEEDS TEST
-- [ ] 2026-09-29 — Sheet: Swap = packing only, Join until loading — NEEDS TEST
+- [x] 2026-09-29 — Sheet: Swap = packing only, Join until loading — NEEDS TEST
 - [ ] 2026-09-29 — Assignment board: join / detach / swap packing, mock demand removed — NEEDS TEST
 - [ ] 2026-09-29 — Backend: late join, /unjoin/, /swap-packaging/ (old /swap/ removed), loading dept roles + board list — NEEDS TEST
 - [ ] 2026-09-29 — Loading needs packing; documents may start before it (barrier moved) — NEEDS TEST
 - [x] 2026-09-29 — Packing parts (Gaplama/supply trucks, drafts with no destination) get no tasks; tasks appear once a destination is set; `cancel_packing_part_tasks` cancels the 196 old ones (ran on dev DB: 196 on 39 trucks; run once on beta after deploy); My Tasks hides packing parts in every column — TESTED
 - [x] 2026-09-29 — Export code is now one plain text field (Draft composer, Supply draft modal, Gaplama truck form); old 5-box editor commented out; Gaplama form adds 12px space above and below it — TESTED
 - [x] 2026-09-29 — Gaplama truck form: harvest status + variety dropdowns share one row (half each) so full variety names show — TESTED
-- [ ] 2026-09-29 — Sidebar: Draft Shipment (`/export/drafts`) and Assignment Board (`/export/assign`) restored to the staff Export group and the boss Prep group — NEEDS TEST
+- [x] 2026-09-29 — Sidebar: Draft Shipment (`/export/drafts`) and Assignment Board (`/export/assign`) restored to the staff Export group and the boss Prep group — NEEDS TEST
 - [x] 2026-09-29 — Pallet QR: phone scan page with confirmation, duplicate scan refused, QR address settable in admin — TESTED
   To test: (1) Settings -> Shipment Settings -> **Pallet QR**: set the base address, check the
   preview line shows it, Save; (2) open a shipment that has an
@@ -71,11 +71,11 @@
 
 - [ ] 2026-09-27 — Pallet QR scan endpoint: `GET|POST /api/v1/export/shipments/{id}/scan/` — NEEDS TEST
   To test (API, no page yet): on a test shipment in «yola_chykdy», log in as transport → GET shows `field: border_crossed_at`; POST `{"field":"border_crossed_at"}` → status becomes serhet_gechdi; POST again → `recorded:false`, nothing changes. Check a sales_rep can record dest_entry_at / customs_entry_at / arrived_at (depends on the Sheet field grants on the live DB).
-- [ ] 2026-09-27 — Pallet QR label PDF: `GET /api/v1/export/shipments/{id}/label/` (A5, QR + export code) — NEEDS TEST
+- [x] 2026-09-27 — Pallet QR label PDF: `GET /api/v1/export/shipments/{id}/label/` (A5, QR + export code) — NEEDS TEST
   To test: open the URL for a shipment that has an export code → A5 PDF downloads; print on the office printer; scan with a phone camera → opens `<site>/scan/{id}` (page itself not built yet, 404 in SPA is expected). Shipment without export code → 400.
 - [ ] 2026-09-26 — Board phases: `dest_entry` / `transshipment` now in TRANSIT, `cancelled` explicitly CLOSE (were falling into CLOSE by default) — NEEDS TEST
   To test: move a test shipment to «Въезд в страну назначения» (or «Перегрузка») → on the Shipment board / SelfBoard it sits in the TRANSIT column, not CLOSE; dashboard active-shipments tag shows TRANSIT. Live DB has 0 shipments in those two statuses today, so use a test shipment.
-- [ ] 2026-09-26 — Sidebar «Gaplama» page (/export/gaplama) restyled to the platform look: white panel, antd blue, white header; the Gaplama tab inside Tır Takip stays green — NEEDS TEST
+- [x] 2026-09-26 — Sidebar «Gaplama» page (/export/gaplama) restyled to the platform look: white panel, antd blue, white header; the Gaplama tab inside Tır Takip stays green — NEEDS TEST
   To test (as a role that can open both): (1) sidebar → Gaplama: header bar is white (not green), page is a white panel on the grey content area, totals/chips blue, "full" cells green, "over" cells red; (2) open the Gaplama truck form (+ Tır Aç) — still readable, overdraw notice red; (3) /tir-takip → Gaplama tab: still the green Sera look, green header, unchanged. Not checked in a browser — the test account got /unauthorized on both routes.
 - [ ] 2026-09-26 — Turkmen part names: «Üpjünçilik bölegi» / «Eksport bölegi» (tk only) — NEEDS TEST
   To test (interface in Turkmen, after deploy): (1) Sheet: the green-column legend reads
@@ -83,7 +83,7 @@
   tooltip says «Täze eksport bölegini döret»; (3) Shipments list: tick two → «Bölekleri
   birleşdir»; (4) a destination's Detail page: «Üpjünçilik bölegini birleşdir»; (5) switch to
   Russian/English — still «План поставки», «Объединить планы» / "Supply plan", "Join plans".
-- [ ] 2026-09-24 — «Черновик / Draft / Garalama» renamed to «Подготовка / Preparation / Taýýarlyk» (labels only) — NEEDS TEST
+- [x] 2026-09-24 — «Черновик / Draft / Garalama» renamed to «Подготовка / Preparation / Taýýarlyk» (labels only) — NEEDS TEST
   To test (after `migrate core` applies 0064 and the build is deployed): (1) open a shipment
   that is in the old Draft status — the Detail header tag reads **Preparation**, the list/Sheet
   status reads «Подготовка» (ru) / «Taýýarlyk» (tk); (2) board: the card sits in the
@@ -306,7 +306,7 @@
   repeat by clicking "Üýtget" on a second truck without submitting the first edit — the form must
   reset to the second truck's own values each time, never carrying over the previous truck's
   in-progress edit.
-- [ ] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — NEEDS TEST
+- [x] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — TESTED
 - [x] 2026-09-23 — Draft task for transport: fill "Serhet nokady" (border point) before documents — TESTED
   To test: (1) create a NEW normal (non-gapy) draft — transport's **My tasks** shows "Serhet nokadyny belle";
   (2) pick a border point on the card or in Sheet row 29 — the task auto-completes;
@@ -367,14 +367,14 @@
 
 - [x] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
 # Build / Test Log
-- [ ] 2026-09-22 — document_team's My tasks board scoped to its own tasks only (no longer sees every role's) — NEEDS TEST
+- [x] 2026-09-22 — document_team's My tasks board scoped to its own tasks only (no longer sees every role's) — NEEDS TEST
   To test: (1) log in as a document_team user, open My tasks (`/me/board`): only document_team-assigned
   tasks appear, no role filter dropdown; (2) log in as export_manager: role filter dropdown still
   present, still shows every role's tasks when no role is selected; (3) `python manage.py test
   apps.export.tests_task_api` — 59/59 pass (ran locally, includes 3 new document_team-specific cases).
 
 - [ ] 2026-09-22 — Trial merge of Copy_Gadams_UI into main (write-cell 202 approval fix, core/0053 merge migration, WeeklyPlanGrid + HarvestCell reconciliation) — NEEDS TEST
-- [ ] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
+- [x] 2026-09-22 — Sheet R15 cell shows the truck's GPS location inline, next to the operator's own text — NEEDS TEST
   To test: (1) open the Sheet, find a shipment whose truck plate matches a currently-positioned
   device: the R15 "Vehicle Current Position" cell shows "<operator text> · <GPS address>" (or just
   the address if the cell was empty), truncated with the rest of the cell; (2) a matched truck whose
