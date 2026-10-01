@@ -9,6 +9,7 @@ All notable changes to the YGT Platform.
 - **Truck Planning page (feat(frontend)).** `/transport/plan` renamed «Truck Planning» (ru «Планирование машин», tk «Maşyn planlamasy»); opens on the current week instead of next week (task links keep their `?week=&year=`), subtitle «Week N · year · Mon–Sat dates», `<` / `>` step one week.
 
 ### Fixed
+- **Quality inspector task, found in the live E2E (fix(p3), fix(frontend), feat(frontend)).** Reaching `yuklenme` now sends `quality_inspector` an `action_required` bell entry too (`STATUS_NOTIFY_ROLES`), not only the My Tasks badge. The task card's progress no longer counts a `quality.*` flag without a scan as filled (it read "7 of 7" after the first upload). The Detail «Quality Certificates» card badge counts the scans still owed instead of a hard-coded "complete". Shelf life is editable on the task card (Detail autosave row; it has no Sheet row). **Deploy:** `update.sh` on beta; no migration.
 - **Document readiness notice no longer sends everyone to the Sheet (fix(frontend), feat(p3)).** A regular truck's missing driver / plate now read «link a Planning trip» (they come from the trip); gapy keeps them as Sheet fields. On the shipment page the notice says «fill on this page» and each item scrolls to its row. Same wording on the Documents page and the task-card print buttons. `document-packets` gains `is_gapy_satys`.
 
 ### Added

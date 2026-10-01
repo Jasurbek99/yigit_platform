@@ -110,10 +110,29 @@ closes it themselves, and it can never hold a truck at `yuklenme`. See
 [[task-rules]] for why that matters — the 2026-06 version of this rule gated
 departures and had to be disabled.
 
+**Notification.** `STATUS_NOTIFY_ROLES['yuklenme']` includes `quality_inspector`
+(2026-10-01), so the inspector gets an `action_required` bell entry linking to
+the shipment the moment it enters loading — not only the My Tasks badge.
+Loading is short; without the ping the truck could leave before the inspector
+saw the task.
+
+**Task card (My Tasks drawer).**
+- Shelf life (`shelf_life_days`) has no Sheet row, so the card edits it with the
+  Detail page's autosaving row (`DETAIL_EDITED_TASK_FIELDS` in
+  `SelfBoardShipmentFieldList.tsx`).
+- Transit days and temperature are edited in the card's «Shipment fields» block
+  through the combined Sheet row `transit_days_temp` (`"5 4"`); their own rows in
+  the task list stay read-only stubs.
+- The progress counter counts a `quality.*` flag as filled only when it is
+  `true` (a scan exists). Before 2026-10-01 a `false` flag counted, so the first
+  upload jumped the card to "7 of 7".
+- The ShipmentDetail «Quality Certificates» card badge counts the `quality.*`
+  keys in `completeness.missing_fields` (it was hard-coded to "complete").
+
 ## Key Workflows
 
-1. **Take the task**: My Tasks → "Hil barlagy" → fill transit days / temperature
-   / shelf life inline on the card
+1. **Take the task**: My Tasks → "Hil barlagy" → shelf life inline in the task
+   list, transit days / temperature in «Shipment fields» → "Transit Days & Temp"
 2. **Upload certificates**: ShipmentDetail → quality certificates → one upload
    slot per document (the `quality.*` rows on the task card stay read-only —
    dotted paths — so the scans are attached here, not on the card)
