@@ -3,6 +3,9 @@ import { Flex } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ShipmentStageCard } from '@/components/shipment/ShipmentStageCard';
 import { ShipmentFieldGroup, countMissing } from '@/components/shipment/ShipmentFieldGroup';
+import { DetailExtraFieldRows } from '@/components/shipment/DetailExtraFieldRows';
+import { ShipmentCustomFieldRows } from '@/components/shipment/ShipmentCustomFieldRows';
+import { DETAIL_EXTRA_FIELDS } from '@/constants/shipmentEditConfig';
 import { ShipmentDestinationBody } from '@/components/shipment/ShipmentDestinationBody';
 import { ShipmentTransportBody } from '@/components/shipment/ShipmentTransportBody';
 import { ShipmentQualityBody } from '@/components/shipment/ShipmentQualityBody';
@@ -95,6 +98,8 @@ export function ShipmentDetailStageCards({
       isFutureStage={false}
     >
       <ShipmentFieldGroup {...groupProps} groupKey="notes" />
+      <DetailExtraFieldRows {...groupProps} fields={DETAIL_EXTRA_FIELDS.notes} />
+      <ShipmentCustomFieldRows shipment={shipment} readOnly={readOnly} />
     </ShipmentStageCard>,
 
     <ShipmentStageCard
