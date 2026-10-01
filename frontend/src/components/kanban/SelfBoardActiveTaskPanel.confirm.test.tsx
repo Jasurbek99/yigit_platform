@@ -16,6 +16,14 @@ vi.mock('@/hooks/useTaskActions', () => ({
   useCompleteTask: vi.fn(),
 }));
 
+const approve = vi.fn();
+vi.mock('@/hooks/useSalesReport', () => ({
+  useApproveSalesReport: () => ({ mutate: approve, isPending: false }),
+}));
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({ user: { role: 'export_manager', is_superuser: false } }),
+}));
+
 const complete = vi.fn();
 
 function docsTask(overrides: Partial<ITaskListItem> = {}): ITaskListItem {
@@ -65,8 +73,19 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
 
   it('the new target fields have a label in every language', () => {
     for (const lng of ['en', 'ru', 'tk']) {
-      for (const key of ['trip_id', 'truck_head_id', 'packing_template', 'advance_links', 'has_current_advance', 'customs_exit_at', 'loading_ended_at', 'sales_report', 'customs_entry_at']) {
+      for (const key of ['trip_id', 'truck_head_id', 'packing_template', 'advance_links', 'has_current_advance', 'customs_exit_at', 'loading_ended_at', 'sales_report', 'customs_entry_at',
+        // «Quality inspection» targets — the card showed the raw keys (E2E 2026-10-01)
+        'transit_days', 'transport_temp_c', 'shelf_life_days']) {
         expect(i18n.getFixedT(lng)(`tasks.field_label.${key}`, { defaultValue: '' })).not.toBe('');
+      }
+    }
+  });
+
+  it('every role has a task-card owner label in every language (E2E 2026-10-01)', () => {
+    const roles = Object.keys(i18n.getResourceBundle('en', 'translation').roles as Record<string, string>);
+    for (const lng of ['en', 'ru', 'tk']) {
+      for (const role of roles) {
+        expect(i18n.getFixedT(lng)(`tasks.role.${role}`, { defaultValue: '' }), `${lng} ${role}`).not.toBe('');
       }
     }
   });
@@ -91,6 +110,35 @@ describe('SelfBoardActiveTaskPanel — PREP/DOCS chain (2026-09-30)', () => {
       target_fields_list: ['trip_id'], step: 'draft', assignee_role: 'export_manager',
     }));
     expect(screen.getByRole('link', { name: 'Truck Board' })).toHaveAttribute('href', '/export/truck-board');
+  });
+
+  it('«Give the advance» links to the Advances page (E2E 2026-10-01)', () => {
+    renderPanel(docsTask({
+      title_key: 'tasks.give_advance', completion_rule: 'all_fields_filled',
+      target_fields_list: ['has_current_advance'], assignee_role: 'finansist',
+    }));
+    expect(screen.getByRole('link', { name: 'Advances' })).toHaveAttribute('href', '/export/advances');
+  });
+
+  it('«Approve the report» approves right on the card (E2E 2026-10-01)', async () => {
+    render(
+      <MemoryRouter>
+        <SelfBoardActiveTaskPanel
+          task={docsTask({
+            title_key: 'tasks.approve_sales_report', completion_rule: 'all_fields_filled',
+            target_fields_list: ['sales_report.approved_at'], step: 'satyldy', assignee_role: 'export_manager',
+          })}
+          shipment={{ id: 7, block_sources: [], sales_report: { approved_at: null } } as unknown as IShipmentDetail}
+          onComplete={vi.fn()}
+          sheetItem={null}
+          rows={[]}
+          rowSettings={{}}
+          isSheetLoading={false}
+        />
+      </MemoryRouter>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Approve report' }));
+    expect(approve).toHaveBeenCalled();
   });
 
   it('join_supply links to the Assignment board', () => {

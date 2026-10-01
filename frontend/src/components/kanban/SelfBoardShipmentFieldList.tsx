@@ -2,6 +2,7 @@ import { Skeleton, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { SheetCellEditor } from '@/components/sheet/SheetCellEditor';
 import { getCellValue } from '@/components/sheet/getCellValue';
+import { useShipmentOptions } from '@/hooks/useAdmin';
 import { useSheetStore } from '@/stores/sheetStore';
 import type { IRowConfig, ISheetRowSettingForUser, IShipmentSheetItem } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
@@ -182,7 +183,9 @@ function FieldRow({
   onEdit,
 }: IFieldRowProps): React.ReactElement {
   const { t } = useTranslation();
-  const displayValue = getCellValue(sheetItem, row);
+  // Status codes (harvest_status, documents_status) → their label, as on the Sheet.
+  const { data: options } = useShipmentOptions();
+  const displayValue = getCellValue(sheetItem, row, options);
   const isNumericType = row.input_type === 'number';
 
   const clickable = canEdit && !isEditing;

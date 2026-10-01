@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/services/api';
+import { getShipmentDetailKey } from '@/hooks/useShipmentDetail';
 
 export interface IShipmentPackingRow {
   export_firm: number;
@@ -67,6 +68,8 @@ export function useSetShipmentPacking() {
       queryClient.invalidateQueries({ queryKey: ['document-packets'] });
       // A template closes «Brutto/netto» (tasks.fill_gross_net) server-side.
       queryClient.invalidateQueries({ queryKey: ['my-tasks'] });
+      // The task card's «N of M filled» reads the shipment detail.
+      queryClient.invalidateQueries({ queryKey: getShipmentDetailKey(vars.shipment) });
     },
   });
 }

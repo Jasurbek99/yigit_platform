@@ -32,7 +32,7 @@ import { useExpenseCategories } from '@/hooks/useExpenseCategories';
 import { useCountries } from '@/hooks/useAdmin';
 import { useAuth } from '@/hooks/useAuth';
 import { useSaveSalesReport } from '@/hooks/useSalesReport';
-import { SalesReportApproval } from './SalesReportApproval';
+import { SalesReportApproval } from '@/components/SalesReportApproval';
 import { StatusTag } from '@/components/StatusTag';
 import {
   MIN_SALES_REPORT_STEP,

@@ -3015,6 +3015,7 @@
       "cancelled": "Отменено"
     },
     "role": {
+      "quality_inspector": "Инспектор качества",
       "admin": "Администратор",
       "export_manager": "Менеджер экспорта",
       "warehouse_chief": "Нач. склада",
@@ -3033,6 +3034,9 @@
       "garawul": "Охранник"
     },
     "field_label": {
+      "transit_days": "Дней в пути",
+      "transport_temp_c": "Температура перевозки",
+      "shelf_life_days": "Срок годности (дней)",
       "firm_splits": "Экспортные фирмы",
       "block_sources": "Источники блоков",
       "quality.azyk_maglumatnama": "Пищевой сертификат",

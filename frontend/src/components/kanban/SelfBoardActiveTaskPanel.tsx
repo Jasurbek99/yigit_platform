@@ -7,6 +7,8 @@ import dayjs from 'dayjs';
 import { SelfBoardShipmentFieldList } from './SelfBoardShipmentFieldList';
 import { TaskDocumentButtons, hasTaskDocuments } from './TaskDocumentButtons';
 import { ShipmentFirmContractsPanel } from '@/components/sheet/ShipmentFirmContractsPanel';
+import { SalesReportApproval } from '@/components/SalesReportApproval';
+import { useAuth } from '@/hooks/useAuth';
 import { isFieldFilled, progressFieldKeys } from '@/components/shipment/TaskCardEditor.helpers';
 import { useStartTask, useCompleteTask } from '@/hooks/useTaskActions';
 import { isButtonTask, taskButtonLabel, taskLink } from '@/utils/taskButtons';
@@ -20,6 +22,19 @@ import type {
 import { COLORS } from '@/constants/styles';
 
 const { Text, Title } = Typography;
+
+/** The report page's approve button, for the «approve» card (reads the user only here). */
+function ApproveReportOnCard({ shipment }: { shipment: IShipmentDetail }) {
+  const { user } = useAuth();
+  return (
+    <SalesReportApproval
+      shipmentId={String(shipment.id)}
+      report={shipment.sales_report}
+      role={user?.role}
+      isSuperuser={Boolean(user?.is_superuser)}
+    />
+  );
+}
 
 interface ISelfBoardActiveTaskPanelProps {
   task: ITaskListItem;
@@ -154,6 +169,14 @@ export function SelfBoardActiveTaskPanel({
       {task.title_key === 'tasks.prepare_contract' && task.shipment != null && !isDone && (
         <div style={{ marginTop: 8 }}>
           <ShipmentFirmContractsPanel shipmentId={task.shipment} />
+        </div>
+      )}
+
+      {/* «Hasabaty tassykla» (item 37): the approve button itself, not only a
+          pointer to the report page (E2E 2026-10-01). */}
+      {task.title_key === 'tasks.approve_sales_report' && !isDone && (
+        <div style={{ marginTop: 8 }}>
+          <ApproveReportOnCard shipment={shipment} />
         </div>
       )}
 

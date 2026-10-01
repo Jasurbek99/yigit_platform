@@ -3013,6 +3013,7 @@
       "cancelled": "Cancelled"
     },
     "role": {
+      "quality_inspector": "Quality Inspector",
       "admin": "Admin",
       "export_manager": "Export Manager",
       "warehouse_chief": "Warehouse Chief",
@@ -3031,6 +3032,9 @@
       "garawul": "Gate guard"
     },
     "field_label": {
+      "transit_days": "Transit days",
+      "transport_temp_c": "Transport temperature",
+      "shelf_life_days": "Shelf life (days)",
       "firm_splits": "Export Firms",
       "block_sources": "Block Sources",
       "quality.azyk_maglumatnama": "Food Certificate",

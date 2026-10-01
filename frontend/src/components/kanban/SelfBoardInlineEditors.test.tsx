@@ -13,6 +13,11 @@ import type { IRowConfig, IShipmentDetail, IShipmentSheetItem, ITaskListItem } f
 vi.mock('@/hooks/usePackingTemplates', () => ({ usePackingTemplates: vi.fn() }));
 vi.mock('@/hooks/useShipmentPacking', () => ({ useShipmentPacking: vi.fn(), useSetShipmentPacking: vi.fn() }));
 vi.mock('@/hooks/useTaskActions', () => ({ useStartTask: vi.fn(), useCompleteTask: vi.fn() }));
+vi.mock('@/hooks/useAdmin', () => ({
+  useShipmentOptions: () => ({
+    data: [{ id: 1, category: 'harvest_status', code: 'ok', label_tk: 'Taýýar', color: null }],
+  }),
+}));
 vi.mock('@/components/sheet/ShipmentFirmContractsPanel', () => ({
   ShipmentFirmContractsPanel: ({ shipmentId }: { shipmentId: number }) => <div>CONTRACTS_PANEL {shipmentId}</div>,
 }));
@@ -65,6 +70,16 @@ describe('task card inline editors (2026-09-30)', () => {
       </MemoryRouter>,
     );
     expect(screen.getByText('CONTRACTS_PANEL 7')).toBeInTheDocument();
+  });
+
+  it('status fields show their label, not the stored code (E2E 2026-10-01)', () => {
+    const rows = [{ field_key: 'harvest_status', label_key: 'ROW_HARVEST', input_type: 'select' }] as unknown as IRowConfig[];
+    render(
+      <SelfBoardShipmentFieldList shipmentId={7} sheetItem={{ ...sheetItem, harvest_status: 'ok' } as IShipmentSheetItem}
+        rows={rows} rowSettings={{}} fields={['harvest_status']} />,
+    );
+    expect(screen.getByText('Taýýar')).toBeInTheDocument();
+    expect(screen.queryByText('ok')).toBeNull();
   });
 
   it('the other fields list shows the filled ones first', () => {

@@ -3018,6 +3018,7 @@
       "cancelled": "Ýatyryldy"
     },
     "role": {
+      "quality_inspector": "Hil gözegçisi",
       "admin": "Admin",
       "export_manager": "Eksport menejeri",
       "warehouse_chief": "Ambar başlygy",
@@ -3036,6 +3037,9 @@
       "garawul": "Garawul"
     },
     "field_label": {
+      "transit_days": "Ýolda günler",
+      "transport_temp_c": "Daşamak temperaturasy",
+      "shelf_life_days": "Saklanyş möhleti (gün)",
       "firm_splits": "Eksport firmalary",
       "block_sources": "Blok çeşmeleri",
       "quality.azyk_maglumatnama": "Azyk maglumaty",
