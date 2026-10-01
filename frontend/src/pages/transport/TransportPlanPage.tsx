@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Card, DatePicker, Empty, Space, Table, Tooltip, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -20,12 +21,12 @@ const { Title, Text } = Typography;
 const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const CHANGED_BG = '#fff1b8';
 
-/** Monday of the ISO week in ?week=&year=, else of next week (the plan week, N+1). */
+/** Monday of the ISO week in ?week=&year=, else of the current week. */
 function weekFromParams(params: URLSearchParams): Dayjs {
   const week = Number(params.get('week'));
   const year = Number(params.get('year'));
   if (week > 0 && year > 0) return dayjs(`${year}-01-04`).isoWeek(week).isoWeekday(1);
-  return dayjs().add(1, 'week').isoWeekday(1);
+  return dayjs().isoWeekday(1);
 }
 
 interface IRow {
@@ -34,7 +35,7 @@ interface IRow {
 }
 
 /**
- * Transport truck planning — docs/Tasks.md item 3. Read-only view of the week's
+ * Truck Planning — docs/Tasks.md item 3. Read-only view of the week's
  * truck allocation (day × destination × trucks); cells that changed since
  * transport's last «Tanyşdym» are highlighted. The «Tanyşdym» button shows while
  * a transport_plan task is open and is the only way that task closes.
@@ -94,9 +95,24 @@ export default function TransportPlanPage() {
   return (
     <Card>
       <Space style={{ width: '100%', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <Title level={4} style={{ margin: 0 }}>{t('transport_plan.title')}</Title>
+        <div>
+          <Title level={4} style={{ margin: 0 }}>{t('transport_plan.title')}</Title>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            {t('plan.week')} {week} · {year} · {monday.format('DD.MM')}–{monday.add(5, 'day').format('DD.MM')}
+          </Text>
+        </div>
         <Space wrap>
+          <Button
+            icon={<LeftOutlined />}
+            onClick={() => onWeekChange(monday.subtract(1, 'week'))}
+            aria-label={t('plan.prev_week')}
+          />
           <DatePicker picker="week" value={monday} onChange={onWeekChange} allowClear={false} />
+          <Button
+            icon={<RightOutlined />}
+            onClick={() => onWeekChange(monday.add(1, 'week'))}
+            aria-label={t('plan.next_week')}
+          />
           {taskId != null && data?.can_acknowledge && (
             <Button type="primary" loading={ack.isPending} onClick={() => ack.mutate({ taskId, snapshot })}>
               {t('tasks.acknowledge')}
