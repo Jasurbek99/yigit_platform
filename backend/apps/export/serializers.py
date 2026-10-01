@@ -1325,6 +1325,14 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
     # whole-shipment total, unlike the Sheet's per-cell comment_counts which
     # also include replies (see ShipmentSheetView).
     comment_count = serializers.SerializerMethodField()
+    # ── Sheet parity (spec 2026-09-30-shipment-detail-full-design.md §6) ──
+    packing_template_name = serializers.CharField(
+        source='packing_template.name', read_only=True, default=None,
+    )
+    # Model @property — the give_advance task target; after a truck-change
+    # rollback only an advance created after documents_reset_at counts.
+    has_current_advance = serializers.BooleanField(read_only=True)
+    custom_fields = serializers.SerializerMethodField()
 
     # Variety confidence display label.
     variety_confidence_display = serializers.CharField(
@@ -1601,6 +1609,28 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
         """Count of non-deleted root comments (threads), for the hero badge."""
         return obj.comments.filter(is_deleted=False, parent_comment__isnull=True).count()
 
+    def get_custom_fields(self, obj: Shipment) -> list[dict]:
+        """Every visible admin-created custom Sheet row with this shipment's
+        value (None when never written) — the Detail page renders one row each."""
+        from apps.export.models import SheetRowSetting, ShipmentCustomFieldValue
+
+        values = dict(
+            ShipmentCustomFieldValue.objects
+            .filter(shipment=obj)
+            .values_list('row_id', 'value_text')
+        )
+        rows = SheetRowSetting.objects.visible().filter(is_custom=True).order_by('display_order')
+        return [
+            {
+                'field_key': row.field_key,
+                'label_tk': row.label_tk,
+                'label_ru': row.label_ru,
+                'label_en': row.label_en,
+                'value': values.get(row.pk),
+            }
+            for row in rows
+        ]
+
     class Meta(ShipmentListSerializer.Meta):
         # harvest_age_days and freshness are inherited from ShipmentListSerializer
         # (both the SerializerMethodField declarations and their getter methods).
@@ -1642,6 +1672,16 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
             'phase_avg_seconds',
             # F — draft-promote readiness flag
             'can_promote_from_draft',
+            # Sheet parity (spec 2026-09-30-shipment-detail-full-design.md §6)
+            'greenhouse_arrived_at',
+            'pallet_weight_kg',
+            'shelf_life_days',
+            'packing_template',
+            'packing_template_name',
+            'truck_head_2_id',
+            'driver_2_id',
+            'has_current_advance',
+            'custom_fields',
         ]
 
 

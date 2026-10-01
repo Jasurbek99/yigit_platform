@@ -95,6 +95,18 @@ Full data with nested related objects.
     ]
   },
   "comments": [ { "user_name": "Gadam", "role": "export_manager", "content": "...", "created_at": "..." } ],
+  // Sheet parity (2026-09-30): scalar columns the Detail page renders.
+  "greenhouse_arrived_at": "2026-01-01T08:00:00Z",
+  "pallet_weight_kg": "25.00",          // decimal string
+  "shelf_life_days": 12,
+  "packing_template": 3, "packing_template_name": "2 firms 20t",
+  "truck_head_2_id": null, "driver_2_id": null,
+  "has_current_advance": false,         // model property — give_advance target
+  // Every visible custom Sheet row (SheetRowSetting.is_custom), value null if never written.
+  // Written via PATCH /shipments/{id}/custom-fields/ {field_key, value}.
+  "custom_fields": [
+    { "field_key": "custom_seal", "label_tk": "Plomba", "label_ru": "Пломба", "label_en": "Seal", "value": "A-17" }
+  ],
   "vehicle_condition": "OK",
   "vehicle_condition_note": null,
   "route_note": null,
