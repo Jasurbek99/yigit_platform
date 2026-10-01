@@ -1,26 +1,37 @@
-import { EDIT_FIELD_GROUPS } from '@/constants/shipmentEditConfig';
+import { DETAIL_EXTRA_FIELDS, EDIT_FIELD_GROUPS } from '@/constants/shipmentEditConfig';
 import type { IMissingField } from '@/types';
 
 /**
- * Every field key that has an editable row on the Detail page. Anything in
- * `completeness.missing_fields` outside this set (AD-1 timestamps written
- * only by `transition_to()`, aggregate keys like `firm_splits`) has no
- * `#detail-field-<key>` row to jump to.
+ * Every field key that has an editable row on the Detail page — the edit
+ * groups plus the Detail-only DETAIL_EXTRA_FIELDS (lifecycle timestamps are
+ * operator-entered since AD-1 was retired). Anything in
+ * `completeness.missing_fields` outside this set (aggregate keys like
+ * `firm_splits`, `shipment_code`) has no `#detail-field-<key>` row to edit.
  */
 export const EDITABLE_FIELD_KEYS: ReadonlySet<string> = new Set(
-  EDIT_FIELD_GROUPS.flatMap((group) => group.fields.map((field) => field.key)),
+  [...EDIT_FIELD_GROUPS.flatMap((group) => group.fields), ...Object.values(DETAIL_EXTRA_FIELDS).flat()]
+    .map((field) => field.key),
 );
 
 /**
- * Missing keys that describe a page *section* rather than a single field —
- * their chip scrolls to that section instead of opening an editor. Every
- * other informational key (AD-1 timestamps, `shipment_code`) has no anchor
- * and renders as a non-clickable hint.
+ * Missing keys with no editable row that still have a place to go — their
+ * chip scrolls there instead of opening an editor. The remaining
+ * informational key, `shipment_code` (system-filled), has no anchor and
+ * renders as a non-clickable hint.
  */
 const SECTION_ANCHOR_BY_KEY: Record<string, string> = {
   firm_splits: 'section-sale',
   sales_report: 'section-sale',
+  'sales_report.approved_at': 'section-sale',
   block_sources: 'section-block-sources',
+  // Spec 2026-09-30-shipment-detail-full §5: no editable row, but a place to go.
+  trip_id: 'detail-field-trip_id',
+  packing_template: 'detail-field-packing_template',
+  has_current_advance: 'detail-field-has_current_advance',
+  'quality.azyk_maglumatnama': 'detail-field-quality.azyk_maglumatnama',
+  'quality.suriji_gozukdiriji': 'detail-field-quality.suriji_gozukdiriji',
+  'quality.hil_sertifikaty': 'detail-field-quality.hil_sertifikaty',
+  'quality.kalibrowka_analiz': 'detail-field-quality.kalibrowka_analiz',
 };
 
 /** Section id to scroll to for an informational key, or undefined if it's a plain system-filled field with nothing to scroll to. */

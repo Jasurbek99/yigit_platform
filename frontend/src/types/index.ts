@@ -1702,6 +1702,15 @@ export interface ICompleteness {
   manual_tasks: IManualTask[];
 }
 
+/** One admin-created custom Sheet row with this shipment's value (detail API). */
+export interface IShipmentCustomField {
+  field_key: string;
+  label_tk: string;
+  label_ru: string;
+  label_en: string;
+  value: string | null;
+}
+
 export interface IShipmentDetail extends IShipmentListItem {
   status_code: string;
   allowed_transitions: string[];
@@ -1767,6 +1776,18 @@ export interface IShipmentDetail extends IShipmentListItem {
   // do NOT block the flag — promotion is the user's call.
   can_promote_from_draft: boolean;
   completeness: ICompleteness;
+  // Sheet parity (spec 2026-09-30-shipment-detail-full-design.md §6)
+  greenhouse_arrived_at: string | null;
+  /** DecimalField — string on the wire. */
+  pallet_weight_kg: string | null;
+  shelf_life_days: number | null;
+  packing_template: number | null;
+  packing_template_name: string | null;
+  truck_head_2_id: number | null;
+  driver_2_id: number | null;
+  /** tasks.give_advance target (model property). */
+  has_current_advance: boolean;
+  custom_fields: IShipmentCustomField[];
 }
 // ─── Cancel Shipment mutation response ───────────────────────────────────────
 

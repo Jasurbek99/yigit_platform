@@ -242,4 +242,13 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
     missing_fields: [],
     manual_tasks: [],
   },
+  greenhouse_arrived_at: null,
+  pallet_weight_kg: null,
+  shelf_life_days: null,
+  packing_template: null,
+  packing_template_name: null,
+  truck_head_2_id: null,
+  driver_2_id: null,
+  has_current_advance: false,
+  custom_fields: [],
 };

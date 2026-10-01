@@ -1,14 +1,15 @@
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
-import { EDIT_FIELD_GROUPS, type IEditFieldGroup } from '@/constants/shipmentEditConfig';
+import { DETAIL_EXTRA_FIELDS, EDIT_FIELD_GROUPS, type IEditFieldGroup } from '@/constants/shipmentEditConfig';
 import type { IShipmentDetail } from '@/types';
 
 /** Look a group up by key. Keys are a closed union, so this cannot miss. */
 export const groupByKey = (key: IEditFieldGroup['key']): IEditFieldGroup =>
   EDIT_FIELD_GROUPS.find((g) => g.key === key)!;
 
-/** How many of a group's fields the backend reports as still owed. */
+/** How many of a card's fields (its group plus its Detail-only extras) the backend reports as still owed. */
 export function countMissing(groupKey: IEditFieldGroup['key'], missingKeys: Set<string>): number {
-  return groupByKey(groupKey).fields.filter((f) => missingKeys.has(f.key)).length;
+  return [...groupByKey(groupKey).fields, ...DETAIL_EXTRA_FIELDS[groupKey]]
+    .filter((f) => missingKeys.has(f.key)).length;
 }
 
 interface IShipmentFieldGroupProps {

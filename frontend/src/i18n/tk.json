@@ -671,6 +671,22 @@
     "view_cards": "Kartoçkalar"
   },
   "shipment_detail": {
+    "parts": {
+      "choose_trip": "Reýs saýla",
+      "choose_trip_title": "Ýük üçin Planning reýsi",
+      "no_free_trips": "Boş reýs ýok",
+      "need_country": "Ilki ýurdy görkeziň",
+      "trip_linked": "Reýs baglandy",
+      "trip_unlinked": "Reýs aýryldy",
+      "swap_title": "Gaplamany çalyş…",
+      "swap_empty": "Ýüklemeden öň gaplamaly başga ýük ýok",
+      "truck_plate_2": "Maşyn belgisi 2",
+      "driver_2_name": "Sürüji 2",
+      "driver_2_phone": "Sürüji 2 telefony",
+      "harvest_by_block": "bloklar boýunça",
+      "documents_title": "Resminamalar — çap",
+      "documents_no_firm": "Eksport firmasy saýlanandan soň resminamalar peýda bolar"
+    },
     "section_status_fields": "Ýagdaý",
     "back": "Yzyna",
     "tab_overview": "Genel",

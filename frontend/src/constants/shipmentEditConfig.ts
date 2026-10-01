@@ -18,7 +18,9 @@ export type FieldInputType =
   | 'datetime'
   | 'select'
   | 'option_select'
-  | 'boolean';
+  | 'boolean'
+  /** Tri-state answer (null = not answered yet, false = explicit «No»). */
+  | 'yes_no';
 
 export type OptionsSource =
   | 'countries'
@@ -159,6 +161,54 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     ],
   },
 ];
+
+/**
+ * Detail-page rows beyond EDIT_FIELD_GROUPS (spec
+ * 2026-09-30-shipment-detail-full-design.md). Kept out of EDIT_FIELD_GROUPS so
+ * ShipmentEditDrawer does not change. Keyed by the group whose card renders
+ * them; labels reuse the Sheet row's label key so both screens read the same.
+ */
+export const DETAIL_EXTRA_FIELDS: Record<IEditFieldGroup['key'], IEditFieldConfig[]> = {
+  logistics: [],
+  transport: [
+    { key: 'vehicle_live_status', labelKey: 'sheet.row.vehicle_live_status', inputType: 'text' },
+    { key: 'transport_docs_given_at', labelKey: 'sheet.row.transport_docs_given', inputType: 'datetime' },
+    { key: 'shelf_life_days', labelKey: 'shipment_edit_drawer.field.shelf_life_days', inputType: 'number', min: 0, suffix: 'd' },
+    { key: 'truck_plate_2', labelKey: 'shipment_detail.parts.truck_plate_2', inputType: 'text' },
+    { key: 'driver_2_name', labelKey: 'shipment_detail.parts.driver_2_name', inputType: 'text' },
+    { key: 'driver_2_phone', labelKey: 'shipment_detail.parts.driver_2_phone', inputType: 'text' },
+    { key: 'greenhouse_arrived_at', labelKey: 'sheet.row.greenhouse_arrival', inputType: 'datetime' },
+    { key: 'departed_at', labelKey: 'sheet.row.greenhouse_departure', inputType: 'datetime' },
+    { key: 'border_crossed_at', labelKey: 'sheet.row.border_exit', inputType: 'datetime' },
+    { key: 'dest_entry_at', labelKey: 'sheet.row.dest_entry', inputType: 'datetime' },
+    { key: 'has_peregruz', labelKey: 'sheet.row.peregruz_status', inputType: 'yes_no' },
+    { key: 'peregruz_date', labelKey: 'sheet.row.peregruz_time', inputType: 'datetime' },
+    { key: 'peregruz_city', labelKey: 'shipments.peregruz_city', inputType: 'text' },
+    { key: 'arrived_at', labelKey: 'sheet.row.arrival', inputType: 'datetime' },
+  ],
+  goods: [
+    { key: 'loading_started_at', labelKey: 'sheet.row.loading_start', inputType: 'datetime' },
+    { key: 'loading_ended_at', labelKey: 'sheet.row.loading_end', inputType: 'datetime' },
+  ],
+  finance: [
+    { key: 'sale_started_at', labelKey: 'sheet.row.sale_start', inputType: 'datetime' },
+    { key: 'sale_ended_at', labelKey: 'sheet.row.sale_end', inputType: 'datetime' },
+    { key: 'sales_report_date', labelKey: 'sheet.row.report_date', inputType: 'date' },
+  ],
+  status: [
+    { key: 'document_note', labelKey: 'sheet.row.document_notes', inputType: 'textarea' },
+    { key: 'customs_exit_at', labelKey: 'sheet.row.customs_exit_tm', inputType: 'datetime' },
+    { key: 'customs_entry_at', labelKey: 'sheet.row.dest_customs', inputType: 'datetime' },
+  ],
+  notes: [
+    { key: 'export_manager_note', labelKey: 'sheet.row.export_manager_note', inputType: 'textarea' },
+    { key: 'warehouse_note', labelKey: 'sheet.row.warehouse_notes', inputType: 'textarea' },
+    { key: 'additional_notes_arap', labelKey: 'sheet.row.additional_notes_arap', inputType: 'textarea' },
+  ],
+};
+
+/** Second-rig rows: read-only while a Planning trip owns the transport fields. */
+export const SECOND_RIG_KEYS: ReadonlySet<string> = new Set(['truck_plate_2', 'driver_2_name', 'driver_2_phone']);
 
 /** ShipmentOptionType category code per option_select field. */
 export const OPTION_CATEGORY_BY_FIELD: Record<string, string> = {

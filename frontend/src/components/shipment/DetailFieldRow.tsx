@@ -11,6 +11,8 @@ import { DetailFieldRowStatus } from './DetailFieldRowStatus';
 
 const { Text } = Typography;
 
+const EDITOR_POPUP_SELECTOR = '.ant-picker-dropdown, .ant-select-dropdown';
+
 interface IDetailFieldRowProps {
   shipment: IShipmentDetail;
   config: IEditFieldConfig;
@@ -99,7 +101,11 @@ export function DetailFieldRow({
   function handleBlur(e: React.FocusEvent<HTMLDivElement>) {
     const row = e.currentTarget;
     queueMicrotask(() => {
-      if (!row.contains(document.activeElement)) {
+      const active = document.activeElement;
+      // The editor's own popup (DatePicker / Select dropdown) is portalled to
+      // <body>, outside the row. The showTime picker moves focus onto its
+      // panel when a day is clicked — closing here would drop that pick.
+      if (!row.contains(active) && !active?.closest(EDITOR_POPUP_SELECTOR)) {
         flushPending();
         setIsEditing(false);
       }

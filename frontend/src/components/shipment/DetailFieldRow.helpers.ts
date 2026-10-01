@@ -32,6 +32,7 @@ const AUTO_OPEN_TYPES = new Set<FieldInputType>([
   'option_select',
   'date',
   'datetime',
+  'yes_no',
 ]);
 
 /**

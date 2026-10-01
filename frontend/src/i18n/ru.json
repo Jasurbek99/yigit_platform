@@ -673,6 +673,22 @@
     "view_cards": "Карточки"
   },
   "shipment_detail": {
+    "parts": {
+      "choose_trip": "Выбрать рейс",
+      "choose_trip_title": "Рейс Planning для отгрузки",
+      "no_free_trips": "Свободных рейсов нет",
+      "need_country": "Сначала укажите страну",
+      "trip_linked": "Рейс привязан",
+      "trip_unlinked": "Рейс отвязан",
+      "swap_title": "Поменять упаковку с…",
+      "swap_empty": "Нет других отгрузок с упаковкой до погрузки",
+      "truck_plate_2": "Номер машины 2",
+      "driver_2_name": "Водитель 2",
+      "driver_2_phone": "Телефон водителя 2",
+      "harvest_by_block": "по блокам",
+      "documents_title": "Документы — печать",
+      "documents_no_firm": "Документы появятся после выбора экспортной фирмы"
+    },
     "section_status_fields": "Статус",
     "back": "Назад",
     "tab_overview": "Обзор",

@@ -121,22 +121,21 @@ describe('ShipmentCompletenessBar', () => {
     expect(onJumpToField).toHaveBeenCalledWith('weight_net');
   });
 
-  // 'departed_at' is an AD-1 timestamp written only by transition_to() — it
-  // has no EDIT_FIELD_GROUPS entry and no section anchor, so it must render
-  // under the informational label, muted, and must NOT call onJumpToField
-  // (there is no #detail-field-departed_at row to jump to).
-  it('renders a non-editable AD-1 key as a muted, non-clickable informational chip', () => {
+  // 'shipment_code' is system-filled — no editable row and no section anchor,
+  // so it must render under the informational label, muted, and must NOT call
+  // onJumpToField (there is no #detail-field-shipment_code row to jump to).
+  it('renders a system-filled key as a muted, non-clickable informational chip', () => {
     const onJumpToField = vi.fn();
     const completeness: ICompleteness = {
       required_total: 1,
       filled_count: 0,
-      missing_fields: [{ key: 'departed_at', title_key: 'tasks.depart', step: 'yola_chykdy', role: 'transport' }],
+      missing_fields: [{ key: 'shipment_code', title_key: 'tasks.fill_loading_data', step: 'yuklenme', role: 'loading_dept_head' }],
       manual_tasks: [],
     };
     render(<ShipmentCompletenessBar completeness={completeness} onJumpToField={onJumpToField} />);
 
     expect(screen.getByText('Filled elsewhere or by the system:')).toBeInTheDocument();
-    const chip = screen.getByText('Departed');
+    const chip = screen.getByText(i18n.t('shipment_edit_drawer.field.shipment_code', { defaultValue: 'shipment_code' }));
     expect(chip).toBeInTheDocument();
     fireEvent.click(chip);
     expect(onJumpToField).not.toHaveBeenCalled();

@@ -40,7 +40,7 @@ export function FieldEditor({
   autoFocus,
   defaultOpen,
 }: IFieldEditorProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const lang = i18n.language;
 
   // Reference-data hooks. TanStack Query dedupes by queryKey, so multiple
@@ -174,6 +174,24 @@ export function FieldEditor({
           filterOption={(input, option) =>
             (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
           }
+          style={{ width: '100%' }}
+        />
+      );
+
+    case 'yes_no':
+      // Tri-state: null = not answered. «No» must reach the API as false, not null.
+      return (
+        <Select
+          value={value === true ? 'yes' : value === false ? 'no' : undefined}
+          onChange={(v) => onChange(v === 'yes' ? true : v === 'no' ? false : null)}
+          options={[
+            { value: 'yes', label: t('common.yes') },
+            { value: 'no', label: t('common.no') },
+          ]}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          defaultOpen={defaultOpen}
+          allowClear
           style={{ width: '100%' }}
         />
       );

@@ -671,6 +671,22 @@
     "view_cards": "Cards"
   },
   "shipment_detail": {
+    "parts": {
+      "choose_trip": "Choose trip",
+      "choose_trip_title": "Planning trip for this shipment",
+      "no_free_trips": "No free trips",
+      "need_country": "Set the country first",
+      "trip_linked": "Trip linked",
+      "trip_unlinked": "Trip unlinked",
+      "swap_title": "Swap packing with…",
+      "swap_empty": "No other shipment with packing before loading",
+      "truck_plate_2": "Truck plate 2",
+      "driver_2_name": "Driver 2",
+      "driver_2_phone": "Driver 2 phone",
+      "harvest_by_block": "by block",
+      "documents_title": "Documents — print",
+      "documents_no_firm": "Documents appear once an export firm is chosen"
+    },
     "section_status_fields": "Status",
     "back": "Back",
     "tab_overview": "Overview",
