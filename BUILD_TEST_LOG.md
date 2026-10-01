@@ -29,6 +29,7 @@
 - [ ] 2026-09-30 — LOAD item 26 «Ýükleme gutardy» (loading_dept_head, loading_ended_at); a truck the guard let out waits in Погрузка until it is filled — NEEDS TEST
 - [ ] 2026-09-30 — Task-chain review fixes (double effects, dry-run/depends_on skip, R6 audit rows, stale prefetch, give_advance progress bar) — NEEDS TEST
 - [ ] 2026-09-30 — Truck Board cards: shipment card shows export code, documents, firms → importer, loading place → city; trip card expands in place (details + mini GPS map), drawer kept — NEEDS TEST
+- [ ] 2026-09-30 — Fleet Map poll isolates each device/position: one failing truck is logged and skipped, the rest keep updating — NEEDS TEST
 - [ ] 2026-09-30 — Fleet Map poll survives a device renamed in Traccar (TR076 `2613AHG`→`2613AHF` froze all positions since 09-22) — NEEDS TEST
 - [ ] 2026-09-30 — «Maşyn üýtgedi» mark on rolled-back shipments: Sheet header, Подготовка card, shipment card, My tasks (reopened tasks), Truck Board — NEEDS TEST
 - [ ] 2026-09-30 — Truck-change rollback (PR #24) redoes documents 11–22 and needs a second advance; old downloads/advance ignored — NEEDS TEST

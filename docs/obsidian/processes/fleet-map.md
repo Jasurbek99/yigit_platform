@@ -165,6 +165,13 @@ Any network error, non-2xx status, or non-JSON body raises `TraccarUnavailable`.
   updates the truck's `plate`/`fleet_no` in place. Before 2026-09-30 it matched by plate
   only, so renaming `2613AHG TR076` → `2613AHF TR076` tried to insert a second `TR076`
   row. The resulting IntegrityError aborted every poll, and the map stayed frozen from 09-22.
+- **Per-device isolation (2026-09-30).** Both loops run each device / position in its own
+  `transaction.atomic()` savepoint. A row that raises is logged with a traceback
+  (`logger.exception`, ERROR in the celery-worker log: "Skipping Traccar device id=…" /
+  "Skipping position for deviceId=…") and skipped, and the rest of the fleet still updates.
+  So one frozen truck on the map means: grep the worker log for that line.
+  `sync_devices` returns the devices *synced*, so `poll_traccar`'s `devices` count drops
+  below Traccar's total while one is failing.
 - **`sync_positions(client=None)`** — pulls `get_positions()`, upserts one
   `DevicePosition` per **known** device (looked up by `traccar_id`). Positions for a
   `deviceId` with no matching `TraccarDevice`, or with a null `latitude`, are skipped and
