@@ -68,13 +68,14 @@ class GateListTests(GateFixtures, TestCase):
     def test_date_window_edges(self):
         # 30 days back: a truck whose documents/customs took two weeks is still
         # coming (1709001/26, 13 days old, was hidden by the first 7-day rule).
+        # No limit ahead (owner, 2026-10-01): an assigned truck is on the gate
+        # at once, whatever its date.
         in_back = self.make_truck('G-W1', days=-30)
         out_back = self.make_truck('G-W2', days=-31)
-        in_ahead = self.make_truck('G-W3', days=1)
-        out_ahead = self.make_truck('G-W4', days=2)
+        in_ahead = self.make_truck('G-W3', days=5)
         ids = self._ids(gate.expected(self.dusak))
         self.assertTrue({in_back.pk, in_ahead.pk} <= ids)
-        self.assertFalse({out_back.pk, out_ahead.pk} & ids)
+        self.assertNotIn(out_back.pk, ids)
 
     def test_arrived_truck_moves_from_expected_to_inside(self):
         truck = self.make_truck('G-8', greenhouse_arrived_at=timezone.now())

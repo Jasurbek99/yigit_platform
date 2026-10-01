@@ -478,6 +478,11 @@ class Shipment(models.Model):
             spawned = spawn_ready_tasks(self)
         advance_after_tasks(self, list(resolved) + spawned)
 
+        # Last, so it sees the final status: an assigned truck's gate task
+        # opens now, not when the guard next opens the gate (owner, 2026-10-01).
+        from apps.export.services.gate_tasks import sync_shipment_gate_tasks
+        sync_shipment_gate_tasks(self.pk, actor=self.updated_by)
+
 
 class ShipmentStatusLog(models.Model):
     """Audit trail for every status transition.

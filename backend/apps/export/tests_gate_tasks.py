@@ -6,6 +6,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.core.models import Country, Customer
 from apps.export.models import ShipmentBlockSource, Task, TaskKind, TaskState
 from apps.export.services import gate
 from apps.export.services.gate_tasks import STEP_ARRIVE, STEP_DEPART, sync_gate_tasks
@@ -17,6 +18,8 @@ class GateTaskSyncTests(GateFixtures, TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.make_gate_world()
+        cls.country = Country.objects.create(name_tk='KZ', name_en='Kazakhstan', name_ru='KZ')
+        cls.customer = Customer.objects.create(name='Berik')
 
     def _task(self, truck, step):
         return Task.objects.get(kind=TaskKind.GATE, shipment=truck, step=step)
@@ -70,6 +73,31 @@ class GateTaskSyncTests(GateFixtures, TestCase):
         sync_gate_tasks(self.kaka)
         task = self._task(truck, STEP_ARRIVE)
         self.assertEqual((task.state, task.scope_location), (TaskState.OPEN, self.kaka))
+
+    def test_assigning_a_truck_opens_the_arrive_task_without_a_gate_read(self):
+        truck = self.make_truck('T-9', plate='', days=4)
+        self.assertFalse(Task.objects.filter(kind=TaskKind.GATE, shipment=truck).exists())
+        truck.truck_plate = '1535AKM'
+        truck.save()
+        self.assertEqual(self._task(truck, STEP_ARRIVE).state, TaskState.OPEN)
+
+    def test_unassigning_the_truck_cancels_the_arrive_task(self):
+        truck = self.make_truck('T-10')
+        truck.save()
+        truck.truck_plate = ''
+        truck.save()
+        self.assertEqual(self._task(truck, STEP_ARRIVE).state, TaskState.CANCELLED)
+
+    def test_join_brings_the_gate_and_opens_the_arrive_task(self):
+        from apps.export.views import ShipmentViewSet
+
+        target = self.make_truck('T-11', status='draft', country=self.country, customer=self.customer)
+        ShipmentBlockSource.objects.filter(shipment=target).delete()
+        target.save()  # truck assigned, no packing yet: no gate to put it on
+        self.assertFalse(Task.objects.filter(kind=TaskKind.GATE, shipment=target).exists())
+        source = self.make_truck('T-12', status='draft', plate='')
+        ShipmentViewSet._execute_join(target, source, self.head)
+        self.assertEqual(self._task(target, STEP_ARRIVE).scope_location, self.dusak)
 
     def test_gate_tasks_never_hold_a_status(self):
         # Documents back from customs (tasks.docs_from_customs, 2026-09-30).

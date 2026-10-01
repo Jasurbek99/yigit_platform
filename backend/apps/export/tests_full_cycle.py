@@ -27,6 +27,9 @@ from apps.export.services.task_rules import generate_tasks_for_status
 from apps.export.tests_auto_advance import _ensure_statuses, _make_season
 
 PRINT_DOCS = ['cmr', 'tir', 'ct1', 'phyto', 'customs_request']
+# The guard's «mark arrival» card: open from the moment the plated truck has its
+# packing (owner, 2026-10-01) until the gate arrival.
+ARRIVE = 'tasks.gate_arrive'
 
 
 class FullCycleThroughTasksTests(TestCase):
@@ -104,26 +107,27 @@ class FullCycleThroughTasksTests(TestCase):
     # ── the shared part: DOCS (9–22) and LOAD (23–27) ─────────────────────────
     def docs_and_load(self, s, *, transport_task):
         self.expect(s, 'gumruk_girish', {'tasks.prepare_contract', 'tasks.fill_gross_net',
-                                         'tasks.prepare_transport_docs', 'tasks.give_advance'})
+                                         'tasks.prepare_transport_docs', 'tasks.give_advance',
+                                         ARRIVE})
         self.fill(s, self.doc, packing_template=self.template)                  # 10
         self.press(s, 'tasks.prepare_contract', self.doc)                      # 9
         self.press(s, 'tasks.prepare_transport_docs', self.doc)                # 11
         self.assertEqual(s.documents_status, 'in_progress')
-        self.expect(s, 'gumruk_girish', {'tasks.give_advance', 'tasks.print_cmr', 'tasks.print_tir'})
+        self.expect(s, 'gumruk_girish', {'tasks.give_advance', 'tasks.print_cmr', 'tasks.print_tir', ARRIVE})
         record_document_download(s, PRINT_DOCS, self.doc)                      # 12–15, 17
-        self.expect(s, 'gumruk_girish', {'tasks.give_advance', 'tasks.ct1_phyto_sent'})
+        self.expect(s, 'gumruk_girish', {'tasks.give_advance', 'tasks.ct1_phyto_sent', ARRIVE})
         for title in ('tasks.ct1_phyto_sent', 'tasks.docs_to_stamp', 'tasks.docs_from_stamp',
                       'tasks.prepare_declaration'):                            # 16, 18, 19, 21a
             self.press(s, title, self.doc)
-        self.expect(s, 'gumruk_girish', {'tasks.give_advance'})               # 21b waits for 20
+        self.expect(s, 'gumruk_girish', {'tasks.give_advance', ARRIVE})       # 21b waits for 20
         self.api(self.fin, '/api/v1/export/advances/', {                       # 20
             'advance_date': '2026-01-15', 'total_amount': '1000', 'currency': 'USD', 'shipment_ids': [s.pk]})
-        self.expect(s, 'gumruk_girish', {'tasks.docs_to_customs'})
+        self.expect(s, 'gumruk_girish', {'tasks.docs_to_customs', ARRIVE})
         self.press(s, 'tasks.docs_to_customs', self.doc)                       # 21b
-        self.expect(s, 'gumruk_chykysh', {'tasks.docs_from_customs', 'tasks.trigger_loading_start'})
+        self.expect(s, 'gumruk_chykysh', {'tasks.docs_from_customs', 'tasks.trigger_loading_start', ARRIVE})
         self.fill(s, self.doc, customs_exit_at=timezone.now())                 # 22
         self.assertEqual(s.documents_status, 'Gümrükden geldi')
-        self.expect(s, 'gumruk_chykysh', {'tasks.trigger_loading_start'})
+        self.expect(s, 'gumruk_chykysh', {'tasks.trigger_loading_start', ARRIVE})
 
         gate.arrive(s.pk, self.dusak, self.guard)                              # 23 (+24 start)
         self.expect(s, 'yuklenme', {'tasks.fill_loading_data', 'tasks.loading_ended',
@@ -152,7 +156,7 @@ class FullCycleThroughTasksTests(TestCase):
         ShipmentBlockSource.objects.create(shipment=s, block=self.block, weight_kg=Decimal('18000'))
         ShipmentFirmSplit.objects.create(shipment=s, export_firm=self.export_firm, weight_kg=Decimal('18000'))
         self.fill(s, self.doc)                                                 # 6, 7 close on save
-        self.expect(s, 'draft', {transport_task})
+        self.expect(s, 'draft', {transport_task, ARRIVE})   # plated truck + packing: on the gate
         self.fill(s, self.em, **transport_fields)                              # 8
         self.assertEqual(s.status.code, 'gumruk_girish')
 

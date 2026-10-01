@@ -2736,6 +2736,10 @@ class ShipmentViewSet(ModelViewSet):
             # ShipmentComment and Task rows will cascade-delete here).
             source.delete()
 
+            # The packing brings the gate: open the truck's gate task now.
+            from apps.export.services.gate_tasks import sync_shipment_gate_tasks
+            sync_shipment_gate_tasks(target.pk, actor=user)
+
         logger.info(
             'join: source=%s merged into target=%s by %s',
             source.shipment_code,

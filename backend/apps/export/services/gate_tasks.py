@@ -6,17 +6,21 @@ ALL_FIELDS_FILLED rule would hold the document team's auto-advance until the
 truck arrived. MANUAL_DONE + a non-status `step` keeps these tasks out of
 resolve_for_shipment() and is_step_trigger_satisfied() entirely.
 
-sync_gate_tasks() makes the tasks equal the gate lists. It runs lazily — on
-every gate list read, on My Tasks for a guard, and inside each gate action.
+sync_gate_tasks() makes the tasks equal the gate lists. It runs on every
+Shipment.save() and packing move (sync_shipment_gate_tasks), so a truck's task
+opens the moment it is assigned (owner, 2026-10-01) — and still on every gate
+list read, on My Tasks for a guard, and inside each gate action.
 
 Spec: docs/superpowers/specs/2026-09-29-garawul-gate-design.md §1.4
 """
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.core.models import LoadingLocation
 from apps.core.roles import GATE_GUARD_ROLE
 from apps.export.models import (
-    Shipment, Task, TaskCancelReason, TaskCompletionRule, TaskKind, TaskState,
+    Shipment, ShipmentBlockSource, Task, TaskCancelReason, TaskCompletionRule, TaskKind,
+    TaskState,
 )
 from apps.export.services.gate import expected, inside
 
@@ -71,6 +75,27 @@ def sync_gate_tasks(location, *, shipment_id: int | None = None, actor=None) -> 
         else:
             _cancel(arrive_task, location)
             _cancel(depart_task, location)
+
+
+def sync_shipment_gate_tasks(shipment_id: int, actor=None) -> None:
+    """Sync one shipment at every gate it may be on, or have a live task at.
+
+    `actor` is the user whose save this is (shipment.updated_by) — the same
+    credit the task engine gives any task a save resolves.
+    """
+    location_ids = set(
+        ShipmentBlockSource.objects.filter(shipment_id=shipment_id)
+        .values_list('block__location_id', flat=True)
+    )
+    location_ids |= set(
+        Task.objects.filter(kind=TaskKind.GATE, shipment_id=shipment_id, state__in=_LIVE)
+        .values_list('scope_location_id', flat=True)
+    )
+    location_ids |= set(
+        Shipment.objects.filter(pk=shipment_id).values_list('loading_location_id', flat=True)
+    )
+    for location in LoadingLocation.objects.filter(pk__in=location_ids - {None}):
+        sync_gate_tasks(location, shipment_id=shipment_id, actor=actor)
 
 
 def _create(**fields) -> None:

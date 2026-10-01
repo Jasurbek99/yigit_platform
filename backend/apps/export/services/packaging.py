@@ -12,6 +12,7 @@ from decimal import Decimal
 from django.db import transaction
 
 from apps.export.models import Notification, Shipment, ShipmentBlockSource, ShipmentStatusLog
+from apps.export.services.gate_tasks import sync_shipment_gate_tasks
 
 # Statuses in which packing may still be joined, detached or swapped.
 PRE_LOADING = frozenset({'draft', 'gumruk_girish', 'gumruk_chykysh'})
@@ -159,6 +160,7 @@ def unjoin_packing(shipment: Shipment, user) -> Shipment:
         cleared['updated_by_id'] = user.pk
         # .update(): a packing move must never run auto-advance.
         Shipment.objects.filter(pk=row.pk).update(**cleared)
+        sync_shipment_gate_tasks(row.pk, actor=user)  # no packing, no gate
         ShipmentStatusLog.objects.create(
             shipment=row, status=row.status, changed_by=user,
             comment=f'Packing detached into {new.shipment_code}',
@@ -228,6 +230,8 @@ def swap_packing(a: Shipment, b: Shipment, user) -> tuple[Shipment, Shipment]:
         # .update(): a packing move must never run auto-advance.
         Shipment.objects.filter(pk=a.pk).update(**a_update)
         Shipment.objects.filter(pk=b.pk).update(**b_update)
+        for row in (a, b):  # the packing may carry the truck to another gate
+            sync_shipment_gate_tasks(row.pk, actor=user)
 
         for row, other in ((a, b), (b, a)):
             ShipmentStatusLog.objects.create(
