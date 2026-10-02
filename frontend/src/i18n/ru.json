@@ -3006,8 +3006,8 @@
       "stage_not_reached": "этап ещё не наступил",
       "stage_missing": "{{count}} не заполнено",
       "stage_complete": "готово",
-      "print_label": "Печать наклейки",
-      "label_failed": "Не удалось создать наклейку."
+      "print_label": "Печать QR code",
+      "label_failed": "Не удалось создать QR code."
     },
     "cancel_button": "Отменить отгрузку",
     "cancel_modal_title": "Отменить эту отгрузку?",

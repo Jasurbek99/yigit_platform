@@ -3004,8 +3004,8 @@
       "stage_not_reached": "stage not reached yet",
       "stage_missing": "{{count}} missing",
       "stage_complete": "complete",
-      "print_label": "Print label",
-      "label_failed": "Could not generate the label."
+      "print_label": "Print QR code",
+      "label_failed": "Could not generate the QR code."
     },
     "cancel_button": "Cancel shipment",
     "cancel_modal_title": "Cancel this shipment?",
