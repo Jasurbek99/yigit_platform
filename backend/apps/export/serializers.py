@@ -2433,6 +2433,11 @@ class TaskListSerializer(serializers.ModelSerializer):
         source='shipment.shipment_code', read_only=True,
     )
 
+    # Official export code, shown under the system code on task cards.
+    export_code = serializers.CharField(
+        source='shipment.export_code', read_only=True, default=None,
+    )
+
     # Phase derived from the parent shipment's current status code via PHASE_MAP.
     phase = serializers.SerializerMethodField()
 
@@ -2502,6 +2507,7 @@ class TaskListSerializer(serializers.ModelSerializer):
             'id',
             'shipment',
             'shipment_code',
+            'export_code',
             'kind',
             'link',
             'scope_year',

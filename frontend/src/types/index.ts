@@ -1854,6 +1854,8 @@ export interface ITaskListItem {
   /** Null for `weekly_plan` tasks. */
   shipment: number | null;
   shipment_code: string;
+  /** Official export code; null until typed (and for tasks with no shipment). */
+  export_code?: string | null;
   step: string;
   phase: ShipmentPhase;
   title_key: string;

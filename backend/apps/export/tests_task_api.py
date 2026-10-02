@@ -338,6 +338,31 @@ class TaskListQueryCountTests(TestCase):
         self.assertLessEqual(num_queries, 6, f'Expected ≤6 queries, got {num_queries}')
 
 
+class TaskExportCodeTests(TestCase):
+    """Task list items carry the shipment's export code (shown under the system code)."""
+
+    def test_list_item_carries_export_code(self) -> None:
+        shipment = _make_shipment('EXP001')
+        shipment.export_code = '02|10|007|A|26|01'
+        shipment.save(update_fields=['export_code'])
+        _make_task(shipment=shipment)
+        client = APIClient()
+        _auth(client, _make_user('expcode', 'export_manager'))
+
+        resp = client.get(f'/api/v1/export/tasks/?shipment={shipment.pk}')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['results'][0]['export_code'], '02|10|007|A|26|01')
+
+    def test_task_without_shipment_has_null_export_code(self) -> None:
+        from apps.export.models import TaskKind
+        from apps.export.serializers import TaskListSerializer
+
+        task = Task(kind=TaskKind.WEEKLY_PLAN, title_key='tasks.x', assignee_role='greenhouse_manager')
+
+        self.assertIsNone(TaskListSerializer(task).data['export_code'])
+
+
 # ---------------------------------------------------------------------------
 # Start action
 # ---------------------------------------------------------------------------

@@ -106,6 +106,7 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
   const allowedMoves = getAllowedMoves(task.state);
   const stateLabel = t(`tasks.state.${task.state}`);
   const titleLabel = t(task.title_key);
+  const exportCode = task.export_code?.trim();
 
   function handleDragStart(e: React.DragEvent) {
     draggedRef.current = true;
@@ -181,7 +182,7 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
         (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
       }}
     >
-      {/* Row 1: shipment code + phase tag + move menu */}
+      {/* Row 1: shipment code (+ export code under it) + phase tag + move menu */}
       <div
         style={{
           display: 'flex',
@@ -191,13 +192,16 @@ export function SelfKanbanCard({ task, onCardClick, onMove }: ISelfKanbanCardPro
           gap: 6,
         }}
       >
-        <Text
-          strong
-          style={{ fontSize: 12, fontFamily: FONT.mono, flex: 1, minWidth: 0 }}
-          ellipsis
-        >
-          {task.shipment_code}
-        </Text>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <Text strong style={{ fontSize: 12, fontFamily: FONT.mono }} ellipsis>
+            {task.shipment_code}
+          </Text>
+          {exportCode && (
+            <Text type="secondary" style={{ fontSize: 11, fontFamily: FONT.mono }} ellipsis>
+              {exportCode}
+            </Text>
+          )}
+        </div>
         <Tag
           color={PHASE_TAG_COLOR[task.phase]}
           style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
