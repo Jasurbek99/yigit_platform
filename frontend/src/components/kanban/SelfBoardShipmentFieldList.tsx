@@ -1,5 +1,6 @@
 import { Skeleton, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { SheetCellEditor } from '@/components/sheet/SheetCellEditor';
 import { getCellValue } from '@/components/sheet/getCellValue';
 import { DetailFieldRow } from '@/components/shipment/DetailFieldRow';
@@ -18,10 +19,25 @@ const { Text } = Typography;
  * without a row": `rows` also drops rows a user hid in their own Sheet, and
  * those must stay read-only stubs here. Shelf life is the quality inspector's
  * third reading (E2E 2026-10-01); transit days and temperature are NOT here —
- * they are edited through the combined Sheet row `transit_days_temp`, and a
- * second editor would show stale values (a Detail PATCH skips the sheet cache).
+ * see SHEET_ROW_FOR_TASK_FIELD (a Detail PATCH skips the sheet cache, so a
+ * second editor beside the Sheet row would show stale values).
  */
 const DETAIL_EDITED_TASK_FIELDS = new Set(['shelf_life_days']);
+
+/**
+ * Task target fields whose Sheet row has another key. R26 «Ýol gün we temp»
+ * (`transit_days_temp`) edits both readings as `"5 4"`; their own rows were
+ * removed 2026-06-06. The combined row renders once in the task list and is
+ * left out of «Shipment fields» (2026-10-02).
+ */
+const SHEET_ROW_FOR_TASK_FIELD: Record<string, string> = {
+  transit_days: 'transit_days_temp',
+  transport_temp_c: 'transit_days_temp',
+};
+
+function sheetRowKeyFor(fieldKey: string): string {
+  return SHEET_ROW_FOR_TASK_FIELD[fieldKey] ?? fieldKey;
+}
 
 interface ISelfBoardShipmentFieldListProps {
   shipmentId: number;
@@ -93,6 +109,8 @@ export function SelfBoardShipmentFieldList({
       );
     }
 
+    const renderedRowKeys = new Set<string>();
+
     return (
       <div>
         {fields.map((fieldKey) => {
@@ -100,7 +118,12 @@ export function SelfBoardShipmentFieldList({
           if (fieldKey === 'packing_template') {
             return <PackingTemplateField key={fieldKey} shipmentId={shipmentId} disabled={disabled} />;
           }
-          const row = rows.find((r) => r.field_key === fieldKey);
+          const rowKey = sheetRowKeyFor(fieldKey);
+          const row = rows.find((r) => r.field_key === rowKey);
+          if (row != null) {
+            if (renderedRowKeys.has(rowKey)) return null;
+            renderedRowKeys.add(rowKey);
+          }
 
           const detailConfig = DETAIL_EDITED_TASK_FIELDS.has(fieldKey) ? fieldKeyToConfig(fieldKey) : null;
           if (row == null && shipment && detailConfig) {
@@ -113,17 +136,18 @@ export function SelfBoardShipmentFieldList({
               <ReadOnlyStubRow
                 key={fieldKey}
                 fieldKey={fieldKey}
+                shipmentId={shipmentId}
                 sheetItem={sheetItem}
               />
             );
           }
 
-          const setting = rowSettings[fieldKey];
+          const setting = rowSettings[rowKey];
           const canEdit = !disabled && setting?.can_current_user_edit === true;
 
           return (
             <FieldRow
-              key={fieldKey}
+              key={rowKey}
               row={row}
               sheetItem={sheetItem}
               shipmentId={shipmentId}
@@ -131,9 +155,9 @@ export function SelfBoardShipmentFieldList({
               isEditing={
                 !disabled &&
                 editingCell?.shipmentId === shipmentId &&
-                editingCell.rowKey === fieldKey
+                editingCell.rowKey === rowKey
               }
-              onEdit={() => setEditingCell({ shipmentId, rowKey: fieldKey })}
+              onEdit={() => setEditingCell({ shipmentId, rowKey })}
             />
           );
         })}
@@ -142,7 +166,7 @@ export function SelfBoardShipmentFieldList({
   }
 
   // ── Other-fields mode: all editable rows minus excluded ─────────────────
-  const excludeSet = new Set(excludeFields);
+  const excludeSet = new Set([...excludeFields, ...excludeFields.map(sheetRowKeyFor)]);
 
   const editableRows = rows.filter((row) => {
     if (excludeSet.has(row.field_key)) return false;
@@ -275,6 +299,7 @@ function FieldRow({
 
 interface IReadOnlyStubRowProps {
   fieldKey: string;
+  shipmentId: number;
   sheetItem: IShipmentSheetItem;
 }
 
@@ -284,10 +309,11 @@ interface IReadOnlyStubRowProps {
  *
  * Label: resolves via `tasks.field_label.<fieldKey>` (already seeded for quality.*).
  * Value: reads the nested path from sheetItem if possible, else shows "—".
- * Edit hint: static note pointing to the Shipment Detail page.
+ * Edit hint: a link to this field on the shipment page (2026-10-02).
  */
 function ReadOnlyStubRow({
   fieldKey,
+  shipmentId,
   sheetItem,
 }: IReadOnlyStubRowProps): React.ReactElement {
   const { t } = useTranslation();
@@ -335,12 +361,13 @@ function ReadOnlyStubRow({
         >
           {displayValue}
         </Text>
-        <Text
-          type="secondary"
+        {/* Straight to this field — ShipmentDetail scrolls to the hash once loaded. */}
+        <Link
+          to={`/shipments/${shipmentId}#detail-field-${fieldKey}`}
           style={{ fontSize: 11, display: 'block', marginTop: 2 }}
         >
           {t('tasks.edit_in_detail')}
-        </Text>
+        </Link>
       </div>
     </div>
   );

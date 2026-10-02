@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import { SelfBoardShipmentFieldList } from './SelfBoardShipmentFieldList';
 import { MOCK_SHIPMENT_DETAIL } from '@/mock/shipmentDetail';
-import type { IShipmentSheetItem } from '@/types';
+import type { IRowConfig, ISheetRowSettingForUser, IShipmentSheetItem } from '@/types';
 
 vi.mock('@/services/api', () => ({
   default: { patch: vi.fn(), get: vi.fn(() => Promise.resolve({ data: [] })), post: vi.fn() },
@@ -40,7 +40,7 @@ describe('SelfBoardShipmentFieldList — shelf life on the task card', () => {
     const row = document.getElementById('detail-field-shelf_life_days');
     expect(row).not.toBeNull();
     expect(within(row!).getByText('14')).toBeInTheDocument();
-    expect(screen.queryByText('Edit in shipment detail')).not.toBeInTheDocument();
+    expect(screen.queryByText('Fill on the shipment page')).not.toBeInTheDocument();
   });
 
   it('opens a number editor on click', () => {
@@ -51,6 +51,52 @@ describe('SelfBoardShipmentFieldList — shelf life on the task card', () => {
 
   it('leaves other Sheet-less fields as read-only stubs', () => {
     renderTaskFields(['quality.hil_sertifikaty']);
-    expect(screen.getByText('Edit in shipment detail')).toBeInTheDocument();
+    expect(screen.getByText('Fill on the shipment page')).toBeInTheDocument();
+  });
+
+  // 2026-10-02: the hint is a link straight to that field on the shipment page.
+  it('links the stub to its field on the shipment page', () => {
+    renderTaskFields(['quality.hil_sertifikaty']);
+    expect(screen.getByRole('link', { name: 'Fill on the shipment page' }))
+      .toHaveAttribute('href', `/shipments/${MOCK_SHIPMENT_DETAIL.id}#detail-field-quality.hil_sertifikaty`);
+  });
+});
+
+const TRANSIT_ROW: IRowConfig = {
+  row_number: 26, field_key: 'transit_days_temp', default_who_key: 'sheet.who.quality',
+  label_key: 'sheet.row.transit_temp', input_type: 'text', style: 'base',
+};
+const TRANSIT_SETTING = { can_current_user_edit: true } as ISheetRowSettingForUser;
+
+function renderWithTransitRow(props: { fields?: string[]; excludeFields?: string[] }) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <SelfBoardShipmentFieldList
+          shipmentId={MOCK_SHIPMENT_DETAIL.id}
+          sheetItem={{ id: MOCK_SHIPMENT_DETAIL.id, transit_days: 5, transport_temp_c: 4 } as IShipmentSheetItem}
+          rows={[TRANSIT_ROW]}
+          rowSettings={{ transit_days_temp: TRANSIT_SETTING }}
+          {...props}
+        />
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+}
+
+// 2026-10-02: the task targets transit_days + transport_temp_c, but the Sheet
+// has only the combined R26 row «Ýol gün we temp» — so the task list showed
+// two dead stubs and the editor sat lower, under «Shipment fields».
+describe('SelfBoardShipmentFieldList — transit days & temperature', () => {
+  it('edits both task fields through the one combined Sheet row', () => {
+    renderWithTransitRow({ fields: ['transit_days', 'transport_temp_c'] });
+    expect(screen.getAllByRole('button', { name: 'Transit Days & Temp' })).toHaveLength(1);
+    expect(screen.queryByText('Fill on the shipment page')).not.toBeInTheDocument();
+  });
+
+  it('drops the combined row from «Shipment fields» when the task owns it', () => {
+    renderWithTransitRow({ excludeFields: ['transit_days', 'transport_temp_c'] });
+    expect(screen.queryByRole('button', { name: 'Transit Days & Temp' })).not.toBeInTheDocument();
   });
 });

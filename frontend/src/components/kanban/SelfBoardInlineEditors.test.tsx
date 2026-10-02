@@ -49,7 +49,7 @@ describe('task card inline editors (2026-09-30)', () => {
       <SelfBoardShipmentFieldList shipmentId={7} sheetItem={sheetItem} rows={[]} rowSettings={{}}
         fields={['packing_template']} />,
     );
-    expect(screen.queryByText('Edit in shipment detail')).toBeNull();
+    expect(screen.queryByText('Fill on the shipment page')).toBeNull();
     await userEvent.click(screen.getByRole('combobox'));
     await userEvent.click(await screen.findByText('Tir 20t'));
     expect(apply).toHaveBeenCalledWith(
