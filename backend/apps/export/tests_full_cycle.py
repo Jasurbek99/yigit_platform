@@ -170,16 +170,19 @@ class FullCycleThroughTasksTests(TestCase):
         self.prep(s, transport_task='tasks.choose_truck', transport_fields={'trip_id': 77})
         self.docs_and_load(s, transport_task='tasks.choose_truck')
 
-        self.expect(s, 'yola_chykdy', {'tasks.trigger_border_crossing', 'tasks.submit_sales_report'})
+        self.expect(s, 'yola_chykdy', {'tasks.trigger_border_crossing'})
         self.fill(s, self.transport, border_crossed_at=timezone.now())         # 28
         self.fill(s, self.rep, dest_entry_at=timezone.now())                   # 29
-        self.expect(s, 'dest_entry', {'tasks.submit_sales_report', 'tasks.trigger_dest_customs',
-                                      'tasks.ask_peregruz'})
-        self.fill(s, self.rep, has_peregruz=False, customs_entry_at=timezone.now())   # 31, 30
+        self.expect(s, 'dest_entry', {'tasks.trigger_dest_customs'})
+        self.fill(s, self.rep, customs_entry_at=timezone.now())                # 30
+        self.expect(s, 'dest_entry', {'tasks.ask_peregruz'})
+        self.fill(s, self.rep, has_peregruz=False)                             # 31
         self.fill(s, self.rep, arrived_at=timezone.now())                      # 33
-        self.expect(s, 'bardy', {'tasks.submit_sales_report', 'tasks.confirm_destination',
-                                 'tasks.trigger_sale_start'})
-        self.fill(s, self.rep, city=self.city, sale_started_at=timezone.now())  # 34
+        self.expect(s, 'bardy', {'tasks.trigger_sale_start'})
+        self.fill(s, self.rep, sale_started_at=timezone.now())                 # 34
+        self.expect(s, 'bardy', {'tasks.confirm_destination'})                # city after 34
+        self.fill(s, self.rep, city=self.city)
+        self.expect(s, 'satylyar', {'tasks.trigger_sale_end', 'tasks.submit_sales_report'})
         self.fill(s, self.rep, sale_ended_at=timezone.now())                   # 35
         self.expect(s, 'satyldy', {'tasks.submit_sales_report'})          # 37 waits for 36
         self.api(self.rep, f'/api/v1/export/shipments/{s.pk}/sales-report/', {})   # 36

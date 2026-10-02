@@ -50,15 +50,23 @@ class PeregruzQuestionTests(TestCase):
     def test_new_shipment_has_no_answer_yet(self):
         self.assertIsNone(self._at_dest_entry().has_peregruz)
 
-    def test_dest_entry_opens_the_question_for_the_sales_rep(self):
-        task = self._ask_task(self._at_dest_entry())
+    def _customs_done(self, shipment) -> Shipment:
+        shipment.customs_entry_at = timezone.now()
+        shipment.save()
+        return shipment
+
+    def test_the_question_opens_after_the_customs_task(self):
+        # 31 after 30 — one task at a time (owner, 2026-10-01).
+        shipment = self._at_dest_entry()
+        self.assertFalse(shipment.tasks.filter(title_key='tasks.ask_peregruz').exists())
+        task = self._ask_task(self._customs_done(shipment))
         self.assertEqual(task.assignee_role, 'sales_rep')
         self.assertEqual(task.completion_rule, TaskCompletionRule.FIELD_SET)
         self.assertEqual(task.target_field_list, ['has_peregruz'])
         self.assertEqual(task.state, TaskState.OPEN)
 
     def test_an_explicit_no_answers_the_question(self):
-        shipment = self._at_dest_entry()
+        shipment = self._customs_done(self._at_dest_entry())
         shipment.has_peregruz = False
         shipment.save()
         self.assertEqual(self._ask_task(shipment).state, TaskState.DONE)

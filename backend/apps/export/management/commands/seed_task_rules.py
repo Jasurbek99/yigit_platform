@@ -499,7 +499,7 @@ TASK_RULES: list[dict] = [
         #      yuklenme -> yola_chykdy and froze real trucks. It is MANUAL_DONE
         #      now: is_step_trigger_satisfied() excludes MANUAL_DONE, so this
         #      can never block a departure. Same shape, and the same reason, as
-        #      tasks.submit_sales_report on yola_chykdy.
+        #      tasks.submit_sales_report on satylyar.
         #   2. It was assigned to greenhouse_manager, who "tracks quality docs
         #      outside the Sheet" — no owner, no UI path. `quality_inspector`
         #      owns the quality_document resource and both Sheet readings.
@@ -567,31 +567,6 @@ TASK_RULES: list[dict] = [
         'condition_field': '',
         'condition_value': '',
     },
-    {
-        # Sales-report reminder for the rep. Appears the moment the truck
-        # departs (step 4), because in practice the truck sells before the
-        # system status catches up — the report is fillable from yola_chykdy
-        # onward. MUST be MANUAL_DONE: a field-based (auto-resolving) task
-        # here would gate auto-advance and freeze the truck at step 4 until
-        # the report is filled (weeks later). MANUAL_DONE tasks are exempt
-        # from is_step_trigger_satisfied, so this stays a non-gating reminder.
-        # It is closed explicitly by close_sales_report_task() when the rep
-        # saves the SalesReport (the engine never auto-resolves MANUAL_DONE).
-        'step': 'yola_chykdy',
-        'title_key': 'tasks.submit_sales_report',
-        'assignee_role': 'sales_rep',
-        # One card from departure to the saved report (owner, 2026-09-30,
-        # docs/Tasks.md item 36): it closes on the report itself, not a
-        # button, and never holds a step (gates_step=False) — a sale can take
-        # weeks. It replaced tasks.trigger_report_received below.
-        'target_fields': 'sales_report',
-        'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
-        'target_value': '',
-        'deadline_rule': '',
-        'condition_field': '',
-        'condition_value': '',
-        'gates_step': False,
-    },
 
     # ── serhet_gechdi → dest_entry ─────────────────────────────────────────────
     # Trigger: dest_entry_at filled by Arap (R31).
@@ -635,6 +610,8 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
+        # 31 after 30 — the rep's tasks come one at a time (owner, 2026-10-01).
+        'depends_on': 'tasks.trigger_dest_customs',
     },
 
     # ── barysh_gumrugi → transshipment | bardy (CONDITIONAL FORK) ──────────────
@@ -690,6 +667,11 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
+        # After 34, one task at a time (owner, 2026-10-01). Not before it: the
+        # pallet QR scan records only the open task's timestamp, and the city
+        # is not scannable — a city-first chain left the sale-start scan with
+        # nothing to record (Tasks.md 34 «Qr scan must work here»).
+        'depends_on': 'tasks.trigger_sale_start',
     },
     {
         'step': 'bardy',
@@ -715,6 +697,25 @@ TASK_RULES: list[dict] = [
         'deadline_rule': 'friday_eow',
         'condition_field': '',
         'condition_value': '',
+    },
+    {
+        # 36 «Hasabat doldur»: one card from the sale start to the saved report
+        # (owner, 2026-10-01 — it opened at departure before, next to every
+        # other rep task). It closes on the report itself (also when saved
+        # early: then it closes at creation), not a button, and never holds a
+        # step (gates_step=False) — a sale can take weeks.
+        # close_sales_report_task() closes it when the rep saves the report.
+        'step': 'satylyar',
+        'title_key': 'tasks.submit_sales_report',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'sales_report',
+        'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'gates_step': False,
+        'new_in_catalog': True,
     },
 
     # ── satyldy → tamamlandy ───────────────────────────────────────────────────
@@ -759,6 +760,22 @@ TASK_RULES: list[dict] = [
         # 37 follows 36: no «approve» card until the rep has sent the report
         # (E2E 2026-10-01). Still holds satyldy while pending (E3).
         'depends_on': 'tasks.submit_sales_report',
+    },
+    {
+        # The report card's old place, from departure (2026-09-30 → 2026-10-01).
+        # Moved to satylyar above; `cancel_retired_duplicate_tasks` cancels
+        # its open cards on trucks not selling yet.
+        'step': 'yola_chykdy',
+        'title_key': 'tasks.submit_sales_report',
+        'assignee_role': 'sales_rep',
+        'target_fields': 'sales_report',
+        'completion_rule': TaskCompletionRule.ANY_FIELD_FILLED,
+        'target_value': '',
+        'deadline_rule': '',
+        'condition_field': '',
+        'condition_value': '',
+        'gates_step': False,
+        'is_active': False,
     },
     # ── Legacy rows that were never in this file (owner, 2026-09-30) ───────────
     # Created by hand / an old seed; seeding left them ACTIVE, so they kept

@@ -37,10 +37,10 @@ class RetiredDuplicatesTests(TestCase):
             deadline_rule=rule.deadline_rule, state=state,
         )
 
-    def _shipment(self, code, season=None):
+    def _shipment(self, code, season=None, status='gumruk_girish'):
         return Shipment.objects.create(
             shipment_code=code, date='2026-01-01', season=season or self.season,
-            status=ShipmentStatusType.objects.get(code='gumruk_girish'),
+            status=ShipmentStatusType.objects.get(code=status),
             created_by=self.user, updated_by=self.user,
         )
 
@@ -67,6 +67,16 @@ class RetiredDuplicatesTests(TestCase):
         self.assertEqual(Task.objects.get(pk=done_dup.pk).state, TaskState.DONE)
         self.assertEqual(Task.objects.get(pk=old_gate.pk).state, TaskState.OPEN)
         self.assertIn('3', out.getvalue())
+
+    def test_the_old_report_card_goes_only_where_the_sale_has_not_started(self):
+        # The report card moved from yola_chykdy to satylyar (owner, 2026-10-01).
+        on_road = self._shipment('RD-5', status='dest_entry')
+        selling = self._shipment('RD-6', status='satylyar')
+        moved = self._task(on_road, 'tasks.submit_sales_report', step='yola_chykdy')
+        kept = self._task(selling, 'tasks.submit_sales_report', step='yola_chykdy')
+        call_command('cancel_retired_duplicate_tasks', stdout=StringIO())
+        self.assertEqual(Task.objects.get(pk=moved.pk).state, TaskState.CANCELLED)
+        self.assertEqual(Task.objects.get(pk=kept.pk).state, TaskState.OPEN)
 
     def test_a_closed_season_is_left_alone(self):
         closed = Season.objects.create(name='rd-old', start_date='2024-09-01', end_date='2025-06-30',

@@ -93,11 +93,11 @@ class SalesReportApprovalTests(TestCase):
         approve. Item 37 follows 36 — the card comes once the report is in."""
         shipment = Shipment.objects.create(
             shipment_code='SRA-5', date='2026-01-01', season=self.season,
-            status=ShipmentStatusType.objects.get(code='yola_chykdy'),
+            status=ShipmentStatusType.objects.get(code='satylyar'),
             created_by=self.rep, updated_by=self.rep,
         )
-        generate_tasks_for_status(shipment, 'yola_chykdy')          # «Hasabat doldur» opens
-        # Test shortcut past the transit steps (not under test here).
+        generate_tasks_for_status(shipment, 'satylyar')             # «Hasabat doldur» opens
+        # Test shortcut past the sale end (not under test here).
         Shipment.objects.filter(pk=shipment.pk).update(status=ShipmentStatusType.objects.get(code='satyldy'))
         shipment.refresh_from_db()
         generate_tasks_for_status(shipment, 'satyldy')

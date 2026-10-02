@@ -1,9 +1,10 @@
-"""Sales-report task wiring — step-4 reminder + satyldy report-existence trigger.
+"""Sales-report task wiring — the «Hasabat doldur» card + satyldy report-existence trigger.
 
 Covers the contract that:
-  - a MANUAL_DONE `tasks.submit_sales_report` reminder is generated on step 4
-    (yola_chykdy) and does NOT gate auto-advance (the truck still advances on
-    its own trigger while the reminder stays open);
+  - the `tasks.submit_sales_report` card is generated when the sale starts
+    (satylyar — it was yola_chykdy until 2026-10-01) and does NOT gate
+    auto-advance (the truck still advances on its own trigger while the card
+    stays open);
   - close_sales_report_task() closes that reminder when the report is saved;
   - the retargeted satyldy trigger (target_fields='sales_report') auto-advances
     to tamamlandy both when the report already exists on satyldy entry
@@ -84,8 +85,10 @@ class SalesReportTaskTests(TestCase):
         return shipment.tasks.filter(title_key=REMINDER_TITLE).first()
 
     # ── one card (owner, 2026-09-30): the reminder closes on the saved report ──
-    def test_reminder_generated_on_step4_closes_on_the_report(self):
-        shipment = self._make_shipment_at('0101001/26', 'yola_chykdy')
+    def test_reminder_comes_with_the_sale_not_the_departure(self):
+        # Owner, 2026-10-01: not next to every transit task any more.
+        self.assertIsNone(self._reminder(self._make_shipment_at('0101011/26', 'yola_chykdy')))
+        shipment = self._make_shipment_at('0101001/26', 'satylyar')
         reminder = self._reminder(shipment)
         self.assertIsNotNone(reminder)
         self.assertEqual(reminder.assignee_role, 'sales_rep')
@@ -94,7 +97,7 @@ class SalesReportTaskTests(TestCase):
         self.assertEqual(reminder.state, TaskState.OPEN)
 
     def test_the_reminder_cannot_be_dismissed_without_a_report(self):
-        shipment = self._make_shipment_at('0101009/26', 'yola_chykdy')
+        shipment = self._make_shipment_at('0101009/26', 'satylyar')
         client = APIClient()
         client.force_authenticate(self.user)
         resp = client.post(f'/api/v1/export/tasks/{self._reminder(shipment).pk}/complete/')
@@ -107,25 +110,25 @@ class SalesReportTaskTests(TestCase):
         shipment = self._make_shipment_at('0101010/26', 'satyldy')
         self.assertFalse(shipment.tasks.filter(title_key='tasks.trigger_report_received').exists())
 
-    def test_open_reminder_does_not_block_step4_advance(self):
-        """Filling border_crossed_at advances yola_chykdy → serhet_gechdi even
-        though the MANUAL_DONE report reminder is still OPEN (non-gating)."""
-        shipment = self._make_shipment_at('0101002/26', 'yola_chykdy')
+    def test_open_reminder_does_not_block_the_sale_end(self):
+        """Filling sale_ended_at advances satylyar → satyldy even though the
+        report reminder is still OPEN (gates_step=False)."""
+        shipment = self._make_shipment_at('0101002/26', 'satylyar')
         self.assertEqual(self._reminder(shipment).state, TaskState.OPEN)
 
         from django.utils import timezone
-        shipment.border_crossed_at = timezone.now()
+        shipment.sale_ended_at = timezone.now()
         shipment.updated_by = self.user
         shipment.save()
 
         shipment.refresh_from_db()
-        self.assertEqual(shipment.status.code, 'serhet_gechdi')
+        self.assertEqual(shipment.status.code, 'satyldy')
         # Reminder still open — it followed the shipment, ungated.
         self.assertEqual(self._reminder(shipment).state, TaskState.OPEN)
 
     # ── close_sales_report_task closes the reminder without advancing mid-transit
-    def test_close_reminder_on_report_fill_no_advance_midtransit(self):
-        shipment = self._make_shipment_at('0101003/26', 'yola_chykdy')
+    def test_close_reminder_on_report_fill_no_advance_midsale(self):
+        shipment = self._make_shipment_at('0101003/26', 'satylyar')
         SalesReport.objects.create(shipment=shipment, created_by=self.user)
 
         closed = close_sales_report_task(shipment, self.user)
@@ -134,10 +137,10 @@ class SalesReportTaskTests(TestCase):
         shipment.refresh_from_db()
         self.assertEqual(self._reminder(shipment).state, TaskState.DONE)
         # Not at satyldy → no auto-advance.
-        self.assertEqual(shipment.status.code, 'yola_chykdy')
+        self.assertEqual(shipment.status.code, 'satylyar')
 
     def test_close_is_idempotent(self):
-        shipment = self._make_shipment_at('0101004/26', 'yola_chykdy')
+        shipment = self._make_shipment_at('0101004/26', 'satylyar')
         SalesReport.objects.create(shipment=shipment, created_by=self.user)
         self.assertEqual(close_sales_report_task(shipment, self.user), 1)
         # Second call finds no OPEN reminder to close.
