@@ -71,7 +71,7 @@ Contracts are the root of the P4 module. Contract sales (reverse accessor `contr
 | Method | URL | Serializer | Notes |
 |---|---|---|---|
 | GET | `/api/v1/contracts/contracts/` | `ContractListSerializer` | Default: active only; `?include_ended=true` adds completed+closed |
-| POST | `/api/v1/contracts/contracts/` | `ContractCreateSerializer` | export_manager / director / admin only |
+| POST | `/api/v1/contracts/contracts/` | `ContractCreateSerializer` | export_manager / director / admin only. Blank `contract_number` → auto-numbered. A typed standard number (`N/YY-…-EXP`) whose seq/year the selected seller already has → 400 on `contract_number` (the seller code inside the string is not compared) |
 | GET | `/api/v1/contracts/contracts/{id}/` | `ContractDetailSerializer` | Includes `editable_fields` |
 | PATCH | `/api/v1/contracts/contracts/{id}/` | `ContractCreateSerializer` | Same roles as create |
 
