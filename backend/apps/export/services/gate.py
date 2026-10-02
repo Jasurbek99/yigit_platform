@@ -132,7 +132,7 @@ def gate_row(shipment: Shipment, undo_event: str | None = None,
 
 
 ARRIVAL_NOTIFY_ROLES = ('loading_dept_head', 'loading_dept_head_deputy')
-AUDITED_FIELDS = ['greenhouse_arrived_at', 'loading_location', 'loading_started_at', 'departed_at']
+AUDITED_FIELDS = ['greenhouse_arrived_at', 'loading_location', 'departed_at']
 
 
 class GateError(Exception):
@@ -144,15 +144,10 @@ class GateError(Exception):
 
 
 def arrive(shipment_id: int, location, user) -> Shipment:
-    """«Ýyladyşhana geldi»: stamp arrival, start loading if nobody has, notify.
-
-    A truck with no packing joined yet (needs_packing_for_loading) still gets
-    stamped and notified — the guard saw it arrive — but loading_started_at is
-    left null: there is nothing to load, and filling it would advance the
-    status past a truck with no block_sources (final-fix review F5).
+    """«Ýyladyşhana geldi»: stamp arrival and notify. It does not start
+    loading: R19 is the loading department's own «Ýükleme başlady» task, which
+    opens once the arrival is marked (docs/Tasks.md 23 → 24, owner 2026-10-01).
     """
-    from apps.export.services.packaging import needs_packing_for_loading
-
     with transaction.atomic():
         shipment = _lock(shipment_id)
         if not expected(location).filter(pk=shipment_id).exists():
@@ -163,8 +158,6 @@ def arrive(shipment_id: int, location, user) -> Shipment:
         shipment.greenhouse_arrived_at = now
         if shipment.loading_location_id is None:
             shipment.loading_location = location
-        if shipment.loading_started_at is None and not needs_packing_for_loading(shipment):
-            shipment.loading_started_at = now
         _save_audited(shipment, user, before)
         _notify_arrival(shipment, location)
         _sync_tasks(location, shipment_id, user)
@@ -201,11 +194,7 @@ def undo(shipment_id: int, location, user, event: str) -> Shipment:
             _reopen_tasks_closed_by(shipment, 'departed_at', shipment.departed_at)
             shipment.departed_at = None
         else:
-            mark = shipment.greenhouse_arrived_at
             shipment.greenhouse_arrived_at = None
-            if shipment.loading_started_at == mark:
-                _reopen_tasks_closed_by(shipment, 'loading_started_at', mark)
-                shipment.loading_started_at = None
         _save_audited(shipment, user, before)
         _sync_tasks(location, shipment_id, user)
     return _fresh(shipment_id)

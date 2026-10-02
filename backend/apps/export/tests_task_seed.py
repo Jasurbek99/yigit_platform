@@ -124,14 +124,16 @@ class SeedTaskRulesTests(TestCase):
 # depends_on graph (Review A4)
 # ---------------------------------------------------------------------------
 
-def _depends_on_problems(rules: list[dict]) -> list[str]:
+def _depends_on_problems(rules: list[dict], also_known: frozenset[str] = frozenset()) -> list[str]:
     """Two classes of problem in a TASK_RULES-shaped list: a depends_on key
     naming a title_key nobody defines, and a depends_on cycle. Nothing else in
     the engine can tell "waiting on a real prerequisite" apart from "waiting
     on a key that will never exist" — both just leave the dependent task
-    forever uncreated. Returns human-readable problem strings; empty = clean.
+    forever uncreated. `also_known`: titles of code-driven tasks (the gate's),
+    which a rule may wait on too. Returns human-readable problem strings;
+    empty = clean.
     """
-    title_keys = {r['title_key'] for r in rules}
+    title_keys = {r['title_key'] for r in rules} | also_known
     graph: dict[str, set[str]] = {}
     problems: list[str] = []
     for r in rules:
@@ -161,7 +163,9 @@ def _depends_on_problems(rules: list[dict]) -> list[str]:
 
 class DependsOnGraphTests(TestCase):
     def test_real_catalog_has_no_depends_on_problems(self) -> None:
-        self.assertEqual(_depends_on_problems(TASK_RULES), [])
+        from apps.export.services.gate_tasks import TITLE_KEYS as GATE_TITLE_KEYS
+
+        self.assertEqual(_depends_on_problems(TASK_RULES, frozenset(GATE_TITLE_KEYS.values())), [])
 
     def test_helper_catches_an_unknown_key_and_a_cycle(self) -> None:
         broken = [

@@ -11,6 +11,8 @@ from django.utils import timezone
 from apps.core.models import Customer, Season, TomatoVariety
 from apps.export.models import AuditLog, Notification, ShipmentBlockSource, Task, TaskState
 from apps.export.services import gate
+from apps.export.services.gate_tasks import sync_gate_tasks
+from apps.export.services.task_rules import generate_tasks_for_status
 from apps.export.tests_gate_fixtures import GateFixtures
 
 
@@ -134,13 +136,14 @@ class GateActionTests(GateFixtures, TestCase):
         cls.make_gate_world()
         cls.variety = TomatoVariety.objects.create(name='Gate Pink')
 
-    def test_arrive_stamps_time_location_and_loading_start(self):
+    def test_arrive_stamps_time_and_location_but_not_the_loading_start(self):
+        # R19 is the loading department's own task now (owner, 2026-10-01).
         truck = self.make_truck('A-1', status='gumruk_girish')
         result = gate.arrive(truck.pk, self.dusak, self.guard)
         self.assertIsNotNone(result.greenhouse_arrived_at)
         self.assertEqual(result.loading_location, self.dusak)
-        self.assertEqual(result.loading_started_at, result.greenhouse_arrived_at)
-        self.assertEqual(result.status.code, 'gumruk_girish')  # docs not done: nothing moves yet
+        self.assertIsNone(result.loading_started_at)
+        self.assertEqual(result.status.code, 'gumruk_girish')
 
     def test_arrive_keeps_an_existing_loading_start(self):
         earlier = timezone.now() - timedelta(hours=2)
@@ -148,11 +151,41 @@ class GateActionTests(GateFixtures, TestCase):
         result = gate.arrive(truck.pk, self.dusak, self.guard)
         self.assertEqual(result.loading_started_at, earlier)
 
-    def test_arrive_from_customs_exit_starts_loading(self):
-        # Documents back from customs (tasks.docs_from_customs, 2026-09-30).
-        truck = self.make_truck('A-3', status='gumruk_chykysh', customs_exit_at=timezone.now())
+    def _loading_start_task(self, truck):
+        return Task.objects.filter(shipment=truck, title_key='tasks.trigger_loading_start').first()
+
+    def _truck_back_from_customs(self, code):
+        """gumruk_chykysh with its gate task open before the step's tasks, as in
+        production: the truck is assigned and packed in PREP, long before customs."""
+        truck = self.make_truck(code, status='gumruk_chykysh', customs_exit_at=timezone.now())
+        Task.objects.filter(shipment=truck).delete()
+        sync_gate_tasks(self.dusak)
+        generate_tasks_for_status(truck, 'gumruk_chykysh')
+        return truck
+
+    def test_loading_start_task_opens_only_after_the_arrival(self):
+        truck = self._truck_back_from_customs('A-3')
+        self.assertIsNone(self._loading_start_task(truck))
+        result = gate.arrive(truck.pk, self.dusak, self.guard)
+        self.assertEqual(result.status.code, 'gumruk_chykysh')
+        task = self._loading_start_task(truck)
+        self.assertEqual((task.state, task.assignee_role), (TaskState.OPEN, 'loading_dept_head'))
+        result.loading_started_at = timezone.now()
+        result.updated_by = self.head
+        result.save()
+        result.refresh_from_db()
+        self.assertEqual(result.status.code, 'yuklenme')
+
+    def test_loading_start_typed_before_the_arrival_waits_for_it(self):
+        truck = self._truck_back_from_customs('A-10')
+        truck.loading_started_at = timezone.now()
+        truck.updated_by = self.head
+        truck.save()
+        truck.refresh_from_db()
+        self.assertEqual(truck.status.code, 'gumruk_chykysh')
         result = gate.arrive(truck.pk, self.dusak, self.guard)
         self.assertEqual(result.status.code, 'yuklenme')
+        self.assertEqual(self._loading_start_task(truck).state, TaskState.DONE)
 
     def test_arrive_notifies_head_and_active_deputies_only(self):
         truck = self.make_truck('A-4')
@@ -186,7 +219,7 @@ class GateActionTests(GateFixtures, TestCase):
             AuditLog.objects.filter(object_id=truck.pk, user=self.guard)
             .values_list('field_name', flat=True)
         )
-        self.assertTrue({'greenhouse_arrived_at', 'loading_location', 'loading_started_at'} <= fields)
+        self.assertTrue({'greenhouse_arrived_at', 'loading_location'} <= fields)
 
     def test_closed_season_is_refused_and_writes_nothing(self):
         closed = Season.objects.create(
@@ -260,7 +293,6 @@ class GateActionTests(GateFixtures, TestCase):
         gate.arrive(truck.pk, self.dusak, self.guard)
         result = gate.undo(truck.pk, self.dusak, self.guard, 'arrive')
         self.assertIsNone(result.greenhouse_arrived_at)
-        self.assertIsNone(result.loading_started_at)
 
     def test_undo_arrive_keeps_a_loading_start_it_did_not_write(self):
         earlier = timezone.now() - timedelta(hours=2)
@@ -271,7 +303,10 @@ class GateActionTests(GateFixtures, TestCase):
 
     def test_undo_after_a_status_move_is_refused(self):
         truck = self.make_truck('U-3', status='gumruk_chykysh', customs_exit_at=timezone.now())
-        gate.arrive(truck.pk, self.dusak, self.guard)  # → yuklenme
+        result = gate.arrive(truck.pk, self.dusak, self.guard)
+        result.loading_started_at = timezone.now()
+        result.updated_by = self.head
+        result.save()  # → yuklenme
         with self.assertRaises(gate.GateError) as ctx:
             gate.undo(truck.pk, self.dusak, self.guard, 'arrive')
         self.assertEqual(ctx.exception.code, 'undo_closed')

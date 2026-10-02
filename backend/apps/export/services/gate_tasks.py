@@ -60,6 +60,7 @@ def sync_gate_tasks(location, *, shipment_id: int | None = None, actor=None) -> 
         Shipment.objects.filter(pk__in=ids, departed_at__isnull=False).values_list('pk', flat=True)
     )
     now = timezone.now()
+    arrived = []
     for sid in ids:
         arrive_task = tasks.get((sid, STEP_ARRIVE))
         depart_task = tasks.get((sid, STEP_DEPART))
@@ -67,7 +68,8 @@ def sync_gate_tasks(location, *, shipment_id: int | None = None, actor=None) -> 
             _open(arrive_task, sid, STEP_ARRIVE, location)
             _cancel(depart_task, location)          # an undone arrival takes its exit back
         elif sid in ins_ids:
-            _done(arrive_task, sid, STEP_ARRIVE, location, actor, now)
+            if _done(arrive_task, sid, STEP_ARRIVE, location, actor, now):
+                arrived.append(sid)
             _open(depart_task, sid, STEP_DEPART, location)
         elif sid in departed:
             _done(depart_task, sid, STEP_DEPART, location, actor, now)
@@ -75,6 +77,17 @@ def sync_gate_tasks(location, *, shipment_id: int | None = None, actor=None) -> 
         else:
             _cancel(arrive_task, location)
             _cancel(depart_task, location)
+    for sid in arrived:
+        _open_loading_start(sid, actor)
+
+
+def _open_loading_start(shipment_id: int, actor) -> None:
+    """«Ýükleme başlady» waits for the arrival (its TaskRule depends_on
+    tasks.gate_arrive — docs/Tasks.md 23 → 24, owner 2026-10-01). Spawn it now,
+    and advance if R19 was already typed on the Sheet."""
+    from apps.export.services.task_chain import after_task_done
+
+    after_task_done(Shipment.objects.select_related('status').get(pk=shipment_id), actor, [])
 
 
 def sync_shipment_gate_tasks(shipment_id: int, actor=None) -> None:
@@ -133,14 +146,16 @@ def _open(task, shipment_id: int, step: str, location) -> None:
     ])
 
 
-def _done(task, shipment_id: int, step: str, location, actor, now) -> None:
+def _done(task, shipment_id: int, step: str, location, actor, now) -> bool:
+    """True when this call closed the task (or created it closed)."""
     if task is None:
-        if actor is not None:  # only the mark itself earns a task it never had
-            _create(**_base(shipment_id, step, location), state=TaskState.DONE,
-                    started_at=now, completed_at=now, completed_by=actor)
-        return
+        if actor is None:  # only the mark itself earns a task it never had
+            return False
+        _create(**_base(shipment_id, step, location), state=TaskState.DONE,
+                started_at=now, completed_at=now, completed_by=actor)
+        return True
     if task.state == TaskState.DONE:
-        return
+        return False
     task.state = TaskState.DONE
     task.scope_location = location
     task.cancelled_reason = ''
@@ -150,6 +165,7 @@ def _done(task, shipment_id: int, step: str, location, actor, now) -> None:
     task.save(update_fields=[
         'state', 'scope_location', 'cancelled_reason', 'started_at', 'completed_at', 'completed_by',
     ])
+    return True
 
 
 def _cancel(task, location) -> None:

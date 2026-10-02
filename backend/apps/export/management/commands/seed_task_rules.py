@@ -417,7 +417,8 @@ TASK_RULES: list[dict] = [
     },
 
     # ── gumruk_chykysh → yuklenme ──────────────────────────────────────────────
-    # Trigger: loading_started_at filled by Soltanmyrat (R19).
+    # Trigger: loading_started_at filled by Soltanmyrat (R19), after the garawul
+    # marked the arrival (docs/Tasks.md 23 → 24).
     {
         # 22 «Gümrükden geldi» — customs exit; sets R6 to the «Gümrükden geldi» option (task_chain effect).
         'step': 'gumruk_chykysh',
@@ -444,6 +445,10 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '24h_after_status',
         'condition_field': '',
         'condition_value': '',
+        # 24 opens only once the guard marked 23 (owner, 2026-10-01): the gate
+        # no longer writes R19 itself. gate_arrive is a gate task, not a rule —
+        # a truck with no gate task (no packing yet) gets this at step entry.
+        'depends_on': 'tasks.gate_arrive',
     },
 
     # ── yuklenme → yola_chykdy ─────────────────────────────────────────────────
@@ -481,6 +486,8 @@ TASK_RULES: list[dict] = [
         'deadline_rule': '',
         'condition_field': '',
         'condition_value': '',
+        # One at a time (owner, 2026-10-01): start → loading data → end.
+        'depends_on': 'tasks.fill_loading_data',
         'new_in_catalog': True,
     },
     {

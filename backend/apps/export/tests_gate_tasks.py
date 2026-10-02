@@ -99,14 +99,16 @@ class GateTaskSyncTests(GateFixtures, TestCase):
         ShipmentViewSet._execute_join(target, source, self.head)
         self.assertEqual(self._task(target, STEP_ARRIVE).scope_location, self.dusak)
 
-    def test_gate_tasks_never_hold_a_status(self):
+    def test_arrival_typed_on_the_sheet_also_opens_the_loading_start(self):
         # Documents back from customs (tasks.docs_from_customs, 2026-09-30).
         truck = self.make_truck('T-7', status='gumruk_chykysh', customs_exit_at=timezone.now())
         sync_gate_tasks(self.dusak)
-        truck.loading_started_at = timezone.now()
-        truck.save()  # the ordinary Sheet path still advances with a gate task open
-        truck.refresh_from_db()
-        self.assertEqual(truck.status.code, 'yuklenme')
+        truck.greenhouse_arrived_at = timezone.now()
+        truck.updated_by = self.head
+        truck.save()  # no guard tap: the loading head corrects the Sheet
+        self.assertEqual(self._task(truck, STEP_ARRIVE).state, TaskState.DONE)
+        task = Task.objects.get(shipment=truck, title_key='tasks.trigger_loading_start')
+        self.assertEqual(task.state, TaskState.OPEN)
 
 
 class GateTaskCompleteRefusalTests(GateFixtures, TestCase):

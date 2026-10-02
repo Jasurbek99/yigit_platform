@@ -124,16 +124,20 @@ class FullCycleThroughTasksTests(TestCase):
             'advance_date': '2026-01-15', 'total_amount': '1000', 'currency': 'USD', 'shipment_ids': [s.pk]})
         self.expect(s, 'gumruk_girish', {'tasks.docs_to_customs', ARRIVE})
         self.press(s, 'tasks.docs_to_customs', self.doc)                       # 21b
-        self.expect(s, 'gumruk_chykysh', {'tasks.docs_from_customs', 'tasks.trigger_loading_start', ARRIVE})
+        self.expect(s, 'gumruk_chykysh', {'tasks.docs_from_customs', ARRIVE})
         self.fill(s, self.doc, customs_exit_at=timezone.now())                 # 22
         self.assertEqual(s.documents_status, 'Gümrükden geldi')
-        self.expect(s, 'gumruk_chykysh', {'tasks.trigger_loading_start', ARRIVE})
+        self.expect(s, 'gumruk_chykysh', {ARRIVE})                             # loading waits for 23
 
-        gate.arrive(s.pk, self.dusak, self.guard)                              # 23 (+24 start)
-        self.expect(s, 'yuklenme', {'tasks.fill_loading_data', 'tasks.loading_ended',
-                                    'tasks.quality_inspection', 'tasks.trigger_departure',
-                                    'tasks.gate_depart'})               # the guard's own card
-        self.fill(s, self.head, variety=self.variety, weight_net=Decimal('18000'))   # 24
+        gate.arrive(s.pk, self.dusak, self.guard)                              # 23
+        self.expect(s, 'gumruk_chykysh', {'tasks.trigger_loading_start',
+                                          'tasks.gate_depart'})         # the guard's own card
+        self.fill(s, self.head, loading_started_at=timezone.now())             # 24 start
+        self.expect(s, 'yuklenme', {'tasks.fill_loading_data', 'tasks.quality_inspection',
+                                    'tasks.trigger_departure', 'tasks.gate_depart'})
+        self.fill(s, self.head, variety=self.variety, weight_net=Decimal('18000'))   # 24 data
+        self.expect(s, 'yuklenme', {'tasks.loading_ended', 'tasks.quality_inspection',
+                                    'tasks.trigger_departure', 'tasks.gate_depart'})
         self.start(s, 'tasks.quality_inspection', self.qi)                     # 25 «Upload certificates»
         self.press(s, 'tasks.quality_inspection', self.qi)                     # 25
         gate.depart(s.pk, self.dusak, self.guard)                              # 27 before 26
