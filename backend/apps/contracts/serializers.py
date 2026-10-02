@@ -239,6 +239,27 @@ class ContractCreateSerializer(serializers.ModelSerializer):
             'season': {'required': False},
         }
 
+    def validate(self, attrs: dict) -> dict:
+        """Refuse a typed number whose seq/year this seller already used.
+
+        Without this the insert hits uq_contract_firm_year_seq and 500s. The
+        seller code inside the typed string is not compared — seq/year are
+        claimed for the selected export firm, as create() stores them.
+        """
+        parsed = parse_contract_number(attrs.get('contract_number'))
+        if self.instance is None and parsed:
+            seq, year = parsed
+            if Contract.objects.filter(
+                export_firm=attrs['export_firm'], contract_year=year, seq=seq,
+            ).exists():
+                raise serializers.ValidationError({
+                    'contract_number': (
+                        f'This seller already has contract no. {seq} for {year}. '
+                        'Leave the number empty to generate the next one.'
+                    ),
+                })
+        return attrs
+
     def create(self, validated_data: dict) -> Contract:
         """Create a contract, auto-numbering it and setting created_by.
 

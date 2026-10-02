@@ -358,6 +358,30 @@ class ContractDuplicateNumberTest(_SeededPermsMixin, TestCase):
         response = self.client.post('/api/v1/contracts/contracts/', payload, format='json')
         self.assertEqual(response.status_code, 400)
 
+    def test_typed_number_with_taken_seq_returns_400(self) -> None:
+        """A typed number whose seq/year the seller already used is a 400, not a 500.
+
+        The strings differ (other date), so the unique number check passes; the
+        collision is on (export_firm, contract_year, seq).
+        """
+        Contract.objects.create(
+            contract_number='1/26-YGTDUP-EXP, 16.02.2026', seq=1, contract_year=2026,
+            export_firm=self.ef, import_firm=self.imp, season=self.season,
+        )
+        payload = {
+            'contract_number': '1/26-YGTDUP-EXP, 02.10.2026',
+            'contract_type': 'FRAMEWORK',
+            'export_firm': self.ef.pk,
+            'import_firm': self.imp.pk,
+            'season': self.season.pk,
+            'incoterm': 'FCA',
+            'contract_date': '2026-10-02',
+            'start_date': '2026-10-02',
+        }
+        response = self.client.post('/api/v1/contracts/contracts/', payload, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('contract_number', response.json())
+
 
 class ContractDeleteTest(_SeededPermsMixin, TestCase):
     """Test 10: DELETE removes an unused contract and refuses a used one.
