@@ -120,9 +120,14 @@ saw the task.
 - Shelf life (`shelf_life_days`) has no Sheet row, so the card edits it with the
   Detail page's autosaving row (`DETAIL_EDITED_TASK_FIELDS` in
   `SelfBoardShipmentFieldList.tsx`).
-- Transit days and temperature are edited in the card's «Shipment fields» block
-  through the combined Sheet row `transit_days_temp` (`"5 4"`); their own rows in
-  the task list stay read-only stubs.
+- Transit days and temperature: the task list shows the combined Sheet row
+  `transit_days_temp` («Ýol gün we temp», `"5 4"`) once in place of the two
+  target fields, and «Shipment fields» leaves it out (`SHEET_ROW_FOR_TASK_FIELD`,
+  2026-10-02). Before that the two rows were read-only stubs and the editor sat
+  lower in the drawer.
+- A target field with no editor on the card (the four `quality.*` flags) shows
+  «Ýükler sahypasynda dolduryň» / «Заполните на странице отгрузки» as a link to
+  `/shipments/:id#detail-field-<key>`; the page scrolls to that field (2026-10-02).
 - The progress counter counts a `quality.*` flag as filled only when it is
   `true` (a scan exists). Before 2026-10-01 a `false` flag counted, so the first
   upload jumped the card to "7 of 7".
@@ -131,8 +136,8 @@ saw the task.
 
 ## Key Workflows
 
-1. **Take the task**: My Tasks → "Hil barlagy" → shelf life inline in the task
-   list, transit days / temperature in «Shipment fields» → "Transit Days & Temp"
+1. **Take the task**: My Tasks → "Hil barlagy" → shelf life and «Ýol gün we
+   temp» (`"5 4"`) inline in the task list
 2. **Upload certificates**: the card's «Upload certificates» button starts the
    task and opens the shipment at its certificate slots
    (`/shipments/:id#detail-field-quality.azyk_maglumatnama`) → one upload slot
