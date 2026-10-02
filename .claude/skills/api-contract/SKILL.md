@@ -910,6 +910,10 @@ Task list/detail payloads gained `scope_date` (`"YYYY-MM-DD"` for `daily_loading
 `daily_export`, else null) and `cancelled_reason` (`"missed"` = a daily task nobody
 did; `""` when not cancelled).
 
+**2026-10-02:** task list/detail payloads also carry `export_code` — the shipment's official
+export code (DB `official_export_code`), `null` until typed and on tasks with no shipment.
+`SelfKanbanCard` shows it under `shipment_code` when non-blank.
+
 ### Daily plan progress (2026-10-01)
 
 `GET /api/v1/export/truck-allocations/daily-progress/?date=YYYY-MM-DD[&season=]` — plan vs fact

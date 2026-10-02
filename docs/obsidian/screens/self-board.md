@@ -17,6 +17,8 @@ A personal task board showing the tasks assigned to the current user (or their r
 
 The screen uses `useMyTasks()` → `GET /api/v1/me/tasks/` and renders tasks as `ITaskListItem` cards (not full `IShipmentDetail`). Clicking a card opens the **SelfBoardTaskDrawer** for inline task completion.
 
+Each `SelfKanbanCard` shows the system code (`shipment_code`) and, under it, the official export code (`export_code`) when the shipment has one (2026-10-02). Search still matches `shipment_code` only.
+
 ## Role filter (supervisors only)
 
 Supervisors — `export_manager`, `boss`, `admin`, `director`, and superusers — do **not**
