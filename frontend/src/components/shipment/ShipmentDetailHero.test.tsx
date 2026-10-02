@@ -339,7 +339,7 @@ describe('ShipmentDetailHero — pallet label button', () => {
 
   it('offers the label when the shipment has an export code', async () => {
     renderHero();
-    const button = screen.getByRole('button', { name: /print label/i });
+    const button = screen.getByRole('button', { name: /print qr code/i });
     await userEvent.click(button);
     expect(downloadFile).toHaveBeenCalledWith('/export/shipments/1/label/');
   });
@@ -348,13 +348,13 @@ describe('ShipmentDetailHero — pallet label button', () => {
    *  scanners read it back, so offering the button would be a dead download. */
   it('hides the label button when there is no export code', () => {
     renderHero({ ...shipment, export_code: null } as unknown as IShipmentDetail);
-    expect(screen.queryByRole('button', { name: /print label/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /print qr code/i })).toBeNull();
   });
 
   it('surfaces the server message when the label cannot be generated', async () => {
     vi.mocked(downloadFile).mockRejectedValue(new Error('Shipment has no export code yet.'));
     renderHero();
-    await userEvent.click(screen.getByRole('button', { name: /print label/i }));
+    await userEvent.click(screen.getByRole('button', { name: /print qr code/i }));
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Shipment has no export code yet.'),
     );
