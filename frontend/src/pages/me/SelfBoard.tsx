@@ -27,7 +27,7 @@ import { useAuth } from '@/hooks/useAuth';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 const TM_TZ = 'Asia/Ashgabat';
-import { useMyTasks } from '@/hooks/useMyTasks';
+import { defaultMyTasksRole, useMyTasks } from '@/hooks/useMyTasks';
 import { useMyKpiToday } from '@/hooks/useMyKpiToday';
 import { useBlockTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
@@ -72,6 +72,9 @@ const SUPERVISOR_ROLES: readonly string[] = [
   'boss', 'admin', 'director',
   ...[...EXPORT_MANAGER_LIKE].filter((role) => role !== 'document_team'),
 ];
+
+/** Role-switcher value for «All roles» — antd Select mishandles a null option. */
+const ALL_ROLES = '__all__';
 
 // ─── Column definitions ──────────────────────────────────────────────────────
 
@@ -259,8 +262,11 @@ export default function SelfBoard() {
 
   // Supervisors receive every role's tasks; the switcher narrows to one.
   // Non-supervisors never render the Select, and the backend ignores the
-  // param for them regardless.
-  const [roleFilter, setRoleFilter] = useState<string | null>(null);
+  // param for them regardless. export_manager opens on its own queue and
+  // picks «All roles» to widen. undefined = switcher not touched yet, so the
+  // default follows `user` once auth/me resolves.
+  const [pickedRole, setPickedRole] = useState<string | null | undefined>(undefined);
+  const roleFilter = pickedRole === undefined ? defaultMyTasksRole(user?.role) : pickedRole;
   const isSupervisor =
     !!user && (user.is_superuser || SUPERVISOR_ROLES.includes(user.role));
 
@@ -432,16 +438,17 @@ export default function SelfBoard() {
         }}
       >
         {isSupervisor && (
-          <Select<string | null>
-            value={roleFilter}
-            onChange={(v) => setRoleFilter(v ?? null)}
-            allowClear
-            placeholder={t('me.board.filter_role')}
+          <Select<string>
+            value={roleFilter ?? ALL_ROLES}
+            onChange={(v) => setPickedRole(v === ALL_ROLES ? null : v)}
             style={{ width: 180 }}
-            options={ROLE_CHOICES.map((r) => ({
-              value: r.value,
-              label: t(r.labelKey),
-            }))}
+            options={[
+              { value: ALL_ROLES, label: t('me.board.filter_role') },
+              ...ROLE_CHOICES.map((r) => ({
+                value: r.value,
+                label: t(r.labelKey),
+              })),
+            ]}
           />
         )}
         <Select<ShipmentPhase | null>

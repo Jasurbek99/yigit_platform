@@ -21,6 +21,7 @@ vi.mock('@/hooks/useFeedback', () => ({
 }));
 vi.mock('@/hooks/useMyTasks', () => ({
   useMyTasks: () => ({ data: { results: [] } }),
+  defaultMyTasksRole: () => null,
 }));
 vi.mock('@/hooks/useRealtime', () => ({ useRealtime: () => undefined }));
 vi.mock('@/hooks/useWorklogHeartbeat', () => ({ useWorklogHeartbeat: () => undefined }));

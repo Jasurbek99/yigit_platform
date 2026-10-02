@@ -41,7 +41,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSeasonParam } from '@/hooks/useSeasonParam';
 import { useSeasonFallback } from '@/hooks/useSeasonFallback';
 import { useFeedbackAdminUnreadCount } from '@/hooks/useFeedback';
-import { useMyTasks } from '@/hooks/useMyTasks';
+import { defaultMyTasksRole, useMyTasks } from '@/hooks/useMyTasks';
 import { useRealtime } from '@/hooks/useRealtime';
 import { realtime } from '@/services/realtime';
 import { useRealtimeStore } from '@/stores/realtimeStore';
@@ -91,7 +91,12 @@ export default function AppLayout() {
   useRealtime({ enabled: !!user });
   useWorklogHeartbeat({ enabled: !!user });
   const { data: feedbackUnreadCount = 0 } = useFeedbackAdminUnreadCount();
-  const { data: myTasksData } = useMyTasks({ enabled: !!user });
+  // Same default role as the My tasks board, so the badge counts what the
+  // board opens on (and the two share one cached query).
+  const { data: myTasksData } = useMyTasks({
+    enabled: !!user,
+    role: defaultMyTasksRole(user?.role),
+  });
   const myOpenCount = (myTasksData?.results ?? []).filter(
     (task) => task.state === 'open',
   ).length;

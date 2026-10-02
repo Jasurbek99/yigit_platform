@@ -10,6 +10,16 @@ export interface IMyTasksResponse {
   results: ITaskListItem[];
 }
 
+/** Supervisor roles whose My tasks board opens on their own queue rather than
+ *  every role's — they widen to all roles on demand (owner, 2026-10-02). */
+const OWN_QUEUE_FIRST_ROLES: readonly string[] = ['export_manager'];
+
+/** Role the board and the nav badge request before the user picks one;
+ *  null = every role (the backend's supervisor default). */
+export function defaultMyTasksRole(role: string | null | undefined): string | null {
+  return role && OWN_QUEUE_FIRST_ROLES.includes(role) ? role : null;
+}
+
 export function useMyTasks(
   options: { enabled?: boolean; role?: string | null } = {},
 ) {
