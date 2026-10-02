@@ -193,7 +193,8 @@ export default function TaskRulesPage() {
             <Space size={4} wrap>
               <Text type="secondary" style={{ fontSize: 12 }}>{t('task_rules.after')}</Text>
               {rule.depends_on.map((key) => (
-                <Tag key={key} color="default" style={{ margin: 0 }}>{t(key)}</Tag>
+                // tasks.gate_arrive names a truck plate; a rule has none.
+                <Tag key={key} color="default" style={{ margin: 0 }}>{t(key, { plate: '…' })}</Tag>
               ))}
             </Space>
           )}
