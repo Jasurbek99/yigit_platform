@@ -3158,7 +3158,9 @@
       "prepare_contract": "Taýýar"
     },
     "progress_packing": "gaplama {{done}}/{{total}}",
-    "progress_packed": "Gaplandy {{done}} / {{total}}"
+    "progress_packed": "Gaplandy {{done}} / {{total}}",
+    "daily_export_waiting": "Gaplama garaşýar: {{count}}",
+    "daily_export_none_waiting": "Şu günüň ähli eksport bölekleriniň gaplamasy bar"
   },
   "me": {
     "board": {
@@ -3277,7 +3279,7 @@
     "create_button": "Şertnama goş",
     "show_ended_toggle": "Tamamlananlary görkez",
     "type": {
-      "framework": "Çarçuwaly",
+      "framework": "Pasport sdelka",
       "one_time": "Bir gezeklik"
     },
     "column": {

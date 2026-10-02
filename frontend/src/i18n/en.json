@@ -3155,7 +3155,9 @@
       "prepare_contract": "Done"
     },
     "progress_packing": "packing {{done}}/{{total}}",
-    "progress_packed": "Packed {{done}} of {{total}}"
+    "progress_packed": "Packed {{done}} of {{total}}",
+    "daily_export_waiting": "Waiting for packing: {{count}}",
+    "daily_export_none_waiting": "Every export part of today has packing"
   },
   "me": {
     "board": {

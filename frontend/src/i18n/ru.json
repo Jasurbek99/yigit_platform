@@ -3155,7 +3155,9 @@
       "prepare_contract": "Готово"
     },
     "progress_packing": "упаковка {{done}}/{{total}}",
-    "progress_packed": "Упаковано {{done}} из {{total}}"
+    "progress_packed": "Упаковано {{done}} из {{total}}",
+    "daily_export_waiting": "Ждут упаковку: {{count}}",
+    "daily_export_none_waiting": "У всех экспортных частей на сегодня есть упаковка"
   },
   "me": {
     "board": {
@@ -3274,7 +3276,7 @@
     "create_button": "Добавить контракт",
     "show_ended_toggle": "Показать завершённые",
     "type": {
-      "framework": "Рамочный",
+      "framework": "Паспорт сделка",
       "one_time": "Одноразовый"
     },
     "column": {
