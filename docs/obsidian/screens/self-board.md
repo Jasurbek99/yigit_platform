@@ -43,6 +43,14 @@ come back — every single role fits under the cap.
 filters `assignee_user IS NULL OR = self`. So a supervisor additionally sees role-X tasks
 another user has personally picked up. That is the intended oversight semantic.
 
+**export_manager opens on its own queue (2026-10-02, owner).** The board (and the nav badge)
+start with `assignee_role=export_manager`; the switcher's first option «All roles»
+(`me.board.filter_role`, sentinel `__all__` → `null`) widens to every role. Frontend-only —
+`defaultMyTasksRole()` in `hooks/useMyTasks.ts` (`OWN_QUEUE_FIRST_ROLES`); the backend still
+returns all roles when no `assignee_role` is sent. boss / admin / director keep the all-roles
+default. "Own" uses the supervisor semantic below, so it also shows export_manager tasks another
+export manager personally picked up. Tests: `pages/me/SelfBoard.test.tsx`.
+
 **Known limitation:** with no role selected, the all-roles view is still truncated at 1000.
 Selecting a role is what makes the view complete.
 

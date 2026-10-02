@@ -251,7 +251,7 @@ Five sets did **not** import from `roles.py` and were carrying their own copy of
 | Site | Constant | Gates |
 |------|----------|-------|
 | `apps/core/permissions.py` | `SHEET_BYPASS_ROLES` (new) | the Sheet trigger/lock bypass — was three separate hardcoded tuples in `_trigger_matches`, `can_edit_sheet_field` and `get_sheet_edit_map`, each with a docstring insisting the three must never disagree. They are one constant now. |
-| `apps/core/views_me.py` | `_SUPERVISOR_ROLES` | `/me/tasks/` — supervisors receive every role's tasks. **Amended 2026-09-22**: `document_team` carved back OUT of this one set — the My tasks board must show only document_team's own queue, not every role's. Same shape as ADR-024's approver carve-out; `export_manager` is unaffected. |
+| `apps/core/views_me.py` | `_SUPERVISOR_ROLES` | `/me/tasks/` — supervisors receive every role's tasks. **Amended 2026-09-22**: `document_team` carved back OUT of this one set — the My tasks board must show only document_team's own queue, not every role's. Same shape as ADR-024's approver carve-out; `export_manager` is unaffected. **2026-10-02**: the board UI opens export_manager on its own role (`?assignee_role=export_manager`, «All roles» widens) — frontend default only, this set is unchanged. |
 | `apps/export/permissions.py` | `_SUPERVISOR_ROLES` | `IsTaskActor` — acting on any task regardless of `assignee_role` |
 | `apps/export/serializers.py` | `_SUPERVISOR_ROLES` | the `my_work` / owner-role annotation |
 | `apps/export/services/shipment.py` | `PRIVILEGED_ROLES`, `CANCEL_ROLES` | the per-edge role bypass in `transition_to()`, and the cancel edges |
