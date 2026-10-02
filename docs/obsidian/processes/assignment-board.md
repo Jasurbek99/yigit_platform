@@ -133,8 +133,9 @@ keeps its own `?status_code=draft` query.
 `assignment/DailyPlanStrip.tsx` above the columns: «Today: <row> fact/plan [+] … · packing n/m»
 from `GET /export/truck-allocations/daily-progress/` (server's today), «Week» toggles a Mon–Sat ×
 row table. «+» (needs `shipment.create`, writable season) creates an export part for today with the
-row's country — or `is_gapy_satys=true` on the Gapy row — and opens `/shipments/{id}`. This is the
-page the «Eksport planla» task opens (spec `2026-10-01-daily-plan-progress-tasks-design.md`).
+row's country — or `is_gapy_satys=true` on the Gapy row — and opens `/shipments/{id}`. The same
+strip sits in the «Eksport planla» task's window on My tasks (`components/me/DailyExportModal.tsx`),
+whose footer button opens this board (spec `2026-10-01-daily-plan-progress-tasks-design.md`).
 
 ## Related
 

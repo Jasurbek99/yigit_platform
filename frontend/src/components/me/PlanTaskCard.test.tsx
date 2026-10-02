@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import i18n from '@/i18n';
 import type { ITaskListItem } from '@/types';
 import { PlanTaskCard } from './PlanTaskCard';
+
+vi.mock('./DailyExportModal', () => ({
+  DailyExportModal: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="daily-export-modal"><button type="button" onClick={onClose}>close-modal</button></div>
+  ),
+}));
 
 // Viewers on KZ/RU domain machines often run UTC; deadlines must still read in
 // greenhouse time (Asia/Ashgabat), so the test runs the browser clock in UTC.
@@ -69,6 +75,20 @@ describe('PlanTaskCard', () => {
   it('shows no progress line on a done task', () => {
     renderCard(task({ state: 'done', progress: day }));
     expect(screen.queryByTestId('plan-task-progress')).not.toBeInTheDocument();
+  });
+
+  it('opens the plan window instead of a page on an export task, and it closes', () => {
+    renderCard(task({}));
+    fireEvent.click(screen.getByRole('button', { name: /Plan export/ }));
+    expect(screen.getByTestId('daily-export-modal')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('close-modal'));
+    expect(screen.queryByTestId('daily-export-modal')).not.toBeInTheDocument();
+  });
+
+  it('keeps opening its page on a loading task', () => {
+    renderCard(task({ kind: 'daily_loading', title_key: 'tasks.daily_loading_plan' }));
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.queryByTestId('daily-export-modal')).not.toBeInTheDocument();
   });
 
   it('tells a late weekly-plan manager they can still fill until Sunday', () => {

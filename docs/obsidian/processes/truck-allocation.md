@@ -192,7 +192,9 @@ Creation is a read-then-write check and `/me/tasks/` is polled by every user, so
 Spec `docs/superpowers/specs/2026-10-01-daily-plan-progress-tasks-design.md`. Service
 `backend/apps/export/services/daily_progress.py` compares a day's splits with that day's shipments
 (rows by country; `country=NULL` destinations = the Gapy row ↔ `is_gapy_satys`).
-- `daily_export` («Eksport planla», export_manager, link `/export/assign`) closes when every row has
+- `daily_export` («Eksport planla», export_manager) — its card opens a window on My tasks, not a
+  page (owner, 2026-10-02): the «Today» strip with «+», the export parts of today still waiting for
+  packing (click → `/shipments/{id}`), and a button to `/export/assign` (the task's `link`). Closes when every row has
   fact ≥ plan, every export part has packing, and there is ≥1 export part. The export manager joins.
 - `daily_loading` («Ýük planla», loading) closes when packed trucks ≥ max(plan, export parts), ≥1.
 - Editing today's allocation is allowed (and reopens transport's «Tanyşdym» for that day).

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Tag, Typography } from 'antd';
 import { CalendarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -8,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import type { ITaskListItem } from '@/types';
 import { COLORS } from '@/constants/styles';
 import { exportProgressLine, loadingProgressLine } from './planTaskProgress';
+import { DailyExportModal } from './DailyExportModal';
 
 const { Text } = Typography;
 
@@ -32,6 +34,7 @@ interface IPlanTaskCardProps {
 export function PlanTaskCard({ task }: IPlanTaskCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [planOpen, setPlanOpen] = useState(false);
 
   const isDone = task.state === 'done' || task.state === 'cancelled';
   const isMissed = task.state === 'cancelled' && task.cancelled_reason === 'missed';
@@ -39,6 +42,11 @@ export function PlanTaskCard({ task }: IPlanTaskCardProps) {
   const dayLabel = task.scope_date ? dayjs(task.scope_date).format('DD.MM') : null;
 
   function handleClick() {
+    // «Eksport planla» opens today's plan in place (owner, 2026-10-02).
+    if (task.kind === 'daily_export') {
+      setPlanOpen(true);
+      return;
+    }
     navigate(task.link);
   }
 
@@ -59,102 +67,107 @@ export function PlanTaskCard({ task }: IPlanTaskCardProps) {
   const stateLabel = t(`tasks.state.${task.state}`);
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      aria-label={`${t(task.title_key)}${blockLabel ? ` ${blockLabel}` : ''}${weekLabel ? ` ${weekLabel}` : ''}, ${stateLabel}`}
-      style={{
-        background: COLORS.white,
-        border: '1px solid #f0f0f0',
-        borderLeft: `3px solid ${borderColor}`,
-        borderRadius: 6,
-        padding: '8px 10px',
-        cursor: 'pointer',
-        userSelect: 'none',
-        opacity: isDone ? 0.55 : 1,
-        transition: 'box-shadow 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow =
-          '0 2px 8px rgba(0,0,0,0.1)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
-      }}
-    >
-      {/* Row 1: title + calendar icon */}
+    <>
       <div
+        role="button"
+        tabIndex={0}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        aria-label={`${t(task.title_key)}${blockLabel ? ` ${blockLabel}` : ''}${weekLabel ? ` ${weekLabel}` : ''}, ${stateLabel}`}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 4,
+          background: COLORS.white,
+          border: '1px solid #f0f0f0',
+          borderLeft: `3px solid ${borderColor}`,
+          borderRadius: 6,
+          padding: '8px 10px',
+          cursor: 'pointer',
+          userSelect: 'none',
+          opacity: isDone ? 0.55 : 1,
+          transition: 'box-shadow 0.15s',
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow =
+            '0 2px 8px rgba(0,0,0,0.1)';
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLDivElement).style.boxShadow = 'none';
         }}
       >
-        <CalendarOutlined style={{ color: COLORS.primary, fontSize: 12 }} />
-        <Text
-          strong
-          style={{ fontSize: 12, flex: 1, minWidth: 0 }}
-          ellipsis={{ tooltip: t(task.title_key) }}
+        {/* Row 1: title + calendar icon */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 4,
+          }}
         >
-          {t(task.title_key)}
-        </Text>
-        {blockLabel && (
+          <CalendarOutlined style={{ color: COLORS.primary, fontSize: 12 }} />
+          <Text
+            strong
+            style={{ fontSize: 12, flex: 1, minWidth: 0 }}
+            ellipsis={{ tooltip: t(task.title_key) }}
+          >
+            {t(task.title_key)}
+          </Text>
+          {blockLabel && (
+            <Tag
+              color="blue"
+              style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
+            >
+              {blockLabel}
+            </Tag>
+          )}
+        </div>
+
+        {/* Row 2: week label + state tag */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {weekLabel && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {weekLabel}
+            </Text>
+          )}
+          {dayLabel && (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {dayLabel}
+            </Text>
+          )}
           <Tag
-            color="blue"
+            color={isMissed ? 'error' : isDone ? 'default' : 'processing'}
             style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
           >
-            {blockLabel}
+            {isMissed ? t('tasks.missed') : stateLabel}
           </Tag>
+        </div>
+
+        {/* Row 2b: plan vs fact (open daily tasks only) */}
+        {!isDone && task.progress && (
+          <div style={{ marginTop: 4 }} data-testid="plan-task-progress">
+            <Text style={{ fontSize: 11 }}>
+              {task.kind === 'daily_loading'
+                ? loadingProgressLine(task.progress, t)
+                : exportProgressLine(task.progress, t)}
+            </Text>
+          </div>
+        )}
+
+        {/* Row 3: deadline — red once overdue */}
+        {!isDone && task.deadline && (
+          <div style={{ marginTop: 4 }}>
+            <Text
+              type={task.is_overdue ? undefined : 'secondary'}
+              style={{ fontSize: 11, color: task.is_overdue ? COLORS.danger : undefined }}
+            >
+              {task.is_overdue && task.kind === 'weekly_plan'
+                ? t('tasks.weekly_plan_late_until_sunday')
+                : t('tasks.deadline_at', { time: dayjs(task.deadline).tz(TM_TZ).format('DD.MM HH:mm') })}
+            </Text>
+          </div>
         )}
       </div>
-
-      {/* Row 2: week label + state tag */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        {weekLabel && (
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {weekLabel}
-          </Text>
-        )}
-        {dayLabel && (
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {dayLabel}
-          </Text>
-        )}
-        <Tag
-          color={isMissed ? 'error' : isDone ? 'default' : 'processing'}
-          style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: 0 }}
-        >
-          {isMissed ? t('tasks.missed') : stateLabel}
-        </Tag>
-      </div>
-
-      {/* Row 2b: plan vs fact (open daily tasks only) */}
-      {!isDone && task.progress && (
-        <div style={{ marginTop: 4 }} data-testid="plan-task-progress">
-          <Text style={{ fontSize: 11 }}>
-            {task.kind === 'daily_loading'
-              ? loadingProgressLine(task.progress, t)
-              : exportProgressLine(task.progress, t)}
-          </Text>
-        </div>
-      )}
-
-      {/* Row 3: deadline — red once overdue */}
-      {!isDone && task.deadline && (
-        <div style={{ marginTop: 4 }}>
-          <Text
-            type={task.is_overdue ? undefined : 'secondary'}
-            style={{ fontSize: 11, color: task.is_overdue ? COLORS.danger : undefined }}
-          >
-            {task.is_overdue && task.kind === 'weekly_plan'
-              ? t('tasks.weekly_plan_late_until_sunday')
-              : t('tasks.deadline_at', { time: dayjs(task.deadline).tz(TM_TZ).format('DD.MM HH:mm') })}
-          </Text>
-        </div>
-      )}
-    </div>
+      {/* Sibling, not child: a click inside the modal's portal would otherwise
+          bubble to the card's onClick and reopen it. */}
+      {planOpen && <DailyExportModal onClose={() => setPlanOpen(false)} boardLink={task.link} />}
+    </>
   );
 }
