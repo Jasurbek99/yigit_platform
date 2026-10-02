@@ -90,7 +90,7 @@ Each transition is strictly linear (no skipping steps, no going back). The `TRAN
 |------|------|-----------|-----------|--------------------------------------|--------|
 | 0 | `draft` | Draft | `document_team` | see [[#Leaving `draft` — four triggers, country + customer]] | `gumruk_girish` |
 | 1 | `gumruk_girish` | Customs Entry | `document_team` | `customs_exit_at` (R25) | `gumruk_chykysh` |
-| 2 | `gumruk_chykysh` | Customs Exit | `loading_dept_head` (+ deputy) | `loading_started_at` (R19) — see [[#Packing barrier — `gumruk_chykysh` → `yuklenme` (2026-09-29)]] | `yuklenme` |
+| 2 | `gumruk_chykysh` | Customs Exit | `loading_dept_head` (+ deputy) | `loading_started_at` (R19), its task opening only after the garawul's arrival (2026-10-01) — see [[#Packing barrier — `gumruk_chykysh` → `yuklenme` (2026-09-29)]] | `yuklenme` |
 | 3 | `yuklenme` | Loading | `document_team` | `shipment_code` + `block_sources` (R8) + `variety` (R38) + `weight_net` (R37), and `departed_at` (R21) | `tamamlandy` if `is_gapy_satys`, else `yola_chykdy` |
 | 4 | `yola_chykdy` | Departed | `transport` | `border_crossed_at` (R30) | `serhet_gechdi` |
 | 5 | `serhet_gechdi` | Crossed TM Border | `sales_rep` | `dest_entry_at` (R31) | `dest_entry` |
@@ -130,7 +130,7 @@ members — they are deliberately divergent.)
 Each cascaded transition still writes its own `ShipmentStatusLog` (`is_auto=True`) and `AuditLog` row.
 
 **`MANUAL_DONE` rules do NOT gate auto-advance.** They are operational reminders only —
-`tasks.give_documents` (draft) and `tasks.submit_sales_report` (yola_chykdy) will never block a step.
+`tasks.give_documents` (draft) and `tasks.submit_sales_report` (satylyar; yola_chykdy until 2026-10-01) will never block a step.
 
 The declarative source of truth for every trigger is
 `backend/apps/export/management/commands/seed_task_rules.py::TASK_RULES`. See [[../reference/task-rules]].

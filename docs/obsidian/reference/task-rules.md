@@ -78,22 +78,22 @@ department's tasks.
 | | 21a Prepare declaration — *after 19* | document_team | `confirm` |
 | | 21b Sent to customs «Gümrüge ugradyldy» — *after 20, 21a* | document_team | `confirm` — the last task; the step advances when it closes |
 | **Customs exit (TM)** `gumruk_chykysh` | 22 Back from customs «Gümrükden geldi» | document_team | auto: `customs_exit_at`; sets R6 to the «Gümrükden geldi» option |
-| | Trigger loading start | loading_dept_head | auto: `loading_started_at` |
+| | 24 Trigger loading start «Ýükleme başlady» — *after 23, the garawul's arrival* (`depends_on='tasks.gate_arrive'`, 2026-10-01) | loading_dept_head | auto: `loading_started_at`. The gate no longer writes R19; see [[../processes/gate#Loading starts after the arrival]] |
 | **Loading** `yuklenme` | Fill loading data | loading_dept_head | auto: `shipment_code` + `block_sources` + `variety` + `weight_net` |
-| | 26 **Loading ended** «Ýükleme gutardy» (`tasks.loading_ended`, 2026-09-30) | loading_dept_head | auto: `loading_ended_at` (R20). Holds the step: a truck the garawul already let out (`departed_at`) waits in `yuklenme` until it is filled, then auto-advances (gapy → `tamamlandy`). New-in-catalog: trucks already loading at deploy leave as before |
+| | 26 **Loading ended** «Ýükleme gutardy» (`tasks.loading_ended`, 2026-09-30) — *after Fill loading data* (2026-10-01) | loading_dept_head | auto: `loading_ended_at` (R20). Holds the step: a truck the garawul already let out (`departed_at`) waits in `yuklenme` until it is filled, then auto-advances (gapy → `tamamlandy`). New-in-catalog: trucks already loading at deploy leave as before |
 | | **Quality inspection** | quality_inspector | **Mark Done** *(non-gating reminder — 4 quality certificates + `transit_days` + `transport_temp_c` + `shelf_life_days`; see below)* |
 | | Trigger departure (27 «Ýyladyşhanadan çykdy») | **garawul** (since 2026-09-30; was document_team) | auto: `departed_at` — written by the guard's gate «Çykdy» mark. Shows on nobody's My Tasks (a guard sees only his location's gate tasks); it stays as the step's gate |
 | **Departed** `yola_chykdy` | Trigger border crossing | transport | auto: `border_crossed_at` |
-| | **Submit sales report** (36 «Hasabat doldur») | sales_rep | auto: `sales_report` (the report is saved), `gates_step=False` — one card from departure to the saved report; no button (2026-09-30) |
 | **Border crossed** `serhet_gechdi` | Trigger dest. entry | sales_rep | auto: `dest_entry_at` |
 | **Dest. entry** `dest_entry` | Trigger dest. customs (30 «Gümrük işleri») | sales_rep | auto: `customs_entry_at` — ONE moment: when the destination customs work was done (owner 2026-09-30; UI says «Таможня пройдена», the column name stays) |
-| | **Peregruz barmy?** (`tasks.ask_peregruz`, 2026-09-29) | sales_rep | auto (`field_set`): `has_peregruz` answered — «No» counts. The truck stays at `dest_entry` until answered, so the barysh_gumrugi fork always runs on a real answer |
+| | **Peregruz barmy?** (`tasks.ask_peregruz`, 2026-09-29) — *after 30* (2026-10-01) | sales_rep | auto (`field_set`): `has_peregruz` answered — «No» counts. The truck stays at `dest_entry` until answered, so the barysh_gumrugi fork always runs on a real answer |
 | **Dest. customs** `barysh_gumrugi` | Trigger transshipment | sales_rep | auto: `peregruz_date` — *only if has transshipment* |
 | | Trigger arrival (direct) | sales_rep | auto: `arrived_at` — *only if no transshipment* |
 | **Transshipment** `transshipment` | Trigger arrival | sales_rep | auto: `arrived_at` |
-| **Arrived** `bardy` | Confirm destination | sales_rep | auto: `city` |
-| | Trigger sale start | sales_rep | auto: `sale_started_at` |
+| **Arrived** `bardy` | Trigger sale start (34) | sales_rep | auto: `sale_started_at` — the pallet QR scan records it |
+| | Confirm destination — *after 34* (2026-10-01) | sales_rep | auto: `city`. Not before 34: the QR scan records only the open task's timestamp and the city is not scannable |
 | **Selling** `satylyar` | Trigger sale end | sales_rep | auto: `sale_ended_at` |
+| | **Submit sales report** (36 «Hasabat doldur») | sales_rep | auto: `sales_report` (the report is saved), `gates_step=False` — one card from the sale start to the saved report; no button (2026-09-30). On `yola_chykdy` until 2026-10-01 (owner: one task at a time); a report saved earlier closes it at creation |
 | **Sold** `satyldy` | ~~Trigger report received~~ | sales_rep | **inactive since 2026-09-30** — a second card for the same report; `approve_sales_report` needs the report anyway |
 | | **Approve the report** (`tasks.approve_sales_report`, 2026-09-29) | export_manager (either; admin / boss / director may too) | auto: `sales_report.approved_at` — set by `POST /shipments/{id}/sales-report/approve/`. The shipment closes only after approval; approve only, no reject. Since 2026-10-01 `depends_on=tasks.submit_sales_report` (created once the report is saved) and the card carries the «Утвердить отчёт» button |
 
@@ -223,8 +223,10 @@ point, which is used only when the shipment has none.
 The sales report is fillable from **step 4 (`yola_chykdy`, departed)** onward — the
 truck usually sells before the system status catches up. Two rules cooperate:
 
-- **Step 4 reminder** (`tasks.submit_sales_report`, sales_rep): appears the moment the truck
-  departs so the rep sees "fill the report" on the board early. Since 2026-09-30 (owner, item
+- **Report reminder** (`tasks.submit_sales_report`, sales_rep): appears when the sale starts
+  (`satylyar`, since 2026-10-01 — it appeared at departure before, next to every other rep
+  task; `cancel_retired_duplicate_tasks` cancels the old step-4 cards on trucks not selling
+  yet). The report can still be saved any time; then the card closes at creation. Since 2026-09-30 (owner, item
   36 — one card) it is `ANY_FIELD_FILLED` on `sales_report` with **`gates_step=False`**: it
   closes only when the report is saved (no "Mark Done" button), and it never holds a step, so
   the truck is not frozen at step 4 for the weeks the sale takes. Before, it was `MANUAL_DONE`
@@ -308,7 +310,7 @@ Per active rule in scope, one outcome:
 
 Scope is every step that has a non-terminal task on the shipment, plus the
 shipment's current step, so a long-lived earlier-step task
-(`tasks.submit_sales_report`, created at `yola_chykdy`) is covered.
+(`tasks.submit_sales_report`, created at `satylyar` — `yola_chykdy` before 2026-10-01) is covered.
 
 **It never calls `auto_advance_if_ready()`.** Cancelling the last open auto-task
 at a step makes that step trigger-satisfied, and advancing from here would let a

@@ -18,7 +18,7 @@ tap to mark «Ýyladyşhana geldi» and one tap to mark «Ýyladyşhanadan çykd
 | Question | Answer |
 |---|---|
 | Role | New role `garawul`, bound to one `LoadingLocation` |
-| What arrival does | Save the time, fill R19 `loading_started_at` if empty (→ status Ýüklenme via auto-advance), notify all loading deputies and the head |
+| What arrival does | Save the time and notify all loading deputies and the head. Since 2026-10-01 it no longer fills R19: it opens the loading department's «Ýükleme başlady» task, and R19 moves the status (owner chose this over the original "arrival fills R19") |
 | What exit does | Fill R21 `departed_at` (→ Ýola çykdy, gapy → Tamamlandy via auto-advance) |
 | One truck, two locations | No. A trip loads at one location |
 | «Gelmeli» list | Regular and gapy trucks, dates from today−30 on (7 → 30 on 2026-09-30); no limit ahead since 2026-10-01 (was tomorrow) |
@@ -83,10 +83,10 @@ so every status change still goes through `transition_to()` (`is_auto=True`, as 
 Sheet edit).
 
 1. **Arrive** — precondition: the shipment is in `expected(L)`; otherwise `409`.
-   Writes: `greenhouse_arrived_at = now`, `loading_location = L` if null,
-   `loading_started_at = now` if null. Effect: from `gumruk_chykysh` the shipment
-   auto-advances to `yuklenme`; from earlier statuses nothing moves now, and the cascade
-   catches up later. Then one `gate_arrival` notification to every active
+   Writes: `greenhouse_arrived_at = now`, `loading_location = L` if null. Since
+   2026-10-01 it does not write `loading_started_at`: closing the arrive task opens
+   «Ýükleme başlady» for the loading department, and their R19 moves the status.
+   Then one `gate_arrival` notification to every active
    `loading_dept_head` and `loading_dept_head_deputy` user (`bulk_create`, `batch_size=500`),
    message `"{plate} — {location}"`, link `/shipments/{id}`.
 2. **Depart** — precondition: the shipment is in `inside(L)`; otherwise `409`.
@@ -96,8 +96,7 @@ Sheet edit).
    10 min old **and** `status_changed_at` is null or earlier than the mark. Otherwise `409`
    with the reason.
    - Undo depart: clear `departed_at`.
-   - Undo arrive (only while `departed_at` is null): clear `greenhouse_arrived_at`; clear
-     `loading_started_at` only if it equals `greenhouse_arrived_at` (the guard wrote it).
+   - Undo arrive (only while `departed_at` is null): clear `greenhouse_arrived_at`.
      `loading_location` stays: it equals the block location the truck was listed under.
    - Any guard of that location may undo, not only the one who marked. `AuditLog` keeps who.
 
@@ -229,13 +228,11 @@ Backend (`apps.export` + `apps.core`):
   plate required; status set; cancelled / deleted / archived excluded; inside ignores status.
 - Scoping: `?location=` ignored for `garawul`, honoured for admin; guard with no location → 400;
   other roles → 403 on `/gate/`; `garawul` → 403 on `/shipments/`.
-- Arrive: writes; does not overwrite an existing `loading_started_at`; `gumruk_chykysh` →
-  `yuklenme`; `draft` stays `draft`; notification to head + all active deputies only;
-  second tap → 409.
+- Arrive: writes arrival only, never `loading_started_at`; opens «Ýükleme başlady»;
+  `draft` stays `draft`; notification to head + all active deputies only; second tap → 409.
 - Depart: regular → `yola_chykdy` when loading data is complete, stays `yuklenme` when not;
   gapy → `tamamlandy`.
-- Undo: inside 10 min OK; after 10 min → 409; after a status move → 409; arrive-undo clears
-  `loading_started_at` only when the guard wrote it.
+- Undo: inside 10 min OK; after 10 min → 409; after a status move → 409.
 - Tasks: created, closed on mark (credited), reopened on undo, cancelled on drop-out,
   scoped by location, no duplicates under two syncs.
 - `TestEveryRoleCanEditItsOwnSheetRow` for the new Sheet row.

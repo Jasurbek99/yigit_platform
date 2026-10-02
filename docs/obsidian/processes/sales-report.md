@@ -288,10 +288,11 @@ management roles inherit it via `_ALL_PAGES` without breaching AD-15 (admin-only
 
 Filling the report is surfaced as a **task for the sales rep**, wired to the Task Engine:
 
-- **Step 4 reminder** — a `tasks.submit_sales_report` rule (`sales_rep`, `MANUAL_DONE`) is
-  generated when the truck departs (`yola_chykdy`). It appears on the board from departure so
-  the rep knows to enter the report, but is **non-gating** (`MANUAL_DONE`) — a field-based task
-  on step 4 would freeze the truck there until the report is filled weeks later.
+- **Report reminder** — a `tasks.submit_sales_report` rule (`sales_rep`, `ANY_FIELD_FILLED`
+  on `sales_report`, `gates_step=False`) is generated when the sale starts (`satylyar`; it was
+  `yola_chykdy` until 2026-10-01 — owner: the rep's tasks come one at a time). It is
+  **non-gating** — it would otherwise freeze the truck until the report is filled weeks later.
+  A report saved earlier closes it the moment it is created.
 - **Close on save** — `set_sales_report` calls `close_sales_report_task(shipment, user)`
   (`services/task_rules.py`), which marks the reminder DONE and runs `shipment.save()` so the
   lifecycle trigger resolves.

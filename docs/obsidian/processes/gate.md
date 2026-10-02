@@ -83,14 +83,12 @@ cleanly as `409 {"error": "season_closed"}`, never a 500.
 
 **Arrive** — precondition: the shipment must currently be in `expected(L)`,
 else `409 not_expected`. Writes `greenhouse_arrived_at = now`; sets
-`loading_location = L` if it was null; sets `loading_started_at = now` **only
-if it was still empty** (never overwrites an existing value) **and only if
-the truck's packing has been joined** (final-fix review F5,
-`needs_packing_for_loading()` from `services/packaging.py` — pre-loading
-status, no `block_sources`). A truck that physically arrives before its
-supply is joined still gets its arrival stamped and the notification sent;
-`loading_started_at` stays null until the packing exists, so the row does not
-auto-advance on nothing to load. One `gate_arrival` notification is sent to
+`loading_location = L` if it was null. It does **not** write
+`loading_started_at` (owner, 2026-10-01 — until then the arrival also filled
+R19 and closed «Ýükleme başlady» in the same tap, so the loading department
+never saw it). Closing the arrive task opens the loading department's
+«Ýükleme başlady» task — see [[#Loading starts after the arrival]]. One
+`gate_arrival` notification is sent to
 every active `loading_dept_head` and `loading_dept_head_deputy` user — **not
 scoped to `L`**, every location's heads and deputies get every arrival —
 message `"{plate} — {location}"`, link `/shipments/{id}`.
@@ -128,9 +126,9 @@ inside, so the returned row's `can_undo` is for its *arrival*; undoing an
 - **Undo depart**: clears `departed_at`. Reopens any `DONE` status task this
   mark closed (see below).
 - **Undo arrive** (only while `departed_at` is still null): clears
-  `greenhouse_arrived_at`; clears `loading_started_at` too, but **only if it
-  still equals the arrival mark** — i.e. only if the guard is the one who
-  wrote it. `loading_location` is **never** cleared on undo — it already
+  `greenhouse_arrived_at` only — the guard never writes `loading_started_at`
+  (2026-10-01). A «Ýükleme başlady» task the arrival already opened stays
+  open. `loading_location` is **never** cleared on undo — it already
   equals the block location the truck was listed under, so clearing it would
   gain nothing and could orphan the row.
 
@@ -186,6 +184,30 @@ save-time sync passes `shipment.updated_by`, the same credit the task engine
 gives any task a save resolves (so a time fixed on the Sheet credits the
 editor); a read-time sync credits nobody.
 
+### Loading starts after the arrival
+
+Owner, 2026-10-01 (docs/Tasks.md 23 → 24 → 26): the loading department's
+tasks come one at a time — «Ýükleme başlady», then «Fill loading data», then
+«Ýükleme gutardy».
+
+- `tasks.trigger_loading_start` (step `gumruk_chykysh`, R19) has
+  `depends_on='tasks.gate_arrive'`. It is not created at step entry; the
+  task chain spawns it once the arrive task is `DONE`. When `sync_gate_tasks`
+  closes an arrive task (`_done()` returns `True`), `_open_loading_start()`
+  runs `after_task_done()` for that shipment: the task spawns, and if R19 was
+  already typed it resolves at once and the truck advances to `yuklenme`.
+- While the arrive task is open, the pending rule holds `gumruk_chykysh`
+  (`has_pending_dependents`): R19 typed early on the Sheet waits for the
+  arrival. If the guard never taps, typing R49 «Ýyladyşhana geldi» on the Sheet
+  closes the arrive task the same way.
+- A truck with no gate task when it enters `gumruk_chykysh` (no packing yet,
+  so no location) gets the task at step entry, as before — `depends_on` on a
+  title with no task counts as satisfied.
+- `tasks.loading_ended` (step `yuklenme`) has
+  `depends_on='tasks.fill_loading_data'`. When packing already filled the
+  loading data, «Fill loading data» closes at step entry and «Ýükleme gutardy»
+  follows at once.
+
 **A gate task never makes a shipment "owned" by garawul** (final-fix review
 F3). `get_owner_role()` (the Shipment Board item's `owner_role`) and the
 Board's `?owner_role=` subquery both read the shipment's most-recently-created
@@ -238,9 +260,10 @@ not one of AD-1's ten state-machine trigger timestamps** (see
 [[../screens/shipment-sheet#Permissions]]) — editing it on the Sheet only
 changes what the next `sync_gate_tasks()` call sees (the truck moves between
 «Gelmeli» and «Ýyladyşhanada» on the next read, task `completed_by` left null)
-and does **not** itself touch `loading_location`, `loading_started_at`, or
-send the arrival notification — those three only happen through the gate's
-own `arrive()` action. Live-DB rollout is one data migration,
+and does **not** itself touch `loading_location` or send the arrival
+notification — those two only happen through the gate's own `arrive()`
+action. It does close the arrive task, which opens «Ýükleme başlady» (see
+[[#Loading starts after the arrival]]). Live-DB rollout is one data migration,
 `export/0087_seed_greenhouse_arrival_row` (field grants for the two loading
 roles + the `SheetRowSetting` row with its triggers, including `boss`) — not
 the two separate migrations the original design sketch described. Like
