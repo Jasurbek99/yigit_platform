@@ -28,6 +28,8 @@ frontend/.cache/
 CREDENTIALS.md
 # TLS certificate + private key for export.yigithj.com (server only)
 certs/
+# Server runbook — holds server addresses and logins; the repo is public
+docs/obsidian/operations/beta-runbook.md
 docs/TEST_ACCOUNTS.md
 
 # IDE
