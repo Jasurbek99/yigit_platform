@@ -4,6 +4,9 @@ All notable changes to the YGT Platform.
 
 ## [Unreleased]
 
+### Added
+- **HTTPS for export.yigithj.com (feat(docker)).** `frontend/nginx.conf` includes `/etc/nginx/tls/*.conf`; the server mounts the gitignored `./certs` dir there (wildcard `*.yigithj.com`, valid to 2026-12-31). Dev stays HTTP-only. **Deploy:** server steps in `docs/obsidian/operations/beta-runbook.md` «HTTPS», then `update.sh`.
+
 ### Changed
 - **My tasks opens export_manager on its own tasks (feat(frontend)).** Owner 2026-10-02. The board and the nav badge request `assignee_role=export_manager` by default; the role switcher's new «All roles» option widens to every role. boss / admin / director unchanged. Frontend only.
 - **Quality task card: «Ýol gün we temp» inline, stubs link to the shipment (feat(frontend)).** The task list maps `transit_days` + `transport_temp_c` to the combined Sheet row R26 `transit_days_temp` (`"5 4"`), rendered once; «Shipment fields» leaves it out. The hint under fields with no editor on the card (the `quality.*` flags) reads «Ýükler sahypasynda dolduryň» / «Заполните на странице отгрузки» and links to `/shipments/:id#detail-field-<key>`. Owner 2026-10-02. **Deploy:** `update.sh` on beta.
