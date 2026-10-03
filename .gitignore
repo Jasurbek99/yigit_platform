@@ -26,6 +26,8 @@ frontend/.cache/
 
 # Credentials (local dev only — never commit)
 CREDENTIALS.md
+# TLS certificate + private key for export.yigithj.com (server only)
+certs/
 docs/TEST_ACCOUNTS.md
 
 # IDE
