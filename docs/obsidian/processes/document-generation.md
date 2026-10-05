@@ -81,6 +81,7 @@ GET /api/v1/contracts/sales/{id}/document/?type=<key>&fmt=docx|pdf&place_loading
 GET /api/v1/contracts/shipments/{id}/cmr/?lang=ru|en&fmt=docx|pdf&place_loading=&tir_carnet=
 ```
 - No `place_loading` (since 2026-10-05 box 4 is fixed to Kaka; a sent value is ignored); `tir_carnet` (Uzbekistan transit) is optional.
+- CMR date (`doc_date`) = `effective_export_date(shipment)`: the hand-set `Shipment.export_date`, else the date parsed from `export_code`, else `Shipment.date`. Invoice/letter/contract dates are unchanged.
 
 **Truck TIR carnet** — from a `Shipment`, all firms as holder:
 ```

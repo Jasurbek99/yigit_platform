@@ -406,6 +406,8 @@ not a renumbering). Set from the gate screen on arrival; the loading head
 [[../processes/gate#Sheet row 49]] for why this row is **not** listed among
 the AD-1 lifecycle triggers below.
 
+**R50 — `export_date` («Дата экспорта» / `Eksport senesi`).** Date-only cell placed right after `export_code` (`input_type: 'date'`, style `key`), editable by the same roles as `export_code`. The payload value is the *effective* date and never null: a hand-entered value if set, otherwise auto (the date parsed from `export_code`, else the shipment date). Display is `DD.MM.YYYY` (`dateOnlyFields` in `getCellValue.ts`); the picker saves `YYYY-MM-DD` through `useShipmentPatch`. The Sheet picker has no clear button (like every date cell) - clearing back to auto is done on Detail. Frontend: `sheetTopicOrder.ts` lists it in the *general* section after `export_code`.
+
 **R4 — `transport_docs_given_at` (Şirin / `document_team`).** Datetime cell logging when the transport department handed over the shipment docs. Empty state renders `Berilmedi` (not the generic em-dash) so an unfilled cell is unambiguous; picking a date+time implies `Berildi` at that moment. Repurposed from the legacy Malik "Goşmaça bellik" column per in-app feedback #9 — `Shipment.notes` still exists on the model (and on the Detail view) for historical data but is no longer surfaced on the Sheet.
 
 ## Comments Drawer
