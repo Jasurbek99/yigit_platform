@@ -41,7 +41,7 @@ Status: 🔴 OPEN · 🟡 INVESTIGATING · 🟢 FIXED (verified by tester)
 
 ---
 
-## 🔴 BUG-003 — Shipments list: search box clears itself (same root cause as BUG-001)
+## 🟢 BUG-003 — Shipments list: search box clears itself (same root cause as BUG-001)
 - **Found:** 2026-07-29 (Claude, while fixing BUG-001)
 - **Where:** `/export/shipments` — the code/customer search box.
 - **Steps:** Type text in the search box.
@@ -50,7 +50,7 @@ Status: 🔴 OPEN · 🟡 INVESTIGATING · 🟢 FIXED (verified by tester)
 - **Root cause:** Identical double-`setSearchParams` clobber — `onChange`/`onSearch` call
   `setSearch(...)` **and** `setPage(1)` together (`ShipmentList.tsx:740-741`). `setSearch`
   already clears page, so the `setPage(1)` is redundant and wipes the search param.
-- **Fix (not applied — out of BUG-001 scope):** remove the redundant `setPage(1)` from both
-  the `onChange` and `onSearch` handlers, mirroring the BUG-001 fix.
+- **Fix:** Dropped the redundant `setPage(1)` from both the `onChange` and `onSearch`
+  handlers (2026-10-05), mirroring the BUG-001 fix.
 - **Severity:** Medium.
-- **Status:** Open — awaiting go-ahead to fix.
+- **Status:** Fixed, confirmed by tester 2026-10-05.

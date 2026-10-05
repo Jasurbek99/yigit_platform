@@ -765,8 +765,8 @@ export default function ShipmentList() {
           placeholder={t('shipments.search_ph')}
           style={{ width: 220 }}
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          onSearch={(val) => { setSearch(val); setPage(1); }}
+          onChange={(e) => setSearch(e.target.value)}
+          onSearch={(val) => setSearch(val)}
           allowClear
         />
         <Select
