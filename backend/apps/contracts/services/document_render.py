@@ -32,8 +32,9 @@ from docxtpl import DocxTemplate, InlineImage
 from openpyxl.styles import Font
 
 from apps.contracts.document_templates import registry as tpl_registry
-from apps.contracts.services import document_context, document_highlight
+from apps.contracts.services import document_context, document_highlight, letterhead_render
 from apps.contracts.services.document_context import StampImage
+from apps.contracts.services.letter_number import LETTER_TYPE_FOR_KEY, SALE_FIELD
 
 logger = logging.getLogger(__name__)
 
@@ -426,6 +427,16 @@ def generate(
             spec.template_path, context, highlight, layout_for(document_key),
         )
         native_ext, native_type = 'docx', DOCX_CONTENT_TYPE
+        letter_type = LETTER_TYPE_FOR_KEY.get(document_key)
+        if letter_type is not None:
+            # CT-1 / Fito / ARZA go out on the seller's letterhead, numbered (spec 2026-10-05).
+            head = letterhead_render.letterhead_for(primary_obj)
+            if head is not None:
+                number = getattr(primary_obj, SALE_FIELD[letter_type])
+                try:
+                    source_bytes = letterhead_render.apply_letterhead(source_bytes, head, number)
+                except Exception:  # noqa: BLE001 — an odd firm blank must not cost the letter
+                    logger.exception('letterhead merge failed for %s sale %s', document_key, primary_obj.pk)
 
     fields = _FILENAME_FIELDS[spec.scope](primary_obj)
     stem = spec.out_pattern.format(**fields)
