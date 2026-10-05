@@ -24,8 +24,6 @@
 #     python -c "from django.conf import settings; print(settings.DATABASES['default']['HOST'], settings.DATABASES['default']['NAME'])"
 #   # Must print: 10.10.11.233\YIGIT YIGIT_PLATFROM_NEW
 
-version: '3.8'
-
 services:
   backend:
     # Pull every DB value from backend/.env. `${VAR:?msg}` aborts startup with
