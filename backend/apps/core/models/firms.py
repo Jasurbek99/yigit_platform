@@ -46,6 +46,10 @@ class ExportFirm(models.Model):
     # single image. When this is filled it REPLACES the two above on the document
     # (see document_context._stamp_pair) and they become optional for the firm.
     director_stamp = models.FileField(upload_to='export_firms/stamps/', null=True, blank=True)
+    # Firm letterhead (.docx) — inserted at the top of the CT-1 / Fito / ARZA
+    # request letters, its «№ ___» filled with the letter number. Replaced, not
+    # versioned. See apps/core/letterhead.py (spec 2026-10-05).
+    letterhead = models.FileField(upload_to='export_firms/letterheads/', null=True, blank=True)
     # === Sole-proprietor certificate (Tassyknama) ===
     # A Hususy telekeçi acts on a certificate, not a charter, and the export
     # contract's preamble cites it: "07.12.2022ý. senesindäki A seriýaly

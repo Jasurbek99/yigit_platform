@@ -32,6 +32,7 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from apps.core.models import ExportFirm, ImportFirm, LoadingLocation, RolePagePermission, Season, User
 from apps.core.permission_registry import PAGE_REGISTRY
+from apps.core.letterhead import validate_letterhead as check_letterhead
 from apps.core.serializer_fields import RelativeFileField
 from apps.core.permissions import (
     firm_write_permission,
@@ -218,6 +219,7 @@ class ExportFirmSerializer(serializers.ModelSerializer):
     director_signature = RelativeFileField(required=False, allow_null=True)
     director_seal = RelativeFileField(required=False, allow_null=True)
     director_stamp = RelativeFileField(required=False, allow_null=True)
+    letterhead = RelativeFileField(required=False, allow_null=True)
     # FK returns id + display, per the API contract. `code` is the stable key
     # the frontend branches on; `display` is what a table cell renders.
     legal_type_code = serializers.CharField(source='legal_type.code', read_only=True, default=None)
@@ -232,6 +234,7 @@ class ExportFirmSerializer(serializers.ModelSerializer):
             'address_tk', 'address_en', 'address_ru',
             'bank_details_tk', 'bank_details_en', 'bank_details_ru',
             'director', 'director_tk', 'director_signature', 'director_seal', 'director_stamp',
+            'letterhead',
             'patent_series', 'patent_number', 'patent_date',
             'tax_code', 'swift_code', 'one_c_code',
             'color', 'sort_order',
@@ -243,6 +246,19 @@ class ExportFirmSerializer(serializers.ModelSerializer):
         if legal_type is None:
             return None
         return legal_type.abbr_tk or legal_type.abbr_ru or legal_type.code
+
+    def validate_letterhead(self, value):
+        """A readable .docx with a «№ ___» for the letter number (spec 2026-10-05)."""
+        if not value:
+            return value
+        if not value.name.lower().endswith('.docx'):
+            raise serializers.ValidationError('Бланк должен быть файлом .docx.')
+        try:
+            check_letterhead(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        value.seek(0)
+        return value
 
 
 class TruckSplitDefaultSerializer(serializers.ModelSerializer):
