@@ -11,8 +11,9 @@ interface IShipmentDocsOptionsBarProps {
 
 /**
  * The generate-time options the per-download modal used to ask every time,
- * set once for the whole card: loading point (invoice, CMR, ZIP), TIR carnet №
- * (CMR, ZIP — Uzbekistan transit only) and the red-highlight toggle.
+ * set once for the whole card: loading point (invoice, ZIP), TIR carnet №
+ * (CMR, ZIP — Uzbekistan transit only), CMR box 17 (optional) and the
+ * red-highlight toggle.
  */
 export function ShipmentDocsOptionsBar({ options, onChange }: IShipmentDocsOptionsBarProps) {
   const { t } = useTranslation();
@@ -42,6 +43,17 @@ export function ShipmentDocsOptionsBar({ options, onChange }: IShipmentDocsOptio
           onChange={(e) => onChange({ tirCarnet: e.target.value })}
           placeholder={t('documents.tir_carnet_ph')}
           title={t('documents.tir_carnet_ph')}
+          allowClear
+        />
+      </Flex>
+      <Flex gap={6} align="center" style={{ flex: '1 1 260px', maxWidth: 420 }}>
+        <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap' }}>{t('documents.successive_carrier')}</Typography.Text>
+        <Input
+          size="small"
+          value={options.successiveCarrier}
+          onChange={(e) => onChange({ successiveCarrier: e.target.value })}
+          placeholder={t('documents.successive_carrier_ph')}
+          title={t('documents.successive_carrier_ph')}
           allowClear
         />
       </Flex>

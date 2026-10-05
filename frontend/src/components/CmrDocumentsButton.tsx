@@ -36,8 +36,8 @@ const FMT_LABEL_KEY: Record<(typeof FORMATS)[number], string> = {
 
 /**
  * Truck-level CMR download — one CMR per shipment, all export firms listed as
- * senders. Opens a modal to pick the loading point and (Uzbekistan transit) the
- * TIR carnet №, then hits GET /contracts/shipments/{id}/cmr/.
+ * senders. Opens a modal for the TIR carnet № (Uzbekistan transit) — no loading
+ * point, the CMR's box 4 is fixed — then hits GET /contracts/shipments/{id}/cmr/.
  */
 export function CmrDocumentsButton({
   shipmentId,
@@ -82,6 +82,7 @@ export function CmrDocumentsButton({
       <DocumentOptionsModal
         open={pending !== null}
         isGenerating={isGenerating}
+        withPlaceLoading={false}
         withTirCarnet
         onConfirm={handleConfirm}
         onCancel={() => setPending(null)}

@@ -8,6 +8,8 @@ import { useLoadingLocations } from '@/hooks/useAdmin';
 export interface IDocumentOptions {
   readonly placeLoading?: string;
   readonly tirCarnet?: string;
+  /** CMR box 17 (successive carrier) — optional free text. */
+  readonly successiveCarrier?: string;
   readonly highlight: boolean;
 }
 
@@ -16,7 +18,7 @@ interface IDocumentOptionsModalProps {
   readonly isGenerating: boolean;
   /** Show the loading-point picker (invoice, CMR and packet take one). */
   readonly withPlaceLoading?: boolean;
-  /** Show the TIR carnet № field (CMR and packet only — Uzbekistan transit). */
+  /** Show the TIR carnet № and CMR box 17 fields (CMR and packet only). */
   readonly withTirCarnet?: boolean;
   /**
    * Registry key of the document about to be generated. When set and tunable,
@@ -43,6 +45,7 @@ export function applyDocumentOptions(
 ): void {
   if (options.placeLoading) params.set('place_loading', options.placeLoading);
   if (options.tirCarnet?.trim()) params.set('tir_carnet', options.tirCarnet.trim());
+  if (options.successiveCarrier?.trim()) params.set('successive_carrier', options.successiveCarrier.trim());
   if (!options.highlight) params.set('highlight', '0');
 }
 
@@ -66,6 +69,7 @@ export function DocumentOptionsModal({
 
   const [placeLoading, setPlaceLoading] = useState<string | undefined>(undefined);
   const [tirCarnet, setTirCarnet] = useState('');
+  const [successiveCarrier, setSuccessiveCarrier] = useState('');
   const [highlight, setHighlight] = useState(true);
 
   // Reset on every open so one truck's loading point never leaks into the next.
@@ -73,6 +77,7 @@ export function DocumentOptionsModal({
     if (open) {
       setPlaceLoading(undefined);
       setTirCarnet('');
+      setSuccessiveCarrier('');
       setHighlight(true);
     }
   }, [open]);
@@ -92,7 +97,7 @@ export function DocumentOptionsModal({
           {canTuneLayout && <DocumentLayoutPopover documentKey={documentKey!} />}
         </span>
       }
-      onOk={() => onConfirm({ placeLoading, tirCarnet, highlight })}
+      onOk={() => onConfirm({ placeLoading, tirCarnet, successiveCarrier, highlight })}
       onCancel={onCancel}
       okText={t('documents.download')}
       okButtonProps={{ disabled: missingPlaceLoading }}
@@ -126,6 +131,17 @@ export function DocumentOptionsModal({
               value={tirCarnet}
               onChange={(e) => setTirCarnet(e.target.value)}
               placeholder={t('documents.tir_carnet_ph')}
+              allowClear
+            />
+          </Form.Item>
+        )}
+        {withTirCarnet && (
+          <Form.Item label={t('documents.successive_carrier')}>
+            <Input.TextArea
+              value={successiveCarrier}
+              onChange={(e) => setSuccessiveCarrier(e.target.value)}
+              placeholder={t('documents.successive_carrier_ph')}
+              autoSize={{ minRows: 1, maxRows: 4 }}
               allowClear
             />
           </Form.Item>

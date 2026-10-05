@@ -41,7 +41,7 @@ export function ShipmentDocumentsCard({ shipment }: IShipmentDocumentsCardProps)
 
   const firmCount = shipment.firm_splits.length;
   const defaultPlace = locations.find((loc) => loc.id === shipment.loading_location)?.name ?? '';
-  const options: IDocumentOptions = { placeLoading: defaultPlace, tirCarnet: '', highlight: true, ...optionEdits };
+  const options: IDocumentOptions = { placeLoading: defaultPlace, tirCarnet: '', successiveCarrier: '', highlight: true, ...optionEdits };
 
   const handleOptionsChange = (patch: Partial<IDocumentOptions>): void => {
     setOptionEdits((prev) => ({ ...prev, ...patch }));

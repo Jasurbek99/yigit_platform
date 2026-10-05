@@ -24,7 +24,8 @@ export function ShipmentDocsTruckGroup({ packet, options }: IShipmentDocsTruckGr
   const { t } = useTranslation();
   const base = `/contracts/shipments/${packet.id}`;
   const notReady = packet.is_ready ? null : t('shipment_detail.docs.not_ready');
-  const hint = notReady ?? (options.placeLoading ? null : t('shipment_detail.docs.need_place_loading'));
+  // The ZIP carries the invoices, which print the loading point; the CMR's box 4 is fixed.
+  const zipHint = notReady ?? (options.placeLoading ? null : t('shipment_detail.docs.need_place_loading'));
 
   return (
     <DocumentGroup
@@ -34,12 +35,12 @@ export function ShipmentDocsTruckGroup({ packet, options }: IShipmentDocsTruckGr
       <DocumentDownloadRow
         label={t('shipment_detail.docs.packet_zip')}
         formats={bilingualFormats((lang) => ({ lang }), (query) => documentFormats(`${base}/packet.zip`, query, WORD_PDF, options, t))}
-        hint={hint}
+        hint={zipHint}
       />
       <DocumentDownloadRow
         label={t('documents.cmr')}
         formats={bilingualFormats((lang) => ({ lang }), (query) => documentFormats(`${base}/cmr/`, query, WORD_PDF_EXCEL, options, t))}
-        hint={hint}
+        hint={notReady}
       />
       <DocumentRowShell label={t('documents.tir')} hint={notReady}>
         <TirCarnetButton shipmentId={packet.id} disabled={!packet.is_ready} />

@@ -138,9 +138,20 @@ describe('ShipmentDocumentsCard', () => {
     );
   });
 
-  it('without a loading point, blocks the invoice / CMR / ZIP rows but not the letters', () => {
+  it('sends the optional CMR box 17 text with the CMR', async () => {
+    setup();
+    fireEvent.change(screen.getByPlaceholderText(i18n.t('documents.successive_carrier_ph')), { target: { value: 'Trans LLC' } });
+    await click(within(row('CMR')).getByRole('button', { name: 'EN Word' }));
+    expect(downloadFile).toHaveBeenCalledWith(
+      '/contracts/shipments/9/cmr/?lang=en&fmt=docx&place_loading=Dusak&successive_carrier=Trans+LLC',
+    );
+  });
+
+  // The CMR's box 4 is fixed (Kaka), so only the invoice and the ZIP wait for a point.
+  it('without a loading point, blocks the invoice / ZIP rows but not the CMR or letters', () => {
     setup({ ship: shipment({ loading_location: null }) });
-    expect(within(row('CMR')).getByRole('button', { name: 'RU Word' })).toBeDisabled();
+    expect(within(row('CMR')).getByRole('button', { name: 'RU Word' })).toBeEnabled();
+    expect(within(row(i18n.t('shipment_detail.docs.packet_zip'))).getByRole('button', { name: 'RU Word' })).toBeDisabled();
     expect(within(row(i18n.t('documents.invoice'))).getByRole('button', { name: 'RU Word' })).toBeDisabled();
     expect(within(row(i18n.t('documents.fito'))).getByRole('button', { name: 'Word' })).toBeEnabled();
     expect(screen.getAllByText(i18n.t('shipment_detail.docs.need_place_loading')).length).toBeGreaterThan(0);

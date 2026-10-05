@@ -3472,6 +3472,8 @@
     "place_loading_required": "Choose the loading point",
     "tir_carnet": "TIR carnet №",
     "tir_carnet_ph": "Uzbekistan transit only — leave blank otherwise",
+    "successive_carrier": "CMR box 17",
+    "successive_carrier_ph": "Successive carrier — optional",
     "download_failed": "Document download failed",
     "highlight": "Print filled values in red",
     "highlight_extra": "Values from the database print red, boilerplate stays black, so a blank field is obvious before printing. Uncheck for a clean copy for the customer.",
