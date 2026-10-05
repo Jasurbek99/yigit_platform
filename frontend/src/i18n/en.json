@@ -3061,6 +3061,7 @@
       "garawul": "Gate guard"
     },
     "field_label": {
+      "sales_report_approved_at": "Sales report approved",
       "transit_days": "Transit days",
       "transport_temp_c": "Transport temperature",
       "shelf_life_days": "Shelf life (days)",

@@ -34,6 +34,25 @@ const SECTION_ANCHOR_BY_KEY: Record<string, string> = {
   'quality.kalibrowka_analiz': 'detail-field-quality.kalibrowka_analiz',
 };
 
+/**
+ * Human label for a missing field key: the Edit-drawer label, else the task
+ * field label, else — for a dotted key such as `quality.azyk_maglumatnama` —
+ * the key itself as an i18n path. Only falls back to the raw key when all
+ * three are missing.
+ */
+export function missingFieldLabel(fieldKey: string, t: (key: string, options?: { defaultValue: string }) => string): string {
+  const candidates = [
+    `shipment_edit_drawer.field.${fieldKey}`,
+    `tasks.field_label.${fieldKey.replace('.', '_')}`,
+    ...(fieldKey.includes('.') ? [fieldKey] : []),
+  ];
+  for (const key of candidates) {
+    const label = t(key, { defaultValue: '' });
+    if (label) return label;
+  }
+  return fieldKey;
+}
+
 /** Section id to scroll to for an informational key, or undefined if it's a plain system-filled field with nothing to scroll to. */
 export function sectionAnchorFor(fieldKey: string): string | undefined {
   return SECTION_ANCHOR_BY_KEY[fieldKey];

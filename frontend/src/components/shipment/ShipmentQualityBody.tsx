@@ -1,4 +1,4 @@
-import { Button, List, Popconfirm, Space, Tag, Typography, Upload } from 'antd';
+import { Button, Flex, List, Popconfirm, Space, Tag, Typography, Upload } from 'antd';
 import {
   CheckCircleTwoTone,
   DeleteOutlined,
@@ -96,89 +96,94 @@ export function ShipmentQualityBody({ shipment, canEditQuality }: IShipmentQuali
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {isError && <Text type="danger">{t('quality.load_error')}</Text>}
       {QUALITY_FIELDS.map((field) => {
         const own = certificates.filter((c) => c.doc_type === field);
         const isFull = own.length >= MAX_FILES_PER_TYPE;
 
+        // One line per type — status, name, upload — with the scans listed
+        // under it only when there are any (no empty-list placeholder).
         return (
           <div key={field} id={`detail-field-quality.${field}`}>
-            <Space size={6} style={{ marginBottom: 4 }}>
-              {own.length > 0 ? (
-                <CheckCircleTwoTone twoToneColor="#52c41a" />
-              ) : (
-                <Tag color="default">{t('quality.missing')}</Tag>
-              )}
-              <Text strong>{t(`quality.${field}`)}</Text>
-            </Space>
-
-            <List
-              size="small"
-              loading={isLoading}
-              dataSource={own}
-              locale={{ emptyText: t('quality.no_scans') }}
-              renderItem={(certificate) => (
-                <List.Item
-                  actions={
-                    canEditQuality
-                      ? [
-                          <Popconfirm
-                            key="delete"
-                            title={t('quality.delete_confirm')}
-                            okText={t('common.delete')}
-                            cancelText={t('common.cancel')}
-                            onConfirm={() => removeMutation.mutate(certificate.id)}
-                          >
-                            <Button size="small" danger type="text" icon={<DeleteOutlined />} />
-                          </Popconfirm>,
-                        ]
-                      : []
-                  }
+            <Flex justify="space-between" align="center" gap={8}>
+              {/* The name wraps; the upload button keeps its place on the right. */}
+              <Flex gap={6} align="center" style={{ minWidth: 0 }}>
+                {own.length > 0 ? (
+                  <CheckCircleTwoTone twoToneColor="#52c41a" />
+                ) : (
+                  <Tag color="default">{t('quality.missing')}</Tag>
+                )}
+                <Text strong>{t(`quality.${field}`)}</Text>
+              </Flex>
+              {canEditQuality && (
+                <Upload
+                  accept={ACCEPT}
+                  multiple
+                  showUploadList={false}
+                  disabled={isFull || uploadMutation.isPending}
+                  // AntD calls beforeUpload once per selected file; send the whole
+                  // selection on the first call. The per-type cap and the
+                  // all-or-nothing validation are enforced per REQUEST server-side,
+                  // so one request per file would let a batch slip past the cap.
+                  beforeUpload={(file, fileList) => {
+                    if (file === fileList[0]) {
+                      uploadMutation.mutate({
+                        docType: field,
+                        files: fileList as unknown as File[],
+                      });
+                    }
+                    return false;
+                  }}
                 >
-                  <Space size={6}>
-                    <FileOutlined />
-                    {/* Same-origin authenticated download — the httpOnly cookie rides along. */}
-                    <a href={certificate.download_url} target="_blank" rel="noreferrer">
-                      {certificate.original_filename}
-                    </a>
-                    <Text type="secondary">
-                      {Math.round(certificate.size_bytes / 1024)} KB
-                    </Text>
-                  </Space>
-                </List.Item>
+                  <Button
+                    size="small"
+                    icon={<UploadOutlined />}
+                    disabled={isFull}
+                    loading={uploadMutation.isPending}
+                  >
+                    {isFull ? t('quality.max_reached') : t('quality.upload')}
+                  </Button>
+                </Upload>
               )}
-            />
+            </Flex>
 
-            {canEditQuality && (
-              <Upload
-                accept={ACCEPT}
-                multiple
-                showUploadList={false}
-                disabled={isFull || uploadMutation.isPending}
-                // AntD calls beforeUpload once per selected file; send the whole
-                // selection on the first call. The per-type cap and the
-                // all-or-nothing validation are enforced per REQUEST server-side,
-                // so one request per file would let a batch slip past the cap.
-                beforeUpload={(file, fileList) => {
-                  if (file === fileList[0]) {
-                    uploadMutation.mutate({
-                      docType: field,
-                      files: fileList as unknown as File[],
-                    });
-                  }
-                  return false;
-                }}
-              >
-                <Button
-                  size="small"
-                  icon={<UploadOutlined />}
-                  disabled={isFull}
-                  loading={uploadMutation.isPending}
-                >
-                  {isFull ? t('quality.max_reached') : t('quality.upload')}
-                </Button>
-              </Upload>
+            {(own.length > 0 || isLoading) && (
+              <List
+                size="small"
+                loading={isLoading}
+                dataSource={own}
+                renderItem={(certificate) => (
+                  <List.Item
+                    actions={
+                      canEditQuality
+                        ? [
+                            <Popconfirm
+                              key="delete"
+                              title={t('quality.delete_confirm')}
+                              okText={t('common.delete')}
+                              cancelText={t('common.cancel')}
+                              onConfirm={() => removeMutation.mutate(certificate.id)}
+                            >
+                              <Button size="small" danger type="text" icon={<DeleteOutlined />} />
+                            </Popconfirm>,
+                          ]
+                        : []
+                    }
+                  >
+                    <Space size={6}>
+                      <FileOutlined />
+                      {/* Same-origin authenticated download — the httpOnly cookie rides along. */}
+                      <a href={certificate.download_url} target="_blank" rel="noreferrer">
+                        {certificate.original_filename}
+                      </a>
+                      <Text type="secondary">
+                        {Math.round(certificate.size_bytes / 1024)} KB
+                      </Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
             )}
           </div>
         );

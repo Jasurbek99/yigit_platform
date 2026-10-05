@@ -3063,6 +3063,7 @@
       "garawul": "Охранник"
     },
     "field_label": {
+      "sales_report_approved_at": "Отчёт о продаже утверждён",
       "transit_days": "Дней в пути",
       "transport_temp_c": "Температура перевозки",
       "shelf_life_days": "Срок годности (дней)",

@@ -24,7 +24,7 @@ vi.mock('@/hooks/useExternalTrips', () => ({
   openTripDocument: vi.fn(),
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 1 } }) }));
-vi.mock('@/utils/permissions', () => ({ canDo: vi.fn(), canSeePage: () => true }));
+vi.mock('@/utils/permissions', () => ({ canDo: vi.fn(), canSeePage: () => true, canWriteReferenceData: () => false }));
 vi.mock('@/utils/fileDownload', () => ({ downloadFile: vi.fn() }));
 vi.mock('@/components/TirCarnetButton', () => ({ TirCarnetButton: () => <span>tir-button</span> }));
 vi.mock('@/components/ContractAgreementButton', () => ({
@@ -105,14 +105,23 @@ beforeEach(() => {
 describe('ShipmentDocumentsCard', () => {
   it('downloads a CMR in one click — no menu, no options modal', async () => {
     setup();
-    await click(within(row('CMR RU')).getByRole('button', { name: 'Word' }));
+    await click(within(row('CMR')).getByRole('button', { name: 'RU Word' }));
     expect(downloadFile).toHaveBeenCalledWith('/contracts/shipments/9/cmr/?lang=ru&fmt=docx&place_loading=Dusak');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  // RU and EN of one document share a row — half the rows of one-per-language.
+  it('puts both languages of a document on one row', () => {
+    setup();
+    const cmr = within(row('CMR'));
+    expect(cmr.getByRole('button', { name: 'RU Excel' })).toBeInTheDocument();
+    expect(cmr.getByRole('button', { name: 'EN Excel' })).toBeInTheDocument();
+    expect(screen.queryByText('CMR RU')).not.toBeInTheDocument();
+  });
+
   it('lists every firm document as its own row and downloads it directly', async () => {
     setup();
-    await click(within(row(`${i18n.t('documents.invoice')} EN`)).getByRole('button', { name: 'PDF' }));
+    await click(within(row(i18n.t('documents.invoice'))).getByRole('button', { name: 'EN PDF' }));
     expect(downloadFile).toHaveBeenCalledWith('/contracts/sales/55/document/?type=invoice_en&fmt=pdf&place_loading=Dusak');
     // Letters take no loading point.
     await click(within(row(i18n.t('documents.ct1'))).getByRole('button', { name: 'Word' }));
@@ -123,7 +132,7 @@ describe('ShipmentDocumentsCard', () => {
     setup();
     fireEvent.click(screen.getByRole('checkbox', { name: i18n.t('documents.highlight') }));
     fireEvent.change(screen.getByPlaceholderText(i18n.t('documents.tir_carnet_ph')), { target: { value: 'TX42' } });
-    await click(within(row(`${i18n.t('shipment_detail.docs.packet_zip')} EN`)).getByRole('button', { name: 'PDF' }));
+    await click(within(row(i18n.t('shipment_detail.docs.packet_zip'))).getByRole('button', { name: 'EN PDF' }));
     expect(downloadFile).toHaveBeenCalledWith(
       '/contracts/shipments/9/packet.zip?lang=en&fmt=pdf&place_loading=Dusak&tir_carnet=TX42&highlight=0',
     );
@@ -131,8 +140,8 @@ describe('ShipmentDocumentsCard', () => {
 
   it('without a loading point, blocks the invoice / CMR / ZIP rows but not the letters', () => {
     setup({ ship: shipment({ loading_location: null }) });
-    expect(within(row('CMR RU')).getByRole('button', { name: 'Word' })).toBeDisabled();
-    expect(within(row(`${i18n.t('documents.invoice')} RU`)).getByRole('button', { name: 'Word' })).toBeDisabled();
+    expect(within(row('CMR')).getByRole('button', { name: 'RU Word' })).toBeDisabled();
+    expect(within(row(i18n.t('documents.invoice'))).getByRole('button', { name: 'RU Word' })).toBeDisabled();
     expect(within(row(i18n.t('documents.fito'))).getByRole('button', { name: 'Word' })).toBeEnabled();
     expect(screen.getAllByText(i18n.t('shipment_detail.docs.need_place_loading')).length).toBeGreaterThan(0);
   });

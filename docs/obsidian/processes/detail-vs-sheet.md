@@ -23,23 +23,23 @@ Since 2026-09-30 the Detail page shows **every Sheet field** and lets you work a
 Top to bottom:
 
 1. **Hero** — Shipment Code, Export Code, status, phase, idle / freshness tags, actions (comments, Manifest, QR label, Promote, **Join supply**, Transition, Cancel).
-2. **Guidance line** and **completeness bar** — every key in `completeness.missing_fields` (from `TaskRule.target_fields`) is a chip that jumps to its row or card. An acceptance test (`components/shipment/detailCoverage.test.tsx`) proves every seeded task target has a place to land.
-3. **Stage cards** (two columns on desktop, one on mobile):
+2. **Guidance line** and **completeness bar** — every key in `completeness.missing_fields` (from `TaskRule.target_fields`) is a chip that jumps to its row or card. Chip labels come from `missingFieldLabel` (Edit-drawer label → `tasks.field_label` → a dotted `quality.*` key as its own i18n path), so no raw key shows (2026-10-05). An acceptance test (`components/shipment/detailCoverage.test.tsx`) proves every seeded task target has a place to land.
+3. **Stage cards** (two columns on desktop, one on mobile; left = Destination / Loading / Quality, right = Transport / Documents & Customs / Notes — Quality moved left 2026-10-05 to balance the tall packing panel):
    - **Destination** — country, customer, city, import firm, gapy flag, export firms, and the **contracts panel** per firm (contract number, link a framework contract, create a one-time one, .docx). The panel shows once a firm is picked.
    - **Transport (transport part)** — regular shipments: the Planning trip banner, **«Выбрать рейс»** (free trips, country must match, unknown country asks first; only in Preparation, only with the Truck Board grant + `shipment_assign.edit`), **«Отвязать»** on the banner. Truck and driver are read-only (they come from the trip). Gapy: typed truck and driver. Then driver phone, vehicle responsible/condition, transit days, temperature, border point, live position, transport docs given, shelf life, second rig, greenhouse arrival/departure, border exit, country entry, peregruz (Да/Нет, time, city), arrival.
    - **Loading (packaging part)** — export code, blocks, **«Отсоединить» / «Поменять упаковку»** (before loading; unjoin needs a destination), harvest status, variety, net, weight to load, harvest date (as Sheet R39: block batch dates first, else the shipment's own text), loading start / end.
    - **Documents** — documents status, planned customs day, documents note, TM customs closed, destination customs passed, advance given, and the **packing panel** (packing template → whole-truck gross/net/boxes for the CMR, per-firm gross/boxes/pallets).
    - **Notes** — legacy notes, Gadam's / warehouse / Arap notes, and every admin **custom Sheet row**.
-   - **Quality** — the four certificate uploads.
+   - **Quality** — the four certificate uploads, one line per type (status, name, upload button); scans listed under it only when present.
 4. **«Документы»** (`ShipmentDocumentsCard`, 2026-10-05) — every document of the shipment as a **flat list**: one row per document, one button per format, **one click downloads** (no menu, no options modal). Visible with the `sale` grant.
    - **Top bar**: loading point (pre-filled from the shipment's `loading_location`), TIR carnet № (CMR + ZIP, Uzbekistan transit only), red-highlight toggle — set once instead of a modal per download. With no loading point, the invoice / CMR / ZIP rows are blocked with a hint; the letters are not.
-   - **Truck**: ZIP RU/EN, CMR RU/EN (Word / PDF / Excel), TIR carnet (keeps its own modal — passports and CMR № are stored nowhere).
-   - **Each firm**: contract (keeps its own modal — seals, buyer director, deadline; needs the `contract` grant), invoice RU/EN, CT-1, FITO, customs letter, the contract's uploaded attachments (Open / Download). A firm without a contract shows «link contract».
+   - **Truck**: ZIP, CMR (RU and EN on one row: «RU: Word PDF Excel · EN: …»), TIR carnet (keeps its own modal — passports and CMR № are stored nowhere).
+   - **Each firm**: contract (keeps its own modal — seals, buyer director, deadline; needs the `contract` grant), invoice (RU and EN on one row), CT-1, FITO, customs letter, the contract's uploaded attachments (Open / Download). A firm without a contract shows «link contract».
    - **Other**: pallet QR label (with an export code), Planning trip PDF (only with the Truck Board page — its endpoint is a Truck Board read), quality-certificate scans (Open / Download).
    - A click on CMR / TIR / ZIP / a letter **closes its print task at once** — there is no modal to cancel any more.
    - The readiness banner says «fill on this page» and links each missing item to its row; a regular truck's missing driver/plate show as one «choose a Planning trip» link to the trip block.
    - The card stays out for a truck of another season / archived (the packet lookup is season-scoped) — known, left as is.
-5. **Sale** — price, total, sale start / end, report date, firm splits, sales report.
+5. **Sale** — price, total, sale start / end, report date, firm splits, and the sales report folded in a «Отчёт о продаже» panel (opens on click; unsaved input survives folding).
 6. Quota, customs expenses, GPS cards; link to the activity log.
 
 Gross / tare / pallets / boxes are **not** editable rows on Detail any more: the CMR reads the packing template first, so an edit there was silently ignored. They are entered in the packing panel. The Edit drawer and the pallet manifest still write the shipment columns (CMR fallback when no template).

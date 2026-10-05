@@ -8,7 +8,7 @@ import { ContractAttachmentRows } from '@/components/shipment/ContractAttachment
 import { DocumentDownloadRow } from '@/components/shipment/DocumentDownloadRow';
 import { DocumentGroup } from '@/components/shipment/DocumentGroup';
 import { DocumentRowShell } from '@/components/shipment/DocumentRowShell';
-import { WORD_PDF, documentFormats } from '@/components/shipment/shipmentDocsUrls';
+import { WORD_PDF, bilingualFormats, documentFormats } from '@/components/shipment/shipmentDocsUrls';
 import type { IDocumentPacket, IDocumentPacketFirm } from '@/types';
 import type { ILinkedContract } from '@/types/contract';
 
@@ -26,7 +26,6 @@ interface IShipmentDocsFirmGroupProps {
   readonly contract: IFirmContractInfo | null;
 }
 
-const INVOICES = [{ type: 'invoice_ru', lang: 'RU' }, { type: 'invoice_en', lang: 'EN' }] as const;
 const LETTERS = [
   { type: 'ct1_ru', labelKey: 'documents.ct1' },
   { type: 'fito_ru', labelKey: 'documents.fito' },
@@ -73,10 +72,8 @@ export function ShipmentDocsFirmGroup({ packet, firm, options, contract }: IShip
           )}
         </DocumentRowShell>
       )}
-      {INVOICES.map(({ type, lang }) => (
-        <DocumentDownloadRow key={type} label={`${t('documents.invoice')} ${lang}`} hint={invoiceHint}
-          formats={documentFormats(base, { type }, WORD_PDF, invoiceOptions, t)} />
-      ))}
+      <DocumentDownloadRow label={t('documents.invoice')} hint={invoiceHint}
+        formats={bilingualFormats((lang) => ({ type: `invoice_${lang}` }), (query) => documentFormats(base, query, WORD_PDF, invoiceOptions, t))} />
       {LETTERS.map(({ type, labelKey }) => (
         <DocumentDownloadRow key={type} label={t(labelKey)} hint={noPacking}
           formats={documentFormats(base, { type }, WORD_PDF, letterOptions, t)} />

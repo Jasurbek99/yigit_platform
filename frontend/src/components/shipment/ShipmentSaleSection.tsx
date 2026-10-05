@@ -1,4 +1,4 @@
-import { Card, Table, Typography } from 'antd';
+import { Card, Collapse, Table, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { ShipmentFieldGroup } from '@/components/shipment/ShipmentFieldGroup';
 import { DetailExtraFieldRows } from '@/components/shipment/DetailExtraFieldRows';
@@ -96,10 +96,20 @@ export function ShipmentSaleSection({
                 {t('sales_report.empty')}
               </Text>
             )}
-            <SalesReportForm
-              shipmentId={String(shipment.id)}
-              report={shipment.sales_report}
-              canEdit={canEditSalesReport}
+            {/* Folded by default: lines + expenses are the longest block on the page. */}
+            <Collapse
+              size="small"
+              items={[{
+                key: 'report',
+                label: t('sales_report.page_title'),
+                children: (
+                  <SalesReportForm
+                    shipmentId={String(shipment.id)}
+                    report={shipment.sales_report}
+                    canEdit={canEditSalesReport}
+                  />
+                ),
+              }]}
             />
           </>
         ) : (

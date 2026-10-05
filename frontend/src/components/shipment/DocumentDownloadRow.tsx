@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Button } from 'antd';
+import { Button, Typography } from 'antd';
 
 import { DocumentRowShell } from '@/components/shipment/DocumentRowShell';
 import { useDocumentDownload } from '@/hooks/useDocumentDownload';
 
 export interface IDocumentFormat {
   readonly label: string;
+  /** Language variant (RU / EN) — consecutive formats of one group share a prefix. */
+  readonly group?: string;
   /** API path relative to /api/v1, query string included. */
   readonly path: string;
 }
@@ -36,16 +38,23 @@ export function DocumentDownloadRow({ label, formats, hint }: IDocumentDownloadR
 
   return (
     <DocumentRowShell label={label} hint={hint}>
-      {formats.map((format) => (
-        <Button
-          key={format.label}
-          size="small"
-          loading={busyPath === format.path}
-          disabled={Boolean(hint) || (busyPath !== null && busyPath !== format.path)}
-          onClick={() => void handleClick(format.path)}
-        >
-          {format.label}
-        </Button>
+      {formats.map((format, index) => (
+        <Fragment key={format.path}>
+          {format.group && format.group !== formats[index - 1]?.group && (
+            <Typography.Text type="secondary" style={{ marginInlineStart: index > 0 ? 8 : 0 }}>
+              {format.group}:
+            </Typography.Text>
+          )}
+          <Button
+            size="small"
+            aria-label={format.group ? `${format.group} ${format.label}` : undefined}
+            loading={busyPath === format.path}
+            disabled={Boolean(hint) || (busyPath !== null && busyPath !== format.path)}
+            onClick={() => void handleClick(format.path)}
+          >
+            {format.label}
+          </Button>
+        </Fragment>
       ))}
     </DocumentRowShell>
   );

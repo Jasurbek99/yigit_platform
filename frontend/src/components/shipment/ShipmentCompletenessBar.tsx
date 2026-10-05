@@ -2,7 +2,7 @@ import { Card, Progress, Tag, Tooltip, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { ICompleteness } from '@/types';
 import { COLORS } from '@/constants/styles';
-import { classifyMissingFields, sectionAnchorFor } from './ShipmentCompletenessBar.helpers';
+import { classifyMissingFields, missingFieldLabel, sectionAnchorFor } from './ShipmentCompletenessBar.helpers';
 import { jumpToSection } from '@/pages/export/ShipmentDetailHelpers.helpers';
 
 const { Text } = Typography;
@@ -19,13 +19,9 @@ interface IShipmentCompletenessBarProps {
  *   - chips  → fields that should be filled by now but are empty
  *   - checks → open tasks that are marked done by hand
  *
- * Field labels resolve via `shipment_edit_drawer.field.<fieldKey>` — the
- * same label the operator sees when they actually go fill that field in
- * the Edit drawer, and it covers most of TaskRule.target_fields (draft
- * step: country/customer/import_firm/driver_name/driver_phone/truck_plate/
- * documents_status). Any target_field with no entry in that namespace or
- * `tasks.field_label` falls back to the raw key via i18next's
- * `defaultValue` rather than leaking a dotted i18n key path onto the page.
+ * Field labels resolve via `missingFieldLabel` — the Edit-drawer label,
+ * then the task field label, then a dotted key (`quality.*`) as its own
+ * i18n path — so no raw key leaks onto the page.
  */
 export function ShipmentCompletenessBar({
   completeness,
@@ -81,7 +77,7 @@ export function ShipmentCompletenessBar({
               style={{ cursor: 'pointer', marginBottom: 4 }}
               onClick={() => onJumpToField(field.key)}
             >
-              {t(`shipment_edit_drawer.field.${field.key}`, { defaultValue: field.key })}
+              {missingFieldLabel(field.key, t)}
             </Tag>
           ))}
         </div>
@@ -94,7 +90,7 @@ export function ShipmentCompletenessBar({
           </Text>
           {informational.map((field) => {
             const sectionId = sectionAnchorFor(field.key);
-            const label = t(`shipment_edit_drawer.field.${field.key}`, { defaultValue: field.key });
+            const label = missingFieldLabel(field.key, t);
             const chip = (
               <Tag
                 color="default"

@@ -8,6 +8,16 @@ export const WORD_PDF_EXCEL = ['docx', 'pdf', 'xlsx'] as const;
 
 const FMT_LABEL_KEY: Record<string, string> = { docx: 'word', pdf: 'pdf', xlsx: 'excel' };
 
+/** The same document in RU and EN on one row: each format tagged with its language. */
+export function bilingualFormats(
+  langQuery: (lang: string) => Record<string, string>,
+  build: (query: Record<string, string>) => IDocumentFormat[],
+): IDocumentFormat[] {
+  return ['ru', 'en'].flatMap((lang) =>
+    build(langQuery(lang)).map((format) => ({ ...format, group: lang.toUpperCase() })),
+  );
+}
+
 /**
  * One download button per format for a generated document. `query` carries
  * the document's own params (type / lang); `fmt` and the top-bar options are

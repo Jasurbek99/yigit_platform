@@ -27,8 +27,8 @@ interface IShipmentDetailStageCardsProps {
 const COLUMN_STYLE = { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 } as const;
 
 /**
- * The six always-open stage cards (Destination, Transport, Loading, Quality,
- * Notes, Documents) plus the route rail — desktop only.
+ * The six always-open stage cards (Destination, Transport, Loading, Documents,
+ * Quality, Notes) plus the route rail — desktop only.
  *
  * Desktop lays the cards out as TWO INDEPENDENT flex columns, not a 2-col
  * CSS grid. A grid couples the two columns into shared row tracks, so a short
@@ -38,9 +38,10 @@ const COLUMN_STYLE = { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'co
  * fixed-width sidebar.
  *
  * Cards are declared once in reading order; desktop splits them across the
- * two columns by even/odd index — left = Destination/Loading/Notes, right =
- * Transport/Documents/Quality — while mobile renders them in the same single
- * column, in that reading order.
+ * two columns by even/odd index — left = Destination/Loading/Quality, right =
+ * Transport/Documents/Notes (Quality sits left: the right column already
+ * carries the tall packing panel) — while mobile renders them in the same
+ * single column, in that reading order.
  */
 export function ShipmentDetailStageCards({
   shipment,
@@ -92,17 +93,6 @@ export function ShipmentDetailStageCards({
     </ShipmentStageCard>,
 
     <ShipmentStageCard
-      key="notes"
-      title={t('shipment_edit_drawer.section_notes')}
-      missingCount={countMissing('notes', missingKeys)}
-      isFutureStage={false}
-    >
-      <ShipmentFieldGroup {...groupProps} groupKey="notes" />
-      <DetailExtraFieldRows {...groupProps} fields={DETAIL_EXTRA_FIELDS.notes} />
-      <ShipmentCustomFieldRows shipment={shipment} readOnly={readOnly} />
-    </ShipmentStageCard>,
-
-    <ShipmentStageCard
       key="quality"
       title={t('shipment_detail.section_certs')}
       missingCount={[...missingKeys].filter((key) => key.startsWith('quality.')).length}
@@ -116,6 +106,17 @@ export function ShipmentDetailStageCards({
           other card via the `{...groupProps}` spread. */}
       <ShipmentQualityBody shipment={shipment} canEditQuality={!readOnly} />
     </ShipmentStageCard>,
+    <ShipmentStageCard
+      key="notes"
+      title={t('shipment_edit_drawer.section_notes')}
+      missingCount={countMissing('notes', missingKeys)}
+      isFutureStage={false}
+    >
+      <ShipmentFieldGroup {...groupProps} groupKey="notes" />
+      <DetailExtraFieldRows {...groupProps} fields={DETAIL_EXTRA_FIELDS.notes} />
+      <ShipmentCustomFieldRows shipment={shipment} readOnly={readOnly} />
+    </ShipmentStageCard>,
+
   ];
 
   if (!isDesktop) {

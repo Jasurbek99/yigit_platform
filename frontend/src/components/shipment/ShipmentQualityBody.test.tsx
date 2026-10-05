@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { toast } from 'sonner';
 import apiModule from '@/services/api';
+import i18n from '@/i18n';
 import { ShipmentQualityBody } from './ShipmentQualityBody';
 import { MOCK_SHIPMENT_DETAIL } from '@/mock/shipmentDetail';
 import type { IQualityCertificate } from '@/types';
@@ -120,7 +121,8 @@ describe('ShipmentQualityBody', () => {
     renderBody();
     await screen.findByRole('link', { name: 'azyk-scan.pdf' });
 
-    await userEvent.click(screen.getAllByRole('button')[0]);
+    // The scan row's own delete button (Upload sits on the type's header line).
+    await userEvent.click(document.querySelector<HTMLElement>('.ant-list-item button')!);
     // The Popconfirm's OK label is whatever `common.delete` says in the active
     // language, so target it structurally rather than by text.
     const confirm = await waitFor(() => {
@@ -143,6 +145,18 @@ describe('ShipmentQualityBody', () => {
 
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
+
+  // Compact layout: a type with no scan is one line (name + upload), with no
+  // empty-list placeholder stretching the card.
+  it('shows an empty type as a single line, without an empty-list placeholder', async () => {
+    const { container } = renderBody(true, []);
+    await waitFor(() => expect(api.get).toHaveBeenCalled());
+    await waitFor(() => expect(container.querySelector('.ant-spin-spinning')).toBeNull());
+    expect(screen.queryByText(i18n.t('quality.no_scans'))).toBeNull();
+    const row = document.getElementById('detail-field-quality.suriji_gozukdiriji') as HTMLElement;
+    expect(within(row).getByText(i18n.t('quality.suriji_gozukdiriji'))).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: new RegExp(i18n.t('quality.upload')) })).toBeInTheDocument();
   });
 
   it('shows no checkbox anywhere — a flag needs a file now', async () => {
