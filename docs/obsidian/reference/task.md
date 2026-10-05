@@ -207,6 +207,26 @@ for that expansion (currently `loading_dept_head` ↔ `loading_dept_head_deputy`
 and three call sites must all use it or visibility and permission drift apart —
 someone would see a card they cannot touch. The full list is in [[task-rules]].
 
+### Named assignees per rule — mine vs colleagues (2026-10-05)
+
+An admin can name one or more users of the role on a `TaskRule`
+(`export_task_rule_assignee`, see [[task-rules]] → Assignees). For a task whose
+`Task.rule` has valid assignees, `GET /me/tasks/` for a regular user:
+
+| `?scope=` | Shows |
+|-----------|-------|
+| *(none)* — "mine" | rule has no valid assignees **or** the caller is one |
+| `colleagues` | the role's tasks whose rule has valid assignees and the caller is **not** one |
+
+The lookup is **live** through `Task.rule` (no snapshot on the task), so editing the
+list re-routes already-open tasks at once. A *valid* assignee is active and still
+in the caller's role group; if every named user was deactivated or moved role the
+rule falls back to "whole role". Tasks with `rule IS NULL` (weekly-plan, daily
+plan, truck-allocation, gate, …) are never affected. Supervisors ignore the
+param. Acting on a colleague's task needs no extra permission — `IsTaskActor` is
+role-based — and `completed_by` records who really did it. The KPI tiles stay
+role-level.
+
 ## Where tasks surface
 
 | Surface | What it shows |

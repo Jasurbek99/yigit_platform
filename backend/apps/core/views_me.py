@@ -57,6 +57,9 @@ class MeTaskListView(APIView):
         ?overdue=true
         ?assignee_role=warehouse_chief — supervisors only; silently ignored for
             every other role, which stays locked to its own. Unknown role → 400.
+        ?scope=colleagues — regular users only: the role's tasks that a TaskRule
+            assigns to other users. Default ("mine") hides those; supervisors
+            ignore the param.
         ?season=<id> — the read scope, same contract as every scoped list.
 
     Season scoping (spec §4.8) mirrors `TaskViewSet` exactly: the anchor is
@@ -167,6 +170,30 @@ class MeTaskListView(APIView):
             qs = qs.filter(assignee_role__in=task_roles_for(role)).filter(
                 Q(assignee_user__isnull=True) | Q(assignee_user=request.user)
             )
+            # TaskRule assignees (spec 2026-10-05): a rule with named users is
+            # theirs under "mine"; the rest of the role get it under
+            # ?scope=colleagues and may still act on it (IsTaskActor is role-based).
+            # Live lookup through Task.rule — editing the list re-routes open tasks.
+            # Only VALID assignees count: a deactivated user or one moved to
+            # another role must not hide the task from the whole role — if every
+            # named user is gone, the rule falls back to "whole role". The queryset
+            # is already limited to task_roles_for(role), so this role filter is
+            # correct for every row.
+            from django.db.models import Exists, OuterRef
+
+            from apps.export.models import TaskRuleAssignee
+
+            rule_assignees = TaskRuleAssignee.objects.filter(
+                rule_id=OuterRef('rule_id'),
+                user__is_active=True,
+                user__role__in=task_roles_for(role),
+            )
+            rule_has_assignees = Exists(rule_assignees)
+            i_am_assignee = Exists(rule_assignees.filter(user=request.user))
+            if request.query_params.get('scope') == 'colleagues':
+                qs = qs.filter(rule_has_assignees).exclude(i_am_assignee)
+            else:
+                qs = qs.filter(~rule_has_assignees | i_am_assignee)
             if role == GATE_GUARD_ROLE:
                 # One guard per gate: another location's trucks are not his work.
                 qs = (

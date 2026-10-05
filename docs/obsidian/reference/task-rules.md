@@ -415,3 +415,23 @@ is MANUAL_DONE so nothing resolves off them.
 **Not retroactive.** Reactivating a rule does not backfill tasks. Shipments that
 were already at `yuklenme` on 2026-09-22 have no quality task; only shipments
 entering the step afterwards get one.
+
+## Assignees (2026-10-05)
+
+`export_task_rule_assignee` (`TaskRuleAssignee`: `rule` FK CASCADE, `user` FK CASCADE,
+unique pair). No rows = the whole role owns the rule (the default, and the state of
+every rule until an admin picks someone). With rows, only those users see the rule's
+tasks under My tasks; the rest of the role see them under «Задачи коллег» — see
+[[task]] → *mine vs colleagues*.
+
+- `GET /export/task-rules/` rows carry `assignees: [{id, full_name}]`.
+- `PUT /export/task-rules/{id}/assignees/` body `{"user_ids": [..]}` replaces the list
+  (`[]` clears it). Allowed: superuser, `admin`, `director`
+  (`CanEditTaskRuleAssignees`). Each user must be active and in
+  `task_roles_for(rule.assignee_role)` or the call is a 400; every change writes an
+  `AuditLog` row (`model_name='TaskRule'`, `field_name='assignees'`).
+- `GET /export/task-rules/{id}/assignee-candidates/` → `[{id, full_name, role}]`, same
+  permission, feeds the picker.
+
+`seed_task_rules` uses `update_or_create`, so a reseed keeps assignees; only
+`seed_task_rules --reset` (delete all rules) wipes them through CASCADE.

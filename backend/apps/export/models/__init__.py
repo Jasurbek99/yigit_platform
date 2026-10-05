@@ -52,7 +52,7 @@ from .sheet_settings import (
     UserSheetRowPref,
     ShipmentCustomFieldValue,
 )
-from .task import Task, TaskRule, TaskState, TaskCompletionRule, TaskKind, TaskCancelReason
+from .task import Task, TaskRule, TaskRuleAssignee, TaskState, TaskCompletionRule, TaskKind, TaskCancelReason
 from .document_download import ShipmentDocumentDownload
 from .process_node_link import ProcessNodeLink
 
@@ -108,6 +108,7 @@ __all__ = [
     'ShipmentCustomFieldValue',
     'Task',
     'TaskRule',
+    'TaskRuleAssignee',
     'TaskState',
     'TaskCompletionRule',
     'TaskKind',

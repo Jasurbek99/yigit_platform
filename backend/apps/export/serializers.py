@@ -2718,6 +2718,7 @@ class TaskRuleSerializer(serializers.ModelSerializer):
     target_fields = serializers.SerializerMethodField()
     # CSV in the DB (MSSQL: no JSON); a list on the wire, like target_fields.
     depends_on = serializers.SerializerMethodField()
+    assignees = serializers.SerializerMethodField()
     completion_rule_display = serializers.CharField(
         source='get_completion_rule_display', read_only=True,
     )
@@ -2730,7 +2731,7 @@ class TaskRuleSerializer(serializers.ModelSerializer):
             'target_fields', 'completion_rule', 'completion_rule_display',
             'target_value', 'deadline_rule',
             'condition_field', 'condition_value', 'is_active',
-            'depends_on', 'gates_step',
+            'depends_on', 'gates_step', 'assignees',
         ]
         read_only_fields = fields
 
@@ -2758,6 +2759,13 @@ class TaskRuleSerializer(serializers.ModelSerializer):
 
     def get_depends_on(self, obj) -> list[str]:
         return [k.strip() for k in obj.depends_on.split(',') if k.strip()]
+
+    def get_assignees(self, obj) -> list[dict]:
+        # The viewset prefetches assignees__user, so this stays query-free.
+        return [
+            {'id': a.user_id, 'full_name': a.user.get_full_name() or a.user.username}
+            for a in obj.assignees.all()
+        ]
 
     def get_target_fields(self, obj) -> list[str]:
         return [f.strip() for f in (obj.target_fields or '').split(',') if f.strip()]

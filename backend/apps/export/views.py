@@ -64,7 +64,7 @@ from apps.export.models import (
     get_default_truck_weight,
 )
 from apps.export.models.task import TaskRule
-from apps.export.permissions import CanViewTaskRules
+from apps.export.permissions import CanEditTaskRuleAssignees, CanViewTaskRules
 from apps.export.sheet_rows import DEFAULT_SHEET_ROWS
 from apps.export.services.files import (
     MAX_FILES_PER_TYPE,
@@ -5063,7 +5063,7 @@ class TaskRuleViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        qs = TaskRule.objects.all()
+        qs = TaskRule.objects.prefetch_related('assignees__user')
         is_active = self.request.query_params.get('is_active')
         if is_active is not None:
             qs = qs.filter(is_active=is_active.lower() in ('true', '1'))
@@ -5097,3 +5097,40 @@ class TaskRuleViewSet(viewsets.ReadOnlyModelViewSet):
         )
         serializer = self.get_serializer(rules, many=True)
         return Response(serializer.data)
+
+
+    @action(detail=True, methods=['put'], url_path='assignees',
+            permission_classes=[IsAuthenticated, CanEditTaskRuleAssignees])
+    def set_assignees(self, request, pk=None):
+        """PUT {"user_ids": [..]} — replace the rule's assignee list. [] = whole role."""
+        from apps.export.services.task_rules import set_rule_assignees
+
+        rule = self.get_object()
+        user_ids = request.data.get('user_ids')
+        # bool is an int subclass in Python: [true] must not slip through as user id 1.
+        if not isinstance(user_ids, list) or not all(
+            isinstance(i, int) and not isinstance(i, bool) for i in user_ids
+        ):
+            return Response({'error': 'user_ids must be a list of integers'}, status=400)
+        try:
+            set_rule_assignees(rule, user_ids, request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        rule = self.get_queryset().get(pk=rule.pk)
+        return Response(self.get_serializer(rule).data)
+
+    @action(detail=True, methods=['get'], url_path='assignee-candidates',
+            permission_classes=[IsAuthenticated, CanEditTaskRuleAssignees])
+    def assignee_candidates(self, request, pk=None):
+        """Active users who may be assigned to this rule (its role + equivalents)."""
+        from apps.core.models import User
+        from apps.core.roles import task_roles_for
+
+        rule = self.get_object()
+        users = User.objects.filter(
+            is_active=True, role__in=task_roles_for(rule.assignee_role),
+        ).order_by('first_name', 'username')
+        return Response([
+            {'id': u.pk, 'full_name': u.get_full_name() or u.username, 'role': u.role}
+            for u in users
+        ])

@@ -135,3 +135,17 @@ class CanViewTirGaplama(BasePermission):
             return False
         pages = get_page_permissions(role)
         return all(pages.get(code, False) for code in self.PAGE_CODES)
+
+
+class CanEditTaskRuleAssignees(BasePermission):
+    """Who may change a TaskRule's assignee list: superuser, admin, director.
+
+    Same set as task cancel (_CANCEL_ROLES) — re-routing a role's work is an
+    admin decision, not something the role itself configures.
+    """
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        return user.is_superuser or getattr(user, 'role', None) in _CANCEL_ROLES

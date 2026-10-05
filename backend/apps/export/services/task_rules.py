@@ -37,7 +37,9 @@ from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from apps.export.models import Task, TaskRule, TaskState, TaskCompletionRule
+from apps.export.models import (
+    AuditLog, Task, TaskCompletionRule, TaskRule, TaskRuleAssignee, TaskState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1108,3 +1110,41 @@ def mark_started_for_changed_fields(
             if not task.started_at:
                 task.started_at = now
             task.save(update_fields=['state', 'started_at'])
+
+
+def set_rule_assignees(rule: TaskRule, user_ids: list[int], actor) -> None:
+    """Replace the users who own `rule`'s tasks; an empty list = the whole role.
+
+    Every user must be active and in the rule's role group (`task_roles_for`), the
+    same set `MeTaskListView` counts as valid. The list is read live through
+    `Task.rule`, so open tasks re-route at once — no reconcile.
+
+    Args:
+        rule: the TaskRule being edited.
+        user_ids: ids of the new assignees (duplicates are ignored).
+        actor: the user making the change, credited in the audit row.
+
+    Raises:
+        ValueError: if any id is not an active user of the rule's role group.
+    """
+    from apps.core.models import User
+    from apps.core.roles import task_roles_for
+
+    wanted = sorted(set(user_ids))
+    allowed = set(User.objects.filter(
+        pk__in=wanted, is_active=True, role__in=task_roles_for(rule.assignee_role),
+    ).values_list('pk', flat=True))
+    bad = [i for i in wanted if i not in allowed]
+    if bad:
+        raise ValueError(f'Users not allowed for role {rule.assignee_role}: {bad}')
+    with transaction.atomic():
+        old_ids = sorted(rule.assignees.values_list('user_id', flat=True))
+        rule.assignees.all().delete()
+        for uid in wanted:  # a handful of rows — no bulk_create needed
+            TaskRuleAssignee.objects.create(rule=rule, user_id=uid)
+        AuditLog.objects.create(
+            user=actor, action='update', model_name='TaskRule',
+            object_id=rule.pk, object_repr=str(rule)[:200], field_name='assignees',
+            old_value=','.join(map(str, old_ids)), new_value=','.join(map(str, wanted)),
+            detail='Task rule assignees changed',
+        )
