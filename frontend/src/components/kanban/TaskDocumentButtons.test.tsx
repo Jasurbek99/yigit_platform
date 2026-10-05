@@ -22,8 +22,8 @@ function packet(overrides: Partial<IDocumentPacket> = {}): IDocumentPacket {
     status_display: null, country_name: null, city_name: null, buyer_name: null,
     packing_complete: true, missing_packing: [], missing_setup: [], is_gapy_satys: false, is_ready: true,
     firms: [
-      { export_firm_id: 1, export_firm_name: 'YGT', sale_id: 11, invoice_number: 1 },
-      { export_firm_id: 2, export_firm_name: 'HJ', sale_id: null, invoice_number: null },
+      { export_firm_id: 1, export_firm_name: 'YGT', sale_id: 11, invoice_number: 1, ct1_number: null, fito_number: null, customs_number: null },
+      { export_firm_id: 2, export_firm_name: 'HJ', sale_id: null, invoice_number: null, ct1_number: null, fito_number: null, customs_number: null },
     ],
     ...overrides,
   };

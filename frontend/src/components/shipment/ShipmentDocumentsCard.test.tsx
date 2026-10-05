@@ -39,8 +39,8 @@ const PACKET: IDocumentPacket = {
   status_code: null, status_display: null, country_name: null, city_name: null, buyer_name: null,
   packing_complete: true, missing_packing: [], missing_setup: [], is_ready: true,
   firms: [
-    { export_firm_id: 3, export_firm_name: 'AGRO', sale_id: 55, invoice_number: null },
-    { export_firm_id: 4, export_firm_name: 'TERRA', sale_id: null, invoice_number: null },
+    { export_firm_id: 3, export_firm_name: 'AGRO', sale_id: 55, invoice_number: null, ct1_number: null, fito_number: null, customs_number: null },
+    { export_firm_id: 4, export_firm_name: 'TERRA', sale_id: null, invoice_number: null, ct1_number: null, fito_number: null, customs_number: null },
   ],
 };
 

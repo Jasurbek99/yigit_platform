@@ -78,3 +78,35 @@ describe('InvoiceNumberingPage', () => {
     expect(mockPut).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('InvoiceNumberingPage — letter floors', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authUser.current = { role: 'admin', is_superuser: false };
+    mockGet.mockImplementation((url: string) => Promise.resolve({
+      data: url.startsWith('/contracts/letter-number-bases/')
+        ? { year: 2026, rows: [{ export_firm: 3, export_firm_code: 'DM', export_firm_name: 'DM', year: 2026, ct1: 31, fito: 42, customs: 53 }] }
+        : { year: 2026, rows: [{ export_firm: 3, export_firm_code: 'DM', export_firm_name: 'DM', year: 2026, last_number: 288 }] },
+    }));
+  });
+
+  it('shows each letter floor of the firm', async () => {
+    renderPage();
+    expect(await screen.findByDisplayValue('31')).toBeTruthy();
+    expect(screen.getByDisplayValue('42')).toBeTruthy();
+    expect(screen.getByDisplayValue('53')).toBeTruthy();
+  });
+
+  it('admin edits the CT-1 floor and it is saved by letter type', async () => {
+    mockPut.mockResolvedValue({ data: { export_firm: 3, year: 2026, ct1: 12, fito: 42, customs: 53 } });
+    renderPage();
+    const input = await screen.findByDisplayValue('31');
+    fireEvent.change(input, { target: { value: '12' } });
+    fireEvent.blur(input);
+    await waitFor(() =>
+      expect(mockPut).toHaveBeenCalledWith('/contracts/letter-number-bases/', {
+        export_firm: 3, year: expect.any(Number), letter_type: 'ct1', last_number: 12,
+      }),
+    );
+  });
+});

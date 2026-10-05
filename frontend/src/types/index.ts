@@ -140,6 +140,8 @@ export interface IExportFirm {
   director_seal: string | null;
   /** One photo showing seal + signature together. When set it replaces the two above. */
   director_stamp: string | null;
+  /** Firm letterhead (.docx) printed on top of the CT-1 / Fito / ARZA letters. */
+  letterhead: string | null;
 }
 
 export interface IImportFirm {
@@ -2315,6 +2317,10 @@ export interface IDocumentPacketFirm {
   readonly export_firm_name: string;
   readonly sale_id: number | null;      // drives the per-firm invoice/letter buttons
   readonly invoice_number: number | null;
+  /** Outgoing numbers of the CT-1 / Fito / ARZA letters (spec 2026-10-05). */
+  readonly ct1_number: number | null;
+  readonly fito_number: number | null;
+  readonly customs_number: number | null;
 }
 
 export interface IDocumentPacket {

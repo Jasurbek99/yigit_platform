@@ -40,6 +40,7 @@ function exportFirm(overrides: Partial<IExportFirm> = {}): IExportFirm {
     director_signature: '/media/export_firms/signatures/ygt.png',
     director_seal: '/media/export_firms/seals/ygt.png',
     director_stamp: null,
+    letterhead: null,
     ...overrides,
   };
 }

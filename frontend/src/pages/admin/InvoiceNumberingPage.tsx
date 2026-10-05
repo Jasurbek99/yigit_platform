@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   useInvoiceNumberBases, useSaveInvoiceNumberBase, type IInvoiceNumberBaseRow,
 } from '@/hooks/useInvoiceNumberBases';
+import { useLetterNumberBases, useSaveLetterNumberBase, type LetterType } from '@/hooks/useLetterNumberBases';
 import { COLORS } from '@/constants/styles';
 
 const { Title, Text } = Typography;
@@ -26,6 +27,9 @@ export default function InvoiceNumberingPage() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const { data: rows, isLoading } = useInvoiceNumberBases(year);
   const save = useSaveInvoiceNumberBase();
+  const { data: letterRows } = useLetterNumberBases(year);
+  const saveLetter = useSaveLetterNumberBase();
+  const letterByFirm = new Map((letterRows ?? []).map((r) => [r.export_firm, r]));
 
   const commit = (row: IInvoiceNumberBaseRow, value: number | null) => {
     if (value == null || value === row.last_number) return;
@@ -37,6 +41,38 @@ export default function InvoiceNumberingPage() {
       },
     );
   };
+
+  const commitLetter = (firmId: number, type: LetterType, current: number, value: number | null) => {
+    if (value == null || value === current) return;
+    saveLetter.mutate(
+      { export_firm: firmId, year, letter_type: type, last_number: value },
+      {
+        onSuccess: () => toast.success(t('invoice_numbering.saved')),
+        onError: () => toast.error(t('invoice_numbering.save_error')),
+      },
+    );
+  };
+
+  // CT-1 / Fito / ARZA request letters count separately, per firm and year (spec 2026-10-05).
+  const letterColumn = (type: LetterType, titleKey: string) => ({
+    title: t(titleKey),
+    key: type,
+    render: (_: unknown, row: IInvoiceNumberBaseRow) => {
+      const value = letterByFirm.get(row.export_firm)?.[type] ?? 0;
+      return canWrite ? (
+        <InputNumber
+          key={`${row.export_firm}-${year}-${type}-${value}`}
+          min={0}
+          precision={0}
+          defaultValue={value}
+          onBlur={(e) => commitLetter(row.export_firm, type, value, e.target.value === '' ? null : Number(e.target.value))}
+          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+        />
+      ) : (
+        value
+      );
+    },
+  });
 
   return (
     <div>
@@ -81,6 +117,9 @@ export default function InvoiceNumberingPage() {
                 value
               ),
           },
+          letterColumn('ct1', 'invoice_numbering.col_ct1'),
+          letterColumn('fito', 'invoice_numbering.col_fito'),
+          letterColumn('customs', 'invoice_numbering.col_customs'),
         ]}
       />
     </div>

@@ -687,6 +687,8 @@
       "documents_no_firm": "Documents appear once an export firm is chosen"
     },
     "docs": {
+      "letter_number_edit": "Correct the letter number",
+      "letter_number_saved": "Letter number saved",
       "title": "Documents",
       "group_truck": "Truck — whole load",
       "group_other": "Other",
@@ -1429,6 +1431,10 @@
     "director_seal": "Company Seal",
     "director_stamp": "Seal + Signature",
     "director_stamp_hint": "One photo showing the seal and the signature together. Upload this and the two below are not needed.",
+    "letterhead": "Letterhead",
+    "letterhead_file": "Letterhead (.docx)",
+    "letterhead_open": "Open letterhead",
+    "letterhead_hint": "Printed at the top of the CT-1, Fito and ARZA letters. The file must contain «№ ___»: the letter number goes there. A new upload replaces the old letterhead.",
     "not_needed_with_stamp": "Covered by the photo above",
     "upload_file": "Upload Image",
     "replace_file": "Replace Image",
@@ -4261,6 +4267,9 @@
     "col_firm": "Firm",
     "col_name": "Name",
     "col_last_number": "Last number",
+    "col_ct1": "CT-1 — last №",
+    "col_fito": "Fito — last №",
+    "col_customs": "ARZA — last №",
     "saved": "Saved",
     "save_error": "Could not save"
   }

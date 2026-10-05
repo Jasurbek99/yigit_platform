@@ -687,6 +687,8 @@
       "documents_no_firm": "Eksport firmasy saýlanandan soň resminamalar peýda bolar"
     },
     "docs": {
+      "letter_number_edit": "Hatyň belgisini düzetmek",
+      "letter_number_saved": "Hatyň belgisi ýatda saklandy",
       "title": "Resminamalar",
       "group_truck": "Reýs — tutuş maşyn",
       "group_other": "Beýlekiler",
@@ -1429,6 +1431,10 @@
     "director_seal": "Kompaniýanyň möhri",
     "director_stamp": "Möhür we gol",
     "director_stamp_hint": "Möhür bilen goluň bilelikde görünýän bir suraty. Şuny ýükleseňiz, aşakdaky ikisi gerek däl.",
+    "letterhead": "Firmanyň blanky",
+    "letterhead_file": "Blank (.docx)",
+    "letterhead_open": "Blanky açmak",
+    "letterhead_hint": "CT-1, Fito we ARZA hatlarynyň ýokarsynda çap edilýär. Blankda «№ ___» bolmaly — hatyň belgisi şol ýere goýulýar. Täze ýükleme köne blankyň ornuny tutýar.",
     "not_needed_with_stamp": "Ýokarky surat ýeterlik",
     "upload_file": "Surat ýükle",
     "replace_file": "Suraty çalyş",
@@ -4264,6 +4270,9 @@
     "col_firm": "Firma",
     "col_name": "Ady",
     "col_last_number": "Iň soňky belgi",
+    "col_ct1": "CT-1 — soňky №",
+    "col_fito": "Fito — soňky №",
+    "col_customs": "ARZA — soňky №",
     "saved": "Ýatda saklandy",
     "save_error": "Ýatda saklap bolmady"
   }

@@ -50,6 +50,13 @@ const { Title, Text } = Typography;
  */
 const UPLOAD_SLOT_WIDTH = 190;
 
+/** The server's reason a letterhead upload was refused, e.g. «№ ___» not found. */
+function letterheadError(err: unknown): string | undefined {
+  const data = (err as { response?: { data?: { letterhead?: unknown } } })?.response?.data;
+  const messages = data?.letterhead;
+  return Array.isArray(messages) && typeof messages[0] === 'string' ? messages[0] : undefined;
+}
+
 function FileUploadCard({
   label,
   currentUrl,
@@ -59,6 +66,9 @@ function FileUploadCard({
   replaceLabel,
   hint,
   tooltip,
+  accept = 'image/*',
+  preview = 'image',
+  openLabel,
 }: {
   label: string;
   currentUrl: string | null;
@@ -70,6 +80,10 @@ function FileUploadCard({
   hint?: string;
   /** Longer explanation — behind an ⓘ so it costs no vertical space. */
   tooltip?: string;
+  accept?: string;
+  /** 'link' for files a browser cannot show inline (the .docx letterhead). */
+  preview?: 'image' | 'link';
+  openLabel?: string;
 }) {
   return (
     <div style={{ width: UPLOAD_SLOT_WIDTH }}>
@@ -86,7 +100,12 @@ function FileUploadCard({
           {hint}
         </Text>
       )}
-      {currentUrl && (
+      {currentUrl && preview === 'link' && (
+        <div style={{ marginBottom: 10 }}>
+          <a href={currentUrl} target="_blank" rel="noreferrer">{openLabel ?? label}</a>
+        </div>
+      )}
+      {currentUrl && preview === 'image' && (
         <div style={{ marginBottom: 10 }}>
           <img
             src={currentUrl}
@@ -105,7 +124,7 @@ function FileUploadCard({
         </div>
       )}
       <Upload
-        accept="image/*"
+        accept={accept}
         maxCount={1}
         showUploadList={false}
         beforeUpload={(file) => { onUpload(file); return false; }}
@@ -197,12 +216,13 @@ export default function ExportFirmDetailPage() {
 
   const uploadFileMutation = useUploadExportFirmFile({
     onSuccess: () => toast.success(t('firms_admin.toast_file_uploaded')),
-    onError: () => toast.error(t('firms_admin.toast_error')),
+    // The letterhead check (no «№ ___», unreadable file) explains itself — show it.
+    onError: (err) => toast.error(letterheadError(err) ?? t('firms_admin.toast_error')),
   });
 
   async function handleSubmit() {
     const values = await form.validateFields();
-    const payload: Omit<IExportFirm, 'id' | 'legal_type_code' | 'legal_type_display' | 'director_signature' | 'director_seal' | 'director_stamp'> = {
+    const payload: Omit<IExportFirm, 'id' | 'legal_type_code' | 'legal_type_display' | 'director_signature' | 'director_seal' | 'director_stamp' | 'letterhead'> = {
       code: values.code,
       name_short: values.name_short || null,
       name_tk: values.name_tk,
@@ -439,6 +459,23 @@ export default function ExportFirmDetailPage() {
                   hint={hasCombinedStamp ? t('firms_admin.not_needed_with_stamp') : undefined}
                 />
               </Space>
+            </Card>
+          )}
+
+          {canEdit && (
+            <Card size="small" title={t('firms_admin.letterhead')} style={{ borderRadius: 8, marginTop: 16 }}>
+              <FileUploadCard
+                label={t('firms_admin.letterhead_file')}
+                currentUrl={firm.letterhead}
+                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                preview="link"
+                openLabel={t('firms_admin.letterhead_open')}
+                onUpload={(file) => uploadFileMutation.mutate({ id: firm.id, field: 'letterhead', file })}
+                isUploading={uploadFileMutation.isPending}
+                uploadLabel={t('firms_admin.upload_file')}
+                replaceLabel={t('firms_admin.replace_file')}
+                tooltip={t('firms_admin.letterhead_hint')}
+              />
             </Card>
           )}
 

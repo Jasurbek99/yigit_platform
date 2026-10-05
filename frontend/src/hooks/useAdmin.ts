@@ -194,7 +194,7 @@ export function useAdminFirms() {
   });
 }
 
-type ExportFirmPayload = Omit<IExportFirm, 'id' | 'legal_type_code' | 'legal_type_display' | 'director_signature' | 'director_seal' | 'director_stamp'>;
+type ExportFirmPayload = Omit<IExportFirm, 'id' | 'legal_type_code' | 'legal_type_display' | 'director_signature' | 'director_seal' | 'director_stamp' | 'letterhead'>;
 
 /**
  * The three stamp images a firm can carry: a separate signature and seal, or
@@ -209,6 +209,8 @@ export type FirmStampFiles = {
 /** Firm stamp fields, in the order they are uploaded. Also the PATCH field union. */
 export const FIRM_STAMP_FIELDS = ['director_signature', 'director_seal', 'director_stamp'] as const;
 export type FirmStampField = (typeof FIRM_STAMP_FIELDS)[number];
+/** Every file an export firm carries: the stamps plus its letterhead (.docx). */
+export type FirmUploadField = FirmStampField | 'letterhead';
 
 function appendStampFiles(fd: FormData, { signatureFile, sealFile, stampFile }: FirmStampFiles): void {
   if (signatureFile) fd.append('director_signature', signatureFile);
@@ -261,7 +263,7 @@ export function useUpdateFirm(options: MutationOptions = {}) {
 export function useUploadExportFirmFile(options: MutationOptions = {}) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, field, file }: { id: number; field: FirmStampField; file: File }) => {
+    mutationFn: ({ id, field, file }: { id: number; field: FirmUploadField; file: File }) => {
       const fd = new FormData();
       fd.append(field, file);
       return api.patch<IExportFirm>(`/export/admin/firms/${id}/`, fd).then(r => r.data);
