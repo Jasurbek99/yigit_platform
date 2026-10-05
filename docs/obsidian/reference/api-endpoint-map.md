@@ -271,7 +271,7 @@ PATCH body (partial): `{ row_order?: [id, ...], hidden_rows?: [id, ...] }` — a
 | POST | `/api/v1/greenhouse/plan-change-requests/{id}/reject/` | PlanChangeRequestViewSet.reject | `useRejectPlanChange` | WeeklyPlanGrid (PlanChangeRequestsDrawer) — export_manager/admin/boss |
 | GET/POST | `/api/v1/greenhouse/daily-plan/` | DailyHarvestBoardViewSet | `useDailyBoard` / `useUpsertDailyBoard` | DailyHarvestBoard |
 | GET/POST/PATCH | `/api/v1/greenhouse/domestic-sales/` | DomesticSaleViewSet | `useDomesticSales` | DomesticSales |
-| GET/POST/PATCH | `/api/v1/greenhouse/admin/blocks/` | GreenhouseBlockAdminViewSet | `useAdmin` | BlocksPage (`manager_name` = active block-assignment names, comma-joined; the legacy `manager` FK is not shown or edited) |
+| GET/POST/PATCH | `/api/v1/greenhouse/admin/blocks/` | GreenhouseBlockAdminViewSet | `useAdmin` | BlocksPage (ordered `sort_order, code`; `manager_name` = active block-assignment names, comma-joined; the legacy `manager` FK is not shown or edited) |
 | GET/POST/PATCH | `/api/v1/greenhouse/admin/block-assignments/` | BlockManagerAssignmentViewSet | `useAdmin` | BlockDetailPage |
 
 ## Me Endpoints (current-user scoped)
