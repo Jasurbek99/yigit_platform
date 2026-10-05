@@ -440,7 +440,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
     'loading_dept_head': {
         'shipment': [
             # Stream G: export_code is the operator-typed Export Code
-            'export_code',
+            'export_code', 'export_date',
             'weight_net', 'weight_gross', 'box_count', 'pallet_count',
             'pallet_weight_kg', 'packaging_kg',
             'harvest_status', 'variety', 'product_type', 'loading_location',
@@ -475,7 +475,7 @@ FIELD_DEFAULTS: dict[str, dict[str, list[str]]] = {
         'shipment': [
             # Stream G: Export Code (the operator-typed 6-field pallet tag).
             # shipment_code (the system Shipment Code) is intentionally absent — auto-generated.
-            'export_code',
+            'export_code', 'export_date',
             'weight_net', 'weight_gross', 'box_count', 'pallet_count',
             'pallet_weight_kg', 'packaging_kg',
             'harvest_status', 'variety', 'product_type', 'loading_location',

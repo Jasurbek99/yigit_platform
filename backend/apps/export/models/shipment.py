@@ -59,6 +59,10 @@ class Shipment(models.Model):
         related_name='reroutes',
     )
     date = models.DateField()
+    # Real export day (CMR date etc.), operator-editable. `date` stays the plan/creation
+    # day that forecast pool, Gaplama, season and numbering key off, so it is NOT editable.
+    # NULL = auto: read through services.export_code.effective_export_date().
+    export_date = models.DateField(null=True, blank=True)
     season = models.ForeignKey('core.Season', on_delete=models.PROTECT, related_name='shipments')
 
     # === Geography ===

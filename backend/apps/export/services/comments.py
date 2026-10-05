@@ -24,6 +24,7 @@ SHEET_FIELD_KEYS: frozenset[str] = frozenset([
     'export_manager_note',
     'documents_status',
     'shipment_code',
+    'export_date',
     'block_sources',
     'firm_splits',
     'country',

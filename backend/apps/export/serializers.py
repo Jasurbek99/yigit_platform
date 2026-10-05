@@ -12,6 +12,7 @@ from apps.core.models import (
 from apps.core.permissions import can_edit_field, can_edit_sheet_fields, PRIVILEGED_ROLES
 from apps.core.roles import EXPORT_MANAGER_LIKE
 from apps.export.services import TRANSITIONS, _edge_to, _edge_predicate
+from apps.export.services.export_code import effective_export_date
 from apps.export.services.phases import get_phase as resolve_phase, resolve_phase_entry
 from apps.export.validators import validate_export_code  # noqa: F401  (kept for downstream importers)
 from apps.export.models import (
@@ -472,6 +473,12 @@ class ShipmentListSerializer(serializers.ModelSerializer):
     # the batch-display fix that added the field below (out of scope here).
     harvest_age_days = serializers.SerializerMethodField()
     freshness = serializers.SerializerMethodField()
+    # Effective export day (stored → export_code date → date); PATCH writes the stored column.
+    export_date = serializers.SerializerMethodField()
+
+    def get_export_date(self, obj) -> str | None:
+        value = effective_export_date(obj)
+        return value.isoformat() if value else None
 
     def get_harvest_age_days(self, obj) -> int:
         """Days since the shipment's date. Fallback to today if date is null.
@@ -506,6 +513,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'shipment_code',
             'export_code',
             'date',
+            'export_date',
             'status',
             'status_display',
             'status_code',
@@ -667,6 +675,13 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
         passing to this serializer.
     """
 
+    # Effective export day (stored → export_code date → date); PATCH writes the stored column.
+    export_date = serializers.SerializerMethodField()
+
+    def get_export_date(self, obj) -> str | None:
+        value = effective_export_date(obj)
+        return value.isoformat() if value else None
+
     # Status
     status_display = serializers.CharField(source='status.name_en', read_only=True)
     status_code = serializers.CharField(source='status.code', read_only=True)
@@ -784,7 +799,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
         model = Shipment
         fields = [
             # Identifiers
-            'id', 'shipment_code', 'export_code', 'date',
+            'id', 'shipment_code', 'export_code', 'date', 'export_date',
             # Status
             'status', 'status_display', 'status_code', 'status_step',
             # Truck-change rollback mark (services/rollback.py): column header tag.
@@ -1691,7 +1706,7 @@ class ShipmentDetailSerializer(ShipmentListSerializer):
 # sheet_rows.py R19 input_type='datetime' and create_shipment() (no auto-set).
 _ALL_PATCHABLE_FIELDS = {
     # Identifiers
-    'export_code',
+    'export_code', 'export_date',
     # Weight / packaging
     'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
     'weight_net', 'weight_gross', 'weight_to_load_kg',

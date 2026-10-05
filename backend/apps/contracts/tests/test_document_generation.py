@@ -355,6 +355,14 @@ class CmrContextBuilderTest(SimpleTestCase):
         # generate-time fields stay blank when no overrides are supplied
         self.assertEqual(c['tir_carnet'], '')
 
+    def test_cmr_doc_date_follows_export_date(self):
+        ship = _mock_shipment()  # date 16.03.2026, no export_date / export_code attrs
+        self.assertEqual(ctx.build_cmr_context(ship, 'ru')['doc_date'], '16.03.2026')
+        ship.export_code = '12JN121/26'
+        self.assertEqual(ctx.build_cmr_context(ship, 'ru')['doc_date'], '12.06.2026')
+        ship.export_date = date(2026, 6, 20)
+        self.assertEqual(ctx.build_cmr_context(ship, 'ru')['doc_date'], '20.06.2026')
+
     def test_multi_firm_lists_all_senders(self):
         firms = [
             _mock_firm('Х.О «Датлы миве»', 'Datly miwe LLC', 'г. Ашгабат', 'Ashgabat'),

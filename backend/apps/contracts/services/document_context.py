@@ -19,6 +19,7 @@ from django.utils import timezone
 
 from apps.contracts.document_templates import cmr_layout
 from apps.contracts.services.amount_words import amount_words_ru, amount_words_tk
+from apps.export.services.export_code import effective_export_date
 
 
 @dataclass(frozen=True)
@@ -527,7 +528,8 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
         'place_district': loc['place_district'],
         'place_loading': f"{loc['place_region']}  {loc['place_district']}",
         'forwarder': sender_name,  # the export firm(s) act as forwarder
-        'doc_date': _date(shipment.date),
+        # Box 21 date = the real export day (export_date → export_code → date).
+        'doc_date': _date(effective_export_date(shipment)),
         'invoice_refs': invoice_refs,
         'tir_carnet': overrides.get('tir_carnet', ''),  # typed at generate-time (Uzbekistan transit)
         'cargo_name': loc['cargo_name'],

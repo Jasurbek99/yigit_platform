@@ -207,7 +207,7 @@ RESOURCE_FIELDS: dict[str, list[str]] = {
         # Identifiers
         # shipment_code (the system Shipment Code) is intentionally absent — server-auto-generated.
         # export_code (the operator-typed Export Code) is the pallet tag.
-        'export_code',
+        'export_code', 'export_date',
         # Weight / packaging
         'box_count', 'pallet_count', 'pallet_weight_kg', 'packaging_kg',
         # Whole-truck packing config (gross-net catalog) → CMR document

@@ -87,6 +87,17 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'style': 'key',
     },
     {
+        # Export date (2026-10-05): the real export day, editable, auto-filled
+        # (export_code date → Shipment.date). Feeds the CMR date. Shipment.date
+        # stays the non-editable plan day.
+        'row_number': 50,
+        'field_key': 'export_date',
+        'default_who_key': 'sheet.who.soltanmyrat',
+        'label_key': 'sheet.row.export_date',
+        'input_type': 'date',
+        'style': 'key',
+    },
+    {
         'row_number': 8,
         'field_key': 'block_sources',
         'default_who_key': 'sheet.who.soltanmyrat',

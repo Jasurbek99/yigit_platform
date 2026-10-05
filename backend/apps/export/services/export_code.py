@@ -52,3 +52,15 @@ def parse_export_code_date(export_code: str | None) -> date | None:
         return date(2000 + int(yy), month, int(dd))
     except ValueError:
         return None
+
+
+def effective_export_date(shipment) -> date | None:
+    """The shipment's real export day: stored → export_code parse → ``shipment.date``.
+
+    Duck-typed (``getattr`` defaults) so lightweight mocks without the newer
+    attributes still work.
+    """
+    stored = getattr(shipment, 'export_date', None)
+    if stored:
+        return stored
+    return parse_export_code_date(getattr(shipment, 'export_code', None)) or getattr(shipment, 'date', None)
