@@ -21,6 +21,7 @@ from django.db import transaction
 
 from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.contract_number import next_contract_no
+from apps.contracts.services.letter_number import ensure_letter_numbers
 from apps.core.models import ExportFirm
 from apps.export.models import PackingTemplateShare, Shipment, ShipmentFirmSplit
 
@@ -253,6 +254,7 @@ def link_split_to_contract(
         defaults=defaults,
     )
     _fill_packing_from_template(sale, shipment)
+    ensure_letter_numbers(sale)
     return sale
 
 

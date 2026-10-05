@@ -25,7 +25,9 @@ from apps.contracts.document_templates.registry import (
 )
 from apps.contracts.models import (
     Contract, ContractAttachment, ContractSale, DocumentLayoutSetting, InvoiceNumberBase,
+    LetterNumberBase,
 )
+from apps.contracts.models.letter_number_base import LETTER_TYPES
 from apps.contracts.serializers import (
     ContractAttachmentSerializer,
     ContractCreateSerializer,
@@ -52,6 +54,9 @@ from apps.contracts.services.document_render import (
 # One definition of the per-firm packing columns and of the firm ↔ share rule,
 # shared with the contract-link service — the two write the same sale fields and
 # must never drift into printing one firm's boxes on another firm's invoice.
+from apps.contracts.services.letter_number import (
+    LETTER_TYPE_FOR_KEY, SALE_FIELD, ensure_letter_numbers, number_taken,
+)
 from apps.contracts.services.shipment_firm_contracts import (
     FIRM_PACKING_FIELDS as _FIRM_PACKING_FIELDS,
     template_share_for,
@@ -480,6 +485,38 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
             return ContractSaleCreateSerializer
         return ContractSaleDetailSerializer
 
+    @action(detail=True, methods=['patch'], url_path='letter-numbers')
+    def letter_numbers(self, request, pk=None):
+        """Hand-correct a sale's CT-1 / Fito / ARZA numbers (spec 2026-10-05 §4).
+
+        Body: any of ``ct1_number`` / ``fito_number`` / ``customs_number`` (int ≥ 1).
+        A number another sale of the same firm and year holds for that letter → 400.
+        """
+        sale = self.get_object()
+        updates = {}
+        for letter_type, field in SALE_FIELD.items():
+            if field not in request.data:
+                continue
+            try:
+                number = int(request.data[field])
+            except (TypeError, ValueError):
+                return Response({'error': f'{field} must be a whole number.'}, status=400)
+            if not 1 <= number <= INT32_MAX:
+                return Response({'error': f'{field} must be at least 1.'}, status=400)
+            if number_taken(sale, letter_type, number):
+                return Response(
+                    {'error': f'№ {number} уже занят другим письмом этой фирмы в этом году.'},
+                    status=400,
+                )
+            updates[field] = number
+        if not updates:
+            return Response({'error': 'Nothing to update.'}, status=400)
+        # .update(), not save(): save() re-runs the contract totals rollup, which
+        # these columns do not feed.
+        ContractSale.objects.filter(pk=sale.pk).update(**updates)
+        sale.refresh_from_db()
+        return Response({'id': sale.id, **{f: getattr(sale, f) for f in SALE_FIELD.values()}})
+
     @action(detail=True, methods=['get'], url_path='document')
     def document(self, request, pk=None):
         """Generate an invoice document (.docx or PDF) for this sale.
@@ -530,6 +567,9 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
 
         if _requires_place_loading(doc_type) and _place_loading_missing(request):
             return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
+
+        if doc_type in LETTER_TYPE_FOR_KEY:
+            invoice = ensure_letter_numbers(invoice)
 
         try:
             data, filename, content_type = generate(
@@ -762,6 +802,7 @@ class ShipmentPacketZipView(APIView):
         active_sales = [s for s in shipment.sales.all() if s.status != ContractSale.STATUS_VOID]
         if _place_loading_missing(request):
             return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
+        active_sales = [ensure_letter_numbers(s) for s in active_sales]
 
         try:
             data = generate_packet_zip(
@@ -1168,6 +1209,72 @@ def sync_split_weight_from_sale(sale, user) -> bool:
     _set_firm_weights(sale.shipment, weights, user)
     return True
 
+
+
+class LetterNumberBaseView(APIView):
+    """Request-letter numbering floors (spec 2026-10-05) — like «Нумерация инвойсов».
+
+    ``GET ?year=YYYY`` (default: this year) → one row per active export firm with
+    its ``ct1`` / ``fito`` / ``customs`` floors (0 when unset).
+    ``PUT {export_firm, year, letter_type, last_number}`` → upsert one floor. Admin only.
+    """
+
+    permission_classes = [IsAuthenticated, write_permission('admin')]
+
+    @staticmethod
+    def _row(firm, year: int, floors: dict) -> dict:
+        return {
+            'export_firm': firm.id,
+            'export_firm_code': firm.code,
+            'export_firm_name': firm.name_short or firm.name_tk,
+            'year': year,
+            **{t: floors.get((firm.id, t), 0) for t in LETTER_TYPES},
+        }
+
+    @staticmethod
+    def _floors(year: int, firm_id: int | None = None) -> dict:
+        qs = LetterNumberBase.objects.filter(year=year)
+        if firm_id is not None:
+            qs = qs.filter(export_firm_id=firm_id)
+        return {
+            (firm, letter_type): number
+            for firm, letter_type, number in qs.values_list('export_firm_id', 'letter_type', 'last_number')
+        }
+
+    def get(self, request):
+        try:
+            year = int(request.query_params.get('year') or timezone.localdate().year)
+        except ValueError:
+            return Response({'error': 'year must be a number.'}, status=400)
+        floors = self._floors(year)
+        firms = ExportFirm.objects.filter(is_active=True).order_by('code')
+        return Response({'year': year, 'rows': [self._row(f, year, floors) for f in firms]})
+
+    def put(self, request):
+        try:
+            firm_id = int(request.data['export_firm'])
+            year = int(request.data['year'])
+            last_number = int(request.data['last_number'])
+            letter_type = str(request.data['letter_type'])
+        except (KeyError, TypeError, ValueError):
+            return Response(
+                {'error': 'export_firm, year, letter_type and last_number are required.'}, status=400,
+            )
+        if letter_type not in LETTER_TYPES:
+            return Response({'error': f'letter_type must be one of {", ".join(LETTER_TYPES)}.'}, status=400)
+        if not 0 <= last_number <= INT32_MAX or not 2000 <= year <= 2100:
+            return Response(
+                {'error': f'last_number must be between 0 and {INT32_MAX}, and year within 2000–2100.'},
+                status=400,
+            )
+        firm = ExportFirm.objects.filter(pk=firm_id).first()
+        if firm is None:
+            return Response({'error': 'Export firm not found.'}, status=400)
+        LetterNumberBase.objects.update_or_create(
+            export_firm=firm, letter_type=letter_type, year=year,
+            defaults={'last_number': last_number, 'updated_by': request.user},
+        )
+        return Response(self._row(firm, year, self._floors(year, firm.id)))
 
 class ShipmentContractStatusView(APIView):
     """How many of each truck's firms already have a live contract (Sheet icon).

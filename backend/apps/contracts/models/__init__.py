@@ -4,6 +4,7 @@ from .contract_sale import ContractSale
 from .contract_sale_line_item import ContractSaleLineItem
 from .document_layout import DocumentLayoutSetting
 from .invoice_number_base import InvoiceNumberBase
+from .letter_number_base import LetterNumberBase
 
 __all__ = [
     'Contract',
@@ -12,4 +13,5 @@ __all__ = [
     'ContractSaleLineItem',
     'DocumentLayoutSetting',
     'InvoiceNumberBase',
+    'LetterNumberBase',
 ]

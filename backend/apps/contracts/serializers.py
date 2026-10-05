@@ -29,6 +29,7 @@ from apps.contracts.services.contract_number import (
     next_contract_no,
     parse_contract_number,
 )
+from apps.contracts.services.letter_number import ensure_letter_numbers
 from apps.contracts.services.document_context import (
     country_template_supported,
     missing_packing_on,
@@ -578,6 +579,7 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
         sale = super().create(validated_data)
         if line_items is not None:
             self._replace_line_items(sale, line_items)
+        ensure_letter_numbers(sale)
         return sale
 
     @transaction.atomic
@@ -670,6 +672,8 @@ class DocumentPacketSerializer(serializers.Serializer):
                 'export_firm_name': firm.name_short or firm.code,
                 'sale_id': sale.id if sale else None,
                 'invoice_number': sale.invoice_number if sale else None,
+                **{f: (getattr(sale, f) if sale else None)
+                   for f in ('ct1_number', 'fito_number', 'customs_number')},
             })
         return firms
 

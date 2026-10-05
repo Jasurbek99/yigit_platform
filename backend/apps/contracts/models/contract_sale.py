@@ -75,6 +75,11 @@ class ContractSale(models.Model):
     # First time the invoice document was downloaded (single download or packet zip).
     # Drives the «фактура уже напечатана» line in the firm-change / cancel warning.
     invoice_printed_at = models.DateTimeField(null=True, blank=True)
+    # Outgoing numbers of the CT-1 / Fito / ARZA request letters — per export firm,
+    # per letter type, per year; see services/letter_number.py (spec 2026-10-05).
+    ct1_number = models.IntegerField(null=True, blank=True)
+    fito_number = models.IntegerField(null=True, blank=True)
+    customs_number = models.IntegerField(null=True, blank=True)
     serial_truck_number = models.IntegerField(null=True, blank=True)
 
     # === Denormalized firm references (for reporting, optional) ===

@@ -9,6 +9,7 @@ from apps.contracts.views import (
     DocumentLayoutListView,
     DocumentPacketListView,
     InvoiceNumberBaseView,
+    LetterNumberBaseView,
     ShipmentCmrView,
     ShipmentContractStatusView,
     ShipmentFirmContractsView,
@@ -71,6 +72,11 @@ urlpatterns = [
         'invoice-number-bases/',
         InvoiceNumberBaseView.as_view(),
         name='invoice-number-bases',
+    ),
+    path(
+        'letter-number-bases/',
+        LetterNumberBaseView.as_view(),
+        name='letter-number-bases',
     ),
     *router.urls,
 ]
