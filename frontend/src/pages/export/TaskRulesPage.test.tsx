@@ -2,12 +2,23 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import { toast } from 'sonner';
 import i18n from '@/i18n';
 import TaskRulesPage from './TaskRulesPage';
-import { useTaskRules } from '@/hooks/useTaskRules';
+import { useSetTaskRuleAssignees, useTaskRuleCandidates, useTaskRules } from '@/hooks/useTaskRules';
 import type { ITaskRule } from '@/types';
 
-vi.mock('@/hooks/useTaskRules', () => ({ useTaskRules: vi.fn() }));
+const authState: { user: { role: string; is_superuser: boolean } | null } = {
+  user: { role: 'admin', is_superuser: false },
+};
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => authState }));
+vi.mock('@/hooks/useTaskRules', () => ({
+  useTaskRules: vi.fn(),
+  useTaskRuleCandidates: vi.fn(() => ({ data: [], isLoading: false })),
+  useSetTaskRuleAssignees: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+}));
 
 function rule(overrides: Partial<ITaskRule> = {}): ITaskRule {
   return {
@@ -29,6 +40,7 @@ function rule(overrides: Partial<ITaskRule> = {}): ITaskRule {
     is_active: true,
     depends_on: [],
     gates_step: true,
+    assignees: [],
     ...overrides,
   };
 }
@@ -208,5 +220,90 @@ describe('TaskRulesPage', () => {
     expect(screen.getByText('Button (holds the step)')).toBeInTheDocument();
     expect(screen.getByText('After:')).toBeInTheDocument();
     expect(screen.getByText('Gross/net: pick the packing')).toBeInTheDocument();
+  });
+});
+
+describe('TaskRulesPage assignees', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authState.user = { role: 'admin', is_superuser: false };
+  });
+
+  it('shows "Whole role" when a rule has no assignees', () => {
+    renderPage([rule({ assignees: [] })]);
+    expect(screen.getByText('Whole role')).toBeInTheDocument();
+  });
+
+  it('lists named assignees', () => {
+    renderPage([rule({ assignees: [{ id: 7, full_name: 'Ahmed' }] })]);
+    expect(screen.getByText('Ahmed')).toBeInTheDocument();
+  });
+
+  it('shows the edit button to admin', () => {
+    renderPage([rule()]);
+    expect(screen.getByRole('button', { name: 'Assign' })).toBeInTheDocument();
+  });
+
+  it('hides the edit button from other roles', () => {
+    authState.user = { role: 'warehouse_chief', is_superuser: false };
+    renderPage([rule()]);
+    expect(screen.queryByRole('button', { name: 'Assign' })).toBeNull();
+  });
+
+  it('saves only users who are still valid candidates', () => {
+    // A stored assignee who was later deactivated is no longer a candidate; the
+    // backend would 400 on his id, so the editor must not send it back.
+    const mutate = vi.fn();
+    vi.mocked(useSetTaskRuleAssignees).mockReturnValue(
+      { mutate, isPending: false } as unknown as ReturnType<typeof useSetTaskRuleAssignees>,
+    );
+    vi.mocked(useTaskRuleCandidates).mockReturnValue(
+      { data: [{ id: 1, full_name: 'Ahmed', role: 'export_manager' }], isLoading: false } as
+        unknown as ReturnType<typeof useTaskRuleCandidates>,
+    );
+    renderPage([rule({ assignees: [{ id: 1, full_name: 'Ahmed' }, { id: 9, full_name: 'Gone' }] })]);
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(mutate).toHaveBeenCalledWith({ ruleId: 1, userIds: [1] }, expect.anything());
+  });
+
+  it('blocks Save until the candidates have loaded', () => {
+    // Saving while the list is still loading would send [] and clear the rule.
+    vi.mocked(useTaskRuleCandidates).mockReturnValue(
+      { data: undefined, isLoading: true } as unknown as ReturnType<typeof useTaskRuleCandidates>,
+    );
+    renderPage([rule({ assignees: [{ id: 1, full_name: 'Ahmed' }] })]);
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('blocks Save when the candidates failed to load', () => {
+    vi.mocked(useTaskRuleCandidates).mockReturnValue(
+      { data: undefined, isLoading: false, isError: true } as unknown as ReturnType<typeof useTaskRuleCandidates>,
+    );
+    renderPage([rule({ assignees: [{ id: 1, full_name: 'Ahmed' }] })]);
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('tells the admin when the server rejects the save', () => {
+    const mutate = vi.fn();
+    vi.mocked(useSetTaskRuleAssignees).mockReturnValue(
+      { mutate, isPending: false } as unknown as ReturnType<typeof useSetTaskRuleAssignees>,
+    );
+    vi.mocked(useTaskRuleCandidates).mockReturnValue(
+      { data: [{ id: 1, full_name: 'Ahmed', role: 'export_manager' }], isLoading: false, isError: false } as
+        unknown as ReturnType<typeof useTaskRuleCandidates>,
+    );
+    renderPage([rule()]);
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const options = mutate.mock.calls[0][1] as { onError: () => void };
+    options.onError();
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Could not save'));
   });
 });

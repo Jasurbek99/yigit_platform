@@ -3182,6 +3182,8 @@
   },
   "me": {
     "board": {
+      "scope_mine": "Meniň meselelerim",
+      "scope_colleagues": "Kärdeşleriň meseleleri",
       "title": "Meniň işlerim",
       "col_todo": "Etmeli",
       "col_in_progress": "Işde",
@@ -3922,6 +3924,12 @@
     "deadline_next_business_day": "Indiki iş güni {{time}}",
     "deadline_friday": "Anna 18:00",
     "filter_role": "Rol boýunça süzgüç",
+    "col_assignees": "Ýerine ýetirijiler",
+    "assignees_whole_role": "Ähli wezipe",
+    "assignees_edit": "Bellemek",
+    "assignees_edit_title": "Ýerine ýetirijiler: {{task}}",
+    "assignees_hint": "Saýlanan işgärler bu meseläni «Meniň meselelerim» bölüminde görýärler. Wezipäniň beýleki işgärleri ony «Kärdeşleriň meseleleri» bölüminde görýärler we ýerine ýetirip bilýärler. Boş — ähli wezipe görýär.",
+    "assignees_save_error": "Ýerine ýetirijiler ýatda saklanmady. Sahypany täzeläp, täzeden synanyşyň.",
     "show_inactive": "Işjeň dällerini görkez",
     "inactive": "Işjeň däl",
     "load_error": "Ýumuş düzgünleri ýüklenmedi.",

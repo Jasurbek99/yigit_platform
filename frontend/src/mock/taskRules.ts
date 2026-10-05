@@ -1,3 +1,4 @@
+import type { ITaskRuleCandidate } from '@/hooks/useTaskRules';
 import type { ITaskRule } from '@/types';
 
 /**
@@ -27,6 +28,7 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     is_active: true,
     depends_on: [],
     gates_step: true,
+    assignees: [],
   },
   {
     id: 2,
@@ -47,6 +49,7 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     is_active: true,
     depends_on: [],
     gates_step: true,
+    assignees: [],
   },
   {
     id: 3,
@@ -67,6 +70,7 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     is_active: true,
     depends_on: [],
     gates_step: true,
+    assignees: [],
   },
   {
     id: 4,
@@ -87,6 +91,7 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     is_active: true,
     depends_on: [],
     gates_step: true,
+    assignees: [],
   },
   {
     id: 5,
@@ -107,5 +112,12 @@ export const MOCK_TASK_RULES: ITaskRule[] = [
     is_active: false,
     depends_on: [],
     gates_step: true,
+    assignees: [],
   },
+];
+
+/** Users offered in the assignee picker under USE_MOCK. */
+export const MOCK_RULE_CANDIDATES: ITaskRuleCandidate[] = [
+  { id: 101, full_name: 'Ahmed', role: 'export_manager' },
+  { id: 102, full_name: 'Mergen', role: 'export_manager' },
 ];

@@ -20,10 +20,12 @@ export function defaultMyTasksRole(role: string | null | undefined): string | nu
   return role && OWN_QUEUE_FIRST_ROLES.includes(role) ? role : null;
 }
 
+export type MyTasksScope = 'mine' | 'colleagues';
+
 export function useMyTasks(
-  options: { enabled?: boolean; role?: string | null } = {},
+  options: { enabled?: boolean; role?: string | null; scope?: MyTasksScope } = {},
 ) {
-  const { enabled, role = null } = options;
+  const { enabled, role = null, scope = 'mine' } = options;
   const { seasonId, isReady } = useSelectedSeason();
   return useQuery<IMyTasksResponse>({
     enabled: (enabled ?? true) && isReady,
@@ -32,7 +34,7 @@ export function useMyTasks(
     // the key for the same reason — /me/tasks/ is season-scoped (spec §4.8),
     // and without it a season switch renders the previous season's cached
     // rows, which looks exactly like the feature not working.
-    queryKey: ['my-tasks', seasonId, role],
+    queryKey: ['my-tasks', seasonId, role, scope],
     queryFn: async () => {
       // page_size=1000: the My tasks page renders ALL tasks (active +
       // done-today + history) from this single fetch, so the cap must clear a
@@ -45,6 +47,8 @@ export function useMyTasks(
       // role is ~574.
       const params = new URLSearchParams({ page_size: '1000' });
       if (role) params.set('assignee_role', role);
+      // Colleagues' tasks: the role's tasks a TaskRule assigns to other users.
+      if (scope === 'colleagues') params.set('scope', 'colleagues');
       if (seasonId != null) params.set('season', String(seasonId));
       const { data } = await api.get(`/me/tasks/?${params.toString()}`);
       return data;

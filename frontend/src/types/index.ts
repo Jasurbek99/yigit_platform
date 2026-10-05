@@ -2368,6 +2368,11 @@ export interface IProcessNodeLink {
  * `step_order` / `step_phase` are null when the rule's status code no longer
  * has a `ShipmentStatusType` row (a rule left behind by a retired status).
  */
+export interface ITaskRuleAssignee {
+  id: number;
+  full_name: string;
+}
+
 export interface ITaskRule {
   id: number;
   step: string;
@@ -2389,6 +2394,8 @@ export interface ITaskRule {
   depends_on: string[];
   /** false = closes itself but never holds the step (join_supply). */
   gates_step: boolean;
+  /** Named users who own this rule's tasks; empty = the whole role. */
+  assignees: ITaskRuleAssignee[];
 }
 
 // ─── Gate guard (garawul) ────────────────────────────────────────────────────

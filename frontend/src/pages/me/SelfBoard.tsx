@@ -5,6 +5,7 @@ import {
   Form,
   Input,
   Modal,
+  Segmented,
   Select,
   Skeleton,
   Space,
@@ -27,7 +28,7 @@ import { useAuth } from '@/hooks/useAuth';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 const TM_TZ = 'Asia/Ashgabat';
-import { defaultMyTasksRole, useMyTasks } from '@/hooks/useMyTasks';
+import { defaultMyTasksRole, useMyTasks, type MyTasksScope } from '@/hooks/useMyTasks';
 import { useMyKpiToday } from '@/hooks/useMyKpiToday';
 import { useBlockTask, useUnblockTask } from '@/hooks/useTaskActions';
 import { KanbanColumn } from '@/components/kanban/KanbanColumn';
@@ -270,8 +271,12 @@ export default function SelfBoard() {
   const isSupervisor =
     !!user && (user.is_superuser || SUPERVISOR_ROLES.includes(user.role));
 
+  // Regular roles: "mine" vs "colleagues" (TaskRule assignees, spec 2026-10-05).
+  // Supervisors already see every task, so they get no tab.
+  const [scope, setScope] = useState<MyTasksScope>('mine');
+
   const { data: tasksData, isLoading: tasksLoading, isError: tasksError } =
-    useMyTasks({ role: roleFilter });
+    useMyTasks({ role: roleFilter, scope: isSupervisor ? 'mine' : scope });
   const { data: kpi, isLoading: kpiLoading } = useMyKpiToday(roleFilter);
   const unblockTask = useUnblockTask();
 
@@ -437,6 +442,16 @@ export default function SelfBoard() {
           marginBottom: 16,
         }}
       >
+        {!isSupervisor && (
+          <Segmented<MyTasksScope>
+            value={scope}
+            onChange={setScope}
+            options={[
+              { value: 'mine', label: t('me.board.scope_mine') },
+              { value: 'colleagues', label: t('me.board.scope_colleagues') },
+            ]}
+          />
+        )}
         {isSupervisor && (
           <Select<string>
             value={roleFilter ?? ALL_ROLES}

@@ -3179,6 +3179,8 @@
   },
   "me": {
     "board": {
+      "scope_mine": "My tasks",
+      "scope_colleagues": "Colleagues' tasks",
       "title": "My tasks",
       "col_todo": "To do",
       "col_in_progress": "In progress",
@@ -3919,6 +3921,12 @@
     "deadline_next_business_day": "{{time}} next business day",
     "deadline_friday": "Friday 18:00",
     "filter_role": "Filter by role",
+    "col_assignees": "Assignees",
+    "assignees_whole_role": "Whole role",
+    "assignees_edit": "Assign",
+    "assignees_edit_title": "Assignees: {{task}}",
+    "assignees_hint": "Selected users see this task under My tasks. Everyone else in the role sees it under Colleagues' tasks and can still do it. Empty = the whole role.",
+    "assignees_save_error": "Could not save the assignees. Reload the page and try again.",
     "show_inactive": "Show inactive",
     "inactive": "Inactive",
     "load_error": "Could not load the task rules.",

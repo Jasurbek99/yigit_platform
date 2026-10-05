@@ -28,6 +28,7 @@ Hook: `frontend/src/hooks/useTaskRules.ts`
    | Opens when shipment enters | the translated status name + the raw `step` code underneath |
    | Task | `t(title_key)` — the same label My Tasks shows |
    | Responsible role | `assignee_role_display` |
+   | Assignees | `assignees` — named users, or «Вся роль» when empty. admin / director / superuser also get an «Assign» button (modal, multi-select limited to the rule's role). Saved live: open tasks re-route at once, no `reconcile_tasks` — see [[task-rules]] (reference) → Assignees |
    | Completes by | Auto vs **Mark Done** vs **Button (holds the step)** (`confirm`, orange, 2026-09-30), plus one tag per watched field (`= value` for `field_equals`); an **After:** line lists the `depends_on` tasks (translated titles) |
    | Only when | the rule's `condition_field = condition_value`, else "Always" |
    | Deadline | `deadline_rule` rendered in words (see below) |
@@ -127,7 +128,8 @@ no JSONField) and split by the serializer, so the frontend must never re-parse i
 
 ## Not built yet
 
-Editing rules from this page. A `TaskRule` edit leaves every existing open task on
+Editing rules from this page — except the assignee list, which is read live
+through `Task.rule` and is editable by admin / director. A `TaskRule` edit leaves every existing open task on
 its snapshotted `target_fields` until `reconcile_tasks` runs, so write support
 needs that reconciliation wired into the save path first — otherwise one edit
 silently strands the open tasks. Creating and cancelling ad-hoc tasks is a

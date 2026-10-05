@@ -19,6 +19,17 @@ The screen uses `useMyTasks()` → `GET /api/v1/me/tasks/` and renders tasks as 
 
 Each `SelfKanbanCard` shows the system code (`shipment_code`) and, under it, the official export code (`export_code`) when the shipment has one (2026-10-02). Search still matches `shipment_code` only.
 
+## Mine vs «Задачи коллег» (regular roles)
+
+Non-supervisors get a `Segmented` switch (first control in the filter row): **My tasks** /
+**Colleagues' tasks** (`me.board.scope_mine` / `scope_colleagues`). It sends
+`?scope=colleagues` to `/me/tasks/` (`useMyTasks({ scope })`, part of the query key).
+Colleagues' tasks are the role's tasks whose `TaskRule` names other users (admin sets
+them on the Task Rules page); anyone in the role may open and do them, so a task does
+not stall while its named assignee is away. Supervisors see every task and get no
+switch. The KPI tiles and the nav badge are unchanged (the badge uses the default
+"mine" scope). Rules: [[task]] → *Named assignees per rule*.
+
 ## Role filter (supervisors only)
 
 Supervisors — `export_manager`, `boss`, `admin`, `director`, and superusers — do **not**

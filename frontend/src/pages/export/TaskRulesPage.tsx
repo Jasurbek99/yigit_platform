@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Alert, Card, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Modal, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import type { TFunction } from 'i18next';
-import { useTaskRules } from '@/hooks/useTaskRules';
+import { useAuth } from '@/hooks/useAuth';
+import { useSetTaskRuleAssignees, useTaskRuleCandidates, useTaskRules } from '@/hooks/useTaskRules';
 import type { ITaskRule } from '@/types';
 
 const { Title, Paragraph, Text } = Typography;
@@ -103,6 +105,53 @@ function formatDeadline(rule: string, t: TFunction): string {
   return rule;
 }
 
+const ASSIGNEE_EDITOR_ROLES: readonly string[] = ['admin', 'director'];
+
+function AssigneeEditor({ rule, onClose }: { rule: ITaskRule; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { data: candidates = [], isLoading, isError } = useTaskRuleCandidates(rule.id);
+  const setAssignees = useSetTaskRuleAssignees();
+  const [edited, setEdited] = useState<number[] | null>(null);
+  // A stored assignee who was deactivated or changed role is no longer a
+  // candidate and the backend rejects his id — so until the admin edits, show
+  // and send only the stored users who are still valid.
+  const validIds = new Set(candidates.map((c) => c.id));
+  const picked = edited ?? rule.assignees.map((a) => a.id).filter((id) => validIds.has(id));
+  return (
+    <Modal
+      open
+      title={t('task_rules.assignees_edit_title', {
+        task: t(rule.title_key, { defaultValue: rule.title_key }),
+      })}
+      onCancel={onClose}
+      okText={t('common.save')}
+      confirmLoading={setAssignees.isPending}
+      // Saving before the candidates arrive would send [] and clear the rule.
+      okButtonProps={{ disabled: isLoading || isError }}
+      onOk={() => setAssignees.mutate(
+        { ruleId: rule.id, userIds: picked },
+        {
+          onSuccess: onClose,
+          onError: () => toast.error(t('task_rules.assignees_save_error')),
+        },
+      )}
+    >
+      <Text type="secondary">{t('task_rules.assignees_hint')}</Text>
+      <Select<number[]>
+        mode="multiple"
+        allowClear
+        loading={isLoading}
+        value={picked}
+        onChange={setEdited}
+        placeholder={t('task_rules.assignees_whole_role')}
+        style={{ width: '100%', marginTop: 12 }}
+        optionFilterProp="label"
+        options={candidates.map((c) => ({ value: c.id, label: c.full_name }))}
+      />
+    </Modal>
+  );
+}
+
 /**
  * Task Rules — the read-only catalog behind My Tasks.
  *
@@ -110,10 +159,16 @@ function formatDeadline(rule: string, t: TFunction): string {
  * live `export_task_rule` rows, so the page cannot drift from the engine the
  * way a hand-written list would. Editing rules is not part of this page (yet):
  * changing one leaves existing open tasks on their snapshotted fields until
- * `reconcile_tasks` runs, so writes need that wiring first.
+ * `reconcile_tasks` runs, so writes need that wiring first. The one exception is
+ * the assignee list: it is read live through `Task.rule`, so admin/director can
+ * change it here and open tasks re-route at once.
  */
 export default function TaskRulesPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const canEditAssignees =
+    !!user && (user.is_superuser || ASSIGNEE_EDITOR_ROLES.includes(user.role));
+  const [editingRule, setEditingRule] = useState<ITaskRule | null>(null);
   const { data: rules = [], isLoading, isError } = useTaskRules();
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
@@ -163,6 +218,29 @@ export default function TaskRulesPage() {
       width: 150,
       render: (_: unknown, rule: ITaskRule) => (
         <Tag color="geekblue">{rule.assignee_role_display}</Tag>
+      ),
+    },
+    {
+      title: t('task_rules.col_assignees'),
+      key: 'assignees',
+      width: 200,
+      render: (_: unknown, rule: ITaskRule) => (
+        <Space direction="vertical" size={4}>
+          {rule.assignees.length === 0
+            ? <Text type="secondary">{t('task_rules.assignees_whole_role')}</Text>
+            : (
+              <Space size={4} wrap>
+                {rule.assignees.map((a) => (
+                  <Tag key={a.id} style={{ margin: 0 }}>{a.full_name}</Tag>
+                ))}
+              </Space>
+            )}
+          {canEditAssignees && (
+            <Button size="small" onClick={() => setEditingRule(rule)}>
+              {t('task_rules.assignees_edit')}
+            </Button>
+          )}
+        </Space>
       ),
     },
     {
@@ -332,6 +410,9 @@ export default function TaskRulesPage() {
           {t('task_rules.retired_rule_note')}
         </Paragraph>
       </Card>
+      {editingRule && (
+        <AssigneeEditor rule={editingRule} onClose={() => setEditingRule(null)} />
+      )}
     </Space>
   );
 }
