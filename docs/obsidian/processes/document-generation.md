@@ -661,6 +661,44 @@ more than the addressee + one line:
 the invoice line item). CT-1 still fills with no shipment link (weights fall back
 to the invoice's own quantity).
 
+### Firm letterhead and letter number (2026-10-05)
+
+Spec: `docs/superpowers/specs/2026-10-05-firm-letterhead-letter-numbers-design.md`.
+
+- **Letterhead** — `ExportFirm.letterhead` (.docx, nullable), uploaded on the export
+  firm page («Фирменный бланк»). A new upload replaces the old one; there is no history.
+  On upload, `apps/core/letterhead.validate_letterhead` rejects the file with a 400 if it
+  is not a readable .docx, has no «№ ___» (`№` followed by ≥3 underscores; both may be
+  split across runs, and the blank may sit in a table cell or text box), or has text or a
+  picture in a Word page header/footer (the merge keeps only the body, so it would never print).
+- **Render** — in `document_render.generate`, for `ct1_ru` / `fito_ru` / `customs_tk`
+  only, including the packet ZIP: after `render_docx`, if the seller firm
+  (`sale.export_firm or contract.export_firm`) has a letterhead,
+  `letterhead_render.apply_letterhead` puts the sale's number into «№ ___» and inserts the
+  letterhead body **at the top** of the letter (`docxcompose.Composer(letter).insert(0, head)`).
+  The letter stays the master document, so its fonts, margins and saved layout survive.
+  Before the insert, the letterhead's inherited spacing and run fonts/sizes are written
+  onto its paragraphs per attribute. Its trailing empty lines are dropped, and its
+  sections take the letter's page size (otherwise the Yigit blank pushed ARZA onto a 2nd
+  page). The date blank «__» ___ 20 ý. is never filled.
+- **No letterhead → the letter is unchanged.** Another firm's letterhead is never used.
+  An unreadable stored file logs a warning, and a merge that raises logs an error; in both
+  cases the letter prints plain.
+- **Numbers** — `ContractSale.ct1_number / fito_number / customs_number`, counted per
+  export firm × letter type × calendar year and restarting at 1 each January.
+  `services/letter_number.py` follows the same rule as invoices: the smallest free
+  number above the `LetterNumberBase` floor, and a freed number is reused. Year =
+  `invoice_date`, else the truck date, else the sale's creation year. The sale row is
+  locked while numbering, so two downloads at once cannot renumber it. All three are given at «Привязать»
+  (`link_split_to_contract`) and at manual sale create. A sale without them gets them
+  on the first letter download or packet ZIP. Closed-season sales are never numbered.
+- **Floors** — `GET/PUT /api/v1/contracts/letter-number-bases/` (admin writes), shown
+  as 3 columns on «Нумерация инвойсов».
+- **Manual correction** — `PATCH /api/v1/contracts/sales/{id}/letter-numbers/`
+  (`sale` edit grant). A number another sale of the same firm/year holds for that
+  letter → 400 with a message. The shipment «Документы» shows «№ N ✎» next to each
+  letter. `document-packets` `firms[]` carry the three numbers.
+
 ## Export contract (bilingual TK/RU agreement)
 
 The master sale agreement itself — a two-column Turkmen/Russian legal instrument

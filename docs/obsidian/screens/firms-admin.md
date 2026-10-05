@@ -96,6 +96,14 @@ uploaded, so adding `legal_type` turns no row from green to amber and the thirte
 distinguishable without hovering every one. Until the stamp backlog is cleared, the list above is
 the way to find them.
 
+## Letterhead (2026-10-05)
+
+The export firm page has a «Фирменный бланк» card below the stamps: upload a .docx
+blank (Word), shown afterwards as an «Открыть бланк» link; a new upload replaces it.
+The file must contain «№ ___» — the CT-1 / Fito / ARZA letter number is printed there.
+Bad files are refused with the server's reason in the toast. See
+[[document-generation#Firm letterhead and letter number (2026-10-05)]].
+
 ## Sole proprietors on the export contract
 
 A **Hususy telekeçi** acts on a certificate (*Tassyknama*), not on a charter, so

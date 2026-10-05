@@ -97,6 +97,7 @@ erDiagram
 | **Shipment** | shipment_code (unique), date, season, country, customer, status, status_changed_at, 10 operator-entered lifecycle timestamps (AD-1 retired — they are the auto-advance triggers), weight fields, transport fields, finance fields, vehicle condition | Main record — 1 per truck |
 | **ShipmentStatusLog** | shipment (FK), status (FK), changed_by (FK), changed_at, comment | Audit trail per transition |
 | **ShipmentFirmSplit** | shipment (FK), export_firm (FK), weight_kg, amount_usd, invoice_number | 1-3 firms per shipment |
+| **LetterNumberBase** (contracts) | export_firm (FK), letter_type (ct1/fito/customs), year, last_number | Floor for CT-1/Fito/ARZA numbers; sale fields `ct1_number`/`fito_number`/`customs_number`; firm file `ExportFirm.letterhead` (2026-10-05) |
 | **ShipmentBlockSource** | shipment (FK), block (FK), weight_kg | Source blocks |
 | **QualityDocument** | shipment (1:1), 4 boolean certificate flags | Quality certificates |
 | **QuotaIssuance** | issue_date, product_type, validity, matched_week/year | Government quota event |
