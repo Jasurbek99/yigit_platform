@@ -33,6 +33,7 @@ const ExportFirmDetailPage = lazy(() => import('@/pages/admin/ExportFirmDetailPa
 const ImportFirmsPage = lazy(() => import('@/pages/admin/ImportFirmsPage'));
 const ImportFirmDetailPage = lazy(() => import('@/pages/admin/ImportFirmDetailPage'));
 const CompanyLegalTypesPage = lazy(() => import('@/pages/admin/CompanyLegalTypesPage'));
+const InvoiceNumberingPage = lazy(() => import('@/pages/admin/InvoiceNumberingPage'));
 const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
 const PermissionsPage = lazy(() => import('@/pages/admin/PermissionsPage'));
 const BlocksPage = lazy(() => import('@/pages/admin/BlocksPage'));
@@ -229,6 +230,9 @@ export default function App() {
                   } />
                   <Route path="admin/legal-forms" element={
                     <ProtectedRoute pageCode={['admin.firms', 'admin.import_firms']}><CompanyLegalTypesPage /></ProtectedRoute>
+                  } />
+                  <Route path="admin/invoice-numbering" element={
+                    <ProtectedRoute pageCode="admin.firms"><InvoiceNumberingPage /></ProtectedRoute>
                   } />
                   <Route path="admin/users" element={
                     <ProtectedRoute pageCode="admin.users"><UsersPage /></ProtectedRoute>

@@ -4250,5 +4250,17 @@
       "pending": "pending",
       "none": "not started"
     }
+  },
+  "invoice_numbering": {
+    "title": "Invoice numbering",
+    "open": "Invoice numbering",
+    "subtitle": "The last invoice number each firm issued outside the platform this year. New invoices continue from that number + 1. Numbering restarts at 1 on 1 January.",
+    "floor_warning": "The numbers were pre-filled from the database and may be lower than the real ones. Enter each firm's last number from Excel before the first contract is linked.",
+    "year": "Year",
+    "col_firm": "Firm",
+    "col_name": "Name",
+    "col_last_number": "Last number",
+    "saved": "Saved",
+    "save_error": "Could not save"
   }
 }

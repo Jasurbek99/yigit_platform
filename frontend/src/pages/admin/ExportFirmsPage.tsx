@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Tag, Tooltip, Typography } from 'antd';
-import { BankOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import { BankOutlined, NumberOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
@@ -123,6 +123,13 @@ export default function ExportFirmsPage() {
         onRow={(record) => ({ onClick: () => navigate(`/admin/firms/${record.id}`) })}
         rowHoverable
         toolBarRender={() => [
+          <Tooltip key="invoice-numbering" title={t('invoice_numbering.open')}>
+            <Button
+              icon={<NumberOutlined />}
+              onClick={() => navigate('/admin/invoice-numbering')}
+              aria-label={t('invoice_numbering.open')}
+            />
+          </Tooltip>,
           <Tooltip key="legal-forms" title={t('company_legal_types.open')}>
                   <Button
                     icon={<SettingOutlined />}

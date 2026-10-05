@@ -4253,5 +4253,17 @@
       "pending": "garaşylýar",
       "none": "başlanmady"
     }
+  },
+  "invoice_numbering": {
+    "title": "Fakturalaryň belgilenişi",
+    "open": "Fakturalaryň belgilenişi",
+    "subtitle": "Her firmanyň şu ýyl platformadan daşarda beren iň soňky faktura belgisi. Täze fakturalar belgi + 1-den dowam edýär. 1-nji ýanwardan belgilenme 1-den başlaýar.",
+    "floor_warning": "Sanlar bazadan doldurylan we hakykydan az bolup biler. Ilkinji şertnama baglanmazdan öň her firma üçin Excel-däki iň soňky belgini giriziň.",
+    "year": "Ýyl",
+    "col_firm": "Firma",
+    "col_name": "Ady",
+    "col_last_number": "Iň soňky belgi",
+    "saved": "Ýatda saklandy",
+    "save_error": "Ýatda saklap bolmady"
   }
 }

@@ -187,6 +187,7 @@ export default function AppLayout() {
     '/admin/firms': t('nav.admin_firms'),
     '/admin/import-firms': t('nav.admin_import_firms'),
     '/admin/legal-forms': t('company_legal_types.title'),
+    '/admin/invoice-numbering': t('invoice_numbering.title'),
     '/admin/permissions': t('nav.admin_permissions'),
     '/admin/blocks': t('nav.admin_blocks'),
     '/admin/customers': t('nav.admin_customers'),
