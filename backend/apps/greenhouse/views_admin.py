@@ -5,6 +5,7 @@ Endpoints:
   GET/POST/DELETE       /api/v1/greenhouse/admin/block-assignments/   — BlockManagerAssignment CRUD (director)
 """
 
+from django.db.models import Prefetch
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
@@ -73,9 +74,16 @@ class GreenhouseBlockAdminSerializer(serializers.ModelSerializer):
         ]
 
     def get_manager_name(self, obj: GreenhouseBlock) -> str | None:
-        if obj.manager_id is None:
-            return None
-        return obj.manager.get_full_name() or obj.manager.username
+        """Names of the block's active BlockManagerAssignment users.
+
+        Not the GreenhouseBlock.manager FK: nothing else reads it, so it went
+        stale when D/M15/M5 were reassigned via the assignments tab.
+        """
+        assignments = getattr(obj, 'active_manager_assignments', None)
+        if assignments is None:
+            assignments = obj.manager_assignments.filter(is_active=True).select_related('user')
+        names = [a.user.get_full_name() or a.user.username for a in assignments]
+        return ', '.join(names) or None
 
     def get_variety_main_name(self, obj: GreenhouseBlock) -> str | None:
         return obj.variety_main.name if obj.variety_main_id else None
@@ -116,8 +124,12 @@ class GreenhouseBlockAdminViewSet(ModelViewSet):
 
     def get_queryset(self):
         qs = GreenhouseBlock.objects.select_related(
-            'parent', 'manager', 'variety_main', 'variety_secondary', 'location'
-        ).order_by('code')
+            'parent', 'variety_main', 'variety_secondary', 'location'
+        ).prefetch_related(Prefetch(
+            'manager_assignments',
+            queryset=BlockManagerAssignment.objects.filter(is_active=True).select_related('user'),
+            to_attr='active_manager_assignments',
+        )).order_by('code')
         if self.action == 'list':
             qs = qs.filter(parent__isnull=True)
         return qs
