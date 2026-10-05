@@ -129,7 +129,7 @@ class GreenhouseBlockAdminViewSet(ModelViewSet):
             'manager_assignments',
             queryset=BlockManagerAssignment.objects.filter(is_active=True).select_related('user'),
             to_attr='active_manager_assignments',
-        )).order_by('code')
+        )).order_by('sort_order', 'code')
         if self.action == 'list':
             qs = qs.filter(parent__isnull=True)
         return qs

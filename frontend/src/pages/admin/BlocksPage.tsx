@@ -146,7 +146,6 @@ export default function BlocksPage() {
       title: t('blocks_admin.col_code'),
       dataIndex: 'code',
       width: 70,
-      defaultSortOrder: 'ascend' as const,
       sorter: (a: IGreenhouseBlock, b: IGreenhouseBlock) => a.code.localeCompare(b.code),
       render: (_, record) => <Text strong>{record.code}</Text>,
     },

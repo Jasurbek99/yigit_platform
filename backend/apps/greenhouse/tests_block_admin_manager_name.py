@@ -42,3 +42,18 @@ class BlockAdminManagerNameTests(TestCase):
         resp = self.client.get(f'/api/v1/greenhouse/admin/blocks/{block.id}/')
         self.assertEqual(resp.status_code, 200)
         self.assertIsNone(resp.data['manager_name'])
+
+
+class BlockAdminOrderTests(TestCase):
+    """The blocks admin list follows sort_order (owner's Duşak → Kaka → Owadandepe order), not code."""
+
+    def test_list_ordered_by_sort_order_then_code(self):
+        client = APIClient()
+        client.force_authenticate(user=_make_user('ord_director', 'director'))
+        GreenhouseBlock.objects.create(code='ORD_O', sort_order=30)
+        GreenhouseBlock.objects.create(code='ORD_P', sort_order=20)
+        GreenhouseBlock.objects.create(code='ORD_N', sort_order=20)
+        resp = client.get('/api/v1/greenhouse/admin/blocks/?page_size=200')
+        rows = resp.data['results'] if isinstance(resp.data, dict) else resp.data
+        codes = [r['code'] for r in rows if r['code'].startswith('ORD_')]
+        self.assertEqual(codes, ['ORD_N', 'ORD_P', 'ORD_O'])
