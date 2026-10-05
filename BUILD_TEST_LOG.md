@@ -1,3 +1,6 @@
+- [x] 2026-10-05 — Блоки (/admin/blocks): колонка «Менеджер» берёт активные назначения менеджеров, а не старое поле блока; поле «Ответственный менеджер» убрано из формы блока — TESTED
+  To test: (1) /admin/blocks → у D, M15, M5 в «Менеджер» «Agayusup Azatgeldiyew», не Guwanç K.; (2) открыть блок D → в шапке тот же менеджер; (3) «Назначения менеджеров» → снять/добавить менеджера блоку → колонка меняется; (4) «Изменить» блок → поля менеджера нет, сохранение работает. Бета: update.sh.
+
 - [x] 2026-10-05 — Fix BUG-003: shipment list search box — dropped redundant `setPage(1)` after `setSearch()` in Input.Search onChange/onSearch (ShipmentList.tsx) that clobbered the `search` param via stale-closure double-setSearchParams
   To test: /export/shipments → type in search box → URL gains `?search=…` and list narrows; clear → list resets.
 
