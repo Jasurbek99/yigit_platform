@@ -10,7 +10,7 @@ const MOCK_DEFAULTS = {
   driver_id: null,
   price_per_kg: null,
   total_amount_usd: null,
-  export_code: null,
+  export_code: null, export_date: '2025-09-30',
   previous_platform_id: null,
   harvest_age_days: 0,
   freshness: 'today' as const,

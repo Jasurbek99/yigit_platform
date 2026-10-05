@@ -1982,6 +1982,7 @@
       "export_manager_note": "Заметка Gadam J",
       "documents": "Документы (13:00)",
       "export_code": "Экспортный код",
+      "export_date": "Дата экспорта",
       "shipment_code": "Код отгрузки",
       "harvest_block": "Блок сбора",
       "export_firm": "Экспортная фирма",

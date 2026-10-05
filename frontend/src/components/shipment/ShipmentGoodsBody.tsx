@@ -64,6 +64,10 @@ const HARVEST_DATE_FIELD: IEditFieldConfig = {
   key: 'harvest_date', labelKey: 'sheet.row.harvest_date', inputType: 'text',
 };
 
+/** The export date sits right under the export code; the rest of the goods extras follow the harvest date. */
+const EXPORT_DATE_FIELDS = DETAIL_EXTRA_FIELDS.goods.filter((f) => f.key === 'export_date');
+const OTHER_GOODS_FIELDS = DETAIL_EXTRA_FIELDS.goods.filter((f) => f.key !== 'export_date');
+
 interface IShipmentGoodsBodyProps {
   shipment: IShipmentDetail;
   missingKeys: Set<string>;
@@ -100,6 +104,14 @@ export function ShipmentGoodsBody({
   return (
     <>
       <InfoRow label={t('shipment_detail.export_code')} value={shipment.export_code ?? '—'} />
+      <DetailExtraFieldRows
+        shipment={shipment}
+        fields={EXPORT_DATE_FIELDS}
+        missingKeys={missingKeys}
+        readOnly={readOnly}
+        onOpenComments={onOpenComments}
+        commentCountsByField={commentCountsByField}
+      />
 
       {/* These are currently the PLANNED greenhouse blocks (the draft's
           split), not what was actually loaded. Product owner: a real
@@ -170,7 +182,7 @@ export function ShipmentGoodsBody({
       )}
       <DetailExtraFieldRows
         shipment={shipment}
-        fields={DETAIL_EXTRA_FIELDS.goods}
+        fields={OTHER_GOODS_FIELDS}
         missingKeys={missingKeys}
         readOnly={readOnly}
         onOpenComments={onOpenComments}

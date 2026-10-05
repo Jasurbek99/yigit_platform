@@ -110,7 +110,7 @@ export function getCellValue(
   }
 
   // Date-only fields (no time component) — format DD.MM.YYYY.
-  const dateOnlyFields = ['sales_report_date'];
+  const dateOnlyFields = ['sales_report_date', 'export_date'];
   if (dateOnlyFields.includes(fieldKey)) {
     const val = shipment[fieldKey as keyof IShipmentSheetItem] as string | null;
     if (!val) return '—';

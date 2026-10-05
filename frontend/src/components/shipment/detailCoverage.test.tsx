@@ -94,3 +94,14 @@ describe('the Quality card badge', () => {
     expect(qualityCardText()).toContain('complete');
   });
 });
+
+describe('the export date row', () => {
+  it('sits in the Loading card right after the export code, before the other goods rows', () => {
+    renderDetail({ ...MOCK_SHIPMENT_DETAIL, export_date: '2026-09-30' } as IShipmentDetail);
+    const row = document.getElementById('detail-field-export_date');
+    expect(row).not.toBeNull();
+    expect(row).toHaveTextContent('30.09.2026');
+    const loadingStart = document.getElementById('detail-field-loading_started_at')!;
+    expect(row!.compareDocumentPosition(loadingStart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

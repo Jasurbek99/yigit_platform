@@ -47,7 +47,7 @@ export const TOPIC_SECTIONS: readonly ITopicSection[] = [
   {
     // Sera: Kg / Açylan wagty · Ýüklenjek ýeri · Ýygym ýagdaýy · Export Kody
     labelKey: 'sheet.topic.general',
-    fields: ['shipment_code', 'block_sources', 'harvest_status', 'export_code'],
+    fields: ['shipment_code', 'block_sources', 'harvest_status', 'export_code', 'export_date'],
   },
   {
     // Sera: Eksport eden Firmalar · Kap / Brutto · Resminamalar · Eksport ýurdy

@@ -187,6 +187,7 @@ export const DETAIL_EXTRA_FIELDS: Record<IEditFieldGroup['key'], IEditFieldConfi
     { key: 'arrived_at', labelKey: 'sheet.row.arrival', inputType: 'datetime' },
   ],
   goods: [
+    { key: 'export_date', labelKey: 'sheet.row.export_date', inputType: 'date' },
     { key: 'loading_started_at', labelKey: 'sheet.row.loading_start', inputType: 'datetime' },
     { key: 'loading_ended_at', labelKey: 'sheet.row.loading_end', inputType: 'datetime' },
   ],

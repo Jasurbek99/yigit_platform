@@ -86,6 +86,57 @@ describe('date and datetime rows save through the picker', () => {
   });
 });
 
+// «Дата экспорта»: always a date (hand-entered or auto), clearing = back to auto.
+describe('export date row', () => {
+  const field = DETAIL_EXTRA_FIELDS.goods.find((f) => f.key === 'export_date')!;
+  const today = dayjs().format('YYYY-MM-DD');
+
+  it('is a date row in the goods group, shown as DD.MM.YYYY', () => {
+    expect(field.inputType).toBe('date');
+    renderRows({ ...MOCK_SHIPMENT_DETAIL, export_date: '2026-09-30' }, [field]);
+    expect(screen.getByText('Export date')).toBeInTheDocument();
+    expect(screen.getByText('30.09.2026')).toBeInTheDocument();
+  });
+
+  it('PATCHes export_date with the picked day', async () => {
+    const user = userEvent.setup();
+    // Same month as today so the picker opens on a panel that contains today's cell.
+    const existing = dayjs().date(dayjs().date() === 1 ? 2 : 1);
+    const { container } = renderRows({ ...MOCK_SHIPMENT_DETAIL, export_date: existing.format('YYYY-MM-DD') }, [field]);
+    await user.click(within(container.querySelector('#detail-field-export_date') as HTMLElement).getByText(existing.format('DD.MM.YYYY')));
+    await user.click(document.querySelector(`td[title="${today}"]`)!);
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
+      `/export/shipments/${MOCK_SHIPMENT_DETAIL.id}/`, { export_date: today },
+    ));
+  });
+
+  it('clearing the date PATCHes null (back to auto)', async () => {
+    const user = userEvent.setup();
+    const { container } = renderRows({ ...MOCK_SHIPMENT_DETAIL, export_date: '2026-09-30' }, [field]);
+    await user.click(within(container.querySelector('#detail-field-export_date') as HTMLElement).getByText('30.09.2026'));
+    const clear = document.querySelector('.ant-picker-clear') as HTMLElement;
+    fireEvent.mouseDown(clear);
+    fireEvent.click(clear);
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(
+      `/export/shipments/${MOCK_SHIPMENT_DETAIL.id}/`, { export_date: null },
+    ));
+  });
+
+  it('shows the auto date the server returns after a clear', () => {
+    const { rerender, container } = renderRows({ ...MOCK_SHIPMENT_DETAIL, export_date: '2026-09-30' }, [field]);
+    const client = new QueryClient();
+    rerender(
+      <MemoryRouter>
+        <QueryClientProvider client={client}>
+          <DetailExtraFieldRows shipment={{ ...MOCK_SHIPMENT_DETAIL, export_date: '2026-10-02' }} fields={[field]}
+            missingKeys={new Set()} readOnly={false} />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    expect(within(container.querySelector('#detail-field-export_date') as HTMLElement).getByText('02.10.2026')).toBeInTheDocument();
+  });
+});
+
 describe('yes_no editor', () => {
   const config: IEditFieldConfig = { key: 'has_peregruz', labelKey: 'sheet.row.peregruz_status', inputType: 'yes_no' };
 

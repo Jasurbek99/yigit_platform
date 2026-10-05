@@ -288,6 +288,8 @@ export interface IShipmentListItem {
   price_per_kg: number | null;
   total_amount_usd: number | null;
   export_code: string | null;
+  /** Effective export date (ISO YYYY-MM-DD): hand-entered, else auto from export_code / shipment date. PATCH null = back to auto. */
+  export_date: string;
   previous_platform_id: number | null;
   harvest_age_days: number;
   freshness: 'today' | 'yesterday' | 'aged';
@@ -526,6 +528,7 @@ export interface IShipmentSheetItem {
   // R4 — Şirin logs when transport dept handed over docs (null = Berilmedi)
   transport_docs_given_at: string | null;
   export_code: string | null;
+  export_date: string;  // effective date, see IShipmentListItem
   previous_platform_id: number | null;
   // Per-shipment tint applied to this column in the Sheet view.
   // Hex (#RRGGBB) when set, null = default theme. Edited by admin / export_manager.
