@@ -68,10 +68,13 @@ class ContractSale(models.Model):
     )
 
     # === Invoice-document identifiers (the invoice number/date for this sale) ===
-    # Nullable: when a sale is created as the shipment↔contract bridge (Slice 4),
-    # the invoice number/date are filled later by a person at document time.
+    # Nullable for Excel-era rows. New sales are numbered automatically per export
+    # firm per year — see services/invoice_number.py (spec 2026-10-03).
     invoice_number = models.IntegerField(null=True, blank=True)
     invoice_date = models.DateField(null=True, blank=True)
+    # First time the invoice document was downloaded (single download or packet zip).
+    # Drives the «фактура уже напечатана» line in the firm-change / cancel warning.
+    invoice_printed_at = models.DateTimeField(null=True, blank=True)
     serial_truck_number = models.IntegerField(null=True, blank=True)
 
     # === Denormalized firm references (for reporting, optional) ===
