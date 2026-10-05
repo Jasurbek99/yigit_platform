@@ -77,8 +77,8 @@ REGISTRY: dict[str, TemplateSpec] = {
     # CMR (road consignment note) — truck-level. Renders from a Shipment,
     # aggregating all export firms on the truck as senders. This is an XLSX
     # print-overlay onto the pre-printed official 24-box form (NOT a docx layout):
-    # the builder returns a {cell: value} map filled into the geometry-preserving
-    # template sheet. See document_templates/build_cmr_xlsx.py.
+    # the builder returns a {cell: value} map filled into a sheet generated from
+    # the form's measured geometry. See document_templates/cmr_layout.py.
     'cmr_ru': TemplateSpec(
         key='cmr_ru',
         filename='cmr_ru.xlsx',
@@ -193,9 +193,9 @@ REGISTRY: dict[str, TemplateSpec] = {
 
 
 # Documents whose geometry registers onto a pre-printed official form. Page-layout
-# adjustments are refused for these: the xlsx overlay prints into the 24 boxes of
-# the physical CMR, and the Word CMR's geometry is derived from that same overlay
-# so both formats land every value in the same box. The TIR carnet overlays print
+# adjustments are refused for these: the xlsx overlay (cmr_layout.py) and the
+# office's Word form (absolute frames) each print into the 24 boxes of the
+# physical CMR. The TIR carnet overlays print
 # onto the carnet booklet page the same way. Nudging a margin here means the print
 # no longer lines up with the paper.
 LAYOUT_LOCKED_KEYS = frozenset({

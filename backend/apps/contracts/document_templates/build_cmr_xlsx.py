@@ -1,91 +1,109 @@
 """Build the CMR overlay templates (``cmr_ru.xlsx`` / ``cmr_en.xlsx``).
 
-Unlike the invoice/contract/letters — which are self-contained Word documents —
-the office CMR is a **print overlay**: data positioned to print on top of the
-pre-printed official CMR (red 24-box) form. The source ``CMR RU`` / ``CMR EN``
-sheets carry that exact geometry (column widths, row heights, A4 @ 60% scale,
-merges) tuned to register on the physical form, with the cell values driven by
-VLOOKUPs into other sheets and a block of green/yellow helper input cells off to
-the right (columns O+).
+The office CMR is a **print overlay**: data printed on top of the pre-printed
+official CMR form. The form's paper is ~204 × 290 mm, not A4, so the sheet is
+generated from the measured layout in ``cmr_layout`` rather than copied from the
+office workbook (whose A4 @ 60% grid put several values on the form's labels).
 
-Reproducing that grid in python-docx would be lossy by construction, so we keep
-the Excel geometry and fill cells by coordinate at render time (see
-``document_render.render_xlsx`` + ``document_context.build_cmr_overlay``).
+Each field becomes one merged cell at its measured position; the grid's columns
+and rows are just the union of all field edges. The page prints on A4 at 100%
+with the left/top margins equal to ``cmr_layout.ORIGIN_MM``, so every value lands
+at its millimetre position measured from the paper's top-left corner. If a print
+is shifted on the blank, changing those two margins in Excel moves everything.
 
-This builder strips the source sheet down to a clean template:
-  * every data / formula cell is blanked (no dependency on the other sheets),
-  * the helper input columns (O onward) are cleared,
-  * only the fixed unit labels (``Брутто:`` / ``кг.`` / ``вес поддона`` …) and the
-    grid geometry survive.
+Values are filled at render time by coordinate (``document_render.render_xlsx`` +
+``document_context.build_cmr_overlay``); only the fixed labels are baked in.
 
 Run once to (re)create the committed templates:
 
-    python -m apps.contracts.document_templates.build_cmr_xlsx [SOURCE_XLSX]
+    python -m apps.contracts.document_templates.build_cmr_xlsx
 """
 from pathlib import Path
-import sys
 
 import openpyxl
+from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.properties import PageSetupProperties
+
+from apps.contracts.document_templates import cmr_layout as layout
 
 OUT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = Path(__file__).resolve().parents[4]
-DEFAULT_SOURCE = REPO_ROOT / 'data' / 'Export_contracts_2025-2026.xlsx'
+OUT_NAME = {'ru': 'cmr_ru.xlsx', 'en': 'cmr_en.xlsx'}
+SHEET_TITLE = {'ru': 'CMR RU', 'en': 'CMR EN'}
 
-# First printed CMR column is A; everything from column O (index 15) rightward is
-# the helper input block and must never survive into the template.
-FIRST_HELPER_COL = 15
-MAX_ROW = 60
-
-# Cells to KEEP as fixed labels per source sheet (coord → its constant text is
-# preserved). Everything else with a value in columns A–N is blanked.
-KEEP_LABELS = {
-    'CMR RU': {
-        'L26', 'N26', 'I27', 'H28', 'H29', 'M27', 'M28', 'M29', 'D46',
-    },
-    'CMR EN': {
-        'L26', 'N26', 'I27', 'G28', 'G29', 'M27', 'M28', 'M29', 'D46',
-    },
-}
-
-OUT_NAME = {'CMR RU': 'cmr_ru.xlsx', 'CMR EN': 'cmr_en.xlsx'}
+FONT_NAME = 'Times New Roman'
+# Excel column width is in characters of the Normal font's widest digit; the
+# default Normal font (Calibri 11) has a 7 px max digit width at 96 dpi.
+MAX_DIGIT_PX = 7
+MM_PER_INCH = 25.4
 
 
-def _clean_sheet(ws, keep: set[str]) -> None:
-    """Blank all data/formula cells and the helper columns, keeping fixed labels."""
-    for row in ws.iter_rows(min_row=1, max_row=MAX_ROW):
-        for cell in row:
-            if cell.value in (None, ''):
-                continue
-            if cell.column >= FIRST_HELPER_COL:
-                cell.value = None
-            elif cell.coordinate not in keep:
-                cell.value = None
+def _col_width(px: int) -> float:
+    """Excel column width (characters) that renders as exactly ``px`` pixels."""
+    return ((px + 0.5) * 256 / MAX_DIGIT_PX - 128 // MAX_DIGIT_PX) / 256
 
 
-def build(source: Path, sheet_name: str) -> Path:
-    # data_only so kept label cells resolve to plain strings, not formulas.
-    wb = openpyxl.load_workbook(source, data_only=True)
-    for name in list(wb.sheetnames):
-        if name != sheet_name:
-            del wb[name]
-    ws = wb[sheet_name]
-    _clean_sheet(ws, KEEP_LABELS[sheet_name])
-    # Constrain the print to the CMR content grid (cols A–N) so the 60%-scale
-    # overlay lands on one page instead of trailing empty rows/cols. Row 54 is
-    # included because the EN sheet's vehicle-plate cell (F54) sits there — the RU
-    # sheet ends at row 53, so its row 54 is simply blank.
-    ws.print_area = 'A1:N54'
-    out = OUT_DIR / OUT_NAME[sheet_name]
+def _size_grid(ws) -> None:
+    for i in range(1, len(layout.COL_PX)):
+        width_px = layout.COL_PX[i] - layout.COL_PX[i - 1]
+        ws.column_dimensions[get_column_letter(i)].width = _col_width(width_px)
+    for i in range(1, len(layout.ROW_PX)):
+        ws.row_dimensions[i].height = (layout.ROW_PX[i] - layout.ROW_PX[i - 1]) * 0.75
+
+
+def _place_fields(ws, lang: str) -> None:
+    taken: set[tuple[int, int]] = set()
+    for field in layout.FIELDS:
+        top_left, bottom_right = layout.cell_range(field)
+        area = ws[f'{top_left}:{bottom_right}']
+        cells = {(c.row, c.column) for row in area for c in row}
+        if cells & taken:
+            raise ValueError(f'CMR layout: {field.key} overlaps another field')
+        taken |= cells
+        if top_left != bottom_right:
+            ws.merge_cells(f'{top_left}:{bottom_right}')
+        cell = ws[top_left]
+        cell.font = Font(name=FONT_NAME, size=field.size)
+        wrapped = field.last is not None
+        cell.alignment = Alignment(
+            horizontal=field.align, vertical='top' if wrapped else 'bottom',
+            wrap_text=wrapped, shrink_to_fit=not wrapped,
+        )
+        if field.key.startswith('label:'):
+            cell.value = layout.LABELS[lang][field.key.removeprefix('label:')]
+
+
+def _set_page(ws) -> None:
+    """A4 at 100%: any fit/scale setting would shrink the layout off the boxes."""
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.orientation = 'portrait'
+    ws.page_setup.scale = 100
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=False)
+    origin_in = layout.ORIGIN_MM / MM_PER_INCH
+    margins = ws.page_margins
+    margins.left = margins.top = origin_in
+    margins.right = margins.bottom = margins.header = margins.footer = 0
+    ws.print_options.horizontalCentered = False
+    ws.print_options.verticalCentered = False
+    last_col = get_column_letter(len(layout.COL_PX) - 1)
+    ws.print_area = f'A1:{last_col}{len(layout.ROW_PX) - 1}'
+
+
+def build(lang: str) -> Path:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = SHEET_TITLE[lang]
+    _size_grid(ws)
+    _place_fields(ws, lang)
+    _set_page(ws)
+    out = OUT_DIR / OUT_NAME[lang]
     wb.save(out)
     return out
 
 
 def main() -> None:
-    source = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_SOURCE
-    if not source.exists():
-        raise SystemExit(f'Source workbook not found: {source}')
-    for sheet_name in ('CMR RU', 'CMR EN'):
-        print(f'wrote {build(source, sheet_name)}')
+    for lang in ('ru', 'en'):
+        print(f'wrote {build(lang)}')
 
 
 if __name__ == '__main__':

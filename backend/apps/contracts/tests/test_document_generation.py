@@ -18,6 +18,7 @@ from unittest import mock
 
 import openpyxl
 from docx import Document
+from docx.oxml.ns import qn
 from docx.shared import Cm, Emu, Mm
 from rest_framework.test import APIClient
 
@@ -25,7 +26,9 @@ from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase, TestCase
 
 from apps.core.models import Country, LoadingLocation, ShipmentStatusType
+from apps.transport.models import TruckHead
 from apps.export.models import Shipment, ShipmentFirmSplit
+from apps.contracts.document_templates import cmr_layout
 from apps.contracts.document_templates import registry as tpl_registry
 from apps.contracts.document_templates.registry import get_spec
 from apps.contracts.models import DocumentLayoutSetting
@@ -351,7 +354,6 @@ class CmrContextBuilderTest(SimpleTestCase):
         self.assertIn('Ahmet A.', c['transport'])
         # generate-time fields stay blank when no overrides are supplied
         self.assertEqual(c['tir_carnet'], '')
-        self.assertEqual(c['place_loading'], '')
 
     def test_multi_firm_lists_all_senders(self):
         firms = [
@@ -362,9 +364,10 @@ class CmrContextBuilderTest(SimpleTestCase):
         # both export firms appear in the single sender box (newline-joined)
         self.assertIn('Датлы миве', c['sender_name'])
         self.assertIn('Ýigit', c['sender_name'])
-        # both invoices referenced on the one truck CMR
-        self.assertIn('118', c['invoice_refs'])
-        self.assertIn('119', c['invoice_refs'])
+        # both invoices referenced on the one truck CMR, as the office writes box 5
+        self.assertEqual(c['invoice_refs'], 'Инвойс №118, 119 от 16.03.2026 г.')
+        en = ctx.build_cmr_context(_mock_shipment(firms=firms), 'en')
+        self.assertEqual(en['invoice_refs'], 'Invoices №118 and 119, 16.03.2026')
 
     def test_generate_time_overrides(self):
         # The loading place is resolved against the LoadingLocation table, so it
@@ -390,56 +393,37 @@ class CmrContextBuilderTest(SimpleTestCase):
         self.assertNotIn('None', c['invoice_refs'])
 
 
+def _cmr_cell(key: str) -> str:
+    """The xlsx CMR cell a value key prints in (first occurrence)."""
+    return next(coord for coord, field in cmr_layout.FIELD_CELLS if field == key)
+
+
 class CmrLoadingPlaceTest(TestCase):
-    """The loading place: region + etrap, in the document's own alphabet.
+    """Box 4 is fixed to Kaka (owner 2026-10-05) — the CMR asks for no loading point."""
 
-    The office form splits box 4 across two cells — a fixed region and the
-    etrap beside it — and the Russian CMR must print the etrap in Cyrillic,
-    which is why ``LoadingLocation`` carries ``name_ru``.
-    """
-
-    def setUp(self) -> None:
-        LoadingLocation.objects.create(name='Kaka', name_ru='Кака')
-
-    def test_ru_splits_region_from_etrap_in_cyrillic(self):
-        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {'place_loading': 'Kaka'})
+    def test_ru_prints_kaka_in_cyrillic(self):
+        c = ctx.build_cmr_context(_mock_shipment(), 'ru')
         self.assertEqual(c['place_region'], 'Ахалский велаят')
         self.assertEqual(c['place_district'], 'этрап Кака')
         # The joined form is what the Word CMR prints from its single tag.
-        self.assertEqual(c['place_loading'], 'Ахалский велаят этрап Кака')
+        self.assertEqual(c['place_loading'], 'Ахалский велаят  этрап Кака')
 
-    def test_en_keeps_the_latin_name_and_the_office_comma(self):
-        c = ctx.build_cmr_context(_mock_shipment(), 'en', {'place_loading': 'Kaka'})
-        self.assertEqual(c['place_region'], 'Ahal region,')
-        self.assertEqual(c['place_district'], 'Kaka district')
-        self.assertEqual(c['place_loading'], 'Ahal region, Kaka district')
+    def test_en_keeps_the_office_comma(self):
+        c = ctx.build_cmr_context(_mock_shipment(), 'en')
+        self.assertEqual(c['place_loading'], 'Ahal region,  Kaka district')
 
-    def test_ru_falls_back_to_latin_when_no_russian_name_is_typed(self):
-        """A location added before anyone fills name_ru still prints."""
-        LoadingLocation.objects.create(name='Owadandepe')
-        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {'place_loading': 'Owadandepe'})
-        self.assertEqual(c['place_district'], 'этрап Owadandepe')
-
-    def test_unknown_place_is_printed_as_given(self):
-        """A value that is not in the table is still the operator's intent."""
+    def test_a_sent_loading_point_is_ignored(self):
         c = ctx.build_cmr_context(_mock_shipment(), 'ru', {'place_loading': 'Mary'})
-        self.assertEqual(c['place_district'], 'этрап Mary')
-
-    def test_no_place_leaves_both_cells_empty(self):
-        c = ctx.build_cmr_context(_mock_shipment(), 'ru', {})
-        self.assertEqual(c['place_region'], '')
-        self.assertEqual(c['place_district'], '')
-        self.assertEqual(c['place_loading'], '')
+        self.assertEqual(c['place_district'], 'этрап Кака')
 
     def test_overlay_puts_the_two_halves_in_both_cells(self):
-        for lang, region_cell, etrap_cell in (('ru', 'D18', 'E18'), ('en', 'D17', 'E17')):
-            cells = ctx.build_cmr_overlay(_mock_shipment(), lang, {'place_loading': 'Kaka'})
-            self.assertTrue(cells[region_cell].startswith('Ahal') or
-                            cells[region_cell].startswith('Ахал'), cells[region_cell])
-            self.assertIn('Kaka' if lang == 'en' else 'Кака', cells[etrap_cell])
+        region_cell, etrap_cell = _cmr_cell('place_region'), _cmr_cell('place_district')
+        cells = ctx.build_cmr_overlay(_mock_shipment(), 'en')
+        self.assertEqual(cells[region_cell], 'Ahal region,')
+        self.assertEqual(cells[etrap_cell], 'Kaka district')
 
 
-class CmrSecondSenderBoxTest(SimpleTestCase):
+class CmrSecondSenderBoxTest(TestCase):
     """The form has two consignor boxes; the overlay must use both.
 
     The Word CMR already fills ``sender1_*`` / ``sender2_*``; the spreadsheet
@@ -453,19 +437,64 @@ class CmrSecondSenderBoxTest(SimpleTestCase):
 
     def test_each_firm_gets_its_own_box(self):
         cells = self._two_firm_cells('ru')
-        self.assertEqual(cells['E2'], 'Х.О «Датлы миве»')
-        self.assertEqual(cells['E5'], 'Х.О «Ёлотан»')
-        self.assertEqual(cells['B3'], 'г. Ашгабат')
-        self.assertEqual(cells['B6'], 'г. Мары')
+        self.assertEqual(cells[_cmr_cell('sender1_name')], 'Х.О «Датлы миве»')
+        self.assertEqual(cells[_cmr_cell('sender2_name')], 'Х.О «Ёлотан»')
+        self.assertEqual(cells[_cmr_cell('sender1_address')], 'г. Ашгабат')
+        self.assertEqual(cells[_cmr_cell('sender2_address')], 'г. Мары')
 
     def test_box_one_no_longer_carries_the_joined_string(self):
-        self.assertNotIn(';', self._two_firm_cells('ru')['E2'])
-        self.assertNotIn(';', self._two_firm_cells('en')['E2'])
+        self.assertNotIn(';', self._two_firm_cells('ru')[_cmr_cell('sender1_name')])
+        self.assertNotIn(';', self._two_firm_cells('en')[_cmr_cell('sender1_name')])
 
     def test_one_firm_leaves_the_second_box_empty(self):
         cells = ctx.build_cmr_overlay(_mock_shipment(), 'ru')
-        self.assertNotIn('E5', cells)
-        self.assertNotIn('B6', cells)
+        self.assertNotIn(_cmr_cell('sender2_name'), cells)
+        self.assertNotIn(_cmr_cell('sender2_address'), cells)
+
+
+class CmrTractorLinesTest(TestCase):
+    """Box 26: one line per tractor, trailer repeated; box 25: its model level with it."""
+
+    def setUp(self) -> None:
+        TruckHead.objects.create(plate_number='5647AGF', truck_model='MAN TGX')
+        TruckHead.objects.create(plate_number='1234AHB', truck_model='DAF XF 480')
+
+    def _values(self, **attrs):
+        ship = _mock_shipment()
+        ship.truck_plate = '5647AGF/6754TAG'
+        for name, value in attrs.items():
+            setattr(ship, name, value)
+        return ctx.build_cmr_overlay_values(ship, 'ru')
+
+    def test_one_tractor_is_one_line(self):
+        values = self._values()
+        self.assertEqual(values['plates'], '5647AGF/6754TAG')
+        self.assertEqual(values['truck_model'], 'MAN TGX')
+
+    def test_second_head_gets_its_own_line_with_the_same_trailer(self):
+        values = self._values(truck_plate_2='1234AHB')
+        self.assertEqual(values['plates'], '5647AGF/6754TAG\n1234AHB/6754TAG')
+        self.assertEqual(values['truck_model'], 'MAN TGX\nDAF XF 480')
+
+    def test_fleet_link_wins_over_the_typed_plate(self):
+        linked = TruckHead.objects.create(plate_number='9999XX', truck_model='Volvo FH')
+        values = self._values(truck_head_id=linked.pk)
+        self.assertEqual(values['truck_model'], 'Volvo FH')
+
+
+class CmrSuccessiveCarrierTest(TestCase):
+    """Box 17 is typed at generate-time and optional."""
+
+    def test_blank_by_default(self):
+        self.assertEqual(ctx.build_cmr_overlay_values(_mock_shipment(), 'ru')['successive_carrier'], '')
+
+    def test_typed_text_reaches_both_formats(self):
+        values = ctx.build_cmr_overlay_values(
+            _mock_shipment(), 'ru', {'successive_carrier': '  ООО «Транзит», Узбекистан '},
+        )
+        self.assertEqual(values['successive_carrier'], 'ООО «Транзит», Узбекистан')
+        cells = ctx.build_cmr_overlay(_mock_shipment(), 'en', {'successive_carrier': 'Trans LLC'})
+        self.assertEqual(cells[_cmr_cell('successive_carrier')], 'Trans LLC')
 
 
 class CmrPresetTest(SimpleTestCase):
@@ -1176,6 +1205,28 @@ class HighlightRenderTest(TestCase):
         ]
         self.assertEqual(reds, [])
 
+    def test_cmr_xlsx_prints_at_full_size_from_the_paper_corner(self):
+        """Any fit/scale shrinks the layout off the boxes of the pre-printed form."""
+        for key in ('cmr_ru', 'cmr_en'):
+            ws = openpyxl.load_workbook(get_spec(key).template_path).active
+            self.assertEqual(ws.page_setup.scale, 100, key)
+            self.assertEqual(ws.page_setup.paperSize, 9, key)
+            self.assertFalse(ws.sheet_properties.pageSetUpPr.fitToPage, key)
+            origin_in = cmr_layout.ORIGIN_MM / 25.4
+            self.assertAlmostEqual(ws.page_margins.left, origin_in, places=4)
+            self.assertAlmostEqual(ws.page_margins.top, origin_in, places=4)
+
+    def test_cmr_word_frames_sit_at_the_measured_positions(self):
+        """The Word CMR is what the office prints on the blank: absolute mm frames."""
+        from apps.contracts.document_templates import build_cmr_docx as word
+        for key in ('cmr_ru_docx', 'cmr_en_docx'):
+            paragraphs = Document(get_spec(key).template_path).paragraphs
+            for index, field in word.FRAMES.items():
+                frame = paragraphs[index]._p.pPr.find(qn('w:framePr'))
+                self.assertEqual(frame.get(qn('w:x')), word._twips(field.x0), f'{key} #{index}')
+                self.assertEqual(frame.get(qn('w:y')), word._twips(field.first - word.BASELINE_MM),
+                                 f'{key} #{index}')
+
 
 # Word's storage grids: <w:pgMar> is in twips, <w:sz> in whole half-points.
 TWIP_EMU = 635
@@ -1574,6 +1625,14 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
                           f'{lang}: place_loading missing')
             self.assertIn('XZ12345678', text, f'{lang}: tir_carnet missing')
 
+    def test_box_17_reaches_the_word_cmr(self):
+        resp = self.client.get(
+            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?successive_carrier=Trans%20LLC'
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        text = ' '.join(p.text for p in Document(BytesIO(resp.content)).paragraphs)
+        self.assertIn('Trans LLC', text)
+
     def test_word_variant(self):
         """fmt=docx returns the editable Word overlay (same values, .docx)."""
         for lang, badge in (('ru', '_RU.docx'), ('en', '_EN.docx')):
@@ -1602,16 +1661,13 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
         resp = self.client.get('/api/v1/contracts/shipments/999999/cmr/')
         self.assertEqual(resp.status_code, 404)
 
-    def test_without_a_loading_point_returns_400(self):
-        """Box 4 is not something the office should fill in by hand."""
-        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
-        self.assertEqual(resp.status_code, 400)
-        self.assertIn('loading point', resp.json()['error'])
-
-    def test_the_404_still_wins_over_the_loading_point(self):
-        """A shipment that does not exist is the more useful answer."""
-        resp = self.client.get('/api/v1/contracts/shipments/999999/cmr/')
-        self.assertEqual(resp.status_code, 404)
+    def test_no_loading_point_needed(self):
+        """Box 4 is fixed (Kaka), so the CMR downloads without a loading point."""
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/?fmt=xlsx')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        text = _xlsx_text(resp.content)
+        self.assertIn('Ахалский велаят', text)
+        self.assertIn('этрап Кака', text)
 
     def test_the_packing_guard_still_wins_over_the_loading_point(self):
         self.shipment.box_count = None
@@ -1619,18 +1675,6 @@ class ShipmentCmrEndpointTest(_SeededPermsMixin, TestCase):
         resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
         self.assertEqual(resp.status_code, 400)
         self.assertIn('missing_packing', resp.json())
-
-    def test_the_russian_cmr_prints_the_etrap_in_cyrillic(self):
-        """End to end: the picker sends 'Kaka', the sheet must show 'Кака'."""
-        resp = self.client.get(
-            f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/'
-            f'?fmt=xlsx&place_loading=Kaka'
-        )
-        self.assertEqual(resp.status_code, 200, resp.content[:200])
-        text = _xlsx_text(resp.content)
-        self.assertIn('Ахалский велаят', text)
-        self.assertIn('этрап Кака', text)
-        self.assertNotIn('этрап Kaka', text)
 
 
 class ShipmentPacketZipEndpointTest(_SeededPermsMixin, TestCase):
@@ -2195,7 +2239,8 @@ class TruckPlateAndDriverPrintingTests(TestCase):
         ship.driver_2_name = 'Bayram B.'
         v = ctx.build_cmr_overlay_values(ship, 'ru')
         self.assertEqual(v['driver_name'], 'Ahmet A., Bayram B.')
-        self.assertEqual(v['plates'], 'BR1427LB, 2596AHF')
+        # One line per tractor in box 26 (BR1427LB carries no trailer to repeat).
+        self.assertEqual(v['plates'], 'BR1427LB\n2596AHF')
 
 
 # ─── TIR carnet overlay ──────────────────────────────────────────────────────

@@ -1,16 +1,17 @@
 """Build the Word CMR overlay templates from the office's own Word form.
 
-The CMR is a print overlay onto the pre-printed official 24-box form. Alongside
-the geometry-preserving ``.xlsx`` (see ``build_cmr_xlsx.py``) the document team
-wanted a **Word** output they can edit before printing.
+The CMR is a print overlay onto the pre-printed official 24-box form, and the
+Word file is what the office prints on it: every value sits in a page-anchored
+frame at an absolute position, so the print lands the same from any PC. (The
+``.xlsx`` variant places text by column widths, which change with the Windows
+display scaling of the PC that prints it.)
 
-The source of truth is the office's real Word CMR (``data/CMR_RU_template.docx``):
-a flat sequence of positioned paragraphs — no tables — already laid out to land in
-the blank form's free spaces. Rather than re-deriving that layout (an earlier
-attempt built a Word table from the xlsx grid and got the positions right but the
-formatting wrong), this builder keeps the office document **byte-for-byte as the
-layout** and only swaps each sample value for a Jinja tag, leaving the fixed
-labels (``Брутто:`` / ``кг.`` / ``вес поддона`` …) untouched.
+The source is the office's real Word CMR (``data/CMR_RU_template.docx``): a flat
+sequence of framed paragraphs, no tables. This builder keeps its formatting,
+swaps each sample value for a Jinja tag, and moves every frame to the position
+measured off the blank form in ``cmr_layout`` (the office's own positions put
+the sender address and box 21 values across the form's borders). The fixed labels
+(``Брутто:`` / ``кг.`` / ``вес поддона`` …) keep their text.
 
 The English variant reuses the same positioned layout with its labels translated
 to match the ``CMR EN`` sheet's wording — the office has no separate EN Word form.
@@ -19,10 +20,16 @@ Run once to (re)create the committed templates:
 
     python -m apps.contracts.document_templates.build_cmr_docx [SOURCE_DOCX]
 """
+import copy
 from pathlib import Path
 import sys
 
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.shared import Pt
+
+from apps.contracts.document_templates import cmr_layout as layout
 
 OUT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -81,6 +88,72 @@ EN_LABELS: dict[int, str] = {
 OUT_NAME = {'ru': 'cmr_ru_docx.docx', 'en': 'cmr_en_docx.docx'}
 
 
+def _at(key: str, nth: int = 0) -> layout.Field:
+    """The ``nth`` layout field with this key (labels like ``kg`` repeat)."""
+    return [f for f in layout.FIELDS if f.key == key][nth]
+
+
+# Box 17 (successive carrier) has no paragraph in the office form; one is
+# appended, cloned from the country line so it carries the same run formatting.
+BOX17_INDEX = 38
+BOX17_SOURCE = 9
+
+# Paragraph index → the measured position its frame takes. The continuation
+# paragraphs (2, 5, 8, 11) stay empty and are left where they are; a wrapped
+# value flows inside its own frame instead.
+FRAMES: dict[int, layout.Field] = {
+    0: _at('sender1_name'),
+    1: _at('sender1_address'),
+    3: _at('sender2_name'),
+    4: _at('sender2_address'),
+    6: _at('consignee_name'),
+    7: _at('consignee_address'),
+    9: _at('country_destination'),
+    # The Word form prints region + etrap from one tag across both halves.
+    10: _at('place_region')._replace(key='place_loading', x1=_at('place_district').x1),
+    12: _at('country_dispatch'),
+    13: _at('doc_date'),
+    14: _at('invoice_refs'),
+    15: _at('tir_line'),
+    16: _at('cargo_name'),
+    17: _at('label:gross'),
+    18: _at('label:net'),
+    19: _at('boxes'),
+    20: _at('packing'),
+    21: _at('label:pallet_weight'),
+    22: _at('pallet_weight'),
+    23: _at('label:kg', 0),
+    24: _at('pallets_line'),
+    25: _at('label:gross_without_pallet'),
+    26: _at('gross_without_pallet'),
+    27: _at('label:kg', 1),
+    28: _at('label:gross_with_pallet'),
+    29: _at('gross_with_pallet'),
+    30: _at('label:kg', 2),
+    31: _at('net_line'),
+    32: _at('label:city'),
+    33: _at('doc_date', 1),
+    34: _at('driver_name'),
+    35: _at('driver_passport'),
+    36: _at('truck_model'),
+    37: _at('plates'),
+    BOX17_INDEX: _at('successive_carrier'),
+}
+
+# Exact line pitch = the form's writing-line pitch, so wrapped lines (addresses)
+# land on consecutive dotted lines.
+LINE_PITCH_PT = 13.5
+TWIPS_PER_MM = 1440 / 25.4
+# Word draws a line of exact height with the baseline this far below its top;
+# measured on a Word PDF export of this template (+0.4 mm so text sits just
+# above the dotted line rather than on it).
+BASELINE_MM = 4.3
+_ALIGN = {
+    'left': WD_ALIGN_PARAGRAPH.LEFT, 'center': WD_ALIGN_PARAGRAPH.CENTER,
+    'right': WD_ALIGN_PARAGRAPH.RIGHT,
+}
+
+
 def _set_text(paragraph, text: str) -> None:
     """Replace a paragraph's text, preserving the first run's formatting.
 
@@ -97,11 +170,32 @@ def _set_text(paragraph, text: str) -> None:
         run.text = ''
 
 
+def _twips(mm: float) -> str:
+    return str(round(mm * TWIPS_PER_MM))
+
+
+def _place(paragraph, field: layout.Field) -> None:
+    """Move a framed paragraph to a field's measured position on the paper."""
+    frame = paragraph._p.pPr.find(qn('w:framePr'))
+    frame.set(qn('w:x'), _twips(field.x0))
+    frame.set(qn('w:y'), _twips(field.first - BASELINE_MM))
+    frame.set(qn('w:w'), _twips(field.x1 - field.x0))
+    frame.set(qn('w:h'), str(round(LINE_PITCH_PT * 20)))
+    frame.set(qn('w:hRule'), 'atLeast')
+    fmt = paragraph.paragraph_format
+    fmt.line_spacing = Pt(LINE_PITCH_PT)
+    fmt.alignment = _ALIGN[field.align]
+    for run in paragraph.runs:
+        run.font.size = Pt(field.size)
+
+
 def build(source: Path, lang: str) -> Path:
     doc = Document(source)
+    last = doc.paragraphs[-1]._p
+    last.addnext(copy.deepcopy(doc.paragraphs[BOX17_SOURCE]._p))
     paragraphs = doc.paragraphs
 
-    replacements = dict(FIELD_TAGS)
+    replacements = {**FIELD_TAGS, BOX17_INDEX: '{{ successive_carrier }}'}
     if lang == 'en':
         replacements.update(EN_LABELS)
 
@@ -112,6 +206,8 @@ def build(source: Path, lang: str) -> Path:
                 'recheck FIELD_TAGS against its body order.'
             )
         _set_text(paragraphs[index], text)
+    for index, field in FRAMES.items():
+        _place(paragraphs[index], field)
 
     out = OUT_DIR / OUT_NAME[lang]
     doc.save(out)

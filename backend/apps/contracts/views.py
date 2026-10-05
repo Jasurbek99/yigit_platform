@@ -525,7 +525,7 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
             type: registry key — defaults to ``invoice_ru`` (also ``invoice_en``).
             fmt:  ``docx`` (default) or ``pdf``. (Named ``fmt`` not ``format`` —
                   ``format`` is reserved by DRF content negotiation.)
-            place_loading: generate-time loading point (invoice + CMR).
+            place_loading: generate-time loading point (invoice).
             tir_carnet:    generate-time TIR carnet № (CMR, Uzbekistan transit).
             highlight: ``0`` for an all-black copy; default renders filled
                   values in red.
@@ -618,8 +618,9 @@ class ShipmentCmrView(APIView):
     """Truck-level CMR — one per shipment, all export firms listed as senders.
 
     ``GET /api/v1/contracts/shipments/{pk}/cmr/?lang=ru|en&fmt=docx|pdf``, plus
-    the same generate-time ``place_loading`` / ``tir_carnet`` params as the
-    per-firm documents. Gated by the 'sale' resource; the packing guard applies
+    the generate-time ``tir_carnet`` / ``successive_carrier`` (box 17) params, both
+    optional (no loading point — box 4 is fixed).
+    Gated by the 'sale' resource; the packing guard applies
     (whole-truck gross/net/boxes/pallets must be filled in the Sheet).
     """
 
@@ -652,9 +653,10 @@ class ShipmentCmrView(APIView):
             doc_type, fmt = f'cmr_{lang}_docx', 'pdf'
         else:
             doc_type, fmt = f'cmr_{lang}_docx', 'docx'
+        # No loading point: the CMR's box 4 is fixed (Kaka), see _CMR_LOCALE.
         overrides = {
             key: value
-            for key in ('place_loading', 'tir_carnet')
+            for key in ('tir_carnet', 'successive_carrier')
             if (value := request.query_params.get(key, '').strip())
         }
 
@@ -663,9 +665,6 @@ class ShipmentCmrView(APIView):
             return Response(
                 {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing}, status=400,
             )
-
-        if _place_loading_missing(request):
-            return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
 
         try:
             data, filename, content_type = generate(
@@ -760,7 +759,7 @@ class ShipmentPacketZipView(APIView):
     """Whole document packet for a truck as one zip.
 
     ``GET /api/v1/contracts/shipments/{pk}/packet.zip?lang=ru|en&fmt=docx|pdf``
-    (plus ``place_loading`` / ``tir_carnet``). Bundles the truck CMR + every
+    (plus ``place_loading`` / ``tir_carnet`` / ``successive_carrier``). Bundles the truck CMR + every
     firm's invoice + CT-1/FITO/customs letters. Gated by 'sale'; packing guard
     applies. PDF needs LibreOffice — else 503 (whole packet fails as one).
     """
@@ -794,7 +793,7 @@ class ShipmentPacketZipView(APIView):
         fmt = 'pdf' if request.query_params.get('fmt') == 'pdf' else 'docx'
         overrides = {
             key: value
-            for key in ('place_loading', 'tir_carnet')
+            for key in ('place_loading', 'tir_carnet', 'successive_carrier')
             if (value := request.query_params.get(key, '').strip())
         }
 

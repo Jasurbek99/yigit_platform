@@ -17,6 +17,7 @@ from typing import NamedTuple
 
 from django.utils import timezone
 
+from apps.contracts.document_templates import cmr_layout
 from apps.contracts.services.amount_words import amount_words_ru, amount_words_tk
 
 
@@ -404,42 +405,41 @@ _CMR_LOCALE = {
         'cargo_name': 'Помидоры свежие',
         'packing': 'ящик',
         'country_dispatch': 'Туркменистан',
-        'invoice_ref': 'Инвойс № {num}, {date}',
+        # Box 5, as the office writes it: «Инвойс №153, 151 от 24.03.2026 г.»
+        'invoice_ref': 'Инвойс №{num} от {date} г.',
+        'invoice_refs': 'Инвойс №{num} от {date} г.',
+        'invoice_last_join': ', ',
         # Box 4 is two cells on the form: a region and the etrap beside it.
-        # Every loading point the platform knows is in Ahal, so the region is
-        # fixed — a greenhouse outside Ahal would need this to become data.
+        # Fixed (owner 2026-10-05): every truck is loaded at Kaka, so the CMR
+        # no longer asks for a loading point.
         'place_region': 'Ахалский велаят',
-        'place_district': 'этрап {name}',
+        'place_district': 'этрап Кака',
     },
     'en': {
         'cargo_name': 'FRESH TOMATOES',
         'packing': 'plastic boxes',
         'country_dispatch': 'Turkmenistan',
-        'invoice_ref': 'Invoice № {num}, {date}',
+        # Box 5, as the office writes it: «Invoices №43 and 48, 23.01.2026»
+        'invoice_ref': 'Invoice №{num}, {date}',
+        'invoice_refs': 'Invoices №{num}, {date}',
+        'invoice_last_join': ' and ',
         # The trailing comma is the office sheet's own, kept so the printed
         # line reads exactly as theirs does.
         'place_region': 'Ahal region,',
-        'place_district': '{name} district',
+        'place_district': 'Kaka district',
     },
 }
 
 
-def _loading_place_name(chosen: str, lang: str) -> str:
-    """The chosen loading point's name in the document's alphabet.
-
-    The picker sends the location's Latin ``name``; the Russian CMR has to print
-    Cyrillic, which lives in ``LoadingLocation.name_ru``. A location with no
-    Russian name typed yet, and a value that is not in the table at all, both
-    fall back to the string as given rather than printing nothing.
-    """
-    if not chosen:
+def _cmr_invoice_refs(numbers: list[str], ref_date: str, loc: dict) -> str:
+    """Box 5's invoice line: «Invoices №43 and 48, …» / «Инвойс №153, 151 от …»."""
+    if not numbers:
         return ''
-    from apps.core.models import LoadingLocation
-
-    location = LoadingLocation.objects.filter(name=chosen).first()
-    if location is None:
-        return chosen
-    return (location.name_ru or location.name) if lang == 'ru' else location.name
+    joined = loc['invoice_last_join'].join(
+        filter(None, (', '.join(numbers[:-1]), numbers[-1]))
+    )
+    template = loc['invoice_refs'] if len(numbers) > 1 else loc['invoice_ref']
+    return template.format(num=joined, date=ref_date)
 
 
 def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
@@ -453,8 +453,8 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     The packing guard (``missing_packing_on``) ensures the whole-truck packing is
     resolvable before this runs — from the raw shipment cells or an applied
     ``PackingTemplate`` (which overrides the raw fields when present). The
-    forwarder is the export firm(s); ``place_loading`` and ``tir_carnet`` are
-    supplied at generate-time via ``overrides`` (blank when not provided).
+    forwarder is the export firm(s); ``tir_carnet`` is supplied at generate-time
+    via ``overrides`` (blank when not provided). Box 4 (loading place) is fixed.
 
     The sellers are joined into the single sender box (the pre-printed 24-box form
     has one consignor slot).
@@ -477,10 +477,6 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     # TODO(docs): make the CMR/invoice/letter templates editable from the admin
     # (upload/swap the .xlsx/.docx at runtime) so the office can tweak the layout
     # without a code change — see the DocumentTemplate note in registry.py.
-    place_name = _loading_place_name(overrides.get('place_loading', ''), lang)
-    place_region = loc['place_region'] if place_name else ''
-    place_district = loc['place_district'].format(name=place_name) if place_name else ''
-
     firms = [split.export_firm for split in shipment.firm_splits.all()]
     sender_name = '; '.join(_firm_attr(firm, 'name', lang) for firm in firms)
     sender_address = '; '.join(
@@ -513,11 +509,9 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
     # Invoice refs: every numbered invoice on the truck (one per firm). Bridge
     # sales may still have a NULL invoice_number — skip them, don't print "None".
     sales = list(shipment.sales.all())
-    numbers = ', '.join(
-        str(sale.invoice_number) for sale in sales if sale.invoice_number is not None
-    )
+    numbers = [str(sale.invoice_number) for sale in sales if sale.invoice_number is not None]
     ref_date = _date(sales[0].invoice_date) if sales and sales[0].invoice_date else _date(shipment.date)
-    invoice_refs = loc['invoice_ref'].format(num=numbers, date=ref_date) if numbers else ''
+    invoice_refs = _cmr_invoice_refs(numbers, ref_date, loc)
 
     return {
         'carrier': getattr(buyer, 'name_company', '') or '',
@@ -527,10 +521,11 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
         'consignee_address': getattr(buyer, 'address', '') or '',
         'country_dispatch': loc['country_dispatch'],
         # Box 4, split the way the form splits it. ``place_loading`` keeps the
-        # joined phrase because the Word CMR prints it from a single tag.
-        'place_region': place_region,
-        'place_district': place_district,
-        'place_loading': ' '.join(p for p in (place_region, place_district) if p),
+        # joined phrase (two spaces, as the office types it) because the Word
+        # CMR prints it from a single tag.
+        'place_region': loc['place_region'],
+        'place_district': loc['place_district'],
+        'place_loading': f"{loc['place_region']}  {loc['place_district']}",
         'forwarder': sender_name,  # the export firm(s) act as forwarder
         'doc_date': _date(shipment.date),
         'invoice_refs': invoice_refs,
@@ -555,10 +550,9 @@ def cmr_filename_fields(shipment) -> dict:
 # ─── CMR overlay (xlsx print-overlay onto the pre-printed official form) ──────
 #
 # The CMR is NOT a self-contained document: the office prints truck data ON TOP of
-# the pre-printed 24-box CMR form, using the ``CMR RU`` / ``CMR EN`` sheets whose
-# geometry (A4 @ 60% scale, column/row sizes) is tuned to register on the paper.
-# So instead of a docx layout we fill the cleaned template sheet (see
-# ``document_templates/build_cmr_xlsx.py``) by coordinate. This builder returns a
+# the pre-printed 24-box CMR form. The sheet's grid is generated from the form's
+# measured geometry (``document_templates/cmr_layout.py``), and each value is
+# written into the cell ``cmr_layout.FIELD_CELLS`` assigns it. This builder returns a
 # ``{cell_coordinate: value}`` map consumed by ``document_render.render_xlsx``.
 
 # Combined-phrase locale for the overlay (values the sheet baked into one cell).
@@ -569,32 +563,35 @@ _CMR_OVERLAY_LOCALE = {
            'tir_prefix': 'CARNET TIR '},
 }
 
-# Per-language cell coordinate → overlay-value key. RU and EN diverge because the
-# two source sheets sit the same data on slightly different rows/columns.
-_CMR_OVERLAY_CELLS = {
-    'ru': {
-        'E2': 'sender1_name', 'B3': 'sender1_address',
-        'E5': 'sender2_name', 'B6': 'sender2_address',
-        'B8': 'consignee_name', 'B9': 'consignee_address', 'B15': 'country_destination',
-        'D18': 'place_region', 'E18': 'place_district',
-        'D19': 'country_dispatch', 'C20': 'doc_date',
-        'D22': 'invoice_refs', 'D23': 'tir_line',
-        'G26': 'cargo_name', 'D27': 'boxes', 'E27': 'packing', 'D28': 'pallets_line',
-        'L27': 'pallet_weight', 'L28': 'gross_without_pallet', 'L29': 'gross_with_pallet',
-        'N29': 'net_line', 'G46': 'doc_date', 'G48': 'driver_name', 'F53': 'plates',
-    },
-    'en': {
-        'E2': 'sender1_name', 'B3': 'sender1_address',
-        'E5': 'sender2_name', 'B6': 'sender2_address',
-        'B8': 'consignee_name', 'B9': 'consignee_address', 'C15': 'country_destination',
-        'D17': 'place_region', 'E17': 'place_district',
-        'D18': 'country_dispatch', 'D19': 'doc_date',
-        'D22': 'invoice_refs', 'D23': 'tir_line',
-        'G26': 'cargo_name', 'D27': 'boxes', 'E27': 'packing', 'D28': 'pallets_line',
-        'L27': 'pallet_weight', 'L28': 'gross_without_pallet', 'L29': 'gross_with_pallet',
-        'N29': 'net_line', 'G46': 'doc_date', 'F48': 'driver_name', 'F54': 'plates',
-    },
-}
+def _cmr_rigs(shipment) -> list[tuple[str, str]]:
+    """``(plates, tractor model)`` per tractor the load runs under, in order.
+
+    The CMR prints each tractor on its own line of box 26 as ``head/trailer``. A
+    second head takes over the same load mid-route while the trailer stays, so
+    its line repeats the first rig's trailer. Box 25 prints that tractor's model
+    on the same line (blank when the fleet row has none).
+    """
+    first = (shipment.truck_plate or '').strip()
+    second = (getattr(shipment, 'truck_plate_2', '') or '').strip()
+    head, _, trailer = first.partition('/')
+    rigs = []
+    if first:
+        rigs.append((first, _tractor_model(getattr(shipment, 'truck_head_id', None), head)))
+    if second:
+        head_2 = second.partition('/')[0]
+        plates_2 = second if '/' in second or not trailer else f'{head_2}/{trailer}'
+        rigs.append((plates_2, _tractor_model(getattr(shipment, 'truck_head_2_id', None), head_2)))
+    return rigs
+
+
+def _tractor_model(head_id, plate: str) -> str:
+    """Fleet model of a tractor — by its fleet link, else by its typed plate."""
+    from apps.transport.models import TruckHead
+
+    head = TruckHead.objects.filter(pk=head_id).first() if head_id else None
+    if head is None and plate.strip():
+        head = TruckHead.objects.filter(plate_number=plate.strip()).first()
+    return head.truck_model if head else ''
 
 
 def _dest_country_name(shipment, lang: str) -> str:
@@ -621,11 +618,11 @@ def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None 
     Returns:
         ``{field_name: str}`` — the same keys the coordinate map references.
     """
-    lang = lang if lang in _CMR_OVERLAY_CELLS else 'ru'
+    lang = lang if lang in _CMR_OVERLAY_LOCALE else 'ru'
     phrases = _CMR_OVERLAY_LOCALE[lang]
     ctx = build_cmr_context(shipment, lang, overrides)
 
-    plates = _truck_plate(shipment)
+    rigs = _cmr_rigs(shipment)
     pallets = ctx['pallets']
 
     # Per-firm sender slots. The office CMR form has TWO consignor blocks (a truck
@@ -643,10 +640,11 @@ def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None 
         'sender1_address': addresses[0] if addresses else '',
         'sender2_name': '; '.join(n for n in names[1:] if n),
         'sender2_address': '; '.join(a for a in addresses[1:] if a),
-        # Not stored on Shipment (no passport / vehicle-model columns) — rendered
-        # blank so the crew can complete them by hand on the printed form.
+        # No passport column on Shipment — rendered blank so the crew can
+        # complete it by hand on the printed form.
         'driver_passport': '',
-        'truck_model': '',
+        # Box 25 / 26: one line per tractor, the model level with its plates.
+        'truck_model': '\n'.join(model for _plates, model in rigs),
         'consignee_name': ctx['consignee_name'],
         'consignee_address': ctx['consignee_address'],
         'country_destination': _dest_country_name(shipment, lang),
@@ -657,6 +655,8 @@ def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None 
         'doc_date': ctx['doc_date'],
         'invoice_refs': ctx['invoice_refs'],
         'tir_line': f"{phrases['tir_prefix']}{ctx['tir_carnet']}" if ctx['tir_carnet'] else '',
+        # Box 17, typed at generate-time; blank leaves the box empty.
+        'successive_carrier': ((overrides or {}).get('successive_carrier', '') or '').strip(),
         'cargo_name': ctx['cargo_name'],
         'boxes': ctx['boxes'],
         'packing': ctx['packing'],
@@ -666,7 +666,7 @@ def build_cmr_overlay_values(shipment, lang: str = 'ru', overrides: dict | None 
         'gross_with_pallet': ctx['gross_with_pallet'],
         'net_line': f"{ctx['net']}{phrases['net_suffix']}" if ctx['net'] else '',
         'driver_name': _driver_names(shipment),
-        'plates': plates,
+        'plates': '\n'.join(plates for plates, _model in rigs),
     }
 
 
@@ -680,9 +680,8 @@ def build_cmr_overlay(shipment, lang: str = 'ru', overrides: dict | None = None)
     Returns:
         ``{cell_coordinate: str}`` for the language's template sheet.
     """
-    lang = lang if lang in _CMR_OVERLAY_CELLS else 'ru'
     values = build_cmr_overlay_values(shipment, lang, overrides)
-    cells = {coord: values[key] for coord, key in _CMR_OVERLAY_CELLS[lang].items()}
+    cells = {coord: values[key] for coord, key in cmr_layout.FIELD_CELLS}
     return {coord: val for coord, val in cells.items() if val not in (None, '')}
 
 
