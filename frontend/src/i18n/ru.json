@@ -1698,8 +1698,6 @@
     "field_name_ph": "Пример: A-Теплица",
     "field_location": "Местоположение (Теплица)",
     "field_location_ph": "Выберите местоположение...",
-    "field_manager": "Ответственный менеджер",
-    "field_manager_ph": "Выберите менеджера...",
     "field_variety_main": "Основной сорт",
     "field_variety_secondary": "Дополнительный сорт",
     "field_variety_ph": "Выберите сорт...",

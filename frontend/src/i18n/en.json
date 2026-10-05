@@ -1696,8 +1696,6 @@
     "field_name_ph": "e.g. A-Greenhouse",
     "field_location": "Location (Greenhouse)",
     "field_location_ph": "Select location...",
-    "field_manager": "Responsible Manager",
-    "field_manager_ph": "Select manager...",
     "field_variety_main": "Main Variety",
     "field_variety_secondary": "Secondary Variety",
     "field_variety_ph": "Select variety...",

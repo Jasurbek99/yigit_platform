@@ -39,7 +39,6 @@ const { Text } = Typography;
 interface BlockFormValues {
   code: string;
   name: string | null;
-  manager: number | null;
   variety_main: number | null;
   variety_secondary: number | null;
   area_m2: number | null;
@@ -73,13 +72,6 @@ export default function BlocksPage() {
     label: `${i + 1} — ${t(`months.${i + 1}`)}`,
   }));
 
-  const greenhouseManagers = allUsers
-    .filter((u) => u.role === 'greenhouse_manager' && u.is_active)
-    .map((u) => ({
-      value: u.id,
-      label: [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username,
-    }));
-
   const locationOptions = locations.map((l) => ({ value: l.id, label: l.name }));
   const varietyOptions = varieties.map((v) => ({ value: v.id, label: v.name }));
 
@@ -105,7 +97,6 @@ export default function BlocksPage() {
     form.setFieldsValue({
       code: record.code,
       name: record.name,
-      manager: record.manager,
       variety_main: record.variety_main,
       variety_secondary: record.variety_secondary,
       area_m2: record.area_m2,
@@ -127,12 +118,11 @@ export default function BlocksPage() {
       // AntD already renders the per-field error inline; nothing else to do.
       return;
     }
-    const payload: Omit<IGreenhouseBlock, 'id' | 'manager_name' | 'variety_main_name' | 'variety_secondary_name' | 'location_name'> = {
+    const payload: Omit<IGreenhouseBlock, 'id' | 'manager' | 'manager_name' | 'variety_main_name' | 'variety_secondary_name' | 'location_name'> = {
       code: values.code,
       name: values.name || null,
       parent: null,
       parent_code: null,
-      manager: values.manager ?? null,
       variety_main: values.variety_main ?? null,
       variety_secondary: values.variety_secondary ?? null,
       area_m2: values.area_m2 ?? null,
@@ -339,16 +329,6 @@ export default function BlocksPage() {
               allowClear
               placeholder={t('blocks_admin.field_location_ph')}
               options={locationOptions}
-            />
-          </Form.Item>
-
-          <Form.Item name="manager" label={t('blocks_admin.field_manager')}>
-            <Select
-              allowClear
-              placeholder={t('blocks_admin.field_manager_ph')}
-              options={greenhouseManagers}
-              showSearch
-              optionFilterProp="label"
             />
           </Form.Item>
 
