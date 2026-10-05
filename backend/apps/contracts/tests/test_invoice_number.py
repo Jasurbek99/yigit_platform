@@ -7,6 +7,7 @@ from unittest import mock
 from django.apps import apps as django_apps
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.contracts.models import ContractSale, InvoiceNumberBase
 from apps.contracts.services.invoice_number import (
@@ -16,7 +17,7 @@ from apps.contracts.tests.test_contract_sale_api import (
     _make_contract, _make_export_firm, _make_import_firm, _make_season,
 )
 from apps.contracts.tests.test_document_generation import _make_packed_shipment
-from apps.core.models import Season
+from apps.core.models import Season, User
 
 SEED_MIGRATION = 'apps.contracts.migrations.0016_seed_invoice_number_bases'
 
@@ -184,3 +185,52 @@ class MarkInvoicePrintedTest(TestCase):
         mark_invoice_printed([sale.pk])
         sale.refresh_from_db()
         self.assertIsNone(sale.invoice_printed_at)
+
+
+class InvoiceNumberBaseApiTest(TestCase):
+    URL = '/api/v1/contracts/invoice-number-bases/'
+
+    def setUp(self) -> None:
+        self.firm = _make_export_firm('BASEAPI')
+        self.admin = User.objects.create(username='base_admin', role='admin')
+        self.manager = User.objects.create(username='base_em', role='export_manager')
+        self.client = APIClient()
+
+    def test_get_lists_firms_with_zero_default(self) -> None:
+        self.client.force_authenticate(user=self.manager)
+        resp = self.client.get(self.URL, {'year': 2026})
+        self.assertEqual(resp.status_code, 200, resp.content)
+        row = next(r for r in resp.json()['rows'] if r['export_firm_code'] == 'BASEAPI')
+        self.assertEqual(row['last_number'], 0)
+
+    def test_admin_put_upserts(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        body = {'export_firm': self.firm.id, 'year': 2026, 'last_number': 288}
+        self.assertEqual(self.client.put(self.URL, body, format='json').status_code, 200)
+        body['last_number'] = 310
+        self.assertEqual(self.client.put(self.URL, body, format='json').status_code, 200)
+        base = InvoiceNumberBase.objects.get(export_firm=self.firm, year=2026)
+        self.assertEqual((base.last_number, base.updated_by_id), (310, self.admin.id))
+
+    def test_non_admin_put_is_403(self) -> None:
+        self.client.force_authenticate(user=self.manager)
+        resp = self.client.put(
+            self.URL, {'export_firm': self.firm.id, 'year': 2026, 'last_number': 5}, format='json',
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_negative_number_is_400(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.put(
+            self.URL, {'export_firm': self.firm.id, 'year': 2026, 'last_number': -1}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_number_above_db_int_is_400(self) -> None:
+        # MSSQL's `int` column maxes at 2,147,483,647 — one past it must 400,
+        # not 500 from an unhandled DataError out of update_or_create.
+        self.client.force_authenticate(user=self.admin)
+        resp = self.client.put(
+            self.URL, {'export_firm': self.firm.id, 'year': 2026, 'last_number': 2147483648}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400)

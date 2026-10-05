@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db import DatabaseError
 from django.db.models import Count, Exists, OuterRef
 from django.http import FileResponse, HttpResponse
+from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.generics import ListAPIView
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -14,15 +15,16 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.core.permissions import (
-    DynamicResourcePermission, SeasonNotClosed, sheet_field_write_permission,
+    DynamicResourcePermission, SeasonNotClosed, sheet_field_write_permission, write_permission,
 )
 from apps.core.idempotency import idempotent
+from apps.core.models import ExportFirm
 from apps.core.seasons import SeasonScopedMixin, assert_season_open, resolve_season
 from apps.contracts.document_templates.registry import (
     SCOPE_CONTRACT, SCOPE_INVOICE, get_spec, layout_capable_keys, supports_layout,
 )
 from apps.contracts.models import (
-    Contract, ContractAttachment, ContractSale, DocumentLayoutSetting,
+    Contract, ContractAttachment, ContractSale, DocumentLayoutSetting, InvoiceNumberBase,
 )
 from apps.contracts.serializers import (
     ContractAttachmentSerializer,
@@ -975,6 +977,68 @@ class ShipmentFirmContractsView(APIView):
             'contract_type': sale.contract.contract_type,
             'money_warning': money_warning(sale.total_usd),
         }, status=201)
+
+
+# InvoiceNumberBase.last_number is a plain `int` column (IntegerField -> MSSQL
+# `int`), so a value past this overflows the column and raises an unhandled
+# DataError (-> 500) from update_or_create instead of the 400 bad input deserves.
+INT32_MAX = 2_147_483_647
+
+
+class InvoiceNumberBaseView(APIView):
+    """«Нумерация инвойсов» — the per-firm yearly floor for invoice numbers.
+
+    ``GET ?year=YYYY`` (default: this year) → one row per active export firm.
+    ``PUT {export_firm, year, last_number}`` → upsert the floor. Admin only: the
+    floor decides which numbers new invoices get.
+    """
+
+    permission_classes = [IsAuthenticated, write_permission('admin')]
+
+    @staticmethod
+    def _row(firm, year: int, last_number: int) -> dict:
+        return {
+            'export_firm': firm.id,
+            'export_firm_code': firm.code,
+            'export_firm_name': firm.name_short or firm.name_tk,
+            'year': year,
+            'last_number': last_number,
+        }
+
+    def get(self, request):
+        try:
+            year = int(request.query_params.get('year') or timezone.localdate().year)
+        except ValueError:
+            return Response({'error': 'year must be a number.'}, status=400)
+        floors = dict(
+            InvoiceNumberBase.objects.filter(year=year).values_list('export_firm_id', 'last_number')
+        )
+        firms = ExportFirm.objects.filter(is_active=True).order_by('code')
+        return Response({
+            'year': year,
+            'rows': [self._row(f, year, floors.get(f.id, 0)) for f in firms],
+        })
+
+    def put(self, request):
+        try:
+            firm_id = int(request.data['export_firm'])
+            year = int(request.data['year'])
+            last_number = int(request.data['last_number'])
+        except (KeyError, TypeError, ValueError):
+            return Response({'error': 'export_firm, year and last_number are required numbers.'}, status=400)
+        if not 0 <= last_number <= INT32_MAX or not 2000 <= year <= 2100:
+            return Response(
+                {'error': f'last_number must be between 0 and {INT32_MAX}, and year within 2000–2100.'},
+                status=400,
+            )
+        firm = ExportFirm.objects.filter(pk=firm_id).first()
+        if firm is None:
+            return Response({'error': 'Export firm not found.'}, status=400)
+        InvoiceNumberBase.objects.update_or_create(
+            export_firm=firm, year=year,
+            defaults={'last_number': last_number, 'updated_by': request.user},
+        )
+        return Response(self._row(firm, year, last_number))
 
 
 _SHARE_FIELDS = ('net_kg', *_FIRM_PACKING_FIELDS)
