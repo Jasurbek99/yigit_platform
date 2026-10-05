@@ -146,8 +146,8 @@ EXTRA_EXPORT_FIRMS = {
 VARIETY_ALIAS = {
     'MID': 'Midelice', 'DEF': 'Defensiosa', 'DFEN': 'Defensiosa', 'DEFE': 'Defensiosa',
     'RUN': 'Runtino', 'RUNTINO': 'Runtino', 'RED': 'Redity', 'REDITY': 'Redity',
-    'SORT1': 'Sort-1', 'SORT2': 'Sort-2', 'MARW': 'Marvelans', 'MARWE': 'Marvelans',
-    'FUJIMARO': 'Fujimaro', 'MIX': 'MIX', 'MIKS': 'MIX',
+    'SORT1': 'Sort-1', 'SORT2': 'Sort-2', 'MARW': 'Marvelance', 'MARWE': 'Marvelance',
+    'FUJIMARO': 'Fujimaru', 'FUJIMARU': 'Fujimaru', 'MIX': 'MIX', 'MIKS': 'MIX',
 }
 VARIETY_SEPARATORS = re.compile(r'[,/\-\s]+')
 
