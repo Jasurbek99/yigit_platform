@@ -31,7 +31,14 @@ Top to bottom:
    - **Documents** — documents status, planned customs day, documents note, TM customs closed, destination customs passed, advance given, and the **packing panel** (packing template → whole-truck gross/net/boxes for the CMR, per-firm gross/boxes/pallets).
    - **Notes** — legacy notes, Gadam's / warehouse / Arap notes, and every admin **custom Sheet row**.
    - **Quality** — the four certificate uploads.
-4. **«Документы — печать»** — the truck's whole document packet, as a Documents-page row: readiness banner, ZIP, CMR, TIR carnet, each firm's invoice / letters. Printed in-page; visible with the `sale` grant. The readiness banner says «fill on this page» and links each missing item to its row; a regular truck's missing driver/plate show as one «choose a Planning trip» link to the trip block.
+4. **«Документы»** (`ShipmentDocumentsCard`, 2026-10-05) — every document of the shipment as a **flat list**: one row per document, one button per format, **one click downloads** (no menu, no options modal). Visible with the `sale` grant.
+   - **Top bar**: loading point (pre-filled from the shipment's `loading_location`), TIR carnet № (CMR + ZIP, Uzbekistan transit only), red-highlight toggle — set once instead of a modal per download. With no loading point, the invoice / CMR / ZIP rows are blocked with a hint; the letters are not.
+   - **Truck**: ZIP RU/EN, CMR RU/EN (Word / PDF / Excel), TIR carnet (keeps its own modal — passports and CMR № are stored nowhere).
+   - **Each firm**: contract (keeps its own modal — seals, buyer director, deadline; needs the `contract` grant), invoice RU/EN, CT-1, FITO, customs letter, the contract's uploaded attachments (Open / Download). A firm without a contract shows «link contract».
+   - **Other**: pallet QR label (with an export code), Planning trip PDF (only with the Truck Board page — its endpoint is a Truck Board read), quality-certificate scans (Open / Download).
+   - A click on CMR / TIR / ZIP / a letter **closes its print task at once** — there is no modal to cancel any more.
+   - The readiness banner says «fill on this page» and links each missing item to its row; a regular truck's missing driver/plate show as one «choose a Planning trip» link to the trip block.
+   - The card stays out for a truck of another season / archived (the packet lookup is season-scoped) — known, left as is.
 5. **Sale** — price, total, sale start / end, report date, firm splits, sales report.
 6. Quota, customs expenses, GPS cards; link to the activity log.
 
@@ -183,7 +190,7 @@ User edits the same `weight_net` on Sheet — exact same flow. Different React-q
 | Move a draft to Loading | **Detail** (Promote button) |
 | Choose / unlink the Planning trip of one shipment | **Detail** (Transport card) or the Truck Board |
 | Unjoin / swap packing of one shipment | **Detail** (Loading card) or the Assignment Board / Sheet |
-| Print the CMR / TIR / invoices of one truck | **Detail** («Документы — печать») or the Documents page |
+| Print the CMR / TIR / invoices / contract of one truck, open its uploaded files | **Detail** («Документы») or the Documents page |
 | Triage your own task queue across all shipments | `/me/board` (then click into Detail) |
 | See the season at a glance — which phase, which stuck, which late | `/export/shipments/board` (Shipment Kanban) |
 | Read the full status timeline for one shipment | **Detail** (right rail) |

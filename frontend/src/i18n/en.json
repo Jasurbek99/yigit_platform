@@ -684,8 +684,19 @@
       "driver_2_name": "Driver 2",
       "driver_2_phone": "Driver 2 phone",
       "harvest_by_block": "by block",
-      "documents_title": "Documents — print",
       "documents_no_firm": "Documents appear once an export firm is chosen"
+    },
+    "docs": {
+      "title": "Documents",
+      "group_truck": "Truck — whole load",
+      "group_other": "Other",
+      "packet_zip": "Whole packet (ZIP)",
+      "contract": "Contract",
+      "qr_label": "QR label",
+      "open": "Open",
+      "need_place_loading": "Pick the loading point above",
+      "need_packing": "Fill in the packing first",
+      "not_ready": "Fill in what is missing above first"
     },
     "section_status_fields": "Status",
     "back": "Back",

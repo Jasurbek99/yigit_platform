@@ -848,8 +848,19 @@ in the expanded panel, a banner listing the missing fields (`components/document
 2026-10-01): a regular truck's missing driver / plate become one item «link a Planning trip on
 the Truck Board» (they come from the trip, not the Sheet); a gapy truck keeps them as Sheet
 fields. The task-card print buttons use the same wording. On the shipment page
-(«Документы — печать») the banner reads «Сначала заполните на этой странице:» and each item is a
+(«Документы») the banner reads «Сначала заполните на этой странице:» and each item is a
 link that scrolls to its row (the truck item → the trip block).
+
+**Shipment page «Документы» card** (2026-10-05, `components/shipment/ShipmentDocumentsCard.tsx`):
+the same endpoints as a flat list — one row per document, one button per format, one click =
+download. The generate-time options (`place_loading`, `tir_carnet`, highlight) sit in one bar on
+top instead of `DocumentOptionsModal`; `place_loading` defaults to the shipment's
+`loading_location` name. URLs are built by `shipmentDocsUrls.ts::documentFormats` exactly as the
+modal did (invoice: no `tir_carnet`; letters: highlight only). TIR carnet and the contract keep
+their modals. Also lists the contract attachments, quality scans, QR label and trip PDF. The
+`/documents` page, task cards and contract tabs are unchanged (`DocumentPacketPanel` only had its
+setup banner / «fill packing» / «link contract» pieces extracted into `PacketSetupAlert`,
+`FillPackingButton`, `LinkContractButton`).
 
 The frontend **Documents page** (`/documents`, page code `contracts.documents`,
 default-visible to admin / director / export_manager / document_team) is a

@@ -686,8 +686,19 @@
       "driver_2_name": "Водитель 2",
       "driver_2_phone": "Телефон водителя 2",
       "harvest_by_block": "по блокам",
-      "documents_title": "Документы — печать",
       "documents_no_firm": "Документы появятся после выбора экспортной фирмы"
+    },
+    "docs": {
+      "title": "Документы",
+      "group_truck": "Рейс — вся машина",
+      "group_other": "Прочее",
+      "packet_zip": "Весь пакет (ZIP)",
+      "contract": "Контракт",
+      "qr_label": "QR-этикетка",
+      "open": "Открыть",
+      "need_place_loading": "Выберите место погрузки выше",
+      "need_packing": "Сначала заполните упаковку",
+      "not_ready": "Сначала заполните недостающее выше"
     },
     "section_status_fields": "Статус",
     "back": "Назад",

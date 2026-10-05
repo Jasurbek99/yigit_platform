@@ -684,8 +684,19 @@
       "driver_2_name": "Sürüji 2",
       "driver_2_phone": "Sürüji 2 telefony",
       "harvest_by_block": "bloklar boýunça",
-      "documents_title": "Resminamalar — çap",
       "documents_no_firm": "Eksport firmasy saýlanandan soň resminamalar peýda bolar"
+    },
+    "docs": {
+      "title": "Resminamalar",
+      "group_truck": "Reýs — tutuş maşyn",
+      "group_other": "Beýlekiler",
+      "packet_zip": "Doly bukja (ZIP)",
+      "contract": "Şertnama",
+      "qr_label": "QR belligi",
+      "open": "Aç",
+      "need_place_loading": "Ýokarda ýükleme ýerini saýlaň",
+      "need_packing": "Ilki bilen gaplamany dolduryň",
+      "not_ready": "Ilki ýokarda ýetmeýänleri dolduryň"
     },
     "section_status_fields": "Ýagdaý",
     "back": "Yzyna",

@@ -4,8 +4,11 @@ import { Modal } from 'antd';
 import i18n from '@/i18n';
 import { ShipmentTripBanner } from './ShipmentTripBanner';
 import * as trips from '@/hooks/useExternalTrips';
+import { canSeePage } from '@/utils/permissions';
 
 vi.mock('@/hooks/useExternalTrips');
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 1 } }) }));
+vi.mock('@/utils/permissions', () => ({ canSeePage: vi.fn(() => true) }));
 beforeAll(async () => { await i18n.changeLanguage('en'); });
 
 function renderBanner(trip: object | null, canUnlink = false) {
@@ -52,6 +55,19 @@ describe('ShipmentTripBanner', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Unlink' }));
     expect(unassign.mutate).toHaveBeenCalledWith({ tripId: 3 }, expect.anything());
     confirm.mockRestore();
+  });
+
+  // The PDF endpoint is a Truck Board read — without that page it 403s.
+  it('offers the trip PDF only with Truck Board access', () => {
+    const trip = { id: 3, trip_number: 'T1', status: 'PLANNED', conflict_kind: null, last_push_error: null };
+    const pdfButton = { name: i18n.t('truck_board.documents_pdf') };
+    const { unmount } = renderBanner(trip);
+    expect(screen.getByRole('button', pdfButton)).toBeInTheDocument();
+    unmount();
+    vi.mocked(canSeePage).mockReturnValue(false);
+    renderBanner(trip);
+    expect(screen.queryByRole('button', pdfButton)).toBeNull();
+    vi.mocked(canSeePage).mockReturnValue(true);
   });
 
   it('hides unlink without the right', () => {

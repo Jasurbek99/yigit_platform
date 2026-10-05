@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { openTripDocument, useAcceptTripChange, useShipmentTrip, useUnassignTrip } from '@/hooks/useExternalTrips';
 import { apiErrorKey } from '@/pages/export/truckBoard/truckBoardHelpers';
 import { useTripMessages } from '@/pages/export/truckBoard/useTripMessages';
+import { useAuth } from '@/hooks/useAuth';
+import { canSeePage } from '@/utils/permissions';
 
 interface IShipmentTripBannerProps {
   shipmentId: number;
@@ -14,11 +16,15 @@ interface IShipmentTripBannerProps {
 
 export function ShipmentTripBanner({ shipmentId, canEdit, canUnlink = false }: IShipmentTripBannerProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const messages = useTripMessages();
   const { data: trip } = useShipmentTrip(shipmentId);
   const accept = useAcceptTripChange();
   const unassign = useUnassignTrip();
   if (!trip) return null;
+  // The PDF endpoint is a Truck Board read (CanViewTruckBoard) — offering it to
+  // anyone else hands them a 403.
+  const canOpenPdf = canSeePage(user, 'export.truck_board');
   const conflict = messages.conflict(trip);
   const openPdf = () => openTripDocument(trip.id).catch(() => toast.error(t('truck_board.error.pdf')));
   const confirmUnlink = () => Modal.confirm({
@@ -35,7 +41,7 @@ export function ShipmentTripBanner({ shipmentId, canEdit, canUnlink = false }: I
       <Space>
         <Tag color="blue">{t('truck_board.trip')}: {trip.trip_number ?? t('truck_board.awaiting_code')}</Tag>
         <Tag>{messages.status(trip.status)}</Tag>
-        <Button size="small" onClick={openPdf}>{t('truck_board.documents_pdf')}</Button>
+        {canOpenPdf && <Button size="small" onClick={openPdf}>{t('truck_board.documents_pdf')}</Button>}
         {canUnlink && (
           <Button size="small" danger loading={unassign.isPending} onClick={confirmUnlink}>
             {t('truck_board.unlink')}
