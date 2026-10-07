@@ -188,6 +188,13 @@ class ProductGuardTests(TestCase):
         self.assertEqual(resp.data['product_type'], ['product_mismatch'])
         self.assertEqual(Shipment.objects.get(pk=row.pk).product_type.code, 'tomato')
 
+    def test_patch_product_on_row_with_mixed_blocks_is_400_not_500(self):
+        row = self._row(destination=True, product=self.tomato, blocks=[self.tb, self.pb])
+        resp = self._patch_product(row, self.pepper)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['product_type'], ['mixed_product'])
+        self.assertEqual(Shipment.objects.get(pk=row.pk).product_type.code, 'tomato')
+
     def test_patch_product_matching_blocks_is_accepted(self):
         row = self._row(destination=True, product=self.tomato, blocks=[self.tb])
         resp = self._patch_product(row, self.tomato)
@@ -249,8 +256,14 @@ class ProductGuardTests(TestCase):
     def test_swap_same_product_succeeds(self):
         from apps.export.services.packaging import swap_packing
         other_p = self._row(destination=True, product=self.pepper, blocks=[self.pb])
+        ShipmentBlockSource.objects.filter(shipment=other_p).update(weight_kg=Decimal('5000'))
         swap_packing(other_p, self.supply_p, self.em)
-        self.assertEqual(other_p.block_sources.count(), 1)
+        self.assertEqual(
+            list(other_p.block_sources.values_list('weight_kg', flat=True)), [Decimal('9000.00')],
+        )
+        self.assertEqual(
+            list(self.supply_p.block_sources.values_list('weight_kg', flat=True)), [Decimal('5000.00')],
+        )
 
     def test_unjoin_copies_product(self):
         from apps.export.services.packaging import unjoin_packing

@@ -1816,9 +1816,14 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         # Pepper spec §2: the product may not contradict the blocks on the row.
         # Runs before the role early-return: it is a data rule, not a permission.
         if 'product_type' in attrs and self.instance is not None:
-            from apps.export.services.product_type import PRODUCT_MISMATCH, product_code, resolve_product_type
+            from apps.export.services.product_type import (
+                PRODUCT_MISMATCH, ProductMismatchError, product_code, resolve_product_type,
+            )
             block_ids = list(self.instance.block_sources.values_list('block_id', flat=True))
-            blocks_product = resolve_product_type(block_ids) if block_ids else None
+            try:
+                blocks_product = resolve_product_type(block_ids) if block_ids else None
+            except ProductMismatchError as exc:  # legacy truck whose blocks span two products
+                raise serializers.ValidationError({'product_type': str(exc)})
             if blocks_product is not None and blocks_product.code != product_code(attrs['product_type']):
                 raise serializers.ValidationError({'product_type': PRODUCT_MISMATCH})
 
