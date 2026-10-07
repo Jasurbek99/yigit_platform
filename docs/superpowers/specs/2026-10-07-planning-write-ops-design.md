@@ -49,6 +49,9 @@ Signatures: city name; `cargoName|cargoRef`; the ISO timestamp for events and cu
 4. An event / customs time earlier than `ExternalTrip.linked_at` (when the trip joined its
    current shipment) is not sent — after a truck change it belongs to the previous truck.
    Links made before the column existed have `linked_at` NULL and are not filtered.
+   This also applies to a first link: `assign_trip` itself never sends events/customs
+   already filled, and a truck linked late (after it already arrived) never sends that
+   arrival — accepted trade-off (user decision 2026-10-07, option a).
 
 ### Model
 
