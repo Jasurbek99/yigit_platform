@@ -6,6 +6,7 @@ import { useCreateContract } from '@/hooks/useContracts';
 import { ExportFirmSelect } from '@/components/ExportFirmSelect';
 import { ImportFirmSelect } from '@/components/ImportFirmSelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
+import { ProductTypeSelect } from '@/components/ProductTypeSelect';
 import { deriveContractPlan } from '@/utils/contractPlan';
 import type { ContractPlanField } from '@/utils/contractPlan';
 import type { IContractCreatePayload } from '@/types/contract';
@@ -29,6 +30,7 @@ interface IFormValues {
   export_firm: number;
   import_firm: number;
   incoterm: string;
+  product_type?: number | null;
   planned_trucks: number;
   planned_quantity_kg: number;
   price_per_kg: number;
@@ -72,6 +74,7 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
       export_firm: values.export_firm,
       import_firm: values.import_firm,
       incoterm: values.incoterm,
+      product_type: values.product_type ?? null,
       // One truck by definition, and the field is not shown for it.
       planned_trucks: isOneTime ? 1 : values.planned_trucks,
       planned_quantity_kg: values.planned_quantity_kg,
@@ -241,6 +244,14 @@ export function ContractCreate({ open, onClose }: IContractCreateProps) {
               rules={[{ required: true, message: t('common.required') }]}
             >
               <Select options={INCOTERM_OPTIONS} style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+
+          {/* Product — starts on tomato once the list loads; null is never sent
+              after that, so the server default only matters for old clients. */}
+          <Col span={12}>
+            <Form.Item name="product_type" label={t('contracts.create.field.product')}>
+              <ProductTypeSelect style={{ width: '100%' }} />
             </Form.Item>
           </Col>
         </Row>

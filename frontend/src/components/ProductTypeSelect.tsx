@@ -3,6 +3,7 @@ import { Select } from 'antd';
 import { useProductTypes } from '@/hooks/useAdmin';
 
 interface IProductTypeSelectProps {
+  id?: string; // set by Form.Item so the label focuses the control
   value?: number | null;
   onChange?: (value: number) => void;
   disabled?: boolean;
@@ -15,7 +16,7 @@ interface IProductTypeSelectProps {
  * soon as the product list loads and nothing is chosen, it reports tomato up.
  * Products without a code (neither tomato nor pepper) are not offered.
  */
-export function ProductTypeSelect({ value, onChange, disabled, size, style }: IProductTypeSelectProps) {
+export function ProductTypeSelect({ id, value, onChange, disabled, size, style }: IProductTypeSelectProps) {
   const { data: productTypes = [] } = useProductTypes();
   const offered = productTypes.filter((p) => p.code);
   const tomatoId = offered.find((p) => p.code === 'tomato')?.id;
@@ -27,6 +28,7 @@ export function ProductTypeSelect({ value, onChange, disabled, size, style }: IP
 
   return (
     <Select
+      id={id}
       value={value ?? undefined}
       onChange={(v) => onChange?.(v)}
       options={offered.map((p) => ({ value: p.id, label: p.name }))}

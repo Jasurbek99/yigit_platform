@@ -47,6 +47,10 @@ export interface IContract {
   // Terms
   incoterm: string;
 
+  // Product (tomato / pepper). Null on older rows reads as tomato.
+  product_type: number | null;
+  product_type_code: 'tomato' | 'pepper' | null;
+
   // Planned
   planned_trucks: number;
   planned_quantity_kg: string; // DecimalField returned as string by DRF
@@ -111,6 +115,7 @@ export interface IContractCreatePayload {
   end_date?: string | null;
   customer?: number | null;
   contract_type?: string | null;
+  product_type?: number | null;
 }
 
 // ─── Shipment firm-split ↔ contract bridge (Slice 4) ─────────────────────────

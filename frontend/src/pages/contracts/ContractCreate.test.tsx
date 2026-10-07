@@ -10,15 +10,27 @@ const { mockMutateAsync } = vi.hoisted(() => ({
 vi.mock('@/hooks/useContracts', () => ({
   useCreateContract: () => ({ mutateAsync: mockMutateAsync, isPending: false }),
 }));
+vi.mock('@/hooks/useAdmin', () => ({
+  useProductTypes: () => ({
+    data: [
+      { id: 1, name: 'Tomato', code: 'tomato' },
+      { id: 2, name: 'Pepper', code: 'pepper' },
+    ],
+  }),
+}));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 // The three firm/customer pickers each fetch; stub them down to a plain input so
 // this file tests the form's own branching, not their loading states.
 vi.mock('@/components/ExportFirmSelect', () => ({
-  ExportFirmSelect: () => <input aria-label="export firm stub" />,
+  ExportFirmSelect: ({ onChange }: { onChange?: (v: number) => void }) => (
+    <input aria-label="export firm stub" onChange={(e) => onChange?.(Number(e.target.value))} />
+  ),
 }));
 vi.mock('@/components/ImportFirmSelect', () => ({
-  ImportFirmSelect: () => <input aria-label="import firm stub" />,
+  ImportFirmSelect: ({ onChange }: { onChange?: (v: number) => void }) => (
+    <input aria-label="import firm stub" onChange={(e) => onChange?.(Number(e.target.value))} />
+  ),
 }));
 vi.mock('@/components/CustomerSelect', () => ({
   CustomerSelect: () => <input aria-label="customer stub" />,
@@ -107,5 +119,40 @@ describe('ContractCreate — type-driven fields', () => {
 
     await waitFor(() => expect(field('planned_quantity_kg')).toHaveValue(''));
     expect(field('planned_amount_usd')).toHaveValue('');
+  });
+});
+
+/** The product is a first-class choice on a contract; untouched it is tomato. */
+describe('ContractCreate — product', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  beforeEach(() => {
+    mockMutateAsync.mockClear();
+    render(<ContractCreate open onClose={onClose} />);
+  });
+
+  async function fillAndSubmit() {
+    await userEvent.type(screen.getByLabelText('export firm stub'), '5');
+    await userEvent.type(screen.getByLabelText('import firm stub'), '7');
+    await userEvent.type(field('planned_trucks') as HTMLInputElement, '1');
+    await userEvent.type(field('price_per_kg') as HTMLInputElement, '0.9');
+    await userEvent.type(field('start_date') as HTMLInputElement, '01.10.2026{enter}');
+    await userEvent.click(screen.getByRole('button', { name: /create/i }));
+  }
+
+  it('sends tomato when the product is left untouched', async () => {
+    await fillAndSubmit();
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
+    expect(mockMutateAsync.mock.calls[0][0]).toMatchObject({ product_type: 1 });
+  });
+
+  it('sends pepper when pepper is chosen', async () => {
+    await userEvent.click(field('product_type') as HTMLInputElement);
+    await userEvent.click(await screen.findByText('Pepper'));
+    await fillAndSubmit();
+    await waitFor(() => expect(mockMutateAsync).toHaveBeenCalled());
+    expect(mockMutateAsync.mock.calls[0][0]).toMatchObject({ product_type: 2 });
   });
 });

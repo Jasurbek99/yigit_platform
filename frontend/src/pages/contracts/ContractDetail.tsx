@@ -225,6 +225,9 @@ export default function ContractDetail() {
         <Descriptions.Item label={t('contracts.column.incoterm')}>
           {contract.incoterm || '—'}
         </Descriptions.Item>
+        <Descriptions.Item label={t('contracts.column.product')}>
+          {t(`product.${contract.product_type_code ?? 'tomato'}`)}
+        </Descriptions.Item>
         <Descriptions.Item label={t('contracts.column.status')}>
           <Tag color={STATUS_COLORS[contract.status] ?? 'default'}>
             {t(`contracts.status.${contract.status}`)}

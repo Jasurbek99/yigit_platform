@@ -168,6 +168,13 @@ export default function ContractList() {
       dataIndex: 'incoterm',
       width: 80,
     },
+    {
+      title: t('contracts.column.product'),
+      dataIndex: 'product_type_code',
+      width: 100,
+      responsive: ['md'],
+      render: (_, record) => t(`product.${record.product_type_code ?? 'tomato'}`),
+    },
 
     // ── Planlanan group ──────────────────────────────────────────────────────
     {
