@@ -68,19 +68,20 @@ One truck = one product. **NULL product reads as tomato** everywhere (old rows, 
 
 | Where | Fields |
 |---|---|
-| `GET/POST/PATCH/DELETE /api/v1/core/product-types/` | `{id, name, code ('tomato'\|'pepper'), hs_code, name_en, name_ru, name_tk}`. Reads open to any authenticated user; writes `REFERENCE_DATA_WRITE` (admin). DELETE of a product in use (varieties / shipments / contracts) → 400 `{"error": "Product is in use."}` |
+| `GET/POST/PATCH/DELETE /api/v1/core/product-types/` | `{id, name, code ('tomato'\|'pepper'), hs_code, name_en, name_ru, name_tk}`. Reads open to any authenticated user; writes `REFERENCE_DATA_WRITE` (admin). `code` is set on create only — a PATCH ignores it (200, code unchanged). DELETE of a product in use (varieties / shipments / contracts) → 400 `{"error": "Product is in use."}` |
 | Variety (`/core/tomato-varieties/`) | `product_type` (id, writable), `product_type_code` (read-only) |
 | Block serializer (core / greenhouse) | `product_type_code` read-only: `tomato` / `pepper` / null — main variety's product, else the parent block's (F1/F2 → F), else null |
 | Shipment list, detail, Sheet row | `product_type` (id, writable), `product_type_code`, `product_type_name` (read-only) |
-| Shipment create | optional `product_type`; with blocks it is derived from them, without blocks (destination row) default tomato |
+| Shipment create | optional `product_type` (only the `tomato` / `pepper` rows; a code-less product → 400 field error); with blocks it is derived from them, without blocks (destination row) default tomato |
 | Contract list / detail / create | `product_type` (id, writable, default tomato on create), `product_type_code` (read-only) |
 
 - **Filter:** `GET /api/v1/export/shipments/?product_type=tomato|pepper` (tomato also matches NULL).
-- **Shipment PATCH `product_type`:** needs the `product_type` field permission; cannot be cleared from the UI; re-syncs quota usage rows to the new product.
+- **Shipment PATCH `product_type`:** needs the `product_type` field permission; only the `tomato` / `pepper` rows — `null` or a code-less product → 400 `{"product_type": [...]}`; re-syncs quota usage rows to the new product. On a truck with firm splits every split firm needs live quota of the new product, else 400 `{"product_type": ["<FIRM> has no remaining <code> quota."]}` (same refusal, as `{"error": ...}`, on a Sheet block edit that switches a supply row's product, and on manifest close).
 - **New 400 codes** (the code is the body's `error` value — `{"error": "<code>"}` — or, on a serializer field error, `{"product_type": ["<code>"]}`; frontend i18n `errors.<code>`, mapped in `utils/apiErrorText.ts`):
   - `mixed_product` — blocks of two products in one truck (supply-draft create, Sheet block edit, block-source writes).
   - `product_mismatch` — blocks of another product than the destination row; PATCH product to one that disagrees with the row's blocks; Sheet Join of supply and destination products that differ; Swap between rows of different products.
-- Framework-contract link of another product is a 400 with the existing message «contract_id is not an active framework contract for this pair and product.» (the spec's `contract_product_mismatch` code was NOT built).
+  - `contract_product_mismatch` — the truck's product differs from a contract it is sold under (NULL ≡ tomato on both sides; void sales and cancelled contracts ignored). Shipment PATCH `product_type` → `{"product_type": ["contract_product_mismatch"]}`; contract-sale `POST /contracts/sales/` or a PATCH that changes `contract` / `shipment` → `{"contract": ["contract_product_mismatch"]}`.
+- Framework-contract link of another product (`link_split_to_contract`) is a 400 with the existing message «contract_id is not an active framework contract for this pair and product.»
 - Framework contracts offered for a truck (`framework_contracts_for_pair`) are filtered by the truck's product (NULL ≡ tomato); one-time contracts inherit the truck's product.
 
 ### Detail endpoint: `GET /api/v1/export/shipments/{id}/`
