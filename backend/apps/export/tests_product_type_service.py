@@ -91,3 +91,20 @@ class ProductServiceTests(TestCase):
         self.assertTrue(set_shipment_product(self.ship, self.tomato, self.user))
         self.assertEqual(Shipment.objects.get(pk=self.ship.pk).product_type.code, 'tomato')
         self.assertFalse(self.ship.quota_usage_records.exists())
+
+    def test_set_product_writes_one_audit_row(self):
+        from apps.export.models import AuditLog
+        from apps.export.services.sheet_audit import render_field_value
+        self.assertTrue(set_shipment_product(self.ship, self.pepper, None))
+        rows = AuditLog.objects.filter(model_name='Shipment', object_id=self.ship.pk, field_name='product_type')
+        self.assertEqual(rows.count(), 1)
+        row = rows.get()
+        self.assertEqual(row.action, 'update')
+        self.assertEqual(row.old_value, render_field_value(self.tomato))
+        self.assertEqual(row.new_value, render_field_value(self.pepper))
+        self.assertIsNone(row.user)
+
+    def test_set_same_product_writes_no_audit_row(self):
+        from apps.export.models import AuditLog
+        self.assertFalse(set_shipment_product(self.ship, self.tomato, self.user))
+        self.assertFalse(AuditLog.objects.filter(object_id=self.ship.pk, field_name='product_type').exists())

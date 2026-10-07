@@ -81,16 +81,21 @@ def set_shipment_product(shipment, product, user) -> bool:
 
     Raises ProductQuotaError (nothing written) when a split firm lacks quota
     for the new product. Quota is re-synced only when the effective code moves.
+    Writes one product_type AuditLog row (user may be None for system writes).
     """
     from apps.export.models import Shipment
     from apps.export.services.quota_sync import invalidate_quota_caches, sync_draft_quota_usage_for_shipment
+    from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 
     if product is None or shipment.product_type_id == product.id:
         return False
     check_product_quota(shipment, product)
     code_moves = product_code(product) != shipment_product_code(shipment)
+    before = snapshot_fields(shipment, ['product_type'])
     Shipment.objects.filter(pk=shipment.pk).update(product_type=product)
     shipment.product_type = product
+    for row in diff_audit_rows(shipment, before, snapshot_fields(shipment, ['product_type']), user):
+        row.save()
     if code_moves and shipment.firm_splits.exists():
         sync_draft_quota_usage_for_shipment(shipment, user, product_type=product_code(product))
         transaction.on_commit(invalidate_quota_caches)
