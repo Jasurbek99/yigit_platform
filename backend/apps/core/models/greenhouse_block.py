@@ -80,3 +80,16 @@ class GreenhouseBlock(models.Model):
 
     def __str__(self) -> str:
         return f'{self.code} — {self.name or ""}'
+
+    def resolve_product(self):
+        """The product this block grows: its main variety's, else its parent's.
+
+        Sub-blocks (F1/F2, OD/OG) usually carry no variety of their own. None when
+        neither has a variety with a product — such blocks never decide a truck's
+        product (pepper spec 2026-10-05 §1).
+        """
+        for block in (self, self.parent):
+            variety = getattr(block, 'variety_main', None) if block else None
+            if variety is not None and variety.product_type_id is not None:
+                return variety.product_type
+        return None

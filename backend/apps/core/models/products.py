@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from apps.core.db_utils import schema_table
+from apps.core.db_utils import cyrillic_collation, schema_table
 
 
 class Season(models.Model):
@@ -118,6 +118,10 @@ class TomatoVariety(models.Model):
     avg_fruit_weight_gr = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)
     color = models.CharField(max_length=7, blank=True, null=True)
     sort_order = models.IntegerField(default=0)
+    product_type = models.ForeignKey(
+        'core.ProductType', on_delete=models.PROTECT, null=True, blank=True,
+        related_name='varieties',
+    )
 
     class Meta:
         db_table = schema_table('core', 'tomato_varieties')
@@ -129,12 +133,29 @@ class TomatoVariety(models.Model):
 
 
 class ProductType(models.Model):
-    """Product types (Pomidor, Bolgar burç, etc.)."""
+    """Product types (Pomidor, Bolgar burç, etc.).
+
+    `code` bridges to the quota/packing CharField (`tomato` / `pepper`); the
+    hs_code and names feed the documents (pepper spec 2026-10-05). All nullable:
+    beta runs old code on the same DB.
+    """
+
+    CODE_TOMATO = 'tomato'
+    CODE_PEPPER = 'pepper'
 
     name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    hs_code = models.CharField(max_length=20, null=True, blank=True)
+    name_en = models.CharField(max_length=100, null=True, blank=True)
+    name_ru = models.CharField(max_length=100, null=True, blank=True, **cyrillic_collation())
+    name_tk = models.CharField(max_length=100, null=True, blank=True, **cyrillic_collation())
 
     class Meta:
         db_table = schema_table('core', 'product_types')
 
     def __str__(self) -> str:
         return self.name
+
+    @classmethod
+    def tomato(cls) -> 'ProductType | None':
+        return cls.objects.filter(code=cls.CODE_TOMATO).first()
