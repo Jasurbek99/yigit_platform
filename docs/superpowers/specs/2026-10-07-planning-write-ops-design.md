@@ -26,7 +26,7 @@ refusal are reused unchanged.
 | `event-arrived` | `events` | `{type: ARRIVED_AT_PLACE, place}` | `greenhouse_arrived_at` | field is null | the field value |
 | `event-loaded` | `events` | `{type: LOADED, place}` | `loading_ended_at` | field is null | the field value |
 | `event-departed` | `events` | `{type: DEPARTED_FROM_PLACE, place}` | `departed_at` | field is null | the field value |
-| `customs` | `customs` | `{cleared: true}` | `customs_exit_at` (destination-country customs) | field is null | the field value |
+| `customs` | `customs` | `{cleared: true}` | `customs_entry_at` («Таможня пройдена», destination-country customs; `customs_exit_at` is the Turkmen export customs and is not sent) | field is null | the field value |
 
 `place` for events is the same `{ref, name}` that `loading_body` builds from the block sources;
 it is omitted when the shipment has no block sources.
@@ -46,6 +46,9 @@ Signatures: city name; `cargoName|cargoRef`; the ISO timestamp for events and cu
    (`422 CITY_COUNTRY_MISMATCH`); this goes through the existing refusal path
    (`last_push_error` + export_manager notification). The marker is kept, so it is not
    re-sent until the manager changes the city.
+4. An event / customs time earlier than `ExternalTrip.linked_at` (when the trip joined its
+   current shipment) is not sent — after a truck change it belongs to the previous truck.
+   Links made before the column existed have `linked_at` NULL and are not filtered.
 
 ### Model
 

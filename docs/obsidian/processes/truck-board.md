@@ -95,11 +95,15 @@ Our shipment cancelled → the next poll frees its trip (Planning is not told; n
 | Приехал на погрузку | `events` `ARRIVED_AT_PLACE` | `greenhouse_arrived_at` | время заполнено/исправлено |
 | Загружен | `events` `LOADED` | `loading_ended_at` | время заполнено/исправлено |
 | Выехал с погрузки | `events` `DEPARTED_FROM_PLACE` | `departed_at` | время заполнено/исправлено |
-| Таможня пройдена | `customs` `cleared:true` | `customs_exit_at` (таможня страны назначения) | время заполнено/исправлено |
+| Таможня пройдена | `customs` `cleared:true` | `customs_entry_at` («Таможня пройдена», таможня страны назначения; `customs_exit_at` — туркменская экспортная таможня, не отправляется) | время заполнено/исправлено |
 | Отклонение рейса | `rejection` | кнопка «Отклонить рейс» в карточке рейса | один раз |
 
 Очистка поля после отправки в Planning ничего не шлёт: контракт не умеет отзывать события.
 Исправленное время уходит вторым событием с новым `occurredAt`.
+Время раньше `linked_at` (момент привязки рейса к текущей отправке, ставит `assign_trip`, снимает
+освобождение) не отправляется: после смены машины оно относится к прежней машине. Для привязок,
+сделанных до появления колонки, `linked_at` пустой — фильтра нет. Проверка в одном месте —
+`trip_push._value_for` (и привязка, и `push_pending_corrections`).
 
 `Idempotency-Key` = `eventId` = `ygt-{uuid}-{op}-{enqueue ms}`; retries reuse it. `TRIP_CLOSED` →
 give up. Any other refusal → stored as `"<op>: <CODE>"` in `last_push_error`, shown (translated) on the
@@ -112,6 +116,11 @@ the next poll sends it again.
 до 512 символов). Право — то же, что у привязки (`shipment_assign` edit). Рейс остаётся на доске
 с меткой «Отклонён: <причина>», привязать его нельзя (`409 trip_rejected`). Метка снимается сама,
 когда Planning меняет тягач, прицеп или водителя либо отменяет рейс.
+Отклонение не переотправляется само: если Planning его не получил (`last_push_error`
+`rejection: PLANNING_UNAVAILABLE`), карточка и окно рейса показывают красным «Planning не получил
+отклонение — отклоните рейс ещё раз», и в окне снова есть кнопка «Отклонить рейс» (повтор шлёт новый
+`eventId` и новую причину). Замена тягача/прицепа/водителя снимает и метку, и эту ошибку.
+В окне выбора рейса на отправке отклонённый рейс виден с меткой, но выбрать его нельзя.
 API: `POST /api/v1/transport/external-trips/{id}/reject/` `{reason}`.
 
 ## Cards (2026-09-30)
@@ -162,11 +171,12 @@ The next poll (≤ 2 min) runs the full reaction. The command edits a tracked fi
 
 1. Server `.env`: `TRANSPORT_API_URL`, `TRANSPORT_API_KEY`, `TRANSPORT_API_MODE=live`,
    `TRANSPORT_API_VERIFY_TLS` (CA path or `false`).
-2. `python manage.py migrate core transport export` (core 0070, transport 0009–0010, export 0091 — all after main's latest; transport 0011 `trip_write_ops` adds the push markers and the rejection fields — re-check its number against main before merging).
+2. `python manage.py migrate core transport export` (core 0070, transport 0009–0010, export 0091 — all after main's latest; transport 0011 `trip_write_ops` adds the push markers, `linked_at` and the rejection fields — re-check its number against main before merging).
 3. `python manage.py seed_task_rules` — only now. Deactivating the regular `assign_driver` cancels its
    open tasks, and a cancelled task counts as satisfied, so open regular drafts lose the driver gate
    (accepted by the owner 2026-09-29).
-4. Rebuild the celery worker + beat containers (the poller is a beat job, not crontab).
+4. Rebuild the celery worker + beat containers (the poller is a beat job, not crontab) — in the same
+   step as web: an old worker posts event ops to the wrong path.
 
 ## Known gaps
 
