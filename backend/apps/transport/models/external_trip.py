@@ -12,6 +12,7 @@ class ExternalTrip(models.Model):
 
     SNAPSHOT_FIELDS = ('tractor_plate', 'trailer_plate', 'driver_full_name', 'driver_passport_number')
     CLOSED_STATUSES = ('CANCELLED', 'CLOSED', 'ARCHIVED')
+    REJECTION_FIELDS = ('rejection_reason', 'rejected_at', 'rejected_by')
 
     # === Identity ===
     integration_trip_id = models.UUIDField(unique=True)
@@ -57,11 +58,26 @@ class ExternalTrip(models.Model):
     conflict_to = models.CharField(max_length=300, null=True, blank=True, **cyrillic_collation())
     last_push_status = models.CharField(max_length=20, null=True, blank=True)
     last_push_error = models.TextField(null=True, blank=True)
-    # What we last enqueued for export-code — compared on every poll tick so a
+    # What we last enqueued per push op — compared on every poll tick so a
     # correction is pushed once, not every 2 minutes until Planning echoes it.
     last_pushed_export_code = models.CharField(max_length=30, null=True, blank=True)
     # "city|place" last enqueued for `loading` — same once-per-change rule.
     last_pushed_loading = models.CharField(max_length=500, null=True, blank=True, **cyrillic_collation())
+    last_pushed_destination_city = models.CharField(max_length=256, null=True, blank=True, **cyrillic_collation())
+    # "cargoName|cargoRef"
+    last_pushed_cargo = models.CharField(max_length=400, null=True, blank=True, **cyrillic_collation())
+    # ISO timestamps of the operator-entered times last pushed as events / customs.
+    last_pushed_arrived = models.CharField(max_length=40, null=True, blank=True)
+    last_pushed_loaded = models.CharField(max_length=40, null=True, blank=True)
+    last_pushed_departed = models.CharField(max_length=40, null=True, blank=True)
+    last_pushed_customs = models.CharField(max_length=40, null=True, blank=True)
+
+    # === Our rejection (TripRejection) — cleared when Planning swaps resources ===
+    rejection_reason = models.CharField(max_length=512, null=True, blank=True, **cyrillic_collation())
+    rejected_at = models.DateTimeField(null=True, blank=True)
+    rejected_by = models.ForeignKey(
+        'core.User', null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
     synced_at = models.DateTimeField(auto_now=True)
 
     class Meta:

@@ -100,16 +100,17 @@ class PushTaskTests(TestCase):
 
 
 class AssignEnqueuesPushesTests(TestCase):
-    def test_assign_enqueues_export_code_and_loading(self):
+    def test_assign_enqueues_every_op(self):
         from django.contrib.auth import get_user_model
 
         from apps.transport.services.trip_assignment import assign_trip
+        from apps.transport.services.trip_push import PUSH_OPS
         kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
         shipment = _make_shipment(country=kz, export_code='04AP034/26')
         user = get_user_model().objects.create_user(username='em', password='x', role='export_manager')
         with mock.patch('apps.transport.services.trip_assignment.enqueue_push') as enqueue:
             assign_trip(make_trip(), shipment, user)
-        self.assertEqual([c.args[1] for c in enqueue.call_args_list], ['export-code', 'loading'])
+        self.assertEqual([c.args[1] for c in enqueue.call_args_list], list(PUSH_OPS))
 
 
 class PushFailureTests(TestCase):
@@ -201,3 +202,69 @@ class CorrectionQueryCountTests(TestCase):
                 shipment=shipment, last_pushed_export_code=f'C{n}', last_pushed_loading=loading_signature(shipment))
         with self.assertNumQueries(3):  # trips+shipments, block_sources, blocks
             self.assertEqual(push_pending_corrections(), 0)
+
+
+class DestinationAndCargoTests(TestCase):
+    def setUp(self):
+        from apps.core.models import City, ProductType
+        kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
+        self.pepper = ProductType.objects.get(code='pepper')  # seeded by core/0074
+        self.shipment = _make_shipment(city=City.objects.create(country=kz, name='Almaty'),
+                                       product_type=self.pepper)
+        self.trip = make_trip()
+
+    def test_destination_city_body(self):
+        from apps.transport.services.trip_push import destination_city_body
+        self.assertEqual(destination_city_body(self.shipment), {'city': 'Almaty'})
+
+    def test_no_city_means_no_push(self):
+        from apps.transport.services.trip_push import destination_city_body
+        self.shipment.city = None
+        self.assertIsNone(destination_city_body(self.shipment))
+
+    def test_cargo_body_uses_russian_name_and_code(self):
+        from apps.transport.services.trip_push import cargo_body
+        self.assertEqual(cargo_body(self.shipment), {'cargoName': 'Перец сладкий свежий', 'cargoRef': 'pepper'})
+
+    def test_cargo_body_falls_back_to_name_and_omits_missing_code(self):
+        from apps.transport.services.trip_push import cargo_body
+        self.pepper.name_ru, self.pepper.code = None, None
+        self.assertEqual(cargo_body(self.shipment), {'cargoName': self.pepper.name})
+
+    def test_no_product_means_no_push(self):
+        from apps.transport.services.trip_push import cargo_body
+        self.shipment.product_type = None
+        self.assertIsNone(cargo_body(self.shipment))
+
+    def test_pending_corrections_cover_city_and_cargo(self):
+        from apps.transport.services.trip_push import push_pending_corrections
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(shipment=self.shipment)
+        with mock.patch('apps.transport.services.trip_push.enqueue_push') as enqueue:
+            push_pending_corrections()
+        self.assertEqual(sorted(c.args[1] for c in enqueue.call_args_list), ['cargo', 'destination-city'])
+
+    def test_unchanged_city_and_cargo_are_not_pushed_again(self):
+        from apps.transport.services.trip_push import push_pending_corrections
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(
+            shipment=self.shipment, last_pushed_destination_city='Almaty',
+            last_pushed_cargo='Перец сладкий свежий|pepper')
+        with mock.patch('apps.transport.services.trip_push.enqueue_push') as enqueue:
+            push_pending_corrections()
+        enqueue.assert_not_called()
+
+    def test_enqueue_sends_envelope_and_city(self):
+        from apps.transport.services.trip_push import enqueue_push
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(shipment=self.shipment)
+        linked = ExternalTrip.objects.select_related('shipment__city').get(pk=self.trip.pk)
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay,                 self.captureOnCommitCallbacks(execute=True):
+            enqueue_push(linked, 'destination-city')
+        trip_id, op, body, event_id = delay.call_args.args
+        self.assertEqual((trip_id, op), (self.trip.pk, 'destination-city'))
+        self.assertEqual((body['city'], body['source'], body['eventId']), ('Almaty', 'EXTERNAL', event_id))
+        linked.refresh_from_db()
+        self.assertEqual(linked.last_pushed_destination_city, 'Almaty')
+
+    def test_release_clears_every_marker(self):
+        from apps.transport.services.trip_assignment import RELEASED_TRIP_COLUMNS
+        from apps.transport.services.trip_push import PUSH_OPS
+        self.assertTrue({push.marker for push in PUSH_OPS.values()} <= set(RELEASED_TRIP_COLUMNS))
