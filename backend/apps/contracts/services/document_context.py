@@ -76,6 +76,20 @@ def product_names(product) -> tuple[str, str, str]:
         for field, fallback in zip(('name_en', 'name_ru', 'name_tk'), TOMATO_NAMES)
     )
 
+
+def _hs_code(product) -> str:
+    """The product's HS code; blank or no product reads as tomato."""
+    return (getattr(product, 'hs_code', None) or '').strip() or TOMATO_HS_CODE
+
+
+def _invoice_product(invoice):
+    """The invoice's shipment product, else its contract's, else None (-> tomato)."""
+    shipment = getattr(invoice, 'shipment', None)
+    if shipment is not None and getattr(shipment, 'product_type_id', None):
+        return shipment.product_type
+    contract = getattr(invoice, 'contract', None)
+    return getattr(contract, 'product_type', None)
+
 # The shipment's whole-truck packing cells that MUST be filled in the Sheet before
 # any document generates (gross + net + boxes + pallets). ``box_count`` /
 # ``pallet_count`` may legitimately be 0? no — a truck always carries boxes on
@@ -129,7 +143,6 @@ def missing_packing_fields(invoice) -> list[str]:
 # language's .docx; these are *values* that depend on language).
 _LOCALE = {
     'ru': {
-        'product_name': 'Помидор свежий',
         'packing': 'Ящик',
         'country_origin': 'Туркменистан, урожай {year} года',
         'pallet_note': (
@@ -138,7 +151,6 @@ _LOCALE = {
         ),
     },
     'en': {
-        'product_name': 'Fresh tomatoes',
         'packing': 'plastic box',
         'country_origin': 'Turkmenistan, harvest of {year}',
         'pallet_note': (
@@ -293,6 +305,9 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
     loc = _LOCALE.get(lang, _LOCALE['ru'])
     contract = invoice.contract
     shipment = invoice.shipment
+    product = _invoice_product(invoice)
+    name_en, name_ru, _ = product_names(product)
+    default_name = name_en if lang == 'en' else name_ru
 
     seller = invoice.export_firm or (contract.export_firm if contract else None)
     buyer = invoice.import_firm or (contract.import_firm if contract else None)
@@ -353,8 +368,8 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
             line_boxes = int(round(raw_boxes)) if raw_boxes is not None else None
             line_items.append({
                 'n': str(index),
-                'name': line.product_name or loc['product_name'],
-                'code': line.hs_code or TOMATO_HS_CODE,
+                'name': line.product_name or default_name,
+                'code': line.hs_code or _hs_code(product),
                 'pieces': str(line_boxes) if line_boxes else '',
                 'packing': loc['packing'],
                 'gross': _kg(line_gross, lang),
@@ -366,8 +381,8 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
     else:
         line_items = [{
             'n': '1',
-            'name': loc['product_name'],
-            'code': TOMATO_HS_CODE,
+            'name': default_name,
+            'code': _hs_code(product),
             'pieces': str(pieces) if pieces else '',
             'packing': loc['packing'],
             'gross': _kg(gross_kg, lang),
@@ -451,6 +466,16 @@ def _cmr_invoice_refs(numbers: list[str], ref_date: str, loc: dict) -> str:
     )
     template = loc['invoice_refs'] if len(numbers) > 1 else loc['invoice_ref']
     return template.format(num=joined, date=ref_date)
+
+
+def _cmr_cargo_name(shipment, lang: str, loc: dict) -> str:
+    """Box 16 cargo text. Tomato (or no product) keeps the office's own wording;
+    any other product prints its upper-cased name in the document language."""
+    product = getattr(shipment, 'product_type', None)
+    if product is None or product.code == 'tomato':
+        return loc['cargo_name']
+    name_en, name_ru, _ = product_names(product)
+    return (name_en if lang == 'en' else name_ru).upper()
 
 
 def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None) -> dict:
@@ -542,7 +567,7 @@ def build_cmr_context(shipment, lang: str = 'ru', overrides: dict | None = None)
         'doc_date': _date(effective_export_date(shipment)),
         'invoice_refs': invoice_refs,
         'tir_carnet': overrides.get('tir_carnet', ''),  # typed at generate-time (Uzbekistan transit)
-        'cargo_name': loc['cargo_name'],
+        'cargo_name': _cmr_cargo_name(shipment, lang, loc),
         'boxes': str(boxes) if boxes else '',
         'packing': loc['packing'],
         'pallets': _num(pallets) if pallets else '',
@@ -1024,7 +1049,7 @@ def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = No
         'contract_line': _contract_line(contract),
         'country': _country_name(invoice, lang),
         'place_loading': overrides.get('place_loading', ''),
-        'product': 'Ter pomidor',
+        'product': product_names(_invoice_product(invoice))[2],
         'plate': fig.plate,
         'gross': _kg(fig.gross, lang),
         'boxes': str(fig.boxes) if fig.boxes else '',
