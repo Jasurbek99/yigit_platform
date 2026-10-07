@@ -64,6 +64,19 @@ class RejectApiTests(TestCase):
         response = self.client.post(self.url, {'reason': '   '}, format='json')
         self.assertEqual((response.status_code, response.json()['error']), (400, 'reason_required'))
 
+    def test_a_reason_that_is_not_text_counts_as_missing(self):
+        self._as('export_manager')
+        response = self.client.post(self.url, {'reason': ['x']}, format='json')
+        self.assertEqual((response.status_code, response.json()['error']), (400, 'reason_required'))
+
+    def test_rejected_trip_cannot_be_rejected_again_while_planning_has_the_reason(self):
+        self._as('export_manager')
+        self.client.post(self.url, {'reason': 'Нет визы KZ'}, format='json')
+        response = self.client.post(self.url, {'reason': 'Паспорт истекает'}, format='json')
+        self.assertEqual((response.status_code, response.json()['error']), (409, 'trip_rejected'))
+        self.trip.refresh_from_db()
+        self.assertEqual(self.trip.rejection_reason, 'Нет визы KZ')
+
     def test_reason_is_capped(self):
         self._as('export_manager')
         response = self.client.post(self.url, {'reason': 'x' * 513}, format='json')
@@ -91,6 +104,18 @@ class RejectApiTests(TestCase):
     def test_transport_role_cannot_reject(self):
         self._as('transport')
         self.assertEqual(self.client.post(self.url, {'reason': 'x'}, format='json').status_code, 403)
+
+
+class RejectTripServiceTests(TestCase):
+    def test_the_service_validates_the_raw_reason(self):
+        from apps.transport.services.trip_rejection import RejectionError, reject_trip
+        trip = make_trip()
+        user = User.objects.create_user(username='em', password='x', role='export_manager')
+        for reason, code, http_status in [(None, 'reason_required', 400), ('  ', 'reason_required', 400),
+                                          (['x'], 'reason_required', 400), ('x' * 513, 'reason_too_long', 400)]:
+            with self.assertRaises(RejectionError) as ctx:
+                reject_trip(trip, reason, user)
+            self.assertEqual((ctx.exception.code, ctx.exception.http_status), (code, http_status))
 
 
 class RejectionPushTests(TestCase):

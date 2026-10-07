@@ -18,7 +18,7 @@ from apps.transport.serializers_trips import CandidateShipmentSerializer, Extern
 from apps.transport.services.matching import device_for_plate
 from apps.transport.services.trip_assignment import AssignmentError, assign_trip, move_trip, unassign_trip
 from apps.transport.services.trip_changes import accept_trip_change
-from apps.transport.services.trip_rejection import REJECTION_REASON_MAX, reject_trip
+from apps.transport.services.trip_rejection import RejectionError, reject_trip
 from apps.transport.services.trips_client import TripsApiUnavailable, get_trips_client
 
 
@@ -120,12 +120,12 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
-        reason = str(request.data.get('reason') or '').strip()
-        if not reason:
-            return _error('reason_required', status.HTTP_400_BAD_REQUEST)
-        if len(reason) > REJECTION_REASON_MAX:
-            return _error('reason_too_long', status.HTTP_400_BAD_REQUEST)
-        return self._run(lambda trip: reject_trip(trip, reason, request.user))
+        trip = self.get_object()
+        try:
+            reject_trip(trip, request.data.get('reason'), request.user)
+        except RejectionError as exc:
+            return _error(exc.code, exc.http_status)
+        return Response(_trip_payload(trip))
 
     @action(detail=True, methods=['post'], url_path='accept-change')
     def accept_change(self, request, pk=None):
