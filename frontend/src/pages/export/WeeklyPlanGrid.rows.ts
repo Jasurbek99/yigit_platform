@@ -32,6 +32,8 @@ export interface IPlanGridRow {
    */
   block_manager_names: string[];
   late_edit_active: boolean;
+  /** Block's product (tomato/pepper); null = no variety set. */
+  product_code?: string | null;
 }
 
 /**
@@ -70,6 +72,7 @@ export function buildPlanGridRows(
       plan,
       block_manager_names: plan?.block_manager_names ?? [],
       late_edit_active: plan?.late_edit_active ?? false,
+      product_code: b.product_type_code ?? null,
       sortOrder: b.sort_order ?? 0,
     });
   }
@@ -86,10 +89,30 @@ export function buildPlanGridRows(
       plan: p,
       block_manager_names: p.block_manager_names,
       late_edit_active: p.late_edit_active,
+      product_code: null,
       sortOrder: Number.POSITIVE_INFINITY,
     });
   }
 
   rows.sort((a, b) => a.sortOrder - b.sortOrder || a.block_code.localeCompare(b.block_code));
   return rows.map(({ sortOrder: _sortOrder, ...row }) => row);
+}
+
+/**
+ * Sum `valueOf` per product, ordered tomato, pepper, then any others.
+ * A row with no product reads as tomato.
+ */
+export function productTotals(
+  rows: IPlanGridRow[],
+  valueOf: (row: IPlanGridRow) => number,
+): { code: string; total: number }[] {
+  const totals = new Map<string, number>();
+  for (const r of rows) {
+    const code = r.product_code ?? 'tomato';
+    totals.set(code, (totals.get(code) ?? 0) + valueOf(r));
+  }
+  const rank = (c: string) => (c === 'tomato' ? 0 : c === 'pepper' ? 1 : 2);
+  return [...totals.entries()]
+    .map(([code, total]) => ({ code, total }))
+    .sort((a, b) => rank(a.code) - rank(b.code));
 }

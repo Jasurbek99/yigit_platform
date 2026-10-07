@@ -61,7 +61,7 @@ import type { IWeeklyHarvestPlan, IHarvestDayEntry } from '@/types';
 import { TruckAllocationTable } from './TruckAllocationTable';
 import { TruckReviewBanner } from './TruckReviewBanner';
 import { planGridCapabilities } from './WeeklyPlanGrid.roles';
-import { buildPlanGridRows, type IPlanGridRow } from './WeeklyPlanGrid.rows';
+import { buildPlanGridRows, productTotals, type IPlanGridRow } from './WeeklyPlanGrid.rows';
 import { COLORS } from '@/constants/styles';
 
 dayjs.extend(isoWeek);
@@ -504,6 +504,9 @@ export default function WeeklyPlanGrid() {
           <Tag color={isBlockManager && myBlockIds.has(row.block) ? 'gold' : 'blue'}>
             {row.block_code}
           </Tag>
+          {row.product_code === 'pepper' && (
+            <Tag color="red" style={{ marginInlineStart: 4 }}>{t('product.pepper')}</Tag>
+          )}
           {row.late_edit_active && (
             <Tag color="orange" style={{ marginLeft: 2, fontSize: 10 }}>
               <ClockCircleOutlined />
@@ -598,32 +601,32 @@ export default function WeeklyPlanGrid() {
   // ─── Summary row helpers ───────────────────────────────────────────────────
 
   function renderSummary() {
+    // One total row per product; a single-product week keeps the plain label.
+    const codes = productTotals(rows, () => 0).map((p) => p.code);
     return (
-      <Table.Summary.Row style={{ fontWeight: 600 }}>
-        <Table.Summary.Cell index={0}>{t('plan.total')}</Table.Summary.Cell>
-        {activeDays.map((day, di) => {
-          const colDate = weekMonday.add(di, 'day');
-          const colDateStr = colDate.format('YYYY-MM-DD');
-          const planTotal = rows.reduce((s, r) => {
-            const e = entriesByBlockDay.get(`${r.block}-${colDateStr}`);
-            return s + num(e?.plan_value);
-          }, 0);
-          // const actualTotal = plans.reduce((s, p) => {
-          //   const e = entriesByBlockDay.get(`${p.block}-${colDateStr}`);
-          //   return s + num(e?.actual_value);
-          // }, 0);
+      <>
+        {codes.map((code) => {
+          const productRows = rows.filter((r) => (r.product_code ?? 'tomato') === code);
+          const label = codes.length > 1 ? `${t('plan.total')} ${t(`product.${code}`)}` : t('plan.total');
           return (
-            <Table.Summary.Cell key={`sum_${day}`} index={1 + di}>
-              <div>
-                <div style={{ color: COLORS.primary, fontSize: 12 }}>{fmtKg(planTotal || null)}</div>
-                {/* actualTotal > 0 && (
-                  <div style={{ color: COLORS.success, fontSize: 12 }}>{fmtKg(actualTotal)}</div>
-                ) */}
-              </div>
-            </Table.Summary.Cell>
+            <Table.Summary.Row key={`sum_row_${code}`} style={{ fontWeight: 600 }}>
+              <Table.Summary.Cell index={0}>{label}</Table.Summary.Cell>
+              {activeDays.map((day, di) => {
+                const colDateStr = weekMonday.add(di, 'day').format('YYYY-MM-DD');
+                const planTotal = productRows.reduce((s, r) => {
+                  const e = entriesByBlockDay.get(`${r.block}-${colDateStr}`);
+                  return s + num(e?.plan_value);
+                }, 0);
+                return (
+                  <Table.Summary.Cell key={`sum_${code}_${day}`} index={1 + di}>
+                    <div style={{ color: COLORS.primary, fontSize: 12 }}>{fmtKg(planTotal || null)}</div>
+                  </Table.Summary.Cell>
+                );
+              })}
+            </Table.Summary.Row>
           );
         })}
-      </Table.Summary.Row>
+      </>
     );
   }
 

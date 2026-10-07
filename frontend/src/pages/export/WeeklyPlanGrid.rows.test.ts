@@ -109,3 +109,16 @@ describe('buildPlanGridRows', () => {
     expect(rows[0].block_name).toBe('Q');
   });
 });
+
+describe('buildPlanGridRows — product', () => {
+  it('copies the block product into product_code; missing reads as null', () => {
+    const rows = buildPlanGridRows(
+      [
+        block({ id: 1, code: 'A', product_type_code: 'pepper' }),
+        block({ id: 2, code: 'B' }),
+      ],
+      [plan({ id: 9, block: 3 })],
+    );
+    expect(rows.map((r) => r.product_code)).toEqual(['pepper', null, null]);
+  });
+});

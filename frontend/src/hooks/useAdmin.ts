@@ -668,6 +668,9 @@ export function useUpdateTomatoVariety(options: MutationOptions = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tomato-varieties'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      // A variety's product decides its blocks' product (weekly plan tag + totals).
+      queryClient.invalidateQueries({ queryKey: ['core-blocks'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-blocks-full'] });
       options.onSuccess?.();
     },
     onError: options.onError,
