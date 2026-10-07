@@ -60,6 +60,10 @@ import {
   useCreateTomatoVariety,
   useUpdateTomatoVariety,
   useDeleteTomatoVariety,
+  useProductTypes,
+  useCreateProductType,
+  useUpdateProductType,
+  useDeleteProductType,
   useBorderPoints,
   useCreateBorderPoint,
   useUpdateBorderPoint,
@@ -77,6 +81,7 @@ import type {
   IImportFirm,
   IExportFirm,
   ITomatoVariety,
+  IProductType,
   IBorderPoint,
   IGreenhouseBlock,
 } from '@/types';
@@ -108,6 +113,7 @@ const FK_CATEGORIES = [
   'import_firm',
   'export_firm',
   'variety',
+  'product_type',
   'border_point',
   'block',
 ] as const;
@@ -144,6 +150,7 @@ interface IFKFormValues {
   name_short?: string | null;
   // identifiers
   code?: string | null;
+  hs_code?: string | null;
   // contact
   phone?: string | null;
   // FK refs
@@ -151,6 +158,7 @@ interface IFKFormValues {
   city?: number | null;
   default_country?: number | null;
   default_city?: number | null;
+  product_type?: number | null;
   // misc
   type?: string | null;
   route_description?: string | null;
@@ -169,6 +177,13 @@ interface IFKRow {
   color: string | null;
   sort_order: number;
   is_active: boolean;
+  /** Variety rows only: 'tomato' | 'pepper' | null. */
+  product_code?: string | null;
+  /** Product rows only. */
+  hs_code?: string | null;
+  name_en?: string | null;
+  name_ru?: string | null;
+  name_tk?: string | null;
 }
 
 const normalizeCountry = (c: ICountry): IFKRow => ({
@@ -218,6 +233,21 @@ const normalizeVariety = (v: ITomatoVariety): IFKRow => ({
   color: v.color ?? null,
   sort_order: v.sort_order ?? 0,
   is_active: true,
+  product_code: v.product_type_code ?? null,
+});
+// ProductType has no color / sort_order / is_active columns — the FK table
+// hides those for this category (see isProductCategory below).
+const normalizeProductType = (p: IProductType): IFKRow => ({
+  id: p.id,
+  display_name: p.name,
+  display_code: p.code,
+  color: null,
+  sort_order: 0,
+  is_active: true,
+  hs_code: p.hs_code,
+  name_en: p.name_en,
+  name_ru: p.name_ru,
+  name_tk: p.name_tk,
 });
 const normalizeBorderPoint = (b: IBorderPoint): IFKRow => ({
   id: b.id,
@@ -312,6 +342,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
   const importFirmsQ = useAdminImportFirms();
   const exportFirmsQ = useAdminFirms();
   const varietiesQ = useTomatoVarieties();
+  const productTypesQ = useProductTypes();
   const borderPointsQ = useBorderPoints();
   const blocksQ = useAdminBlocks();
 
@@ -349,6 +380,17 @@ export default function OptionListsTab({ canWrite }: IProps) {
   const cVariety = useCreateTomatoVariety({ onSuccess: () => { tCreated(); closeFkModal(); }, onError: tError });
   const uVariety = useUpdateTomatoVariety({ onSuccess: () => { tUpdated(); closeFkModal(); }, onError: tError });
   const dVariety = useDeleteTomatoVariety({ onSuccess: tDeleted, onError: tError });
+  const cProductType = useCreateProductType({ onSuccess: () => { tCreated(); closeFkModal(); }, onError: tError });
+  const uProductType = useUpdateProductType({ onSuccess: () => { tUpdated(); closeFkModal(); }, onError: tError });
+  // A product still used by varieties / contracts is refused with 400
+  // {"error": "Product is in use."} — surface that message, not the generic one.
+  const dProductType = useDeleteProductType({
+    onSuccess: tDeleted,
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg ?? t('shipment_settings.toast_error'));
+    },
+  });
   const cBorderPoint = useCreateBorderPoint({ onSuccess: () => { tCreated(); closeFkModal(); }, onError: tError });
   const uBorderPoint = useUpdateBorderPoint({ onSuccess: () => { tUpdated(); closeFkModal(); }, onError: tError });
   const dBorderPoint = useDeleteBorderPoint({ onSuccess: tDeleted, onError: tError });
@@ -446,6 +488,8 @@ export default function OptionListsTab({ canWrite }: IProps) {
         return { rows: (exportFirmsQ.data ?? []).map(normalizeExportFirm), isLoading: exportFirmsQ.isLoading };
       case 'variety':
         return { rows: (varietiesQ.data ?? []).map(normalizeVariety), isLoading: varietiesQ.isLoading };
+      case 'product_type':
+        return { rows: (productTypesQ.data ?? []).map(normalizeProductType), isLoading: productTypesQ.isLoading };
       case 'border_point':
         return { rows: (borderPointsQ.data ?? []).map(normalizeBorderPoint), isLoading: borderPointsQ.isLoading };
       case 'block':
@@ -461,6 +505,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
     importFirmsQ.data, importFirmsQ.isLoading,
     exportFirmsQ.data, exportFirmsQ.isLoading,
     varietiesQ.data, varietiesQ.isLoading,
+    productTypesQ.data, productTypesQ.isLoading,
     borderPointsQ.data, borderPointsQ.isLoading,
     blocksQ.data, blocksQ.isLoading,
   ]);
@@ -504,6 +549,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
       importFirms: importFirmsQ.data ?? [],
       exportFirms: exportFirmsQ.data ?? [],
       varieties: varietiesQ.data ?? [],
+      productTypes: productTypesQ.data ?? [],
       borderPoints: borderPointsQ.data ?? [],
       blocks: blocksQ.data ?? [],
     });
@@ -524,6 +570,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
           case 'import_firm': dImportFirm.mutate(row.id); break;
           case 'export_firm': dExportFirm.mutate(row.id); break;
           case 'variety': dVariety.mutate(row.id); break;
+          case 'product_type': dProductType.mutate(row.id); break;
           case 'border_point': dBorderPoint.mutate(row.id); break;
           case 'block': dBlock.mutate(row.id); break;
         }
@@ -636,11 +683,25 @@ export default function OptionListsTab({ canWrite }: IProps) {
           name: values.name ?? '',
           code: values.code ?? null,
           type: values.type ?? null,
+          product_type: values.product_type ?? null,
           color: values.color ?? null,
           sort_order: values.sort_order ?? 0,
         };
         if (isCreate) cVariety.mutate(payload);
         else uVariety.mutate({ id, ...payload });
+        break;
+      }
+      case 'product_type': {
+        const payload = {
+          name: values.name ?? '',
+          code: values.code || null,
+          hs_code: values.hs_code || null,
+          name_en: values.name_en || null,
+          name_ru: values.name_ru || null,
+          name_tk: values.name_tk || null,
+        };
+        if (isCreate) cProductType.mutate(payload);
+        else uProductType.mutate({ id, ...payload });
         break;
       }
       case 'border_point': {
@@ -768,22 +829,27 @@ export default function OptionListsTab({ canWrite }: IProps) {
   ];
 
   // ─── FK table columns ──────────────────────────────────────────────────────
-  const fkColumns = [
-    ...dragHandleColumn,
-    {
-      title: t('shipment_settings.col_code'),
-      dataIndex: 'display_code',
-      key: 'display_code',
-      width: 140,
-      render: (v: string | null) => (v ? <code>{v}</code> : <Text type="secondary">—</Text>),
-    },
-    {
-      title: t('shipment_settings.col_name'),
-      dataIndex: 'display_name',
-      key: 'display_name',
-      sorter: (a: IFKRow, b: IFKRow) => a.display_name.localeCompare(b.display_name),
-      render: (v: string) => <strong>{v}</strong>,
-    },
+  // Products carry no color / sort_order (the API has neither), so those
+  // columns and the drag handle are dropped for that category.
+  const isProductCategory = category === 'product_type';
+  const productExtraColumns = isProductCategory
+    ? [
+        { title: t('shipment_settings.col_hs_code'), dataIndex: 'hs_code', key: 'hs_code', width: 140, render: (v: string | null) => v ?? '—' },
+        { title: t('shipment_settings.col_label_en'), dataIndex: 'name_en', key: 'name_en', render: (v: string | null) => v ?? '—' },
+        { title: t('shipment_settings.col_label_ru'), dataIndex: 'name_ru', key: 'name_ru', render: (v: string | null) => v ?? '—' },
+        { title: t('shipment_settings.col_label_tk'), dataIndex: 'name_tk', key: 'name_tk', render: (v: string | null) => v ?? '—' },
+      ]
+    : [];
+  const varietyProductColumn = category === 'variety'
+    ? [{
+        title: t('shipment_settings.col_product'),
+        dataIndex: 'product_code',
+        key: 'product_code',
+        width: 120,
+        render: (v: string | null | undefined) => (v === 'tomato' || v === 'pepper' ? t(`product.${v}`) : '—'),
+      }]
+    : [];
+  const fkColorSortColumns = isProductCategory ? [] : [
     {
       title: t('shipment_settings.col_color'),
       dataIndex: 'color',
@@ -807,6 +873,26 @@ export default function OptionListsTab({ canWrite }: IProps) {
       sorter: (a: IFKRow, b: IFKRow) => a.sort_order - b.sort_order,
       defaultSortOrder: 'ascend' as const,
     },
+  ];
+  const fkColumns = [
+    ...(isProductCategory ? [] : dragHandleColumn),
+    {
+      title: t('shipment_settings.col_code'),
+      dataIndex: 'display_code',
+      key: 'display_code',
+      width: 140,
+      render: (v: string | null) => (v ? <code>{v}</code> : <Text type="secondary">—</Text>),
+    },
+    {
+      title: t('shipment_settings.col_name'),
+      dataIndex: 'display_name',
+      key: 'display_name',
+      sorter: (a: IFKRow, b: IFKRow) => a.display_name.localeCompare(b.display_name),
+      render: (v: string) => <strong>{v}</strong>,
+    },
+    ...varietyProductColumn,
+    ...productExtraColumns,
+    ...fkColorSortColumns,
     ...(canWrite
       ? [
           {
@@ -1024,6 +1110,24 @@ export default function OptionListsTab({ canWrite }: IProps) {
               </Form.Item>
               <Form.Item name="code" label={t('shipment_settings.col_code')}><Input /></Form.Item>
               <Form.Item name="type" label={t('shipment_settings.col_type')}><Input /></Form.Item>
+              <Form.Item name="product_type" label={t('shipment_settings.col_product')}>
+                <Select
+                  allowClear
+                  options={(productTypesQ.data ?? []).map((p) => ({ value: p.id, label: p.name }))}
+                />
+              </Form.Item>
+            </>
+          )}
+          {category === 'product_type' && (
+            <>
+              <Form.Item name="name" label={t('shipment_settings.col_name')} rules={[{ required: true, message: t('common.required') }]}>
+                <Input />
+              </Form.Item>
+              <Form.Item name="code" label={t('shipment_settings.col_code')}><Input placeholder="tomato / pepper" /></Form.Item>
+              <Form.Item name="hs_code" label={t('shipment_settings.col_hs_code')}><Input /></Form.Item>
+              <Form.Item name="name_en" label={t('shipment_settings.col_label_en')}><Input /></Form.Item>
+              <Form.Item name="name_ru" label={t('shipment_settings.col_label_ru')}><Input /></Form.Item>
+              <Form.Item name="name_tk" label={t('shipment_settings.col_label_tk')}><Input /></Form.Item>
             </>
           )}
           {category === 'border_point' && (
@@ -1045,12 +1149,16 @@ export default function OptionListsTab({ canWrite }: IProps) {
               <Form.Item name="name" label={t('shipment_settings.col_name')}><Input /></Form.Item>
             </>
           )}
-          <Form.Item name="color" label={t('shipment_settings.col_color')}>
-            <ColorInput />
-          </Form.Item>
-          <Form.Item name="sort_order" label={t('shipment_settings.col_sort')}>
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
+          {!isProductCategory && (
+            <>
+              <Form.Item name="color" label={t('shipment_settings.col_color')}>
+                <ColorInput />
+              </Form.Item>
+              <Form.Item name="sort_order" label={t('shipment_settings.col_sort')}>
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </>
+          )}
           {/* is_active toggle only on tables that have the field */}
           {fkEditTargetId !== null &&
             (category === 'customer' ||
@@ -1077,6 +1185,7 @@ interface IFKCaches {
   importFirms: IImportFirm[];
   exportFirms: IExportFirm[];
   varieties: ITomatoVariety[];
+  productTypes: IProductType[];
   borderPoints: IBorderPoint[];
   blocks: IGreenhouseBlock[];
 }
@@ -1137,7 +1246,16 @@ function collectInitialFormValues(
       if (!r) return {};
       return {
         name: r.name, code: r.code, type: r.type,
+        product_type: r.product_type ?? null,
         color: r.color ?? null, sort_order: r.sort_order ?? 0,
+      };
+    }
+    case 'product_type': {
+      const r = caches.productTypes.find((x) => x.id === id);
+      if (!r) return {};
+      return {
+        name: r.name, code: r.code, hs_code: r.hs_code,
+        name_en: r.name_en, name_ru: r.name_ru, name_tk: r.name_tk,
       };
     }
     case 'border_point': {

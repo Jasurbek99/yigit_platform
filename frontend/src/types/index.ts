@@ -1544,6 +1544,17 @@ export interface ILoadingLocation {
   name: string;
 }
 
+export interface IProductType {
+  id: number;
+  name: string;
+  /** 'tomato' | 'pepper' for the two products with their own documents; null for others. */
+  code: string | null;
+  hs_code: string | null;
+  name_en: string | null;
+  name_ru: string | null;
+  name_tk: string | null;
+}
+
 export interface ITomatoVariety {
   id: number;
   name: string;
@@ -1554,6 +1565,10 @@ export interface ITomatoVariety {
   scientific_name: string;
   color?: string | null;
   sort_order?: number;
+  /** FK to ProductType; null reads as tomato. */
+  product_type?: number | null;
+  /** Read-only: 'tomato' | 'pepper' | null. */
+  product_type_code?: string | null;
 }
 
 export interface IGreenhouseBlockSub {
@@ -1594,6 +1609,8 @@ export interface IGreenhouseBlock {
   sub_blocks: IGreenhouseBlockSub[];
   /** How many days a leftover from this block stays loadable (default 7). */
   carry_days: number;
+  /** Read-only: product of the block's main variety; null reads as tomato. */
+  product_type_code?: string | null;
 }
 
 export interface IBlockAssignment {

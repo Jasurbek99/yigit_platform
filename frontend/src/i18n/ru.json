@@ -1148,6 +1148,8 @@
     "col_days": "Дни в пути",
     "col_status": "Статус",
     "col_label_tk": "Метка (TK)",
+    "col_hs_code": "ТН ВЭД",
+    "col_product": "Продукт",
     "col_label_en": "Метка (EN)",
     "col_label_ru": "Метка (RU)",
     "col_icon": "Иконка",
@@ -1172,6 +1174,7 @@
     "category_import_firm": "Импортёр",
     "category_export_firm": "Экспортёр",
     "category_variety": "Сорт",
+    "category_product_type": "Продукты",
     "category_border_point": "Пункт пропуска",
     "category_block": "Блок",
     "name_ru_missing": "не задано",
@@ -4283,5 +4286,9 @@
     "col_customs": "ARZA — последний №",
     "saved": "Сохранено",
     "save_error": "Не удалось сохранить"
+  },
+  "product": {
+    "tomato": "Томат",
+    "pepper": "Перец"
   }
 }

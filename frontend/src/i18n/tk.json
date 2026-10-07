@@ -1146,6 +1146,8 @@
     "col_days": "Ýol güni",
     "col_status": "Ýagdaýy",
     "col_label_tk": "Belgi (TK)",
+    "col_hs_code": "TN WED",
+    "col_product": "Önüm",
     "col_label_en": "Belgi (EN)",
     "col_label_ru": "Belgi (RU)",
     "col_icon": "Nyşan",
@@ -1170,6 +1172,7 @@
     "category_import_firm": "Daşary firma",
     "category_export_firm": "Eksport firma",
     "category_variety": "Sort",
+    "category_product_type": "Önümler",
     "category_border_point": "Gümrük geçelgesi",
     "category_block": "Blok",
     "name_ru_missing": "bellenmedik",
@@ -4284,5 +4287,9 @@
     "col_customs": "ARZA — soňky №",
     "saved": "Ýatda saklandy",
     "save_error": "Ýatda saklap bolmady"
+  },
+  "product": {
+    "tomato": "Pomidor",
+    "pepper": "Burç"
   }
 }

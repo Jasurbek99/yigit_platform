@@ -1146,6 +1146,8 @@
     "col_days": "Transit Days",
     "col_status": "Status",
     "col_label_tk": "Label (TK)",
+    "col_hs_code": "HS code",
+    "col_product": "Product",
     "col_label_en": "Label (EN)",
     "col_label_ru": "Label (RU)",
     "col_icon": "Icon",
@@ -1170,6 +1172,7 @@
     "category_import_firm": "Import Firm",
     "category_export_firm": "Export Firm",
     "category_variety": "Variety",
+    "category_product_type": "Products",
     "category_border_point": "Border Point",
     "category_block": "Block",
     "name_ru_missing": "not set",
@@ -4281,5 +4284,9 @@
     "col_customs": "ARZA — last №",
     "saved": "Saved",
     "save_error": "Could not save"
+  },
+  "product": {
+    "tomato": "Tomato",
+    "pepper": "Pepper"
   }
 }

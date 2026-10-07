@@ -13,6 +13,7 @@ import type {
   IBlockAssignment,
   ILoadingLocation,
   ITomatoVariety,
+  IProductType,
   ICustomer,
   ITruckDestination,
   IBorderPoint,
@@ -429,6 +430,22 @@ export function useTomatoVarieties() {
   });
 }
 
+// ─── Product types ────────────────────────────────────────────────────────
+
+export function useProductTypes() {
+  return useQuery({
+    queryKey: ['product-types'],
+    queryFn: async (): Promise<IProductType[]> => {
+      if (USE_MOCK) return [];
+      const { data } = await api.get<IApiListResponse<IProductType> | IProductType[]>(
+        '/core/product-types/?page_size=200',
+      );
+      return Array.isArray(data) ? data : data.results;
+    },
+    staleTime: 300_000,
+  });
+}
+
 // ─── Block Assignments ────────────────────────────────────────────────────
 
 export function useBlockAssignments(userId?: number) {
@@ -708,6 +725,46 @@ export function useDeleteTomatoVariety(options: MutationOptions = {}) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tomato-varieties'] });
       queryClient.invalidateQueries({ queryKey: ['shipments', 'sheet'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useCreateProductType(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: Partial<IProductType>) =>
+      api.post<IProductType>('/core/product-types/', payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product-types'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useUpdateProductType(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: Partial<IProductType> & { id: number }) =>
+      api.patch<IProductType>(`/core/product-types/${id}/`, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product-types'] });
+      queryClient.invalidateQueries({ queryKey: ['tomato-varieties'] });
+      options.onSuccess?.();
+    },
+    onError: options.onError,
+  });
+}
+
+export function useDeleteProductType(options: MutationOptions = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.delete(`/core/product-types/${id}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product-types'] });
+      queryClient.invalidateQueries({ queryKey: ['tomato-varieties'] });
       options.onSuccess?.();
     },
     onError: options.onError,
