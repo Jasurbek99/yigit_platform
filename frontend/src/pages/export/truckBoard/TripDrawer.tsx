@@ -1,9 +1,10 @@
-import { Button, Descriptions, Drawer } from 'antd';
+import { Button, Descriptions, Drawer, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { openTripDocument } from '@/hooks/useExternalTrips';
 import type { IExternalTrip } from '@/types/externalTrip';
 import { TripMiniMap } from './TripMiniMap';
+import { rejectionFailed } from './truckBoardHelpers';
 import { useTripMessages } from './useTripMessages';
 
 interface ITripDrawerProps {
@@ -54,10 +55,15 @@ export function TripDrawer({ trip, canReject, onReject, onClose }: ITripDrawerPr
               </Descriptions.Item>
             )}
           </Descriptions>
+          {rejectionFailed(trip) && (
+            <Typography.Text type="danger" style={{ display: 'block', fontSize: 12, marginTop: 8 }}>
+              {messages.pushError(trip.last_push_error ?? '')}
+            </Typography.Text>
+          )}
           {trip.position && <TripMiniMap lat={trip.position.lat} lon={trip.position.lon} height={220} />}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <Button onClick={() => openPdf(trip.id)}>{t('truck_board.documents_pdf')}</Button>
-            {canReject && !trip.shipment && !trip.rejected_at && (
+            {canReject && !trip.shipment && (!trip.rejected_at || rejectionFailed(trip)) && (
               <Button danger onClick={() => onReject(trip)}>{t('truck_board.reject')}</Button>
             )}
           </div>

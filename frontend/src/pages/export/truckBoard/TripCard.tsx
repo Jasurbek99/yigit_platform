@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import { Button, Tag, Typography } from 'antd';
+import { Button, Tag, Tooltip, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IExternalTrip } from '@/types/externalTrip';
 import { TripCardDetails } from './TripCardDetails';
-import { boardCardStyle, hasVisaFor, syncAgeMinutes } from './truckBoardHelpers';
+import { boardCardStyle, hasVisaFor, rejectionFailed, syncAgeMinutes } from './truckBoardHelpers';
+import { useTripMessages } from './useTripMessages';
 
 const { Text } = Typography;
+// A long reason must not stretch the card: cut it, full text in the tooltip.
+const REJECTED_TAG_STYLE = {
+  maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block',
+} as const;
 
 interface ITripCardProps {
   trip: IExternalTrip;
@@ -19,6 +24,7 @@ interface ITripCardProps {
 
 export function TripCard({ trip, selected, dimmed, countryCode, onSelect, onOpen }: ITripCardProps) {
   const { t } = useTranslation();
+  const messages = useTripMessages();
   const [expanded, setExpanded] = useState(false);
   const position = trip.position;
   const place = position
@@ -44,9 +50,16 @@ export function TripCard({ trip, selected, dimmed, countryCode, onSelect, onOpen
         {trip.destination_country_code && <Tag color="blue">{trip.destination_country_code}</Tag>}
         {!hasVisaFor(trip, countryCode) && <Tag color="orange">⚠ {t('truck_board.no_visa')}</Tag>}
         {trip.rejected_at && (
-          <Tag color="red">{t('truck_board.rejected_tag', { reason: trip.rejection_reason })}</Tag>
+          <Tooltip title={trip.rejection_reason}>
+            <Tag color="red" style={REJECTED_TAG_STYLE}>
+              {t('truck_board.rejected_tag', { reason: trip.rejection_reason })}
+            </Tag>
+          </Tooltip>
         )}
       </div>
+      {rejectionFailed(trip) && (
+        <Text type="danger" style={{ fontSize: 12 }}>{messages.pushError(trip.last_push_error ?? '')}</Text>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>📍 {where}</Text>
         <span>

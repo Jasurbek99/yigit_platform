@@ -42,6 +42,11 @@ export function pushErrorParts(stored: string): { op: string; code: string } {
   return { op, code };
 }
 
+/** Planning never got our rejection (it is not re-sent by itself): show it and allow rejecting again. */
+export function rejectionFailed(trip: Pick<IExternalTrip, 'last_push_error'>): boolean {
+  return !!trip.last_push_error?.startsWith('rejection:');
+}
+
 /** The contract error key (`{"error": "<code>"}`) of a failed request; 'generic' otherwise. */
 export function apiErrorKey(err: unknown): string {
   const data = isAxiosError(err) ? (err.response?.data as { error?: unknown } | undefined) : undefined;

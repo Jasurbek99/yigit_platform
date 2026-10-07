@@ -4275,6 +4275,7 @@
       "DUPLICATE_EXPORT_CODE": "Planning refused the export code: another trip already has it",
       "CITY_COUNTRY_MISMATCH": "Planning refused the destination city: it is not in the trip country",
       "PLANNING_UNAVAILABLE": "Planning did not answer — the data will be sent again automatically",
+      "rejection_unavailable": "Planning did not receive the rejection — reject the trip again",
       "generic": "Planning refused {{op}} ({{code}})"
     },
     "passport_valid_until": "Passport valid until",

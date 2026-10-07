@@ -4278,6 +4278,7 @@
       "DUPLICATE_EXPORT_CODE": "Planning eksport koduny kabul etmedi: ol başga reýsde bar",
       "CITY_COUNTRY_MISMATCH": "Planning barjak şäheri kabul etmedi: ol reýsiň ýurdunda däl",
       "PLANNING_UNAVAILABLE": "Planning jogap bermedi — maglumat awtomatik gaýtadan iberiler",
+      "rejection_unavailable": "Planning ret edilmegini almady — reýsi täzeden ret ediň",
       "generic": "Planning {{op}} kabul etmedi ({{code}})"
     },
     "passport_valid_until": "Pasportyň möhleti",
