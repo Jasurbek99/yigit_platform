@@ -1835,6 +1835,11 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'product_type': str(exc)})
             if blocks_product is not None and blocks_product.code != product_code(attrs['product_type']):
                 raise serializers.ValidationError({'product_type': PRODUCT_MISMATCH})
+            from apps.export.services.product_type import ProductQuotaError, check_product_quota
+            try:
+                check_product_quota(self.instance, attrs['product_type'])
+            except ProductQuotaError as exc:
+                raise serializers.ValidationError({'product_type': str(exc)})
 
         role = self.context.get('role')
         if role in PRIVILEGED_ROLES:

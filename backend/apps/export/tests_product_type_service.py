@@ -51,9 +51,43 @@ class ProductServiceTests(TestCase):
         self.assertEqual(shipment_product_code(self.ship), 'tomato')
         self.assertIsNone(check_blocks_fit(self.ship, [self.tb.id]))
 
-    def test_set_product_moves_quota_rows(self):
+    def _split_firm(self, quota_product=None):
+        from decimal import Decimal
+
+        from django.core.cache import cache
+
         from apps.core.models import ExportFirm
+        from apps.export.models import QuotaIssuance, QuotaIssuanceFirmAllocation
         firm = ExportFirm.objects.create(code='PF', name_tk='PF', name_en='PF')
         ShipmentFirmSplit.objects.create(shipment=self.ship, export_firm=firm, weight_kg=18000, split_order=1)
+        if quota_product:
+            issuance = QuotaIssuance.objects.create(
+                issue_date=datetime.date.today(), product_type=quota_product,
+                validity='this_month', season=self.ship.season,
+            )
+            QuotaIssuanceFirmAllocation.objects.create(
+                issuance=issuance, export_firm=firm, kg_quota=Decimal('50000'),
+            )
+        cache.clear()
+        return firm
+
+    def test_set_product_moves_quota_rows(self):
+        self._split_firm(quota_product='pepper')
         self.assertTrue(set_shipment_product(self.ship, self.pepper, self.user))
         self.assertEqual(set(self.ship.quota_usage_records.values_list('product_type', flat=True)), {'pepper'})
+
+    def test_set_product_refused_without_quota_for_new_product(self):
+        from apps.export.services.product_type import ProductQuotaError
+        self._split_firm(quota_product='tomato')
+        with self.assertRaisesMessage(ProductQuotaError, 'PF has no remaining pepper quota'):
+            set_shipment_product(self.ship, self.pepper, self.user)
+        self.assertEqual(Shipment.objects.get(pk=self.ship.pk).product_type.code, 'tomato')
+
+    def test_null_to_tomato_is_not_a_quota_move(self):
+        """NULL reads as tomato: filling it in needs no quota and resyncs nothing."""
+        self._split_firm(quota_product=None)
+        Shipment.objects.filter(pk=self.ship.pk).update(product_type=None)
+        self.ship.refresh_from_db()
+        self.assertTrue(set_shipment_product(self.ship, self.tomato, self.user))
+        self.assertEqual(Shipment.objects.get(pk=self.ship.pk).product_type.code, 'tomato')
+        self.assertFalse(self.ship.quota_usage_records.exists())
