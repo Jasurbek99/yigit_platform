@@ -54,6 +54,7 @@ class GreenhouseBlockAdminSerializer(serializers.ModelSerializer):
     location_name = serializers.SerializerMethodField()
     parent_code = serializers.SerializerMethodField()
     sub_blocks = serializers.SerializerMethodField()
+    product_type_code = serializers.SerializerMethodField()
 
     class Meta:
         model = GreenhouseBlock
@@ -71,7 +72,12 @@ class GreenhouseBlockAdminSerializer(serializers.ModelSerializer):
             'is_active',
             'carry_days',
             'sub_blocks',
+            'product_type_code',
         ]
+
+    def get_product_type_code(self, obj: GreenhouseBlock) -> str | None:
+        product = obj.resolve_product()
+        return product.code if product else None
 
     def get_manager_name(self, obj: GreenhouseBlock) -> str | None:
         """Names of the block's active BlockManagerAssignment users.
@@ -124,7 +130,8 @@ class GreenhouseBlockAdminViewSet(ModelViewSet):
 
     def get_queryset(self):
         qs = GreenhouseBlock.objects.select_related(
-            'parent', 'variety_main', 'variety_secondary', 'location'
+            'parent', 'variety_main', 'variety_secondary', 'location',
+            'variety_main__product_type', 'parent__variety_main__product_type',
         ).prefetch_related(Prefetch(
             'manager_assignments',
             queryset=BlockManagerAssignment.objects.filter(is_active=True).select_related('user'),

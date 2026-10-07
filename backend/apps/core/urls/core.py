@@ -10,6 +10,7 @@ from apps.core.views import (
     GreenhouseBlockViewSet,
     LoadingLocationViewSet,
     TomatoVarietyViewSet,
+    ProductTypeViewSet,
     CrateTypeViewSet,
     TruckDestinationViewSet,
     BorderPointViewSet,
@@ -41,6 +42,7 @@ router.register('customers', CustomerViewSet, basename='customer')
 router.register('blocks', GreenhouseBlockViewSet, basename='block')
 router.register('loading-locations', LoadingLocationViewSet, basename='loading-location')
 router.register('tomato-varieties', TomatoVarietyViewSet, basename='tomato-variety')
+router.register('product-types', ProductTypeViewSet, basename='product-type')
 router.register('crate-types', CrateTypeViewSet, basename='crate-type')
 router.register('truck-destinations', TruckDestinationViewSet, basename='truck-destination')
 router.register('border-points', BorderPointViewSet, basename='border-point')

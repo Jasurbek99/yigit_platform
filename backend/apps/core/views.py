@@ -7,7 +7,7 @@ from django.utils.decorators import method_decorator
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Q
+from django.db.models import ProtectedError, Q
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -16,7 +16,7 @@ from apps.core.models import (
     City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
     TruckDestination, CrateType, GreenhouseConfig, OperatingDayException,
-    CompanyLegalType,
+    CompanyLegalType, ProductType,
 )
 from apps.core.permissions import write_permission
 from apps.core.roles import REFERENCE_DATA_WRITE
@@ -32,6 +32,7 @@ from apps.core.serializers import (
     GreenhouseBlockSerializer,
     LoadingLocationSerializer,
     TomatoVarietySerializer,
+    ProductTypeSerializer,
     CrateTypeSerializer,
     TruckDestinationSerializer,
     BorderPointSerializer,
@@ -200,7 +201,11 @@ class GreenhouseBlockViewSet(ReadOnlyModelViewSet):
     # select_related: `location_name` would otherwise cost one query per block.
     queryset = (
         GreenhouseBlock.objects.filter(is_active=True)
-        .select_related('location')
+        .select_related(
+            'location',
+            'variety_main__product_type',
+            'parent__variety_main__product_type',
+        )
         .order_by('code')
     )
 
@@ -223,7 +228,24 @@ class TomatoVarietyViewSet(ModelViewSet):
 
     permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
     serializer_class = TomatoVarietySerializer
-    queryset = TomatoVariety.objects.all()
+    queryset = TomatoVariety.objects.select_related('product_type')
+
+
+class ProductTypeViewSet(ModelViewSet):
+    """CRUD /api/v1/core/product-types/ — reads open, writes REFERENCE_DATA_WRITE.
+
+    Delete of a product still referenced by varieties/shipments/contracts → 400.
+    """
+
+    permission_classes = [IsAuthenticated, write_permission(*REFERENCE_DATA_WRITE)]
+    serializer_class = ProductTypeSerializer
+    queryset = ProductType.objects.order_by('id')
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response({'error': 'Product is in use.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CrateTypeViewSet(ReadOnlyModelViewSet):

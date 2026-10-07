@@ -7,7 +7,7 @@ from apps.core.models import (
     User, City, Country, BorderPoint, ExportFirm, ImportFirm, ShipmentStatusType,
     ShipmentOptionType, Customer, GreenhouseBlock, LoadingLocation, TomatoVariety,
     TruckDestination, CrateType, GreenhouseConfig, OperatingDayException,
-    CompanyLegalType,
+    CompanyLegalType, ProductType,
 )
 from apps.core.permissions import get_editable_fields
 from apps.core.seasons import can_view_closed, get_active_season
@@ -159,13 +159,19 @@ class GreenhouseBlockSerializer(serializers.ModelSerializer):
     # Dusak / Kaka / Owadandepe grouping the Önümçilik block filter and Block
     # column show. Read-only and additive; existing consumers ignore them.
     location_name = serializers.CharField(source='location.name', read_only=True, default=None)
+    product_type_code = serializers.SerializerMethodField()
 
     class Meta:
         model = GreenhouseBlock
         fields = [
             'id', 'code', 'name', 'color', 'sort_order', 'is_active',
             'parent', 'location', 'location_name', 'carry_days',
+            'product_type_code',
         ]
+
+    def get_product_type_code(self, obj) -> str | None:
+        product = obj.resolve_product()
+        return product.code if product else None
 
 
 class LoadingLocationSerializer(serializers.ModelSerializer):
@@ -174,12 +180,21 @@ class LoadingLocationSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
+class ProductTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductType
+        fields = ['id', 'name', 'code', 'hs_code', 'name_en', 'name_ru', 'name_tk']
+
+
 class TomatoVarietySerializer(serializers.ModelSerializer):
+    product_type_code = serializers.CharField(source='product_type.code', read_only=True, default=None)
+
     class Meta:
         model = TomatoVariety
         fields = [
             'id', 'name', 'type', 'avg_fruit_weight_gr',
             'code', 'is_experimental', 'scientific_name', 'color', 'sort_order',
+            'product_type', 'product_type_code',
         ]
 
 
