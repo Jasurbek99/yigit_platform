@@ -1123,7 +1123,7 @@ export default function OptionListsTab({ canWrite }: IProps) {
               <Form.Item name="name" label={t('shipment_settings.col_name')} rules={[{ required: true, message: t('common.required') }]}>
                 <Input />
               </Form.Item>
-              <Form.Item name="code" label={t('shipment_settings.col_code')}><Input placeholder="tomato / pepper" /></Form.Item>
+              <Form.Item name="code" label={t('shipment_settings.col_code')}><Input disabled={fkEditTargetId !== null} placeholder="tomato / pepper" /></Form.Item>
               <Form.Item name="hs_code" label={t('shipment_settings.col_hs_code')}><Input /></Form.Item>
               <Form.Item name="name_en" label={t('shipment_settings.col_label_en')}><Input /></Form.Item>
               <Form.Item name="name_ru" label={t('shipment_settings.col_label_ru')}><Input /></Form.Item>

@@ -107,6 +107,20 @@ describe('OptionListsTab — products list', () => {
     expect(body).toMatchObject({ name: 'Bolgar burç', code: 'pepper', hs_code: '0709609000' });
   });
 
+  it('locks the code when editing a product, leaves it open when adding one', async () => {
+    renderTab();
+    await selectCategory('Products');
+
+    const row = (await screen.findByText('Bolgar burç')).closest('tr');
+    if (!row) throw new Error('pepper row not found');
+    await userEvent.click(within(row).getByRole('button', { name: 'edit' }));
+    expect(await screen.findByLabelText('Code', { selector: 'input' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await userEvent.click(screen.getByRole('button', { name: /Add/i }));
+    await waitFor(() => expect(screen.getByLabelText('Code', { selector: 'input' })).toBeEnabled());
+  });
+
   it('POSTs a new product to the product-types endpoint', async () => {
     vi.mocked(api.post).mockResolvedValue({ data: PEPPER });
 
