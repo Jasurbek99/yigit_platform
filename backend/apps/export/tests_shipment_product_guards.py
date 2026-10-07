@@ -216,6 +216,40 @@ class ProductGuardTests(TestCase):
             ['pepper'],
         )
 
+    def test_patch_product_null_refused_and_quota_stays(self):
+        from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
+        dest_p = self._row(destination=True, product=self.pepper)
+        self._split(dest_p)
+        sync_draft_quota_usage_for_shipment(dest_p, self.em, product_type='pepper')
+        self.client.force_authenticate(self.em)
+        resp = self.client.patch(
+            f'/api/v1/export/shipments/{dest_p.id}/', {'product_type': None}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(Shipment.objects.get(pk=dest_p.pk).product_type.code, 'pepper')
+        self.assertEqual(
+            list(QuotaUsageRecord.objects.filter(shipment=dest_p).values_list('product_type', flat=True)),
+            ['pepper'],
+        )
+
+    def test_patch_to_product_without_code_refused(self):
+        badamjan = ProductType.objects.create(name='Badamjan')
+        resp = self._patch_product(self.dest, badamjan)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(Shipment.objects.get(pk=self.dest.pk).product_type.code, 'tomato')
+
+    def test_create_with_product_without_code_refused(self):
+        badamjan = ProductType.objects.create(name='Badamjan')
+        self.client.force_authenticate(self.em)
+        resp = self.client.post(
+            '/api/v1/export/shipments/',
+            {'is_draft': True, 'product_type': badamjan.id, 'skip_forecast_check': True,
+             'block_sources': [{'block_id': self.tb.id, 'weight_kg': 9000}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('product_type', resp.data)
+
     def test_patch_unrelated_field_does_not_touch_quota(self):
         from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
         self._split(self.dest)

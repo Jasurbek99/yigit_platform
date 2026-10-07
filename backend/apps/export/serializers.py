@@ -1797,6 +1797,15 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         allow_blank=True,
         allow_null=True,
     )
+    # Only the two coded products, never cleared: a NULL or code-less product
+    # would silently move the truck's quota usage to tomato (pepper spec §2).
+    product_type = serializers.PrimaryKeyRelatedField(
+        queryset=ProductType.objects.filter(
+            code__in=[ProductType.CODE_TOMATO, ProductType.CODE_PEPPER],
+        ),
+        allow_null=False,
+        required=False,
+    )
 
     class Meta:
         model = Shipment
@@ -1941,7 +1950,10 @@ class ShipmentCreateSerializer(serializers.Serializer):
     # Pepper spec 2026-10-05: explicit product. Omitted → derived from the blocks,
     # else tomato. Sent AND blocks of another product → 400.
     product_type = serializers.PrimaryKeyRelatedField(
-        queryset=ProductType.objects.all(), required=False, allow_null=True,
+        queryset=ProductType.objects.filter(
+            code__in=[ProductType.CODE_TOMATO, ProductType.CODE_PEPPER],
+        ),
+        required=False, allow_null=True,
     )
     # Destination import firm (optional at draft time)
     import_firm = serializers.PrimaryKeyRelatedField(
