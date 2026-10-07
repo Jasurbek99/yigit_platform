@@ -27,7 +27,7 @@ ProTable with grouped column headers. Horizontal scroll enabled (`scroll={{ x: '
 
 | Group | Sub-columns |
 |---|---|
-| (none) | #, Contract number, Seller, Buyer, Incoterm |
+| (none) | #, Contract number, Seller, Buyer, Incoterm, **Product** (`contracts.column.product`, both the framework and one-time tabs; NULL shows as tomato) |
 | **Planlanan** (Planned) | Trucks, Quantity (kg), Amount ($) |
 | **Eksport edilen** (Exported) | Trucks, Quantity (kg), Amount ($) |
 | **Galan** (Remaining) | Trucks, Quantity (kg) |
@@ -162,3 +162,7 @@ On submit: `POST /api/v1/contracts/contracts/` → sonner toast on success → P
 `DELETE /api/v1/contracts/contracts/{id}/` — delete an unused contract (204). Returns **409** when the contract has sales, both from the explicit guard in `ContractViewSet.destroy` and, as a race net, from the global `ProtectedError` handler in `apps/core/exceptions.py`.
 
 See [[../reference/contracts-contract-model]] for full field list and backend implementation notes.
+
+## Product (2026-10-07)
+
+The create modal has a «Продукт» select (default tomato). The framework list for a pepper truck is filtered by product (NULL ≡ tomato): `framework_contracts_for_pair(..., product_code)` offers only the shipment's product. One-time contracts inherit the truck's product. Linking a framework contract of another product is a 400 (`contract_id is not an active framework contract for this pair and product`). See [[../reference/product-types]].

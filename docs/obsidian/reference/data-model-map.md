@@ -77,9 +77,9 @@ erDiagram
 | **ImportFirm** | code, name_company, legal_type (FK, nullable), name_bare, country, city, director_signature / director_seal / director_stamp (files), is_active | Buyer companies (119) |
 | **Customer** | name (unique), phone, default_country, import_firms (M2M) | Individual buyers |
 | **DomesticBuyer** | name, phone | Local market buyers |
-| **GreenhouseBlock** | code (A-O), name, is_active | 15 greenhouse blocks |
-| **TomatoVariety** | name, code | Tomato types |
-| **ProductType** | name, code | Product categories |
+| **GreenhouseBlock** | code (A-O), name, is_active | 15 greenhouse blocks. `resolve_product()` = main variety's product, else the parent's (see [[product-types]]) |
+| **TomatoVariety** | name, code, product_type (FK, null) | Varieties of both products (class keeps its tomato name); pepper: Maranella, Gialte, Redwing, Camier |
+| **ProductType** | name, code (`tomato`/`pepper`), hs_code, name_en/ru/tk | Product categories; `Shipment.product_type` and `Contract.product_type` point here, NULL reads as tomato. See [[product-types]] |
 | **LoadingLocation** | name | Where trucks load |
 | **TruckDestination** | name, code, is_active | Destination routing options |
 | **ShipmentStatusType** | code, name_tk/en/ru, step_order (1-13), phase, required_role | 13 lifecycle steps |
