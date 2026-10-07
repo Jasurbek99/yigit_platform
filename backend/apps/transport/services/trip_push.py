@@ -85,6 +85,32 @@ def cargo_signature(shipment: Shipment) -> str | None:
     return f"{body['cargoName']}|{body.get('cargoRef', '')}" if body else None
 
 
+def _event_body(event_type: str, field: str) -> Callable[[Shipment], dict | None]:
+    """LoadingPlaceEvent body for one operator-entered time on the shipment."""
+    def build(shipment: Shipment) -> dict | None:
+        if getattr(shipment, field) is None:
+            return None
+        body = {'type': event_type}
+        place = _place(shipment)
+        if place:
+            body['place'] = place
+        return body
+    return build
+
+
+def _stamp(field: str) -> Callable[[Shipment], str | None]:
+    """Signature and occurredAt of a timestamp op: the operator-entered time itself."""
+    def read(shipment: Shipment) -> str | None:
+        value = getattr(shipment, field)
+        return value.isoformat() if value else None
+    return read
+
+
+def customs_body(shipment: Shipment) -> dict | None:
+    """CustomsUpdate body once the truck has left destination-country customs."""
+    return {'cleared': True} if shipment.customs_exit_at else None
+
+
 class PushOp(NamedTuple):
     build_body: Callable[[Shipment], dict | None]
     signature: Callable[[Shipment], str | None]
@@ -100,6 +126,19 @@ PUSH_OPS: dict[str, PushOp] = {
         destination_city_body, destination_city_signature, 'last_pushed_destination_city', 'destination-city',
     ),
     'cargo': PushOp(cargo_body, cargo_signature, 'last_pushed_cargo', 'cargo'),
+    # Events and customs carry the operator's own time as occurredAt; Planning orders
+    # its history by it. Clearing a time sends nothing (the contract cannot retract).
+    'event-arrived': PushOp(_event_body('ARRIVED_AT_PLACE', 'greenhouse_arrived_at'),
+                            _stamp('greenhouse_arrived_at'), 'last_pushed_arrived', 'events',
+                            _stamp('greenhouse_arrived_at')),
+    'event-loaded': PushOp(_event_body('LOADED', 'loading_ended_at'),
+                           _stamp('loading_ended_at'), 'last_pushed_loaded', 'events',
+                           _stamp('loading_ended_at')),
+    'event-departed': PushOp(_event_body('DEPARTED_FROM_PLACE', 'departed_at'),
+                             _stamp('departed_at'), 'last_pushed_departed', 'events',
+                             _stamp('departed_at')),
+    'customs': PushOp(customs_body, _stamp('customs_exit_at'), 'last_pushed_customs', 'customs',
+                      _stamp('customs_exit_at')),
 }
 
 

@@ -256,7 +256,8 @@ class DestinationAndCargoTests(TestCase):
         from apps.transport.services.trip_push import enqueue_push
         ExternalTrip.objects.filter(pk=self.trip.pk).update(shipment=self.shipment)
         linked = ExternalTrip.objects.select_related('shipment__city').get(pk=self.trip.pk)
-        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay,                 self.captureOnCommitCallbacks(execute=True):
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay, \
+                self.captureOnCommitCallbacks(execute=True):
             enqueue_push(linked, 'destination-city')
         trip_id, op, body, event_id = delay.call_args.args
         self.assertEqual((trip_id, op), (self.trip.pk, 'destination-city'))
@@ -268,3 +269,84 @@ class DestinationAndCargoTests(TestCase):
         from apps.transport.services.trip_assignment import RELEASED_TRIP_COLUMNS
         from apps.transport.services.trip_push import PUSH_OPS
         self.assertTrue({push.marker for push in PUSH_OPS.values()} <= set(RELEASED_TRIP_COLUMNS))
+
+
+class EventAndCustomsTests(TestCase):
+    ARRIVED = '2026-10-07T08:30:00+00:00'
+
+    def setUp(self):
+        self.shipment = _make_shipment(greenhouse_arrived_at=self.ARRIVED)
+        ShipmentBlockSource.objects.create(
+            shipment=self.shipment, block=GreenhouseBlock.objects.create(code='A1', name='Blok A1'),
+            weight_kg=1000)
+        self.trip = make_trip()
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(shipment=self.shipment)
+
+    def _linked(self):
+        return ExternalTrip.objects.select_related('shipment').get(pk=self.trip.pk)
+
+    def test_event_body_has_type_and_place(self):
+        from apps.transport.services.trip_push import PUSH_OPS
+        body = PUSH_OPS['event-arrived'].build_body(self._linked().shipment)
+        self.assertEqual(body, {'type': 'ARRIVED_AT_PLACE', 'place': {'ref': 'A1', 'name': 'Blok A1'}})
+
+    def test_event_without_blocks_has_no_place(self):
+        from apps.transport.services.trip_push import PUSH_OPS
+        self.shipment.block_sources.all().delete()
+        self.assertEqual(PUSH_OPS['event-arrived'].build_body(self._linked().shipment), {'type': 'ARRIVED_AT_PLACE'})
+
+    def test_empty_time_means_no_event(self):
+        from apps.transport.services.trip_push import PUSH_OPS
+        shipment = self._linked().shipment
+        self.assertIsNone(PUSH_OPS['event-loaded'].build_body(shipment))
+        self.assertIsNone(PUSH_OPS['event-departed'].build_body(shipment))
+
+    def test_customs_only_after_destination_exit(self):
+        from apps.transport.services.trip_push import customs_body
+        shipment = self._linked().shipment
+        self.assertIsNone(customs_body(shipment))
+        shipment.customs_exit_at = self.ARRIVED
+        self.assertEqual(customs_body(shipment), {'cleared': True})
+
+    def test_occurred_at_is_the_operator_time(self):
+        from apps.transport.services.trip_push import enqueue_push
+        linked = self._linked()
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay, \
+                self.captureOnCommitCallbacks(execute=True):
+            enqueue_push(linked, 'event-arrived')
+        body = delay.call_args.args[2]
+        self.assertEqual(body['occurredAt'], linked.shipment.greenhouse_arrived_at.isoformat())
+        self.assertTrue(body['occurredAt'].startswith('2026-10-07T08:30:00'))
+
+    def test_unchanged_event_time_is_not_pushed_again(self):
+        from apps.transport.services.trip_push import enqueue_push, push_pending_corrections
+        with mock.patch('apps.transport.tasks.push_trip_update.delay'), \
+                self.captureOnCommitCallbacks(execute=True):
+            enqueue_push(self._linked(), 'event-arrived')
+        with mock.patch('apps.transport.services.trip_push.enqueue_push') as enqueue:
+            push_pending_corrections()
+        self.assertNotIn('event-arrived', [c.args[1] for c in enqueue.call_args_list])
+
+    def test_corrected_event_time_is_pushed_again(self):
+        from apps.transport.services.trip_push import push_pending_corrections
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(last_pushed_arrived='2026-10-07T07:00:00+00:00')
+        with mock.patch('apps.transport.services.trip_push.enqueue_push') as enqueue:
+            push_pending_corrections()
+        self.assertIn('event-arrived', [c.args[1] for c in enqueue.call_args_list])
+
+    def test_event_ops_post_to_events_path(self):
+        client = mock.Mock(is_mock=False)
+        client.post_op.return_value = (200, {})
+        with mock.patch('apps.transport.tasks.get_trips_client', return_value=client):
+            push_trip_update.apply(args=(self.trip.pk, 'event-loaded', {'eventId': 'k'}, 'k'))
+        self.assertEqual(client.post_op.call_args.args[1], 'events')
+
+    def test_exhausted_retries_forget_the_event_marker(self):
+        from apps.transport.services.trips_client import TripsApiUnavailable
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(last_pushed_loaded='2026-10-07T09:00:00+00:00')
+        client = mock.Mock(is_mock=False)
+        client.post_op.side_effect = TripsApiUnavailable('down')
+        with mock.patch('apps.transport.tasks.get_trips_client', return_value=client):
+            push_trip_update.apply(args=(self.trip.pk, 'event-loaded', {'eventId': 'k'}, 'k'))
+        self.trip.refresh_from_db()
+        self.assertIsNone(self.trip.last_pushed_loaded)

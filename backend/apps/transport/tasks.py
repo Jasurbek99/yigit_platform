@@ -106,7 +106,7 @@ def _record_push(trip: ExternalTrip, op: str, error: str | None, status: str, *,
         trip.last_push_status, trip.last_push_error = status, None
     fields = ['last_push_status', 'last_push_error']
     if resend:
-        marker = PUSH_OPS[op][2]
+        marker = PUSH_OPS[op].marker
         setattr(trip, marker, None)
         fields.append(marker)
     trip.save(update_fields=fields)
@@ -131,7 +131,8 @@ def push_trip_update(self, trip_id: int, op: str, body: dict, event_id: str) -> 
     """POST one operation to Planning. Retries keep the same event_id (= Idempotency-Key)."""
     trip = ExternalTrip.objects.select_related('shipment').get(pk=trip_id)
     try:
-        status_code, payload = get_trips_client().post_op(str(trip.integration_trip_id), op, body, event_id)
+        path = PUSH_OPS[op].path if op in PUSH_OPS else op
+        status_code, payload = get_trips_client().post_op(str(trip.integration_trip_id), path, body, event_id)
     except TripsApiUnavailable as exc:
         # With exc= given, Celery re-raises exc itself (not MaxRetriesExceededError)
         # once retries run out, so the limit is checked by hand.
