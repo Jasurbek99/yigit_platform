@@ -43,6 +43,9 @@ export function TripCard({ trip, selected, dimmed, countryCode, onSelect, onOpen
         <Tag>{trip.tractor_source === 'GARAGE' ? t('truck_board.garage') : t('truck_board.third_party')}</Tag>
         {trip.destination_country_code && <Tag color="blue">{trip.destination_country_code}</Tag>}
         {!hasVisaFor(trip, countryCode) && <Tag color="orange">⚠ {t('truck_board.no_visa')}</Tag>}
+        {trip.rejected_at && (
+          <Tag color="red">{t('truck_board.rejected_tag', { reason: trip.rejection_reason })}</Tag>
+        )}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <Text type="secondary" style={{ fontSize: 12 }}>📍 {where}</Text>

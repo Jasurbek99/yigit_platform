@@ -20,7 +20,8 @@ export function TruckMatchPanel({
   const { t } = useTranslation();
   const mismatch = !!shipment && !!trip && trip.destination_country_code !== null
     && trip.destination_country_code !== shipment.country_code;
-  const ready = !!shipment && !!trip && !mismatch && canAssign && !isReadOnly;
+  const rejected = !!trip?.rejected_at;
+  const ready = !!shipment && !!trip && !mismatch && !rejected && canAssign && !isReadOnly;
   return (
     <div style={{ background: '#fff', border: '1px solid #f0f0f0', borderRadius: 8, padding: 14 }}>
       <Space direction="vertical" style={{ width: '100%' }}>
@@ -31,6 +32,7 @@ export function TruckMatchPanel({
           {trip ? `${trip.tractor_plate} / ${trip.trailer_plate} · ${trip.destination_country_code ?? '—'}` : '—'}
         </Text>
         {mismatch && <Alert type="error" showIcon message={t('truck_board.country_mismatch')} />}
+        {rejected && <Alert type="warning" showIcon message={t('truck_board.rejected_wait')} />}
         <Space>
           <Button type="primary" disabled={!ready} loading={isLoading} onClick={onAssign}>
             {t('truck_board.assign')}

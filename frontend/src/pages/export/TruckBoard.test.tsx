@@ -34,6 +34,7 @@ function renderBoard(assignMutate = vi.fn()) {
   ], isLoading: false } as any);
   vi.mocked(trips.useTripSyncState).mockReturnValue({ data: { last_success_at: null, last_error: '', is_mock: true } } as any);
   vi.mocked(trips.useAssignTrip).mockReturnValue({ mutate: assignMutate, isPending: false } as any);
+  vi.mocked(trips.useRejectTrip).mockReturnValue({ mutate: vi.fn(), isPending: false } as any);
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter><TruckBoard /></MemoryRouter>

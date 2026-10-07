@@ -8,10 +8,12 @@ import { useTripMessages } from './useTripMessages';
 
 interface ITripDrawerProps {
   trip: IExternalTrip | null;
+  canReject: boolean;
+  onReject: (trip: IExternalTrip) => void;
   onClose: () => void;
 }
 
-export function TripDrawer({ trip, onClose }: ITripDrawerProps) {
+export function TripDrawer({ trip, canReject, onReject, onClose }: ITripDrawerProps) {
   const { t } = useTranslation();
   const messages = useTripMessages();
   const openPdf = (tripId: number) =>
@@ -46,11 +48,19 @@ export function TripDrawer({ trip, onClose }: ITripDrawerProps) {
                 ? trip.visas.map((v) => <div key={v.country}>{v.country} — {v.expiry_date}</div>)
                 : '—'}
             </Descriptions.Item>
+            {trip.rejected_at && (
+              <Descriptions.Item label={t('truck_board.rejected_label')}>
+                {trip.rejection_reason} · {trip.rejected_by_name ?? '—'} · {trip.rejected_at.slice(0, 16).replace('T', ' ')}
+              </Descriptions.Item>
+            )}
           </Descriptions>
           {trip.position && <TripMiniMap lat={trip.position.lat} lon={trip.position.lon} height={220} />}
-          <Button style={{ marginTop: 12 }} onClick={() => openPdf(trip.id)}>
-            {t('truck_board.documents_pdf')}
-          </Button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <Button onClick={() => openPdf(trip.id)}>{t('truck_board.documents_pdf')}</Button>
+            {canReject && !trip.shipment && !trip.rejected_at && (
+              <Button danger onClick={() => onReject(trip)}>{t('truck_board.reject')}</Button>
+            )}
+          </div>
         </>
       )}
     </Drawer>

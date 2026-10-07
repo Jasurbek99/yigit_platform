@@ -72,6 +72,13 @@ export function useUnassignTrip() {
   return useTripAction<{ tripId: number }>((v) => `${BASE}${v.tripId}/unassign/`, () => ({}));
 }
 
+export function useRejectTrip() {
+  return useTripAction<{ tripId: number; reason: string }>(
+    (v) => `${BASE}${v.tripId}/reject/`,
+    (v) => ({ reason: v.reason }),
+  );
+}
+
 export function useAcceptTripChange() {
   return useTripAction<{ tripId: number }>((v) => `${BASE}${v.tripId}/accept-change/`, () => ({}));
 }

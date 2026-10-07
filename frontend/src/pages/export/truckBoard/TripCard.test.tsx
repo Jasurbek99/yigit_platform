@@ -51,4 +51,10 @@ describe('TripCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /More/ }));
     expect(screen.queryByTestId('trip-mini-map')).toBeNull();
   });
+
+  it('marks a rejected trip with its reason', () => {
+    render(<TripCard trip={{ ...full, rejected_at: '2026-10-07T10:00:00Z', rejection_reason: 'No KZ visa' }}
+      selected={false} countryCode="RU" onSelect={vi.fn()} onOpen={vi.fn()} />);
+    expect(screen.getByText('Rejected: No KZ visa')).toBeInTheDocument();
+  });
 });
