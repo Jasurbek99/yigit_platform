@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Modal, Form, InputNumber, Select, Input } from 'antd';
+import { Modal, Form, InputNumber, Select, Input, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { BlockSelect } from '@/components/BlockSelect';
 import { VarietySelect } from '@/components/VarietySelect';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { useCreateSupplyDraft } from '@/hooks/useDrafts';
-import { useShipmentOptions } from '@/hooks/useAdmin';
+import { useGreenhouseBlocks, useShipmentOptions } from '@/hooks/useAdmin';
 import { apiErrorMessage } from '@/utils/apiErrorText';
 import type { ISupplyDraftPayload } from '@/types';
 
@@ -55,6 +55,26 @@ function HarvestStatusSelect() {
       label: lang.startsWith('ru') && o.label_ru ? o.label_ru : lang.startsWith('en') && o.label_en ? o.label_en : o.label_tk,
     }));
   return <Select options={items} allowClear placeholder={t('supply_draft.harvest_status_ph')} />;
+}
+
+/** Read-only product of the chosen blocks (spec §7): the server sets the plan's product from them. */
+function SupplyDraftProduct() {
+  const { t } = useTranslation();
+  const blockIds: number[] | undefined = Form.useWatch('block_ids');
+  const { data: blocks = [] } = useGreenhouseBlocks();
+  const codes = new Set(
+    blocks.filter((b) => blockIds?.includes(b.id) && b.product_type_code).map((b) => b.product_type_code),
+  );
+  if (!blockIds?.length) return null;
+  return (
+    <Form.Item label={t('supply_draft.field_product')}>
+      {codes.size > 1 ? (
+        <Typography.Text type="warning">{t('errors.mixed_product')}</Typography.Text>
+      ) : (
+        <Typography.Text>{t(`product.${[...codes][0] ?? 'tomato'}`)}</Typography.Text>
+      )}
+    </Form.Item>
+  );
 }
 
 interface ISupplyDraftOptionalFieldsProps {
@@ -151,6 +171,7 @@ export function SupplyDraftModal({ open, onClose, onSuccess }: ISupplyDraftModal
         >
           <BlockSelect mode="multiple" placeholder={t('supply_draft.blocks_ph')} />
         </Form.Item>
+        <SupplyDraftProduct />
 
         <SupplyDraftOptionalFields exportCode={exportCode} onExportCodeChange={setExportCode} />
       </Form>

@@ -2244,6 +2244,7 @@
     "open_button": "Supply Plan",
     "field_weight": "Total Weight (kg)",
     "field_blocks": "Blocks",
+    "field_product": "Product",
     "field_variety": "Variety",
     "field_harvest_status": "Harvest Status",
     "field_export_code": "Export Code",

@@ -2246,6 +2246,7 @@
     "open_button": "План поставки",
     "field_weight": "Общий вес (кг)",
     "field_blocks": "Блоки",
+    "field_product": "Продукт",
     "field_variety": "Сорт",
     "field_harvest_status": "Статус урожая",
     "field_export_code": "Экспортный код",
