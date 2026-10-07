@@ -23,7 +23,10 @@ flowchart LR
     P[Planning API<br/>10.10.11.79:8444] -->|GET /trips?changedSince — every 2 min| M[(transport.ExternalTrip)]
     M --> B[Truck Board<br/>/export/truck-board]
     B -->|assign| S[Shipment transport fields<br/>truck_plate, driver_*, trip_id]
-    S -->|export-code, loading| P
+    S -->|export-code, loading, destination-city, cargo,<br/>events arrived/loaded/departed, customs| P
+    B -->|free trip: «Отклонить рейс» + reason| J[rejection]
+    J -->|push rejection| P
+    J -->|label «Отклонён», cannot be assigned —<br/>cleared when Planning swaps truck/trailer/driver or cancels| M
     M -->|truck/driver swap or CANCELLED| C{shipment status}
     C -->|draft| A[apply + notify]
     C -->|customs / loading not started| R[apply + rollback to draft]
@@ -41,7 +44,8 @@ flowchart LR
 | React to Planning changes, Accept | `apps/transport/services/trip_changes.py` (`find_pending_changes`, `apply_trip_change`) |
 | Notifications | `apps/transport/services/trip_notify.py` |
 | Rollback | `apps/export/services/rollback.py` + `transition_to(..., rollback=True)` (system-only `ROLLBACK_TRANSITIONS`, never in `TRANSITIONS`) |
-| Pushes to Planning | `apps/transport/services/trip_push.py` + Celery `push_trip_update` |
+| Pushes to Planning | `apps/transport/services/trip_push.py` + Celery `push_trip_update` (export-code, loading, destination-city, cargo, three loading-place events, customs) |
+| Trip rejection | `apps/transport/services/trip_rejection.py`; `reject/` action in `views_trips.py`; `RejectTripModal.tsx` |
 | Sheet / Detail lock | `apps/export/services/trip_lock.py` (PATCH guard) + `isTripLockedCell` in `frontend/src/utils/sheetPermissions.ts`; Detail: `ShipmentTransportBody` locks the truck/driver selectors and `lockedKeys` rows |
 | Screen | `frontend/src/pages/export/TruckBoard.tsx` (+ `truckBoard/`), banner `components/shipment/ShipmentTripBanner.tsx` |
 
@@ -56,7 +60,8 @@ matching working), `trip_id` (= `ExternalTrip.pk`). `driver_id` stays null — e
 ## Reaction to a Planning change
 
 Only a swap of tractor plate, trailer plate, driver name or passport — or status `CANCELLED` —
-counts. Status moves (`CREATED → PLANNED …`) and our own export-code push do not.
+counts. Status moves (`CREATED → PLANNED …`) and our own pushes (export-code, loading, city, cargo, events, customs) do not.
+A swap or cancel also clears the «Отклонён» label of a rejected trip.
 
 | Shipment status | Truck/driver changed | Trip cancelled |
 |---|---|---|
@@ -79,7 +84,7 @@ A conflict clears only by **Accept** (take Planning's values, no status change) 
 
 Our shipment cancelled → the next poll frees its trip (Planning is not told; no such operation).
 
-## Pushes (MVP)
+## Pushes
 
 | Операция | Маршрут Planning | Источник у нас | Когда |
 |---|---|---|---|
@@ -130,7 +135,7 @@ comment trail.
 ## Endpoints
 
 `/api/v1/transport/external-trips/` (filters `free`, `linked`, `country`, `date`), `…/{id}/`,
-`…/{id}/document/`, `…/{id}/assign|unassign|move|accept-change/`, `…/sync-state/`,
+`…/{id}/document/`, `…/{id}/assign|unassign|move|accept-change|reject/`, `…/sync-state/`,
 `…/candidate-shipments/`; `/api/v1/transport/shipments/{id}/trip/` (any signed-in user — the shipment
 page banner). Errors: `{"error": "<code>"}`.
 
@@ -157,7 +162,7 @@ The next poll (≤ 2 min) runs the full reaction. The command edits a tracked fi
 
 1. Server `.env`: `TRANSPORT_API_URL`, `TRANSPORT_API_KEY`, `TRANSPORT_API_MODE=live`,
    `TRANSPORT_API_VERIFY_TLS` (CA path or `false`).
-2. `python manage.py migrate core transport export` (core 0070, transport 0009–0010, export 0091 — all after main's latest).
+2. `python manage.py migrate core transport export` (core 0070, transport 0009–0010, export 0091 — all after main's latest; transport 0011 `trip_write_ops` adds the push markers and the rejection fields — re-check its number against main before merging).
 3. `python manage.py seed_task_rules` — only now. Deactivating the regular `assign_driver` cancels its
    open tasks, and a cancelled task counts as satisfied, so open regular drafts lose the driver gate
    (accepted by the owner 2026-09-29).
@@ -170,3 +175,6 @@ The next poll (≤ 2 min) runs the full reaction. The command edits a tracked fi
   detail call per new trip.
 - API errors on these endpoints follow the contract shape `{"error": "<code>"}` (e.g. `trip_taken`,
   `country_unknown`, `trip_locked` + `fields`); the frontend maps the code to `truck_board.error.*`.
+- Clearing a time (arrived / loaded / departed / customs) after it was pushed sends nothing — the Planning contract cannot retract an event.
+- A corrected time is sent as a second event with the new `occurredAt`.
+- First poll after deploy: every open linked trip pushes city, cargo, events and customs once (the `last_pushed_*` markers start empty).
