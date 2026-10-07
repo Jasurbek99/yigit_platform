@@ -15,6 +15,8 @@ from apps.transport.models import ExternalTrip
 
 logger = logging.getLogger(__name__)
 
+PLACE_NAME_MAX = 256  # contract: place.name maxLength
+
 
 def build_event(trip: ExternalTrip, op: str, now_ms: int) -> tuple[str, str]:
     """eventId doubles as Idempotency-Key; a new enqueue gets a new key, a retry reuses it."""
@@ -29,7 +31,7 @@ def _place(shipment: Shipment) -> dict | None:
     if not sources:
         return None
     names = [s.block.name or s.block.code for s in sources]
-    return {'ref': sources[0].block.code, 'name': ', '.join(names)}
+    return {'ref': sources[0].block.code, 'name': ', '.join(names)[:PLACE_NAME_MAX]}
 
 
 def export_code_body(shipment: Shipment) -> dict | None:
@@ -99,7 +101,7 @@ def _event_body(event_type: str, field: str) -> Callable[[Shipment], dict | None
 
 
 def _stamp(field: str) -> Callable[[Shipment], str | None]:
-    """Signature and occurredAt of a timestamp op: the operator-entered time itself."""
+    """Signature of a timestamp op: the operator-entered time itself."""
     def read(shipment: Shipment) -> str | None:
         value = getattr(shipment, field)
         return value.isoformat() if value else None
@@ -107,8 +109,12 @@ def _stamp(field: str) -> Callable[[Shipment], str | None]:
 
 
 def customs_body(shipment: Shipment) -> dict | None:
-    """CustomsUpdate body once the truck has left destination-country customs."""
-    return {'cleared': True} if shipment.customs_exit_at else None
+    """CustomsUpdate body once the truck has passed destination-country customs.
+
+    customs_entry_at is «Таможня пройдена» (sales_rep, step barysh_gumrugi);
+    customs_exit_at is the Turkmen export customs and is not Planning's concern.
+    """
+    return {'cleared': True} if shipment.customs_entry_at else None
 
 
 class PushOp(NamedTuple):
@@ -116,7 +122,9 @@ class PushOp(NamedTuple):
     signature: Callable[[Shipment], str | None]
     marker: str  # ExternalTrip column holding the last enqueued signature
     path: str  # URL segment under /trips/{id}/
-    occurred_at: Callable[[Shipment], str | None] | None = None  # None → time of enqueue
+    # Operator-entered time this op reports: it is the occurredAt (None → time of
+    # enqueue) and an op whose time is older than trip.linked_at is not sent.
+    stamp_field: str | None = None
 
 
 PUSH_OPS: dict[str, PushOp] = {
@@ -130,15 +138,13 @@ PUSH_OPS: dict[str, PushOp] = {
     # its history by it. Clearing a time sends nothing (the contract cannot retract).
     'event-arrived': PushOp(_event_body('ARRIVED_AT_PLACE', 'greenhouse_arrived_at'),
                             _stamp('greenhouse_arrived_at'), 'last_pushed_arrived', 'events',
-                            _stamp('greenhouse_arrived_at')),
+                            'greenhouse_arrived_at'),
     'event-loaded': PushOp(_event_body('LOADED', 'loading_ended_at'),
-                           _stamp('loading_ended_at'), 'last_pushed_loaded', 'events',
-                           _stamp('loading_ended_at')),
+                           _stamp('loading_ended_at'), 'last_pushed_loaded', 'events', 'loading_ended_at'),
     'event-departed': PushOp(_event_body('DEPARTED_FROM_PLACE', 'departed_at'),
-                             _stamp('departed_at'), 'last_pushed_departed', 'events',
-                             _stamp('departed_at')),
-    'customs': PushOp(customs_body, _stamp('customs_exit_at'), 'last_pushed_customs', 'customs',
-                      _stamp('customs_exit_at')),
+                             _stamp('departed_at'), 'last_pushed_departed', 'events', 'departed_at'),
+    'customs': PushOp(customs_body, _stamp('customs_entry_at'), 'last_pushed_customs', 'customs',
+                      'customs_entry_at'),
 }
 
 
@@ -162,18 +168,33 @@ def _queue_after_commit(trip_id: int, op: str, body: dict, event_id: str, marker
     transaction.on_commit(send)
 
 
+def _value_for(trip: ExternalTrip, push: PushOp) -> tuple[dict | None, str | None]:
+    """(body, signature) of one op for a linked trip; (None, None) when there is nothing to send.
+
+    A time stamped before the trip joined its shipment belongs to an earlier
+    truck (e.g. the gate arrival of the truck this one replaced), so it is not
+    sent. linked_at NULL (links older than the column) filters nothing.
+    """
+    shipment = trip.shipment
+    if push.stamp_field and trip.linked_at:
+        stamp = getattr(shipment, push.stamp_field)
+        if stamp and stamp < trip.linked_at:
+            return None, None
+    return push.build_body(shipment), push.signature(shipment)
+
+
 def enqueue_push(trip: ExternalTrip, op: str) -> None:
     """Build the body now (frozen occurredAt/eventId), remember what was sent, POST after commit."""
     push = PUSH_OPS[op]
-    body = push.build_body(trip.shipment)
+    body, signature = _value_for(trip, push)
     if body is None:
         return
     now_ms = int(datetime.now(tz=dt_tz.utc).timestamp() * 1000)
     event_id, occurred_at = build_event(trip, op, now_ms)
-    if push.occurred_at:
-        occurred_at = push.occurred_at(trip.shipment)
+    if push.stamp_field:
+        occurred_at = getattr(trip.shipment, push.stamp_field).isoformat()
     body = {'eventId': event_id, 'occurredAt': occurred_at, 'source': 'EXTERNAL', **body}
-    setattr(trip, push.marker, push.signature(trip.shipment))
+    setattr(trip, push.marker, signature)
     trip.save(update_fields=[push.marker])
     _queue_after_commit(trip.pk, op, body, event_id, push.marker)
 
@@ -195,7 +216,7 @@ def push_pending_corrections() -> int:
     ).prefetch_related('shipment__block_sources__block')
     for trip in trips:
         for op, push in PUSH_OPS.items():
-            current = push.signature(trip.shipment)
+            _, current = _value_for(trip, push)
             if current and current != getattr(trip, push.marker):
                 enqueue_push(trip, op)
                 pushed += 1

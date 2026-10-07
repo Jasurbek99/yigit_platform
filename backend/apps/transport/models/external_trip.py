@@ -50,6 +50,10 @@ class ExternalTrip(models.Model):
         'export.Shipment', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='external_trip',
     )
+    # When the trip was joined to its current shipment; NULL for links made
+    # before this column existed. Times on the shipment older than this belong
+    # to an earlier truck and are not pushed (trip_push._value_for).
+    linked_at = models.DateTimeField(null=True, blank=True)
     conflict_note = models.TextField(null=True, blank=True, **cyrillic_collation())
     # Structured copy of the conflict so the frontend can word it per language:
     # kind = 'changed' | 'cancelled'; from/to = "plate, driver" snapshots.

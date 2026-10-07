@@ -43,6 +43,22 @@ class RejectApiTests(TestCase):
         trip_id, op, body, event_id = delay.call_args.args
         self.assertEqual((trip_id, op, body['reason'], body['eventId']), (self.trip.pk, 'rejection', 'Нет визы KZ', event_id))
 
+    def test_rejecting_again_resends_with_the_new_reason(self):
+        """A rejection Planning never got can be sent again from the board."""
+        self._as('export_manager')
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay, \
+                self.captureOnCommitCallbacks(execute=True):
+            self.client.post(self.url, {'reason': 'Нет визы KZ'}, format='json')
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(
+            last_push_status='error', last_push_error='rejection: PLANNING_UNAVAILABLE')
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as again, \
+                self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(self.url, {'reason': 'Паспорт истекает'}, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['rejection_reason'], 'Паспорт истекает')
+        self.assertEqual((delay.call_count, again.call_count), (1, 1))
+        self.assertEqual(again.call_args.args[2]['reason'], 'Паспорт истекает')
+
     def test_reason_is_required(self):
         self._as('export_manager')
         response = self.client.post(self.url, {'reason': '   '}, format='json')

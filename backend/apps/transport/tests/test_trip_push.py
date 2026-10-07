@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
 from apps.core.models import Country, GreenhouseBlock, LoadingLocation
-from apps.export.models import ShipmentBlockSource
+from apps.export.models import Shipment, ShipmentBlockSource
 from apps.transport.models import ExternalTrip
 from apps.transport.services.trip_push import build_event, export_code_body, loading_body
 from apps.transport.tasks import push_trip_update
@@ -42,6 +42,14 @@ class PushBodyTests(TestCase):
         self.assertEqual(body['city'], 'Ahal')
         self.assertEqual(body['place'], {'ref': 'B3', 'name': 'Blok B3, Blok A1'})
 
+    def test_place_name_is_cut_to_the_contract_limit(self):
+        for n in range(40):
+            ShipmentBlockSource.objects.create(
+                shipment=self.shipment, block=GreenhouseBlock.objects.create(code=f'X{n}', name=f'Blok X{n:02d}'),
+                weight_kg=10)
+        place = loading_body(self.shipment)['place']
+        self.assertEqual(len(place['name']), 256)
+        self.assertTrue(place['name'].startswith('Blok B3, Blok A1, Blok X00'))
 
     def test_pending_correction_pushes_once_per_code(self):
         from apps.transport.services.trip_push import loading_signature, push_pending_corrections
@@ -301,12 +309,31 @@ class EventAndCustomsTests(TestCase):
         self.assertIsNone(PUSH_OPS['event-loaded'].build_body(shipment))
         self.assertIsNone(PUSH_OPS['event-departed'].build_body(shipment))
 
-    def test_customs_only_after_destination_exit(self):
+    def test_customs_only_after_destination_customs(self):
         from apps.transport.services.trip_push import customs_body
         shipment = self._linked().shipment
         self.assertIsNone(customs_body(shipment))
-        shipment.customs_exit_at = self.ARRIVED
+        shipment.customs_entry_at = self.ARRIVED
         self.assertEqual(customs_body(shipment), {'cleared': True})
+
+    def test_turkmen_export_customs_alone_sends_no_customs(self):
+        from apps.transport.services.trip_push import PUSH_OPS, customs_body
+        shipment = self._linked().shipment
+        shipment.customs_exit_at = self.ARRIVED
+        self.assertIsNone(customs_body(shipment))
+        self.assertIsNone(PUSH_OPS['customs'].signature(shipment))
+
+    def test_customs_occurred_at_is_the_destination_customs_time(self):
+        from apps.transport.services.trip_push import enqueue_push
+        Shipment.objects.filter(pk=self.shipment.pk).update(customs_entry_at='2026-10-09T12:00:00+00:00')
+        linked = self._linked()
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay, \
+                self.captureOnCommitCallbacks(execute=True):
+            enqueue_push(linked, 'customs')
+        body = delay.call_args.args[2]
+        self.assertTrue(body['occurredAt'].startswith('2026-10-09T12:00:00'))
+        linked.refresh_from_db()
+        self.assertEqual(linked.last_pushed_customs, body['occurredAt'])
 
     def test_occurred_at_is_the_operator_time(self):
         from apps.transport.services.trip_push import enqueue_push
@@ -350,3 +377,58 @@ class EventAndCustomsTests(TestCase):
             push_trip_update.apply(args=(self.trip.pk, 'event-loaded', {'eventId': 'k'}, 'k'))
         self.trip.refresh_from_db()
         self.assertIsNone(self.trip.last_pushed_loaded)
+
+
+class LinkedAtTests(TestCase):
+    """A time stamped before the trip joined its shipment belongs to an earlier truck."""
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+        self.now, self.hour = timezone.now(), timedelta(hours=1)
+        self.kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
+        self.shipment = _make_shipment(country=self.kz, greenhouse_arrived_at=self.now - self.hour)
+        self.trip = make_trip()
+
+    def _ops_pushed(self):
+        from apps.transport.services.trip_push import push_pending_corrections
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay, \
+                self.captureOnCommitCallbacks(execute=True):
+            push_pending_corrections()
+        return [c.args[1] for c in delay.call_args_list]
+
+    def _link(self, linked_at):
+        ExternalTrip.objects.filter(pk=self.trip.pk).update(shipment=self.shipment, linked_at=linked_at)
+
+    def test_assign_stamps_linked_at_and_skips_an_earlier_arrival(self):
+        from apps.transport.services.trip_assignment import assign_trip
+        user = get_user_model().objects.create_user(username='em', password='x', role='export_manager')
+        with mock.patch('apps.transport.tasks.push_trip_update.delay') as delay, \
+                self.captureOnCommitCallbacks(execute=True):
+            assign_trip(self.trip, self.shipment, user)
+        self.trip.refresh_from_db()
+        self.assertGreaterEqual(self.trip.linked_at, self.now)
+        self.assertNotIn('event-arrived', [c.args[1] for c in delay.call_args_list])
+        self.assertIsNone(self.trip.last_pushed_arrived)
+
+    def test_corrections_skip_an_arrival_before_the_link(self):
+        self._link(self.now)
+        self.assertNotIn('event-arrived', self._ops_pushed())
+
+    def test_arrival_after_the_link_is_pushed(self):
+        self._link(self.now - 2 * self.hour)
+        self.assertIn('event-arrived', self._ops_pushed())
+
+    def test_legacy_link_without_linked_at_is_pushed(self):
+        self._link(None)
+        self.assertIn('event-arrived', self._ops_pushed())
+
+    def test_release_clears_linked_at(self):
+        from apps.transport.services.trip_assignment import release_trip
+        self._link(self.now)
+        user = get_user_model().objects.create_user(username='em', password='x', role='export_manager')
+        trip = ExternalTrip.objects.select_related('shipment__status').get(pk=self.trip.pk)
+        release_trip(trip, trip.shipment, user)
+        self.trip.refresh_from_db()
+        self.assertIsNone(self.trip.linked_at)

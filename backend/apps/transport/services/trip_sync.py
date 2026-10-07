@@ -69,10 +69,14 @@ def _upsert(item: dict, client) -> ExternalTrip | None:
         setattr(trip, name, value)
     trip.save(update_fields=[*fields, 'synced_at'])
     changed = is_real_change(old, fields)
-    if changed and trip.rejected_at:
+    if changed:
         # Planning swapped the truck or driver (or cancelled): our rejection is answered.
-        # A queryset update keeps our columns out of the poll's own save (see docstring).
-        ExternalTrip.objects.filter(pk=trip.pk).update(**dict.fromkeys(ExternalTrip.REJECTION_FIELDS))
+        # Filtered queryset updates, not the copy read above: a reject may have
+        # committed since, and our columns stay out of the poll's own save.
+        answered = ExternalTrip.objects.filter(pk=trip.pk, rejected_at__isnull=False)
+        answered.update(**dict.fromkeys(ExternalTrip.REJECTION_FIELDS))
+        ExternalTrip.objects.filter(pk=trip.pk, last_push_error__startswith='rejection:').update(
+            last_push_status=None, last_push_error=None)
     return trip if trip.shipment_id and changed else None
 
 

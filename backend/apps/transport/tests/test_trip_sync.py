@@ -147,6 +147,53 @@ class ChangeDetectionTests(TestCase):
         trip.refresh_from_db()
         self.assertEqual(trip.rejection_reason, 'Нет визы')
 
+    def test_rejection_stored_while_the_poll_runs_is_cleared(self):
+        """The poll read the trip before a reject committed; the clear must not trust that copy."""
+        from apps.transport.services import trip_sync
+        items = _fixture_items()
+        client = FakeClient(items)
+        sync_external_trips(client)
+        trip = ExternalTrip.objects.get(tractor_plate='2563AHF')
+        self._bump(items, **{'driver.fullName': 'Täze Sürüji'})
+
+        real_check = trip_sync.is_real_change
+        rejected = []
+
+        def reject_meanwhile(old, new):
+            # Only the first sight of the swap; the overlap may re-read the row.
+            if new['driver_full_name'] == 'Täze Sürüji' and not rejected:
+                rejected.append(True)
+                ExternalTrip.objects.filter(pk=trip.pk).update(
+                    rejection_reason='Нет визы', rejected_at=timezone.now())
+            return real_check(old, new)
+
+        with mock.patch.object(trip_sync, 'is_real_change', side_effect=reject_meanwhile):
+            sync_external_trips(client)
+        trip.refresh_from_db()
+        self.assertIsNone(trip.rejected_at)
+
+    def test_driver_swap_clears_a_failed_rejection_push(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        trip = self._rejected(client)
+        ExternalTrip.objects.filter(pk=trip.pk).update(
+            last_push_status='error', last_push_error='rejection: PLANNING_UNAVAILABLE')
+        self._bump(items, **{'driver.fullName': 'Täze Sürüji'})
+        sync_external_trips(client)
+        trip.refresh_from_db()
+        self.assertEqual((trip.last_push_status, trip.last_push_error), (None, None))
+
+    def test_driver_swap_keeps_other_push_errors(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        trip = self._rejected(client)
+        ExternalTrip.objects.filter(pk=trip.pk).update(
+            last_push_status='error', last_push_error='export-code: DUPLICATE_EXPORT_CODE')
+        self._bump(items, **{'driver.fullName': 'Täze Sürüji'})
+        sync_external_trips(client)
+        trip.refresh_from_db()
+        self.assertEqual(trip.last_push_error, 'export-code: DUPLICATE_EXPORT_CODE')
+
     def test_status_only_bump_is_not_a_change(self):
         items = _fixture_items()
         client = FakeClient(items)
