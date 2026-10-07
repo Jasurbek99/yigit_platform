@@ -144,6 +144,7 @@ def unjoin_packing(shipment: Shipment, user) -> Shipment:
             season=row.season,
             status=draft,
             created_by=user,
+            product_type_id=row.product_type_id,
             weight_net=packaging_weight(row),
             **{field: getattr(row, field) for field in PACKING_FIELDS},
         )
@@ -203,6 +204,9 @@ def swap_packing(a: Shipment, b: Shipment, user) -> tuple[Shipment, Shipment]:
             assert_can_move_packing(row)
             if not has_packing(row):
                 raise ValueError(f'{row.shipment_code}: has no packing to swap')
+        from apps.export.services.product_type import PRODUCT_MISMATCH, shipment_product_code
+        if shipment_product_code(a) != shipment_product_code(b):
+            raise ValueError(PRODUCT_MISMATCH)
 
         a_weight, b_weight = packaging_weight(a), packaging_weight(b)
         a_blocks = list(a.block_sources.values('block_id', 'weight_kg', 'harvest_date'))

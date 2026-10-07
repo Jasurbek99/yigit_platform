@@ -1813,6 +1813,15 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
             if needs_packing_for_loading(self.instance):
                 raise serializers.ValidationError({'loading_started_at': PACKING_NOT_JOINED})
 
+        # Pepper spec §2: the product may not contradict the blocks on the row.
+        # Runs before the role early-return: it is a data rule, not a permission.
+        if 'product_type' in attrs and self.instance is not None:
+            from apps.export.services.product_type import PRODUCT_MISMATCH, product_code, resolve_product_type
+            block_ids = list(self.instance.block_sources.values_list('block_id', flat=True))
+            blocks_product = resolve_product_type(block_ids) if block_ids else None
+            if blocks_product is not None and blocks_product.code != product_code(attrs['product_type']):
+                raise serializers.ValidationError({'product_type': PRODUCT_MISMATCH})
+
         role = self.context.get('role')
         if role in PRIVILEGED_ROLES:
             return attrs

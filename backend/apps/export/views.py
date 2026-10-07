@@ -794,6 +794,16 @@ class ShipmentViewSet(ModelViewSet):
             # shipment; see its docstring.
             from apps.export.services.task_rules import reconcile_shipment_tasks
             changed_keys = [k for k in submitted_keys if before[k] != after[k]]
+            # A product change moves the quota the firm splits already drew.
+            if 'product_type' in changed_keys and instance.firm_splits.exists():
+                from apps.export.services.product_type import shipment_product_code
+                from apps.export.services.quota_sync import (
+                    invalidate_quota_caches, sync_draft_quota_usage_for_shipment,
+                )
+                sync_draft_quota_usage_for_shipment(
+                    instance, request.user, product_type=shipment_product_code(instance),
+                )
+                transaction.on_commit(invalidate_quota_caches)
             reconcile_result = reconcile_shipment_tasks(
                 instance, changed_fields=changed_keys,
             )
@@ -2611,6 +2621,9 @@ class ShipmentViewSet(ModelViewSet):
             return 'Source shipment has no supply blocks'
         if target.block_sources.exists():
             return 'Target shipment already has supply blocks — join not allowed'
+        from apps.export.services.product_type import PRODUCT_MISMATCH, shipment_product_code
+        if shipment_product_code(source) != shipment_product_code(target):
+            return PRODUCT_MISMATCH
         return None
 
     @staticmethod
@@ -3397,20 +3410,24 @@ class ShipmentViewSet(ModelViewSet):
         from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 
         weight_net_before = snapshot_fields(shipment, ['weight_net']) if sync_weight_net else None
-        with transaction.atomic():
-            count = write_block_sources(shipment, entries, replace=True)
-            if sync_weight_net:
-                from django.db.models import Sum
+        from apps.export.services.product_type import ProductMismatchError
+        try:
+            with transaction.atomic():
+                count = write_block_sources(shipment, entries, replace=True)
+                if sync_weight_net:
+                    from django.db.models import Sum
 
-                # Computed from the rows just written (post-merge, post-split),
-                # not the pre-merge `entries` list and never the request body —
-                # this is what makes the two writes agree by construction.
-                new_total = shipment.block_sources.aggregate(
-                    total=Sum('weight_kg'),
-                )['total'] or Decimal('0')
-                shipment.weight_net = new_total
-                shipment.updated_by = request.user
-                shipment.save(update_fields=['weight_net', 'updated_by'])
+                    # Computed from the rows just written (post-merge, post-split),
+                    # not the pre-merge `entries` list and never the request body —
+                    # this is what makes the two writes agree by construction.
+                    new_total = shipment.block_sources.aggregate(
+                        total=Sum('weight_kg'),
+                    )['total'] or Decimal('0')
+                    shipment.weight_net = new_total
+                    shipment.updated_by = request.user
+                    shipment.save(update_fields=['weight_net', 'updated_by'])
+        except ProductMismatchError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         if sync_weight_net:
             weight_net_after = snapshot_fields(shipment, ['weight_net'])

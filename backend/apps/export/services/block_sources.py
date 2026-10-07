@@ -63,6 +63,13 @@ def write_block_sources(shipment, entries, *, replace: bool = True) -> int:
 
     parent_map = build_block_parent_map()
     merged = merge_to_parent(entries, parent_map)
+
+    from apps.export.services.product_type import check_blocks_fit, set_shipment_product
+
+    # Pepper spec §2: refuse a block of another product on a destination plan
+    # before anything is written; a supply-only row adopts the new product.
+    adopt = check_blocks_fit(shipment, {block_id for block_id, _ in merged})
+
     with transaction.atomic():
         if replace:
             shipment.block_sources.all().delete()
@@ -77,6 +84,8 @@ def write_block_sources(shipment, entries, *, replace: bool = True) -> int:
         ]
         if rows:
             ShipmentBlockSource.objects.bulk_create(rows, batch_size=500)
+        if adopt is not None:
+            set_shipment_product(shipment, adopt, user=None)
     return len(rows)
 
 
