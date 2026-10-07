@@ -2384,10 +2384,12 @@ class ShipmentViewSet(ModelViewSet):
             # INSIDE the atomic block: the quota usage rows written a few lines
             # below count immediately, so two concurrent creates drawing a
             # firm's last kg must not both pass. Season is the draft's own (D11)
-            # and product_type 'tomato' matches every other call site.
+            # and the product is the draft's own, so a pepper truck is checked
+            # against pepper quota only.
             if fs_rows:
+                from apps.export.services.product_type import product_code
                 from apps.export.services_quota import compute_firm_quota_balances
-                balances = compute_firm_quota_balances('tomato', season)
+                balances = compute_firm_quota_balances(product_code(product), season)
                 blocked = [
                     row['export_firm']
                     for row in fs_rows
@@ -2421,7 +2423,9 @@ class ShipmentViewSet(ModelViewSet):
                 from apps.export.services.quota_sync import (
                     sync_draft_quota_usage_for_shipment,
                 )
-                usage_created = sync_draft_quota_usage_for_shipment(shipment, user)
+                usage_created = sync_draft_quota_usage_for_shipment(
+                    shipment, user, product_type=product_code(product),
+                )
 
         logger.info(
             'Draft shipment %s created by %s with %d block source(s), %d firm split(s), %d quota draft(s)',
@@ -3467,6 +3471,7 @@ class ShipmentViewSet(ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from apps.export.services.product_type import shipment_product_code
         from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
         from apps.export.services_quota import compute_firm_quota_balances
 
@@ -3480,16 +3485,17 @@ class ShipmentViewSet(ModelViewSet):
             # Hard block: a NEWLY-added firm with no remaining quota may not be
             # assigned (mirrors the Sheet firm-split editor's client-side block).
             # Firms already on this split are exempt, so an existing over-committed
-            # firm can stay while being edited. product_type defaults to 'tomato'
-            # (pepper is a rare separate quota domain and the payload carries none
-            # — matches the frontend check).
+            # firm can stay while being edited. The quota domain is the
+            # shipment's own product: a pepper truck needs pepper quota.
             existing_firm_ids = set(
                 shipment.firm_splits.values_list('export_firm_id', flat=True)
             )
             # The SHIPMENT's season, not the active or the resolved one: under
             # D11 a shipment may only draw on its own season's quota, so the
             # hard block must be evaluated against that season's balance.
-            balances = compute_firm_quota_balances('tomato', shipment.season)
+            balances = compute_firm_quota_balances(
+                shipment_product_code(shipment), shipment.season,
+            )
             blocked_ids = [
                 e['export_firm_id']
                 for e in valid_entries
@@ -3544,7 +3550,9 @@ class ShipmentViewSet(ModelViewSet):
 
             # Replace this shipment's quota usage from the new splits. The rows
             # count immediately — no review step, nothing to refuse.
-            usage_count = sync_draft_quota_usage_for_shipment(shipment, request.user)
+            usage_count = sync_draft_quota_usage_for_shipment(
+                shipment, request.user, product_type=shipment_product_code(shipment),
+            )
 
         logger.info(
             'Firm splits for %s updated by %s (%d firms, %d usage records)',

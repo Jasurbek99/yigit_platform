@@ -1135,6 +1135,7 @@ def _set_firm_weights(shipment, weight_by_firm, user):
     """
     from django.db import transaction
     from apps.export.models import ShipmentFirmSplit
+    from apps.export.services.product_type import shipment_product_code
     from apps.export.services.quota_sync import (
         invalidate_quota_caches, sync_draft_quota_usage_for_shipment,
     )
@@ -1151,7 +1152,9 @@ def _set_firm_weights(shipment, weight_by_firm, user):
             for i, (fid, weight) in enumerate(weight_by_firm.items())
         ]
         ShipmentFirmSplit.objects.bulk_create(rows, batch_size=500)
-        sync_draft_quota_usage_for_shipment(shipment, user)
+        sync_draft_quota_usage_for_shipment(
+            shipment, user, product_type=shipment_product_code(shipment),
+        )
         # Consumption just moved, so the cached FIFO snapshot and per-firm
         # balances are stale — and the balances back the Sheet's "no quota"
         # hard block, which would otherwise refuse (or admit) a firm on

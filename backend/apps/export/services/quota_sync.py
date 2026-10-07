@@ -102,8 +102,9 @@ def sync_draft_quota_usage_for_shipment(
     Args:
         shipment: The Shipment whose firm_splits drive the usage records.
         user: User performing the action (audit: created_by on each row).
-        product_type: Quota product type ('tomato' or 'pepper'). Defaults to 'tomato'
-            — pepper support arrives when shipments carry product type.
+        product_type: Quota product type ('tomato' or 'pepper'). Callers pass the
+            shipment's own product (`shipment_product_code(shipment)`); the
+            'tomato' default only covers callers with no shipment product.
 
     Returns:
         Number of QuotaUsageRecord rows created.
