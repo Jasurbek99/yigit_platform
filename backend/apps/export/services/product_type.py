@@ -23,6 +23,12 @@ class ProductQuotaError(ValueError):
     """A split firm has no quota for the product the truck is moving to (→ 400)."""
 
 
+class ContractProductError(ProductMismatchError):
+    """The truck is sold under a contract of another product. Message is
+    CONTRACT_PRODUCT_MISMATCH; a ProductMismatchError, so every caller that
+    already turns a product mismatch into a 400 handles it too."""
+
+
 def product_code(product) -> str:
     return getattr(product, 'code', None) or ProductType.CODE_TOMATO
 
@@ -78,11 +84,34 @@ def check_product_quota(shipment, product) -> None:
         raise ProductQuotaError(f'{names} has no remaining {code} quota.')
 
 
+def check_contract_product(shipment, product) -> None:
+    """Refuse a product the truck's contracts disagree with (pepper spec fact 9).
+
+    Non-void sales under non-cancelled contracts fix the product; a contract
+    with no product reads as tomato. A change that keeps the effective code
+    (NULL -> tomato, or re-sending the current product) is not checked, so
+    older mismatched data stays editable. Reverse accessor only — export does
+    not import contracts.
+    """
+    code = product_code(product)
+    if code == shipment_product_code(shipment):
+        return
+    linked_codes = {
+        linked or ProductType.CODE_TOMATO
+        for linked in shipment.sales.exclude(status='void')
+        .exclude(contract__status='cancelled')
+        .values_list('contract__product_type__code', flat=True)
+    }
+    if linked_codes - {code}:
+        raise ContractProductError(CONTRACT_PRODUCT_MISMATCH)
+
+
 def set_shipment_product(shipment, product, user) -> bool:
     """Write the product with .update() (no auto-advance) and re-sync quota usage.
 
-    Raises ProductQuotaError (nothing written) when a split firm lacks quota
-    for the new product. Quota is re-synced only when the effective code moves.
+    Raises ContractProductError when the truck's contracts are of another
+    product, and ProductQuotaError when a split firm lacks quota for the new
+    product — nothing written in either case. Quota is re-synced only when the effective code moves.
     Writes one product_type AuditLog row (user may be None for system writes).
     """
     from apps.export.models import Shipment
@@ -91,6 +120,7 @@ def set_shipment_product(shipment, product, user) -> bool:
 
     if product is None or shipment.product_type_id == product.id:
         return False
+    check_contract_product(shipment, product)
     check_product_quota(shipment, product)
     code_moves = product_code(product) != shipment_product_code(shipment)
     before = snapshot_fields(shipment, ['product_type'])

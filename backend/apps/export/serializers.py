@@ -1826,8 +1826,8 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         # Runs before the role early-return: it is a data rule, not a permission.
         if 'product_type' in attrs and self.instance is not None:
             from apps.export.services.product_type import (
-                CONTRACT_PRODUCT_MISMATCH, PRODUCT_MISMATCH, ProductMismatchError, product_code,
-                resolve_product_type,
+                PRODUCT_MISMATCH, ContractProductError, ProductMismatchError, check_contract_product,
+                product_code, resolve_product_type,
             )
             block_ids = list(self.instance.block_sources.values_list('block_id', flat=True))
             try:
@@ -1837,15 +1837,10 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
             if blocks_product is not None and blocks_product.code != product_code(attrs['product_type']):
                 raise serializers.ValidationError({'product_type': PRODUCT_MISMATCH})
             # The contracts the truck is already sold under fix its product.
-            # Reverse accessor only — export does not import contracts.
-            linked_codes = {
-                code or ProductType.CODE_TOMATO
-                for code in self.instance.sales.exclude(status='void')
-                .exclude(contract__status='cancelled')
-                .values_list('contract__product_type__code', flat=True)
-            }
-            if linked_codes - {product_code(attrs['product_type'])}:
-                raise serializers.ValidationError({'product_type': CONTRACT_PRODUCT_MISMATCH})
+            try:
+                check_contract_product(self.instance, attrs['product_type'])
+            except ContractProductError as exc:
+                raise serializers.ValidationError({'product_type': str(exc)})
             from apps.export.services.product_type import ProductQuotaError, check_product_quota
             try:
                 check_product_quota(self.instance, attrs['product_type'])

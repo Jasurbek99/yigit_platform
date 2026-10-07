@@ -3,8 +3,9 @@
 NULL already reads as tomato everywhere; this makes it explicit. The product
 comes from the truck's blocks (resolve_product_type), else tomato. A truck whose
 blocks span two products is skipped and listed. A truck whose blocks are pepper
-and whose split firm has no pepper quota is refused and listed (same hard block
-as a product change in the UI). Each write goes through set_shipment_product in
+and whose split firm has no pepper quota, or that is sold under a contract of
+another product (a contract with no product reads as tomato), is refused and
+listed — the same checks as a product change in the UI. Each write goes through set_shipment_product in
 its own transaction: audit row, and a quota resync when the code moves.
 
 Dry-run by default (read-only); pass --apply to write.
@@ -16,8 +17,8 @@ from django.db import transaction
 from apps.core.models import ProductType
 from apps.export.models import Shipment
 from apps.export.services.product_type import (
-    ProductMismatchError, ProductQuotaError, check_product_quota, resolve_product_type,
-    set_shipment_product,
+    ContractProductError, ProductMismatchError, ProductQuotaError, check_contract_product,
+    check_product_quota, resolve_product_type, set_shipment_product,
 )
 
 
@@ -37,7 +38,7 @@ class Command(BaseCommand):
             raise CommandError('No ProductType with code "tomato" — run migrations first.')
 
         counts = {'tomato': 0, 'pepper': 0}
-        resync, mixed, uncoded, refused = [], [], [], []
+        resync, mixed, uncoded, refused, contract_refused = [], [], [], [], []
         rows = list(Shipment.objects.filter(product_type__isnull=True).order_by('pk'))
         for shipment in rows:
             block_ids = list(shipment.block_sources.values_list('block_id', flat=True))
@@ -54,7 +55,11 @@ class Command(BaseCommand):
                     with transaction.atomic():
                         set_shipment_product(shipment, product, user=None)
                 else:
+                    check_contract_product(shipment, product)
                     check_product_quota(shipment, product)
+            except ContractProductError:
+                contract_refused.append(shipment.shipment_code)
+                continue
             except ProductQuotaError as exc:
                 refused.append(f'{shipment.shipment_code} ({exc})')
                 continue
@@ -70,3 +75,6 @@ class Command(BaseCommand):
         self.stdout.write(f'  skipped mixed: {len(mixed)} {mixed}')
         self.stdout.write(f'  skipped code-less product: {len(uncoded)} {uncoded}')
         self.stdout.write(f'  refused (no quota): {len(refused)} {refused}')
+        self.stdout.write(
+            f'  refused (contract product): {len(contract_refused)} {contract_refused}'
+        )
