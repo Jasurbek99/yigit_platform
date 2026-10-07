@@ -18,7 +18,7 @@ export function RejectTripModal({ trip, onClose }: IRejectTripModalProps) {
   const [form] = Form.useForm<{ reason: string }>();
   const reject = useRejectTrip();
 
-  async function submit() {
+  async function handleSubmit() {
     const values = await form.validateFields().catch(() => null);
     if (!trip || !values) return;
     reject.mutate(
@@ -39,7 +39,7 @@ export function RejectTripModal({ trip, onClose }: IRejectTripModalProps) {
       title={trip ? `${t('truck_board.reject_title')} · ${trip.tractor_plate} / ${trip.trailer_plate}` : ''}
       okText={t('truck_board.reject')}
       okButtonProps={{ danger: true, loading: reject.isPending }}
-      onOk={submit}
+      onOk={handleSubmit}
       onCancel={onClose}
       destroyOnHidden
     >

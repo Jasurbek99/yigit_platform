@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Button, Tag, Tooltip, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { IExternalTrip } from '@/types/externalTrip';
@@ -8,9 +8,9 @@ import { useTripMessages } from './useTripMessages';
 
 const { Text } = Typography;
 // A long reason must not stretch the card: cut it, full text in the tooltip.
-const REJECTED_TAG_STYLE = {
+const REJECTED_TAG_STYLE: CSSProperties = {
   maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block',
-} as const;
+};
 
 interface ITripCardProps {
   trip: IExternalTrip;

@@ -21,6 +21,7 @@ export function TripDrawer({ trip, canReject, onReject, onClose }: ITripDrawerPr
     openTripDocument(tripId).catch(() => toast.error(t('truck_board.error.pdf')));
   const vehicle = (plate: string, brand: string | null, model: string | null, company: string | null) =>
     [plate, [brand, model].filter(Boolean).join(' '), company].filter(Boolean).join(' · ');
+  const canRejectTrip = canReject && trip !== null && !trip.shipment && (!trip.rejected_at || rejectionFailed(trip));
   return (
     <Drawer open={trip !== null} onClose={onClose} width={520} destroyOnHidden title={t('truck_board.details')}>
       {trip && (
@@ -63,7 +64,7 @@ export function TripDrawer({ trip, canReject, onReject, onClose }: ITripDrawerPr
           {trip.position && <TripMiniMap lat={trip.position.lat} lon={trip.position.lon} height={220} />}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <Button onClick={() => openPdf(trip.id)}>{t('truck_board.documents_pdf')}</Button>
-            {canReject && !trip.shipment && (!trip.rejected_at || rejectionFailed(trip)) && (
+            {canRejectTrip && (
               <Button danger onClick={() => onReject(trip)}>{t('truck_board.reject')}</Button>
             )}
           </div>
