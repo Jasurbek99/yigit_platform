@@ -11,7 +11,7 @@ from apps.transport.models import ExternalTrip
 from apps.transport.services.trip_assignment import AssignmentError
 from apps.transport.services.trip_push import enqueue_rejection
 
-REJECTION_REASON_MAX = 512
+REJECTION_REASON_MAX = ExternalTrip._meta.get_field('rejection_reason').max_length
 
 
 def reject_trip(trip: ExternalTrip, reason: str, user: User) -> None:

@@ -5,7 +5,7 @@ import { useRejectTrip } from '@/hooks/useExternalTrips';
 import type { IExternalTrip } from '@/types/externalTrip';
 import { apiErrorKey } from './truckBoardHelpers';
 
-const REASON_MAX = 512;
+const REASON_MAX = 512; // = ExternalTrip.rejection_reason max_length (backend)
 
 interface IRejectTripModalProps {
   trip: IExternalTrip | null;

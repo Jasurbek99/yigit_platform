@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from apps.transport.models import ExternalTrip, ExternalTripSyncState
 from apps.transport.services.trip_parsing import parse_trip
+from apps.transport.services.trip_push_ops import REJECTION_OP
 from apps.transport.services.trips_client import TripsApiUnavailable, get_trips_client
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ def _upsert(item: dict, client) -> ExternalTrip | None:
         # committed since, and our columns stay out of the poll's own save.
         answered = ExternalTrip.objects.filter(pk=trip.pk, rejected_at__isnull=False)
         answered.update(**dict.fromkeys(ExternalTrip.REJECTION_FIELDS))
-        ExternalTrip.objects.filter(pk=trip.pk, last_push_error__startswith='rejection:').update(
+        ExternalTrip.objects.filter(pk=trip.pk, last_push_error__startswith=f'{REJECTION_OP}:').update(
             last_push_status=None, last_push_error=None)
     return trip if trip.shipment_id and changed else None
 

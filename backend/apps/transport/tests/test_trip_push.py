@@ -6,7 +6,8 @@ from django.test import TestCase, override_settings
 from apps.core.models import Country, GreenhouseBlock, LoadingLocation
 from apps.export.models import Shipment, ShipmentBlockSource
 from apps.transport.models import ExternalTrip
-from apps.transport.services.trip_push import build_event, export_code_body, loading_body
+from apps.transport.services.trip_push import build_event
+from apps.transport.services.trip_push_ops import export_code_body, loading_body
 from apps.transport.tasks import push_trip_update
 from apps.transport.tests.test_trip_assignment import make_trip
 from apps.transport.tests.test_trip_sync import _make_shipment
@@ -52,7 +53,8 @@ class PushBodyTests(TestCase):
         self.assertTrue(place['name'].startswith('Blok B3, Blok A1, Blok X00'))
 
     def test_pending_correction_pushes_once_per_code(self):
-        from apps.transport.services.trip_push import loading_signature, push_pending_corrections
+        from apps.transport.services.trip_push import push_pending_corrections
+        from apps.transport.services.trip_push_ops import loading_signature
         # Loading already sent: this test is about the export-code op alone.
         ExternalTrip.objects.filter(pk=self.trip.pk).update(
             shipment=self.shipment, last_pushed_loading=loading_signature(self.shipment))
@@ -63,7 +65,8 @@ class PushBodyTests(TestCase):
         self.assertEqual(delay.call_count, 1)
 
     def test_corrected_code_is_pushed_again(self):
-        from apps.transport.services.trip_push import loading_signature, push_pending_corrections
+        from apps.transport.services.trip_push import push_pending_corrections
+        from apps.transport.services.trip_push_ops import loading_signature
         ExternalTrip.objects.filter(pk=self.trip.pk).update(
             shipment=self.shipment, last_pushed_export_code='OLD',
             last_pushed_loading=loading_signature(self.shipment))
@@ -112,7 +115,7 @@ class AssignEnqueuesPushesTests(TestCase):
         from django.contrib.auth import get_user_model
 
         from apps.transport.services.trip_assignment import assign_trip
-        from apps.transport.services.trip_push import PUSH_OPS
+        from apps.transport.services.trip_push_ops import PUSH_OPS
         kz = Country.objects.create(code='KZ', name_tk='GAZAGYSTAN')
         shipment = _make_shipment(country=kz, export_code='04AP034/26')
         user = get_user_model().objects.create_user(username='em', password='x', role='export_manager')
@@ -178,7 +181,7 @@ class LoadingCorrectionTests(TestCase):
         return [c.args[1] for c in enqueue.call_args_list]
 
     def test_changed_blocks_are_pushed_once(self):
-        from apps.transport.services.trip_push import loading_signature
+        from apps.transport.services.trip_push_ops import loading_signature
         ExternalTrip.objects.filter(pk=self.trip.pk).update(
             last_pushed_loading=loading_signature(self.shipment))
         self.assertEqual(self._ops_pushed(), [])
@@ -187,7 +190,8 @@ class LoadingCorrectionTests(TestCase):
         self.assertEqual(self._ops_pushed(), ['loading'])
 
     def test_enqueue_records_the_loading_signature(self):
-        from apps.transport.services.trip_push import enqueue_push, loading_signature
+        from apps.transport.services.trip_push import enqueue_push
+        from apps.transport.services.trip_push_ops import loading_signature
         trip = ExternalTrip.objects.select_related('shipment').get(pk=self.trip.pk)
         with mock.patch('apps.transport.tasks.push_trip_update.delay'), self.captureOnCommitCallbacks(execute=True):
             enqueue_push(trip, 'loading')
@@ -197,7 +201,8 @@ class LoadingCorrectionTests(TestCase):
 
 class CorrectionQueryCountTests(TestCase):
     def test_query_count_does_not_grow_with_trips(self):
-        from apps.transport.services.trip_push import loading_signature, push_pending_corrections
+        from apps.transport.services.trip_push import push_pending_corrections
+        from apps.transport.services.trip_push_ops import loading_signature
         location = LoadingLocation.objects.create(name='Ahal')
         block = GreenhouseBlock.objects.create(code='A1', name='Blok A1')
         uuids = ['89f2783b-e7e9-47ba-9884-8fe7bf34f1bd', 'b242b4de-a941-4dba-899e-3b0235e9f4ec',
@@ -222,25 +227,25 @@ class DestinationAndCargoTests(TestCase):
         self.trip = make_trip()
 
     def test_destination_city_body(self):
-        from apps.transport.services.trip_push import destination_city_body
+        from apps.transport.services.trip_push_ops import destination_city_body
         self.assertEqual(destination_city_body(self.shipment), {'city': 'Almaty'})
 
     def test_no_city_means_no_push(self):
-        from apps.transport.services.trip_push import destination_city_body
+        from apps.transport.services.trip_push_ops import destination_city_body
         self.shipment.city = None
         self.assertIsNone(destination_city_body(self.shipment))
 
     def test_cargo_body_uses_russian_name_and_code(self):
-        from apps.transport.services.trip_push import cargo_body
+        from apps.transport.services.trip_push_ops import cargo_body
         self.assertEqual(cargo_body(self.shipment), {'cargoName': 'Перец сладкий свежий', 'cargoRef': 'pepper'})
 
     def test_cargo_body_falls_back_to_name_and_omits_missing_code(self):
-        from apps.transport.services.trip_push import cargo_body
+        from apps.transport.services.trip_push_ops import cargo_body
         self.pepper.name_ru, self.pepper.code = None, None
         self.assertEqual(cargo_body(self.shipment), {'cargoName': self.pepper.name})
 
     def test_no_product_means_no_push(self):
-        from apps.transport.services.trip_push import cargo_body
+        from apps.transport.services.trip_push_ops import cargo_body
         self.shipment.product_type = None
         self.assertIsNone(cargo_body(self.shipment))
 
@@ -275,8 +280,8 @@ class DestinationAndCargoTests(TestCase):
 
     def test_release_clears_every_marker(self):
         from apps.transport.services.trip_assignment import RELEASED_TRIP_COLUMNS
-        from apps.transport.services.trip_push import PUSH_OPS
-        self.assertTrue({push.marker for push in PUSH_OPS.values()} <= set(RELEASED_TRIP_COLUMNS))
+        from apps.transport.services.trip_push_ops import PUSH_OPS
+        self.assertTrue({push.sent_column for push in PUSH_OPS.values()} <= set(RELEASED_TRIP_COLUMNS))
 
 
 class EventAndCustomsTests(TestCase):
@@ -294,30 +299,30 @@ class EventAndCustomsTests(TestCase):
         return ExternalTrip.objects.select_related('shipment').get(pk=self.trip.pk)
 
     def test_event_body_has_type_and_place(self):
-        from apps.transport.services.trip_push import PUSH_OPS
+        from apps.transport.services.trip_push_ops import PUSH_OPS
         body = PUSH_OPS['event-arrived'].build_body(self._linked().shipment)
         self.assertEqual(body, {'type': 'ARRIVED_AT_PLACE', 'place': {'ref': 'A1', 'name': 'Blok A1'}})
 
     def test_event_without_blocks_has_no_place(self):
-        from apps.transport.services.trip_push import PUSH_OPS
+        from apps.transport.services.trip_push_ops import PUSH_OPS
         self.shipment.block_sources.all().delete()
         self.assertEqual(PUSH_OPS['event-arrived'].build_body(self._linked().shipment), {'type': 'ARRIVED_AT_PLACE'})
 
     def test_empty_time_means_no_event(self):
-        from apps.transport.services.trip_push import PUSH_OPS
+        from apps.transport.services.trip_push_ops import PUSH_OPS
         shipment = self._linked().shipment
         self.assertIsNone(PUSH_OPS['event-loaded'].build_body(shipment))
         self.assertIsNone(PUSH_OPS['event-departed'].build_body(shipment))
 
     def test_customs_only_after_destination_customs(self):
-        from apps.transport.services.trip_push import customs_body
+        from apps.transport.services.trip_push_ops import customs_body
         shipment = self._linked().shipment
         self.assertIsNone(customs_body(shipment))
         shipment.customs_entry_at = self.ARRIVED
         self.assertEqual(customs_body(shipment), {'cleared': True})
 
     def test_turkmen_export_customs_alone_sends_no_customs(self):
-        from apps.transport.services.trip_push import PUSH_OPS, customs_body
+        from apps.transport.services.trip_push_ops import PUSH_OPS, customs_body
         shipment = self._linked().shipment
         shipment.customs_exit_at = self.ARRIVED
         self.assertIsNone(customs_body(shipment))

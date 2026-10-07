@@ -12,7 +12,8 @@ from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 from apps.export.services.trip_lock import TRIP_LOCKED_FIELDS
 from apps.transport.models import ExternalTrip, Trailer, TruckHead
 from apps.transport.services.matching import normalize_plate
-from apps.transport.services.trip_push import PUSH_OPS, enqueue_push
+from apps.transport.services.trip_push import enqueue_push
+from apps.transport.services.trip_push_ops import PUSH_OPS
 
 # What a trip writes on its shipment: the locked set minus the gapy-only issue date.
 TRANSPORT_FIELDS = tuple(f for f in TRIP_LOCKED_FIELDS if f != 'driver_passport_issue_date')
@@ -20,7 +21,7 @@ EMPTY_VALUES = {field: None for field in TRANSPORT_FIELDS}
 # Our own columns cleared whenever a trip leaves its shipment.
 RELEASED_TRIP_COLUMNS = {
     'shipment': None, 'linked_at': None, 'conflict_note': None, 'conflict_kind': None, 'conflict_from': None,
-    'conflict_to': None, **{push.marker: None for push in PUSH_OPS.values()},
+    'conflict_to': None, **{push.sent_column: None for push in PUSH_OPS.values()},
 }
 
 
