@@ -73,6 +73,8 @@ Migration `transport/0011`: six nullable columns on `ExternalTrip`:
   body `{reason}`; permission `CanAssignTrips` like assign.
   - `reason` empty or > 512 chars → `400 reason_required` / `400 reason_too_long`.
   - trip linked to a shipment → `409 trip_linked`; trip in `CLOSED_STATUSES` → `409 trip_closed`.
+  - a trip already rejected → `409 trip_rejected`, unless its last push failed
+    (`last_push_error` starts with `rejection:`): then it can be rejected again.
   - Otherwise store the three fields and enqueue the one-shot push `rejection`
     (`{reason}`; not part of the correction loop, no marker column). Returns the trip payload.
 - `assign` / `move` onto a rejected trip → `409 trip_rejected` (`AssignmentError`).
@@ -83,8 +85,10 @@ Migration `transport/0011`: six nullable columns on `ExternalTrip`:
 
 ### Frontend (Truck Board)
 
-- `TripCard` / `TripDrawer`: «Отклонить» button on free, non-closed, non-rejected trips for
-  users who can assign. Opens a modal with a required reason (max 512).
+- `TripDrawer` only: «Отклонить» button on free, non-closed trips for users who can assign.
+  Opens a modal with a required reason (max 512). The card shows the rejected tag and, when the
+  push failed, the error — no button. A rejected trip can be rejected again only while its last
+  rejection push failed (else `409 trip_rejected`); the drawer hides the button otherwise.
 - A rejected trip stays on the board with a tag «Отклонён: <причина>»; its assign action is
   disabled. The tag disappears after the next poll that brings a real change.
 - `useExternalTrips.ts`: `useRejectTrip` mutation; types gain the three fields.
@@ -99,7 +103,7 @@ Migration `transport/0011`: six nullable columns on `ExternalTrip`:
 - `push_trip_update` passes the op's path segment (not the op key) to `post_op`, so the three
   event ops all POST to `events`; error messages and markers keep the op key. Mock client
   already logs any path; no client change needed.
-- Frontend: TripCard renders reject button / rejected tag; modal requires reason.
+- Frontend: TripDrawer shows / hides the reject button; TripCard renders the rejected tag; modal requires reason.
 
 ## Out of scope
 

@@ -44,7 +44,7 @@ flowchart LR
 | React to Planning changes, Accept | `apps/transport/services/trip_changes.py` (`find_pending_changes`, `apply_trip_change`) |
 | Notifications | `apps/transport/services/trip_notify.py` |
 | Rollback | `apps/export/services/rollback.py` + `transition_to(..., rollback=True)` (system-only `ROLLBACK_TRANSITIONS`, never in `TRANSITIONS`) |
-| Pushes to Planning | `apps/transport/services/trip_push.py` + Celery `push_trip_update` (export-code, loading, destination-city, cargo, three loading-place events, customs) |
+| Pushes to Planning | `apps/transport/services/trip_push.py` (queueing), `trip_push_ops.py` (bodies, signatures, `PUSH_OPS`) + Celery `push_trip_update` (export-code, loading, destination-city, cargo, three loading-place events, customs) |
 | Trip rejection | `apps/transport/services/trip_rejection.py`; `reject/` action in `views_trips.py`; `RejectTripModal.tsx` |
 | Sheet / Detail lock | `apps/export/services/trip_lock.py` (PATCH guard) + `isTripLockedCell` in `frontend/src/utils/sheetPermissions.ts`; Detail: `ShipmentTransportBody` locks the truck/driver selectors and `lockedKeys` rows |
 | Screen | `frontend/src/pages/export/TruckBoard.tsx` (+ `truckBoard/`), banner `components/shipment/ShipmentTripBanner.tsx` |
@@ -96,7 +96,7 @@ Our shipment cancelled → the next poll frees its trip (Planning is not told; n
 | Загружен | `events` `LOADED` | `loading_ended_at` | время заполнено/исправлено |
 | Выехал с погрузки | `events` `DEPARTED_FROM_PLACE` | `departed_at` | время заполнено/исправлено |
 | Таможня пройдена | `customs` `cleared:true` | `customs_entry_at` («Таможня пройдена», таможня страны назначения; `customs_exit_at` — туркменская экспортная таможня, не отправляется) | время заполнено/исправлено |
-| Отклонение рейса | `rejection` | кнопка «Отклонить рейс» в карточке рейса | один раз |
+| Отклонение рейса | `rejection` | кнопка «Отклонить рейс» в окне рейса | один раз |
 
 Очистка поля после отправки в Planning ничего не шлёт: контракт не умеет отзывать события.
 Исправленное время уходит вторым событием с новым `occurredAt`.
@@ -112,14 +112,15 @@ the next poll sends it again.
 
 ## Отклонение рейса
 
-Свободный рейс можно отклонить из карточки (кнопка «Отклонить рейс», причина обязательна,
+Свободный рейс можно отклонить из окна рейса (кнопка «Отклонить рейс», причина обязательна,
 до 512 символов). Право — то же, что у привязки (`shipment_assign` edit). Рейс остаётся на доске
 с меткой «Отклонён: <причина>», привязать его нельзя (`409 trip_rejected`). Метка снимается сама,
 когда Planning меняет тягач, прицеп или водителя либо отменяет рейс.
 Отклонение не переотправляется само: если Planning его не получил (`last_push_error`
 `rejection: PLANNING_UNAVAILABLE`), карточка и окно рейса показывают красным «Planning не получил
 отклонение — отклоните рейс ещё раз», и в окне снова есть кнопка «Отклонить рейс» (повтор шлёт новый
-`eventId` и новую причину). Замена тягача/прицепа/водителя снимает и метку, и эту ошибку.
+`eventId` и новую причину). Пока отклонение дошло до Planning, повторно отклонить рейс нельзя
+(`409 trip_rejected`, кнопка скрыта): повтор возможен только после неудачной отправки. Замена тягача/прицепа/водителя снимает и метку, и эту ошибку.
 В окне выбора рейса на отправке отклонённый рейс виден с меткой, но выбрать его нельзя.
 API: `POST /api/v1/transport/external-trips/{id}/reject/` `{reason}`.
 

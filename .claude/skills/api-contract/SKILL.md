@@ -848,6 +848,38 @@ endpoint keeps the plain shape) — each row adds `shipment`, the load that truc
 complete or cancelled; a loaded one beats a `draft` plan, else newest `date` wins. Names
 match `ShipmentListSerializer`. Frontend: `ILiveShipment` in `useLivePositions.ts`.
 
+### Truck Board trips: `/api/v1/transport/external-trips/` (2026-10-07)
+
+Trips mirrored from Planning. Not paginated (flat array). Read needs the `export.truck_board` page
+grant; every POST needs `shipment_assign` edit (`CanAssignTrips`).
+
+`GET /external-trips/` — optional `?free=1` (unlinked, not closed), `?linked=1` (linked to a
+shipment), `?country=<code>`, `?date=<planned_departure>`. Also `GET /{id}/`, `GET /{id}/document/`
+(PDF), `GET /sync-state/`.
+
+Item fields added by the write-ops branch:
+
+```jsonc
+"rejection_reason": "Нет визы KZ",   // null when not rejected
+"rejected_at": "2026-10-07T09:12:00Z",
+"rejected_by_name": "Aman Aman"      // full name, else username; null when not rejected
+```
+
+Link actions, all `POST /external-trips/{id}/<action>/` returning the updated trip item; a refusal is
+`{"error": "<code>"}`:
+
+| Action | Body | Refusals |
+|--------|------|----------|
+| `assign` | `{shipment_id, confirm_unknown_country?}` | 400 `shipment_id_required`, 404 `shipment_not_found`, 409 `gapy` `not_draft` `has_trip` `trip_closed` `trip_taken` `trip_rejected` `country_unknown` `country_mismatch` `season_closed` |
+| `move` | same | same as `assign`, plus 409 `locked` |
+| `unassign` | none | 409 `locked`, `season_closed` |
+| `accept-change` | none | 409 `season_closed` |
+| `reject` | `{reason}` | 400 `reason_required` (empty, blank or not a string), 400 `reason_too_long` (> 512), 409 `trip_closed`, `trip_linked`, `trip_rejected` |
+
+`reject` marks a free, open trip rejected and sends `reason` to Planning once. A rejected trip can be
+rejected again only while its last push failed (`last_push_error` starts with `rejection:`), else 409
+`trip_rejected`. `assign` / `move` onto a rejected trip are 409 `trip_rejected`.
+
 ### Planning tasks: review, transport plan, acknowledge (2026-09-29)
 
 Backs the «Tanyşdym» planning tasks (`docs/Tasks.md` items 2b and 3). Spec:
