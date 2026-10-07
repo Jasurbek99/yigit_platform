@@ -3,7 +3,8 @@ shipment's product name and HS code instead of hardcoded tomato."""
 from django.test import TestCase
 
 from apps.contracts.services.document_context import (
-    build_cmr_context, build_customs_context, build_invoice_context,
+    build_cmr_context, build_ct1_context, build_customs_context, build_fito_context,
+    build_invoice_context,
 )
 from apps.contracts.tests.test_contract_sale_api import (
     _make_contract, _make_export_firm, _make_import_firm, _make_invoice, _make_season,
@@ -82,3 +83,16 @@ class DocumentProductTests(TestCase):
         ctx = build_invoice_context(self.invoice, 'en')
         self.assertEqual(ctx['line_items'][0]['code'], '070200000')
         self.assertEqual(ctx['line_items'][0]['name'], 'Fresh tomatoes')
+
+    def test_ct1_and_fito_pepper(self):
+        self.assertEqual(build_ct1_context(self.invoice)['product'], 'Перец сладкий свежий')
+        self.assertEqual(build_fito_context(self.invoice)['product'], 'Перец сладкий свежий')
+
+    def test_ct1_and_fito_tomato_literals_unchanged(self):
+        tomato = ProductType.objects.get(code='tomato')
+        for product in (tomato, None):
+            self.shipment.product_type = product
+            self.shipment.save(update_fields=['product_type'])
+            self.invoice.refresh_from_db()
+            self.assertEqual(build_ct1_context(self.invoice)['product'], 'Свежие Помидоры')
+            self.assertEqual(build_fito_context(self.invoice)['product'], 'Свежих Помидоров')

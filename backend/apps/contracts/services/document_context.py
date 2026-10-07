@@ -82,6 +82,15 @@ def _hs_code(product) -> str:
     return (getattr(product, 'hs_code', None) or '').strip() or TOMATO_HS_CODE
 
 
+def _letter_product(invoice, tomato_text: str) -> str:
+    """RU product text for a letter. Tomato (or no product) keeps the letter's own
+    wording (``tomato_text``); any other product prints its Russian name."""
+    product = _invoice_product(invoice)
+    if product is None or product.code == 'tomato':
+        return tomato_text
+    return product_names(product)[1]
+
+
 def _invoice_product(invoice):
     """The invoice's shipment product, else its contract's, else None (-> tomato)."""
     shipment = getattr(invoice, 'shipment', None)
@@ -999,7 +1008,7 @@ def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) 
         'firm_address': _firm_attr(seller, 'address', lang),
         'buyer_name': getattr(buyer, 'name_company', '') or '',
         'buyer_address': getattr(buyer, 'address', '') or '',
-        'product': 'Свежие Помидоры',
+        'product': _letter_product(invoice, 'Свежие Помидоры'),
         'contract_line': _contract_line(contract),
         'net': _kg(fig.net, lang),
         'gross': _kg(fig.gross, lang),
@@ -1023,7 +1032,7 @@ def build_fito_context(invoice, lang: str = 'ru', overrides: dict | None = None)
         'buyer_name': getattr(buyer, 'name_company', '') or '',
         'buyer_address': getattr(buyer, 'address', '') or '',
         'country': _country_name(invoice, lang),
-        'product': 'Свежих Помидоров',
+        'product': _letter_product(invoice, 'Свежих Помидоров'),
         'net': _kg(fig.net, lang),
         'boxes': str(fig.boxes) if fig.boxes else '',
         'plate': fig.plate,

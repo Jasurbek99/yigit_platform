@@ -24,8 +24,9 @@ class ContractSaleLineItem(models.Model):
     )
     line_number = models.PositiveSmallIntegerField()
 
-    # Blank → the invoice falls back to the localized default ('Помидор свежий' /
-    # 'Fresh tomatoes'); hs_code blank → the module TOMATO_HS_CODE.
+    # Blank → the invoice falls back to the product's localized name (tomato when
+    # the product is unknown); hs_code blank → the product's HS code (tomato's
+    # TOMATO_HS_CODE when unknown).
     product_name = models.CharField(
         max_length=200, blank=True, default='', **cyrillic_collation(),
     )
