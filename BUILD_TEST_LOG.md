@@ -1,3 +1,5 @@
+- [ ] 2026-10-07 — Planning write ops (destination-city, cargo, events, customs, rejection) on branch feat/planning-write-ops — NEEDS TEST
+
 - [ ] 2026-10-05 — Блоки (/admin/blocks) идут в порядке из письма (A, B, Ç → D…L, M15, M5, N, P → O); D–J, M15, M5 перенесены на Kaka; NP разделён на N и P — NEEDS TEST
   To test: (1) /admin/blocks → порядок A, B, C, D … L, M15, M5, N, P, O; локация у D…P — Kaka; (2) клик по заголовку «Код» всё ещё сортирует; (3) пост охраны Kaka видит машины блоков D–J/M15/M5, пост Duşak — только A/B/C; (4) недельный план → есть строки N и P, нет NP; (5) /admin/blocks → сорта 26-27: B Guardiosa, I Sanmaru, J Fujimaru, K Marvelance, остальные томатные по таблице; D, G, M5 не тронуты (перец — другая сессия). Бета: update.sh.
 

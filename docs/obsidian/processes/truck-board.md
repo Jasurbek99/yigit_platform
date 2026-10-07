@@ -81,15 +81,33 @@ Our shipment cancelled → the next poll frees its trip (Planning is not told; n
 
 ## Pushes (MVP)
 
-| Op | When | Body |
-|---|---|---|
-| `export-code` | on assign; again whenever `export_code` differs from `last_pushed_export_code` (checked every poll) | `exportCode` |
-| `loading` | on assign; again whenever loading location or blocks differ from `last_pushed_loading` (checked every poll) | `city` = loading location name, `place.name` = block names, `place.ref` = first block code |
+| Операция | Маршрут Planning | Источник у нас | Когда |
+|---|---|---|---|
+| Код экспорта | `export-code` | `export_code` | привязка + изменение |
+| Место погрузки | `loading` | `loading_location` + блоки | привязка + изменение |
+| Город назначения | `destination-city` | `city` | привязка + изменение |
+| Продукт | `cargo` | `product_type` (`name_ru`, `code`) | привязка + изменение |
+| Приехал на погрузку | `events` `ARRIVED_AT_PLACE` | `greenhouse_arrived_at` | время заполнено/исправлено |
+| Загружен | `events` `LOADED` | `loading_ended_at` | время заполнено/исправлено |
+| Выехал с погрузки | `events` `DEPARTED_FROM_PLACE` | `departed_at` | время заполнено/исправлено |
+| Таможня пройдена | `customs` `cleared:true` | `customs_exit_at` (таможня страны назначения) | время заполнено/исправлено |
+| Отклонение рейса | `rejection` | кнопка «Отклонить рейс» в карточке рейса | один раз |
+
+Очистка поля после отправки в Planning ничего не шлёт: контракт не умеет отзывать события.
+Исправленное время уходит вторым событием с новым `occurredAt`.
 
 `Idempotency-Key` = `eventId` = `ygt-{uuid}-{op}-{enqueue ms}`; retries reuse it. `TRIP_CLOSED` →
 give up. Any other refusal → stored as `"<op>: <CODE>"` in `last_push_error`, shown (translated) on the
 shipment banner, export managers notified. Retries running out clear the op's `last_pushed_*` marker, so
 the next poll sends it again.
+
+## Отклонение рейса
+
+Свободный рейс можно отклонить из карточки (кнопка «Отклонить рейс», причина обязательна,
+до 512 символов). Право — то же, что у привязки (`shipment_assign` edit). Рейс остаётся на доске
+с меткой «Отклонён: <причина>», привязать его нельзя (`409 trip_rejected`). Метка снимается сама,
+когда Planning меняет тягач, прицеп или водителя либо отменяет рейс.
+API: `POST /api/v1/transport/external-trips/{id}/reject/` `{reason}`.
 
 ## Cards (2026-09-30)
 
