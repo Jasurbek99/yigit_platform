@@ -198,3 +198,37 @@ class ContractProductMismatchApiTests(TestCase):
             f'/api/v1/contracts/sales/{sale.pk}/', {'status': 'sent'}, format='json',
         )
         self.assertEqual(resp.status_code, 200, resp.data)
+
+
+class BackfillContractProductsTests(TestCase):
+    """I5: backfill_contract_products sets NULL contract products to tomato."""
+
+    def setUp(self):
+        self.ef = _efirm('BCP')
+        self.imf = _ifirm('BB')
+        self.pepper = ProductType.objects.get(code='pepper')
+        self.legacy = _contract(self.ef, self.imf, '21/25-BCP-EXP', 21, None)
+        self.p = _contract(self.ef, self.imf, '22/25-BCP-EXP', 22, self.pepper)
+
+    def _run(self, *args):
+        from io import StringIO
+
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('backfill_contract_products', *args, stdout=out)
+        return out.getvalue()
+
+    def test_dry_run_writes_nothing(self):
+        out = self._run()
+        self.assertIn('DRY RUN', out)
+        self.assertIn('NULL -> tomato: 1', out)
+        self.legacy.refresh_from_db()
+        self.assertIsNone(self.legacy.product_type)
+
+    def test_apply_sets_tomato_and_leaves_pepper(self):
+        out = self._run('--apply')
+        self.assertIn('APPLIED', out)
+        self.legacy.refresh_from_db()
+        self.p.refresh_from_db()
+        self.assertEqual(self.legacy.product_type.code, 'tomato')
+        self.assertEqual(self.p.product_type.code, 'pepper')
