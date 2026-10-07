@@ -122,6 +122,31 @@ class ChangeDetectionTests(TestCase):
             else:
                 item[block] = value
 
+    def _rejected(self, client):
+        sync_external_trips(client)
+        trip = ExternalTrip.objects.get(tractor_plate='2563AHF')
+        ExternalTrip.objects.filter(pk=trip.pk).update(rejection_reason='Нет визы', rejected_at=timezone.now())
+        return trip
+
+    def test_driver_swap_clears_rejection(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        trip = self._rejected(client)
+        self._bump(items, **{'driver.fullName': 'Täze Sürüji'})
+        sync_external_trips(client)
+        trip.refresh_from_db()
+        self.assertIsNone(trip.rejection_reason)
+        self.assertIsNone(trip.rejected_at)
+
+    def test_status_only_bump_keeps_rejection(self):
+        items = _fixture_items()
+        client = FakeClient(items)
+        trip = self._rejected(client)
+        self._bump(items, status='PLANNED')
+        sync_external_trips(client)
+        trip.refresh_from_db()
+        self.assertEqual(trip.rejection_reason, 'Нет визы')
+
     def test_status_only_bump_is_not_a_change(self):
         items = _fixture_items()
         client = FakeClient(items)

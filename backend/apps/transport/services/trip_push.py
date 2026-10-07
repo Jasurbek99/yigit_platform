@@ -200,3 +200,11 @@ def push_pending_corrections() -> int:
                 enqueue_push(trip, op)
                 pushed += 1
     return pushed
+
+
+def enqueue_rejection(trip: ExternalTrip, reason: str) -> None:
+    """One-shot TripRejection push: not in the correction loop, so no marker."""
+    now_ms = int(datetime.now(tz=dt_tz.utc).timestamp() * 1000)
+    event_id, occurred_at = build_event(trip, 'rejection', now_ms)
+    body = {'eventId': event_id, 'occurredAt': occurred_at, 'source': 'EXTERNAL', 'reason': reason}
+    _queue_after_commit(trip.pk, 'rejection', body, event_id)

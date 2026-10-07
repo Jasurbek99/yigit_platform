@@ -105,7 +105,7 @@ def _record_push(trip: ExternalTrip, op: str, error: str | None, status: str, *,
     elif not trip.last_push_error or trip.last_push_error.startswith(f'{op}:'):
         trip.last_push_status, trip.last_push_error = status, None
     fields = ['last_push_status', 'last_push_error']
-    if resend:
+    if resend and op in PUSH_OPS:
         marker = PUSH_OPS[op].marker
         setattr(trip, marker, None)
         fields.append(marker)

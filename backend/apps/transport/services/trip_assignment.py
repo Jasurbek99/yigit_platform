@@ -81,6 +81,8 @@ def _check_trip(trip: ExternalTrip, shipment: Shipment, confirm_unknown_country:
         raise AssignmentError('trip_closed')
     if trip.shipment_id:
         raise AssignmentError('trip_taken')
+    if trip.rejected_at:
+        raise AssignmentError('trip_rejected')
     if trip.destination_country_code is None:
         if not confirm_unknown_country:
             raise AssignmentError('country_unknown')

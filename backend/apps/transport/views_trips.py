@@ -18,6 +18,7 @@ from apps.transport.serializers_trips import CandidateShipmentSerializer, Extern
 from apps.transport.services.matching import device_for_plate
 from apps.transport.services.trip_assignment import AssignmentError, assign_trip, move_trip, unassign_trip
 from apps.transport.services.trip_changes import accept_trip_change
+from apps.transport.services.trip_rejection import REJECTION_REASON_MAX, reject_trip
 from apps.transport.services.trips_client import TripsApiUnavailable, get_trips_client
 
 
@@ -32,7 +33,7 @@ def _positions_by_plate(trips: list[ExternalTrip]) -> dict:
 
 
 def _trip_payload(trip: ExternalTrip) -> dict:
-    trip = ExternalTrip.objects.select_related('shipment').get(pk=trip.pk)
+    trip = ExternalTrip.objects.select_related('shipment', 'rejected_by').get(pk=trip.pk)
     return ExternalTripSerializer(trip, context={'positions': _positions_by_plate([trip])}).data
 
 
@@ -48,7 +49,7 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
     pagination_class = None
 
     def get_queryset(self):
-        qs = ExternalTrip.objects.select_related('shipment')
+        qs = ExternalTrip.objects.select_related('shipment', 'rejected_by')
         params = self.request.query_params
         if params.get('free') == '1':
             qs = qs.filter(shipment__isnull=True).exclude(status__in=ExternalTrip.CLOSED_STATUSES)
@@ -116,6 +117,15 @@ class ExternalTripViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
     @action(detail=True, methods=['post'])
     def unassign(self, request, pk=None):
         return self._run(lambda trip: unassign_trip(trip, request.user))
+
+    @action(detail=True, methods=['post'])
+    def reject(self, request, pk=None):
+        reason = str(request.data.get('reason') or '').strip()
+        if not reason:
+            return _error('reason_required', status.HTTP_400_BAD_REQUEST)
+        if len(reason) > REJECTION_REASON_MAX:
+            return _error('reason_too_long', status.HTTP_400_BAD_REQUEST)
+        return self._run(lambda trip: reject_trip(trip, reason, request.user))
 
     @action(detail=True, methods=['post'], url_path='accept-change')
     def accept_change(self, request, pk=None):

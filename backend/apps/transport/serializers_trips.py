@@ -18,6 +18,7 @@ class ExternalTripSerializer(serializers.ModelSerializer):
         source='shipment.documents_reset_at', read_only=True, default=None,
     )
     position = serializers.SerializerMethodField()
+    rejected_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = ExternalTrip
@@ -30,6 +31,7 @@ class ExternalTripSerializer(serializers.ModelSerializer):
             'driver_source', 'visas', 'visa_country_codes', 'has_unrecognised_visa',
             'shipment', 'shipment_code', 'shipment_documents_reset_at', 'conflict_note', 'conflict_kind', 'conflict_from', 'conflict_to',
             'last_push_status', 'last_push_error', 'position',
+            'rejection_reason', 'rejected_at', 'rejected_by_name',
         ]
 
     def _country_map(self) -> dict[str, str]:
@@ -46,6 +48,10 @@ class ExternalTripSerializer(serializers.ModelSerializer):
 
     def get_has_unrecognised_visa(self, trip: ExternalTrip) -> bool:
         return has_unrecognised_visa(trip.driver_visas, self._country_map())
+
+    def get_rejected_by_name(self, trip: ExternalTrip) -> str | None:
+        user = trip.rejected_by
+        return (user.get_full_name() or user.username) if user else None
 
     def get_position(self, trip: ExternalTrip) -> dict | None:
         position = self.context.get('positions', {}).get(trip.tractor_plate)
