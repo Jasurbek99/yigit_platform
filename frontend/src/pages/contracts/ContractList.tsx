@@ -318,7 +318,7 @@ export default function ContractList() {
   // truck-quota framework (and incoterm) doesn't apply, so trim to identity +
   // status on that tab.
   const ONE_TIME_KEEP = new Set([
-    'index', 'contract_number', 'export_firm_name', 'import_firm_name', 'status',
+    'index', 'contract_number', 'export_firm_name', 'import_firm_name', 'product_type_code', 'status',
     // The delete action is keyed, not dataIndex'd — and one-time contracts are
     // the auto-created ad-hoc ones, the likeliest thing to need removing.
     'actions',
