@@ -27,13 +27,20 @@ def seed(apps, schema_editor):
         product.save()
         products[values['code']] = product
 
-    TomatoVariety.objects.filter(product_type__isnull=True).update(product_type=products['tomato'])
+    # Pepper varieties first: an existing pepper-named row with no product must be
+    # tagged pepper, not swept into tomato by the pass below.
     pepper_by_name = {}
     for name in PEPPER_VARIETIES:
         variety, _ = TomatoVariety.objects.get_or_create(
             name=name, defaults={'product_type': products['pepper']},
         )
+        if variety.product_type_id is None:
+            variety.product_type = products['pepper']
+            variety.save(update_fields=['product_type'])
         pepper_by_name[name] = variety
+    TomatoVariety.objects.filter(product_type__isnull=True).exclude(
+        name__in=PEPPER_VARIETIES,
+    ).update(product_type=products['tomato'])
 
     for code, (main, secondary) in PEPPER_BLOCKS.items():
         GreenhouseBlock.objects.filter(code=code).update(
