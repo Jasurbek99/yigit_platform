@@ -2492,6 +2492,7 @@
     "btn_save": "Sakla",
     "toast_saved": "Paletler ýatda saklandy",
     "toast_closed": "Manifest tamamlandy — sort awto-hasap edildi",
+    "toast_close_error": "Manifesti ýapyp bolmady",
     "toast_logo_todo": "Logo Tiger eksport entek hazyr däl",
     "rollup_title": "Sort roll-up (R17)",
     "rollup_computed": "Paletlerden hasaplanan",

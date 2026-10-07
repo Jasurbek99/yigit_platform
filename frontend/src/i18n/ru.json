@@ -2490,6 +2490,7 @@
     "btn_save": "Сохранить",
     "toast_saved": "Паллеты сохранены",
     "toast_closed": "Манифест закрыт — сорт пересчитан",
+    "toast_close_error": "Не удалось закрыть манифест",
     "toast_logo_todo": "Экспорт в Logo Tiger пока недоступен",
     "rollup_title": "Сорт roll-up (R17)",
     "rollup_computed": "Рассчитано из паллет",

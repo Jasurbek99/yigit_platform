@@ -10,6 +10,7 @@ import {
   useImportWeightmaster,
 } from '@/hooks/usePallets';
 import { useCrateTypes } from '@/hooks/useAdmin';
+import { apiErrorMessage } from '@/utils/apiErrorText';
 import type { IPalletUpsertRow, IWeightmasterWarning } from '@/types';
 import { ManifestStats } from './ManifestStats';
 import { DistributionPills } from './DistributionPills';
@@ -124,6 +125,7 @@ export function PalletManifestPanel({ shipmentId }: IPalletManifestPanelProps) {
   function handleCloseManifest() {
     closeMutation.mutate(undefined, {
       onSuccess: () => toast.success(t('pallet.toast_closed')),
+      onError: (err) => toast.error(apiErrorMessage(err, t('pallet.toast_close_error'))),
     });
   }
 
