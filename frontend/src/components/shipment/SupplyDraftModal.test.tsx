@@ -122,6 +122,35 @@ describe('SupplyDraftModal', () => {
     expect(mutate.mock.calls[0][0].varieties).toEqual([3]);
   });
 
+  async function fillAndSubmit() {
+    await userEvent.click(fieldControl('Blocks'));
+    await userEvent.click(await screen.findByText('A'));
+    const weightField = fieldControl('Total Weight (kg)');
+    await userEvent.clear(weightField);
+    await userEvent.type(weightField, '22000');
+    await userEvent.click(submitBtn());
+  }
+
+  it('shows the translated mixed_product message when the blocks span tomato and pepper', async () => {
+    mutate.mockImplementationOnce((_payload, opts) => {
+      (opts as { onError?: (e: unknown) => void } | undefined)?.onError?.({ response: { data: { error: 'mixed_product' } } });
+    });
+    wrap();
+    await fillAndSubmit();
+
+    expect(toast.error).toHaveBeenCalledWith('Tomato and pepper cannot be mixed in one truck');
+  });
+
+  it('keeps the generic error toast when the failure carries no error text', async () => {
+    mutate.mockImplementationOnce((_payload, opts) => {
+      (opts as { onError?: (e: unknown) => void } | undefined)?.onError?.(new Error('Network Error'));
+    });
+    wrap();
+    await fillAndSubmit();
+
+    expect(toast.error).toHaveBeenCalledWith(i18n.t('supply_draft.toast_error'));
+  });
+
   it('shows the success toast with the real shipment_code, not the literal {{code}} token', async () => {
     wrap();
 

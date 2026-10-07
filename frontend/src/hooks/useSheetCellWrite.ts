@@ -25,7 +25,6 @@ const FK_CLEAR_COMPANION_FIELDS: Record<string, readonly (keyof IShipmentSheetIt
   customer: ['customer_name', 'customer_color'],
   import_firm: ['import_firm_name', 'import_firm_color'],
   variety: ['variety_name', 'variety_code', 'variety_color'],
-  product_type: ['product_type_name', 'product_type_code'],
   border_point: ['border_point_name', 'border_point_color'],
   vehicle_responsible: ['vehicle_responsible_display'],
 };
@@ -50,6 +49,8 @@ export function isClearableField(rowConfig: IRowConfig): boolean {
     rowConfig.options_source === 'peregruz' || rowConfig.options_source === 'gornushi';
   return (
     rowConfig.field_key !== 'shipment_code' &&
+    // Product is never empty: NULL reads as tomato, so a clear would silently flip pepper to tomato.
+    rowConfig.field_key !== 'product_type' &&
     rowConfig.field_key !== 'has_doc_advance' &&
     rowConfig.field_key !== 'has_sales_report' &&
     !isBoolDropdown
@@ -161,6 +162,7 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
   const writeCell = useCallback(
     (shipment: IShipmentSheetItem, rowConfig: IRowConfig, value: unknown) => {
       const fieldKey = rowConfig.field_key;
+      if (fieldKey === 'product_type' && value == null) return;
       if (fieldKey.startsWith('custom_')) {
         const strValue = typeof value === 'string' ? value : String(value ?? '');
         const before = shipment.custom_fields?.[fieldKey] ?? '';
@@ -217,6 +219,7 @@ export function useSheetCellWrite(): IUseSheetCellWrite {
   const clearCell = useCallback(
     (shipment: IShipmentSheetItem, rowConfig: IRowConfig) => {
       const fieldKey = rowConfig.field_key;
+      if (fieldKey === 'product_type') return; // never cleared, see isClearableField
       if (fieldKey.startsWith('custom_')) {
         const before = shipment.custom_fields?.[fieldKey] ?? '';
         const undoId = recordCellEntry(shipment.id, fieldKey, before, '');

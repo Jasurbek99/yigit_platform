@@ -66,6 +66,7 @@ const mockFirms: { id: number; code: string; name_tk: string; name_en: string | 
   { id: 2, code: 'OY', name_tk: 'Oguz Yoly', name_en: null, is_active: true },
 ];
 
+let mockCountries: { id: number; name_tk: string; name_ru: string | null; name_en: string | null }[] = [];
 // Mutable so the product tests can vary the product + sort lists.
 let mockProductTypes: { id: number; name: string; code: string | null }[] = [];
 let mockVarieties: { id: number; name: string; product_type_code?: string | null }[] = [];
@@ -74,7 +75,7 @@ let mockVarieties: { id: number; name: string; product_type_code?: string | null
 // the mutation's onSuccess as the real hook would.
 const createCustomerMutate = vi.fn();
 vi.mock('@/hooks/useAdmin', () => ({
-  useCountries: () => ({ data: [] }),
+  useCountries: () => ({ data: mockCountries }),
   useCities: () => ({ data: [] }),
   useCustomers: () => ({ data: [] }),
   useAdminFirms: () => ({ data: mockFirms }),
@@ -483,6 +484,26 @@ describe('SheetCellEditor — product', () => {
     expect(await screen.findByText('Bolgar burç')).toBeInTheDocument();
     expect(screen.getAllByText('Pomidor').length).toBeGreaterThan(0);
     expect(screen.queryByText('Not a real product')).not.toBeInTheDocument();
+  });
+
+  it('the product dropdown has no clear control (null would silently flip pepper to tomato)', async () => {
+    useSheetStore.getState().setEditingCell({ shipmentId: MOCK_SHEET_DATA[0].id, rowKey: 'product_type' });
+    const { container } = wrap(
+      { ...MOCK_SHEET_DATA[0], product_type: 2, product_type_code: 'pepper', product_type_name: 'Bolgar burç' },
+      PRODUCT_ROW,
+    );
+    expect(await screen.findAllByText('Bolgar burç')).not.toHaveLength(0);
+    expect(container.querySelector('.ant-select-clear')).toBeNull();
+  });
+
+  it('control: a normal dropdown (country) does render its clear control', async () => {
+    mockCountries = [{ id: 9, name_tk: 'Gazagystan', name_ru: null, name_en: null }];
+    const { container } = wrap(
+      { ...MOCK_SHEET_DATA[0], country: 9 },
+      { ...PRODUCT_ROW, row_number: 10, field_key: 'country', options_source: 'countries' },
+    );
+    expect(await screen.findAllByText('Gazagystan')).not.toHaveLength(0);
+    expect(container.querySelector('.ant-select-clear')).not.toBeNull();
   });
 
   it('the sort cell offers only sorts of the shipment product, a missing product reading as tomato', async () => {

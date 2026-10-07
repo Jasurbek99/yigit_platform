@@ -637,7 +637,7 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
             filterOption={(input, option) =>
               (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
             }
-            allowClear
+            allowClear={rowConfig.field_key !== 'product_type'}
             autoFocus
             defaultOpen
             popupMatchSelectWidth={false}

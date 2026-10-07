@@ -8,6 +8,7 @@ import { useUpdateTruckBlocks } from '@/hooks/useGaplama';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { VarietySelect } from '@/components/VarietySelect';
 import { useShipmentOptions } from '@/hooks/useAdmin';
+import { apiErrorMessage } from '@/utils/apiErrorText';
 import type { IGaplamaFormBatch } from './GaplamaTab.totals';
 import type { IGaplamaTruck, IBlockSource } from '@/types';
 
@@ -410,8 +411,8 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
         await updateBlocks.mutateAsync({ shipmentId: props.editingTruck.id, rows: blockSources });
         toast.success(t('tir_takip.gaplama.form.toast_updated'));
         props.onDone();
-      } catch {
-        toast.error(t('tir_takip.gaplama.form.toast_error'));
+      } catch (err) {
+        toast.error(apiErrorMessage(err, t('tir_takip.gaplama.form.toast_error')));
       }
       return;
     }
@@ -432,8 +433,8 @@ export default function GaplamaTruckForm(props: IGaplamaTruckFormProps) {
       });
       toast.success(t('tir_takip.gaplama.form.toast_created'));
       props.onDone();
-    } catch {
-      toast.error(t('tir_takip.gaplama.form.toast_error'));
+    } catch (err) {
+      toast.error(apiErrorMessage(err, t('tir_takip.gaplama.form.toast_error')));
     }
   }
 

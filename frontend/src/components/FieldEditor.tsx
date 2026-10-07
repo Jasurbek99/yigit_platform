@@ -174,7 +174,7 @@ export function FieldEditor({
           autoFocus={autoFocus}
           defaultOpen={defaultOpen}
           showSearch
-          allowClear
+          allowClear={config.key !== 'product_type'}
           filterOption={(input, option) =>
             (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
           }

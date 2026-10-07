@@ -7,6 +7,7 @@ import { VarietySelect } from '@/components/VarietySelect';
 import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { useCreateSupplyDraft } from '@/hooks/useDrafts';
 import { useShipmentOptions } from '@/hooks/useAdmin';
+import { apiErrorMessage } from '@/utils/apiErrorText';
 import type { ISupplyDraftPayload } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -110,7 +111,7 @@ export function SupplyDraftModal({ open, onClose, onSuccess }: ISupplyDraftModal
         onSuccess();
         onClose();
       },
-      onError: () => toast.error(t('supply_draft.toast_error')),
+      onError: (err) => toast.error(apiErrorMessage(err, t('supply_draft.toast_error'))),
     });
   }
 
