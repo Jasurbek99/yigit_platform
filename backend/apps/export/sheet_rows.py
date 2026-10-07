@@ -414,6 +414,17 @@ DEFAULT_SHEET_ROWS: list[dict] = [
         'options_source': 'varieties',
     },
     {
+        # Pepper spec 2026-10-05: tomato / pepper. Destination rows default to
+        # tomato; supply rows take it from their blocks. Drives quota + documents.
+        'row_number': 51,
+        'field_key': 'product_type',
+        'default_who_key': 'sheet.who.gadam',
+        'label_key': 'sheet.row.product_type',
+        'input_type': 'dropdown',
+        'style': 'base',
+        'options_source': 'productTypes',
+    },
+    {
         # R39 was an orphan readonly cell (no harvest_date column existed).
         # Now backed by Shipment.harvest_date — operator-entered free text
         # (single day, ranges, notes). CharField, edited as a plain text cell.

@@ -6,8 +6,8 @@ from django.utils.text import slugify
 from rest_framework import serializers
 
 from apps.core.models import (
-    City, Country, Customer, ExportFirm, ImportFirm, Season, GreenhouseBlock, ShipmentOptionType,
-    TomatoVariety,
+    City, Country, Customer, ExportFirm, ImportFirm, ProductType, Season, GreenhouseBlock,
+    ShipmentOptionType, TomatoVariety,
 )
 from apps.core.permissions import can_edit_field, can_edit_sheet_fields, PRIVILEGED_ROLES
 from apps.core.roles import EXPORT_MANAGER_LIKE
@@ -412,6 +412,8 @@ class ShipmentListSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source='customer.name', read_only=True)
     city_name = serializers.CharField(source='city.name', read_only=True, default=None)
     variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
+    product_type_code = serializers.CharField(source='product_type.code', read_only=True, default=None)
+    product_type_name = serializers.CharField(source='product_type.name', read_only=True, default=None)
     variety_code = serializers.CharField(source='variety.code', read_only=True, default=None)
     border_point_name = serializers.CharField(source='border_point.name', read_only=True, default=None)
 
@@ -555,6 +557,7 @@ class ShipmentListSerializer(serializers.ModelSerializer):
             'import_firm', 'import_firm_name',
             'export_firms_display',
             'variety', 'variety_code',
+            'product_type', 'product_type_code', 'product_type_name',
             # Weight detail
             'packaging_kg', 'pallet_count', 'box_count', 'weight_to_load_kg',
             # Transport
@@ -713,6 +716,8 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
 
     # Product — variety.code is the official registry code (01-10, E1-E3)
     variety_name = serializers.CharField(source='variety.name', read_only=True, default=None)
+    product_type_code = serializers.CharField(source='product_type.code', read_only=True, default=None)
+    product_type_name = serializers.CharField(source='product_type.name', read_only=True, default=None)
     variety_code = serializers.CharField(source='variety.code', read_only=True, default=None)
     variety_color = serializers.CharField(source='variety.color', read_only=True, default=None)
     variety_confidence = serializers.CharField(read_only=True)
@@ -815,6 +820,7 @@ class ShipmentSheetSerializer(serializers.ModelSerializer):
             'import_firm', 'import_firm_name', 'import_firm_color',
             # Product
             'variety', 'variety_name', 'variety_code', 'variety_color', 'variety_confidence',
+            'product_type', 'product_type_code', 'product_type_name',
             # Weight
             'weight_gross', 'weight_net', 'packaging_kg',
             'pallet_count', 'box_count', 'weight_to_load_kg',
@@ -1917,6 +1923,11 @@ class ShipmentCreateSerializer(serializers.Serializer):
         queryset=TomatoVariety.objects.all(),
         many=True,
         required=False,
+    )
+    # Pepper spec 2026-10-05: explicit product. Omitted → derived from the blocks,
+    # else tomato. Sent AND blocks of another product → 400.
+    product_type = serializers.PrimaryKeyRelatedField(
+        queryset=ProductType.objects.all(), required=False, allow_null=True,
     )
     # Destination import firm (optional at draft time)
     import_firm = serializers.PrimaryKeyRelatedField(

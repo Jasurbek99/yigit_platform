@@ -388,7 +388,7 @@ class ShipmentViewSet(ModelViewSet):
 
     queryset = Shipment.objects.select_related(
         'status', 'country', 'city', 'customer', 'season',
-        'variety', 'border_point',
+        'variety', 'border_point', 'product_type',
         # Joined for the expanded list serializer (Sheet-parity columns):
         # import firm name, creator username, and quality doc flags.
         'import_firm', 'created_by', 'quality',
@@ -592,6 +592,11 @@ class ShipmentViewSet(ModelViewSet):
             qs = self._filter_my_work(qs)
         if phase := self.request.query_params.get('phase'):
             qs = qs.filter(status__phase=phase)
+        if product_code := self.request.query_params.get('product_type'):
+            if product_code == 'tomato':  # NULL product reads as tomato
+                qs = qs.filter(Q(product_type__code='tomato') | Q(product_type__isnull=True))
+            else:
+                qs = qs.filter(product_type__code=product_code)
         if status_code := self.request.query_params.get('status_code'):
             qs = qs.filter(status__code=status_code)
             # Draft list serializer needs created_by + block_sources; pre-load
@@ -1471,7 +1476,7 @@ class ShipmentViewSet(ModelViewSet):
         qs = (
             Shipment.objects.select_related(
                 'status', 'country', 'city', 'customer',
-                'import_firm', 'border_point', 'variety',
+                'import_firm', 'border_point', 'variety', 'product_type',
                 'created_by', 'quality', 'packing_template',
             )
             .prefetch_related(
@@ -2180,6 +2185,7 @@ class ShipmentViewSet(ModelViewSet):
                     country=data.get('country'),
                     customer=data.get('customer'),
                     season=data.get('season'),
+                    product_type=data.get('product_type'),
                 )
             except ValueError as exc:
                 return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -2211,6 +2217,27 @@ class ShipmentViewSet(ModelViewSet):
             variety_confidence='low',
         )
         shipment.varieties_dominant.set(varieties)
+
+    @staticmethod
+    def _resolve_draft_product(data: dict, bs_rows: list):
+        """Product of a new draft: its blocks decide, else the request, else tomato.
+
+        Raises ProductMismatchError (a ValueError → 400) for blocks of two
+        products, or a requested product that contradicts the blocks.
+        """
+        from apps.core.models import ProductType
+        from apps.export.services.product_type import (
+            PRODUCT_MISMATCH, ProductMismatchError, resolve_product_type,
+        )
+
+        block_ids = [b.id for b in (data.get('block_ids') or [])] + [
+            row['block_id'].id for row in bs_rows
+        ]
+        from_blocks = resolve_product_type(block_ids)
+        requested = data.get('product_type')
+        if from_blocks is not None and requested is not None and requested.id != from_blocks.id:
+            raise ProductMismatchError(PRODUCT_MISMATCH)
+        return from_blocks or requested or ProductType.tomato()
 
     def _create_draft_shipment(self, data: dict, user) -> Shipment:
         """Create a Shipment in DRAFT status together with its block/firm rows.
@@ -2258,6 +2285,8 @@ class ShipmentViewSet(ModelViewSet):
         skip_forecast_check = data.get('skip_forecast_check', False)
 
         with transaction.atomic():
+            product = self._resolve_draft_product(data, bs_rows)
+
             # Race-safe drawdown re-check under a forecast-row lock (the
             # serializer's upfront check is unlocked; this is authoritative).
             # Skipped when skip_forecast_check=True (in-Sheet ad-hoc supply
@@ -2282,6 +2311,7 @@ class ShipmentViewSet(ModelViewSet):
                 customer=data.get('customer'),
                 import_firm=data.get('import_firm'),
                 variety=data.get('variety'),
+                product_type=product,
                 export_code=data.get('export_code') or None,
                 season=season,
                 status=draft_status,

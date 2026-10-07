@@ -740,6 +740,7 @@ def create_shipment(
     country=None,
     customer=None,
     season=None,
+    product_type=None,
 ) -> Shipment:
     """Create a new shipment at step 0 (draft) and write the initial audit trail.
 
@@ -754,6 +755,7 @@ def create_shipment(
         country: Optional core.Country FK instance.
         customer: Optional core.Customer FK instance.
         season: Optional core.Season FK instance. If None, the active season is resolved.
+        product_type: Optional core.ProductType; defaults to tomato.
 
     Returns:
         The newly created Shipment instance in `draft` status.
@@ -763,7 +765,7 @@ def create_shipment(
         ValueError: If no active season exists and none was provided, or if
                     the draft status is not configured in the DB.
     """
-    from apps.core.models import ShipmentStatusType
+    from apps.core.models import ProductType, ShipmentStatusType
     from apps.core.seasons import assert_season_open, get_active_season
 
     # Resolve season from the active season when the caller did not supply one.
@@ -788,6 +790,7 @@ def create_shipment(
         country=country,
         customer=customer,
         season=resolved_season,
+        product_type=product_type or ProductType.tomato(),
         status=draft_status,
         created_by=user,
     )
