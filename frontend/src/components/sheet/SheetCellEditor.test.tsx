@@ -485,6 +485,25 @@ describe('SheetCellEditor — product', () => {
     expect(screen.queryByText('Not a real product')).not.toBeInTheDocument();
   });
 
+  it('the sort cell offers only sorts of the shipment product, a missing product reading as tomato', async () => {
+    mockVarieties = [
+      { id: 1, name: 'Midelice', product_type_code: 'tomato' },
+      { id: 2, name: 'Legacy untagged' },
+      { id: 3, name: 'Kapia', product_type_code: 'pepper' },
+    ];
+    const VARIETY_ROW: IRowConfig = {
+      row_number: 38, field_key: 'variety', default_who_key: 'sheet.who.soltanmyrat',
+      label_key: 'sheet.row.variety', input_type: 'multiselect', options_source: 'varieties', style: 'base',
+    };
+    useSheetStore.getState().setEditingCell({ shipmentId: MOCK_SHEET_DATA[0].id, rowKey: 'variety' });
+    wrap({ ...MOCK_SHEET_DATA[0], product_type_code: 'pepper' }, VARIETY_ROW);
+
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(await screen.findByText('Kapia')).toBeInTheDocument();
+    expect(screen.queryByText('Midelice')).not.toBeInTheDocument();
+    expect(screen.queryByText('Legacy untagged')).not.toBeInTheDocument();
+  });
+
   it('the firm cell reads the quota of the own product of the shipment', () => {
     quotaProductArgs.length = 0;
     wrap({ ...MOCK_SHEET_DATA[0], product_type_code: 'pepper' }, FIRM_SPLITS_ROW);

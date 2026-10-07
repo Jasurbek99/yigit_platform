@@ -25,6 +25,7 @@ const FK_CLEAR_COMPANION_FIELDS: Record<string, readonly (keyof IShipmentSheetIt
   customer: ['customer_name', 'customer_color'],
   import_firm: ['import_firm_name', 'import_firm_color'],
   variety: ['variety_name', 'variety_code', 'variety_color'],
+  product_type: ['product_type_name', 'product_type_code'],
   border_point: ['border_point_name', 'border_point_color'],
   vehicle_responsible: ['vehicle_responsible_display'],
 };

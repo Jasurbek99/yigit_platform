@@ -216,6 +216,21 @@ describe('full-season sheet cache (regression guard for the seasonId key drift)'
     expect(sheetRow(qc)?.driver_name).toBe('Ali');
   });
 
+  it('a product edit repaints the product name and code from the PATCH response', () => {
+    const qc = new QueryClient();
+    qc.setQueryData(SHEET_KEY, {
+      shipments: [{ id: 5, product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor' }],
+      rows: [],
+      row_settings: {},
+    });
+    applyOptimistic(qc, 5, { product_type: 2 }, SEASON_ID);
+    reconcileFromServer(
+      qc, 5, { id: 5, product_type: 2, product_type_code: 'pepper', product_type_name: 'Bolgar burç' }, SEASON_ID,
+    );
+    expect(sheetRow(qc)?.product_type_code).toBe('pepper');
+    expect(sheetRow(qc)?.product_type_name).toBe('Bolgar burç');
+  });
+
   it('a different season\'s cached sheet entry is left untouched', () => {
     const qc = seedSheet('Before');
     const otherSeasonKey = sheetKeyFor(2);

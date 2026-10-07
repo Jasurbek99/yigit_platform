@@ -297,9 +297,9 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
 
       case 'varieties':
       case 'variety':
-        // Only the shipment's own product's sorts; an untagged sort is offered to every product.
+        // Only the shipment's own product's sorts; a missing product reads as tomato on both sides.
         return (varieties ?? [])
-          .filter((v) => !shipment.product_type_code || !v.product_type_code || v.product_type_code === shipment.product_type_code)
+          .filter((v) => (v.product_type_code ?? 'tomato') === (shipment.product_type_code ?? 'tomato'))
           .map((v) => ({ value: v.id, label: v.name }));
 
       case 'productTypes':
