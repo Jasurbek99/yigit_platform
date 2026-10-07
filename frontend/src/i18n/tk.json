@@ -4297,6 +4297,7 @@
   },
   "errors": {
     "mixed_product": "Bir ýük awtoulagynda pomidor bilen burçy garyşdyrmak bolmaz",
-    "product_mismatch": "Blogyň önümi iş saparyň önümine gabat gelmeýär"
+    "product_mismatch": "Blogyň önümi iş saparyň önümine gabat gelmeýär",
+    "contract_product_mismatch": "Şertnamanyň önümi iş saparyň önümine gabat gelmeýär"
   }
 }

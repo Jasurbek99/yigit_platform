@@ -4294,6 +4294,7 @@
   },
   "errors": {
     "mixed_product": "Tomato and pepper cannot be mixed in one truck",
-    "product_mismatch": "The blocks' product does not match the trip's product"
+    "product_mismatch": "The blocks' product does not match the trip's product",
+    "contract_product_mismatch": "The contract's product does not match the trip's product"
   }
 }

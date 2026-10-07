@@ -11,6 +11,8 @@ from apps.core.models import GreenhouseBlock, ProductType
 
 MIXED_PRODUCT = 'mixed_product'
 PRODUCT_MISMATCH = 'product_mismatch'
+# The truck's product differs from a contract it is sold under (frontend errors.*).
+CONTRACT_PRODUCT_MISMATCH = 'contract_product_mismatch'
 
 
 class ProductMismatchError(ValueError):
