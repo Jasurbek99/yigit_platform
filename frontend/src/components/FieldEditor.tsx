@@ -7,6 +7,7 @@ import {
   useCustomers,
   useAdminImportFirms,
   useTomatoVarieties,
+  useProductTypes,
   useBorderPoints,
   useShipmentOptions,
 } from '@/hooks/useAdmin';
@@ -51,6 +52,7 @@ export function FieldEditor({
   const { data: customers } = useCustomers();
   const { data: importFirms } = useAdminImportFirms();
   const { data: varieties } = useTomatoVarieties();
+  const { data: productTypes } = useProductTypes();
   const { data: borderPoints } = useBorderPoints();
   const { data: allOptions } = useShipmentOptions();
 
@@ -73,6 +75,8 @@ export function FieldEditor({
           .map((f) => ({ value: f.id, label: f.name_short ?? f.name_company }));
       case 'varieties':
         return (varieties ?? []).map((v) => ({ value: v.id, label: v.name }));
+      case 'productTypes':
+        return (productTypes ?? []).filter((p) => p.code).map((p) => ({ value: p.id, label: p.name }));
       case 'borderPoints':
         return (borderPoints ?? [])
           .filter((b) => b.is_active)

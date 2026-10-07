@@ -5,6 +5,7 @@ import { useShipmentDetail } from '@/hooks/useShipmentDetail';
 import { useJoinShipments } from '@/hooks/useDrafts';
 import { detectJoinDirection, explainJoinBlockers } from '@/components/sheet/joinHelpers';
 import { FONT } from '@/constants/styles';
+import { localizeErrorCode } from '@/utils/apiErrorText';
 
 interface IJoinDraftsModalProps {
   readonly open: boolean;
@@ -40,7 +41,7 @@ export function JoinDraftsModal({ open, draftIds, onClose, onSuccess }: IJoinDra
         },
         onError: (err) => {
           const msg = (err as { response?: { data?: { error?: string } } }).response?.data?.error;
-          toast.error(msg ?? t('join_drafts.toast_error'));
+          toast.error(msg ? localizeErrorCode(msg) : t('join_drafts.toast_error'));
         },
       },
     );

@@ -6,6 +6,7 @@ import { useSheetStore } from '@/stores/sheetStore';
 import { useJoinShipments } from '@/hooks/useDrafts';
 import { isJoinTarget, isSupplyDraft, explainJoinBlockers } from './joinHelpers';
 import { FONT } from '@/constants/styles';
+import { localizeErrorCode } from '@/utils/apiErrorText';
 import type { IShipmentSheetItem } from '@/types';
 
 const { Text } = Typography;
@@ -51,7 +52,7 @@ export function JoinActionBar({ shipments }: IJoinActionBarProps) {
         },
         onError: (err) => {
           const data = (err as { response?: { data?: { error?: string } } }).response?.data;
-          toast.error(data?.error ?? t('sheet.join_modal.toast_error'));
+          toast.error(data?.error ? localizeErrorCode(data.error) : t('sheet.join_modal.toast_error'));
         },
       },
     );

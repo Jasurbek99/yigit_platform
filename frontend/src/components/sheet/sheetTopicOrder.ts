@@ -121,6 +121,7 @@ export const TOPIC_SECTIONS: readonly ITopicSection[] = [
       // YGT-only; kept beside weight_net, its nearest sibling.
       'weight_to_load_kg',
       'variety',
+      'product_type',
       'harvest_date',
       'sale_started_at',
       'sale_ended_at',

@@ -16,6 +16,7 @@ import { OfficialCodeEditor } from '@/components/draft/OfficialCodeEditor';
 import { useCreateDraft, useHarvestForecastRemaining } from '@/hooks/useDrafts';
 import type { IShipmentDraft } from '@/types';
 import { COLORS, FONT } from '@/constants/styles';
+import { localizeErrorCode } from '@/utils/apiErrorText';
 
 const MAX_TRUCK_KG = 18_500;
 const MAX_ROWS = 11;
@@ -188,7 +189,7 @@ export function DraftComposerModal({ open, onClose, onSaved }: IDraftComposerMod
               return;
             }
             if (typeof data.error === 'string' && data.error) {
-              toast.error(data.error);
+              toast.error(localizeErrorCode(data.error));
               return;
             }
           }

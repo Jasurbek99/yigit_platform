@@ -67,6 +67,7 @@ export const READ_DISPLAY_FIELD_MAP: Partial<Record<string, StringFieldKey>> = {
   import_firm: 'import_firm_name',
   border_point: 'border_point_name',
   variety: 'variety_name',
+  product_type: 'product_type_name',
   vehicle_responsible: 'vehicle_responsible_display',
 };
 

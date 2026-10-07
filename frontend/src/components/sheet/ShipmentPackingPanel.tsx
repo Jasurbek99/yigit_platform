@@ -8,6 +8,7 @@ import {
   type IShipmentPackingRow,
 } from '@/hooks/useShipmentPacking';
 import { usePackingTemplates } from '@/hooks/usePackingTemplates';
+import { localizeErrorCode } from '@/utils/apiErrorText';
 
 const { Text } = Typography;
 
@@ -22,7 +23,7 @@ const num = (v: string | number | null): string =>
 
 function apiError(err: unknown, fallback: string): string {
   const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
-  if (data && typeof data.error === 'string') return data.error;
+  if (data && typeof data.error === 'string') return localizeErrorCode(data.error);
   return fallback;
 }
 

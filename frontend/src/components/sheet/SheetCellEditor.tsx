@@ -28,6 +28,7 @@ import {
   useAdminImportFirms,
   useGreenhouseBlocks,
   useTomatoVarieties,
+  useProductTypes,
   useBorderPoints,
   useShipmentOptions,
 } from '@/hooks/useAdmin';
@@ -98,14 +99,14 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
   const { data: importFirms } = useAdminImportFirms();
   const { data: blocks } = useGreenhouseBlocks();
   const { data: varieties } = useTomatoVarieties();
+  const { data: productTypes } = useProductTypes();
   const { data: borderPoints } = useBorderPoints();
   // Fetch all shipment options at once (cached, 5 categories)
   const { data: allOptions } = useShipmentOptions();
 
   // Per-firm remaining quota — only fetched when editing the firm_splits cell
   // (the only roles that can edit it also hold quota_issuance view). Drives the
-  // non-blocking "no quota" warning. Defaults to 'tomato' because product_type
-  // isn't on the sheet payload; pepper is a rare separate quota domain.
+  // non-blocking "no quota" warning. Uses the shipment's product (null = tomato).
   // The hook reads the GLOBAL season switcher while the server blocks against
   // `shipment.season` (D11) — safe only because every surface that renders this
   // editor is scoped by that same switcher: the sheet list sends `?season=` and
@@ -114,7 +115,7 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
   // branch bypasses season scoping on its own) would make the ⚠ tags and the
   // 400 from firm-splits disagree — thread the row's season in if that happens.
   const isFirmsCell = rowConfig.field_key === 'firm_splits';
-  const { data: firmBalances } = useQuotaFirmBalances('tomato', { enabled: isFirmsCell });
+  const { data: firmBalances } = useQuotaFirmBalances(shipment.product_type_code ?? 'tomato', { enabled: isFirmsCell });
   const firmHasNoQuota = useCallback(
     (firmId: number): boolean => isFirmBlocked(firmBalances, firmId),
     [firmBalances],
@@ -296,7 +297,14 @@ export function SheetCellEditor({ shipment, rowConfig, variant = 'classic' }: IS
 
       case 'varieties':
       case 'variety':
-        return (varieties ?? []).map((v) => ({ value: v.id, label: v.name }));
+        // Only the shipment's own product's sorts; an untagged sort is offered to every product.
+        return (varieties ?? [])
+          .filter((v) => !shipment.product_type_code || !v.product_type_code || v.product_type_code === shipment.product_type_code)
+          .map((v) => ({ value: v.id, label: v.name }));
+
+      case 'productTypes':
+      case 'product_type':
+        return (productTypes ?? []).filter((p) => p.code).map((p) => ({ value: p.id, label: p.name }));
 
       case 'borderPoints':
       case 'border_point':

@@ -10,7 +10,7 @@ const DEFAULTS = {
   driver_id: null as number | null,
   price_per_kg: null as number | null,
   total_amount_usd: null as number | null,
-  export_code: null as string | null, export_date: '2025-09-30',
+  export_code: null as string | null, export_date: '2025-09-30', product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor',
   previous_platform_id: null as number | null,
   harvest_age_days: 0 as number,
   freshness: 'today' as 'today' | 'yesterday' | 'aged',

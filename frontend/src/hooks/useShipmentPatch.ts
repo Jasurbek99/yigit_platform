@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import type { AxiosError } from 'axios';
 import api from '@/services/api';
+import { localizeErrorCode } from '@/utils/apiErrorText';
 import { getShipmentDetailKey } from './useShipmentDetail';
 import { SHEET_QUERY_KEY } from './useShipmentSheet';
 import { useSelectedSeason } from '@/hooks/useSeasonParam';
@@ -23,12 +24,14 @@ export function extractPatchError(err: unknown, fallback: string): string {
   const data = axiosErr.response?.data;
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>;
-    if (typeof obj.error === 'string') return obj.error;
+    if (typeof obj.error === 'string') return localizeErrorCode(obj.error);
     // DRF field errors: {"weight_net": ["This field is required."]}
     for (const key of Object.keys(obj)) {
       const v = obj[key];
       if (Array.isArray(v) && v.length > 0 && typeof v[0] === 'string') {
-        return `${key}: ${v[0]}`;
+        const message = localizeErrorCode(v[0]);
+        // A translated code already reads as a sentence; a raw DRF message needs its field name.
+        return message === v[0] ? `${key}: ${message}` : message;
       }
     }
   }

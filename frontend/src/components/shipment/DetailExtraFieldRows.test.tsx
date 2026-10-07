@@ -20,7 +20,7 @@ vi.mock('@/services/api', () => ({
 }));
 vi.mock('@/hooks/useAdmin', () => ({
   useCountries: () => ({ data: [] }), useCities: () => ({ data: [] }), useCustomers: () => ({ data: [] }),
-  useAdminImportFirms: () => ({ data: [] }), useTomatoVarieties: () => ({ data: [] }),
+  useAdminImportFirms: () => ({ data: [] }), useTomatoVarieties: () => ({ data: [] }), useProductTypes: () => ({ data: [] }),
   useBorderPoints: () => ({ data: [] }), useShipmentOptions: () => ({ data: [] }),
 }));
 

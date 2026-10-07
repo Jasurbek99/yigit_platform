@@ -6,6 +6,7 @@ import api from '@/services/api';
 import { IDEMPOTENCY_HEADER, useIdempotencyKey } from '@/hooks/useIdempotencyKey';
 import { CountrySelect } from '@/components/CountrySelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
+import { ProductTypeSelect } from '@/components/ProductTypeSelect';
 
 interface IShipmentCreateModalProps {
   readonly open: boolean;
@@ -16,6 +17,7 @@ interface IShipmentCreateModalProps {
 interface ICreateShipmentPayload {
   country?: number;
   customer?: number;
+  product_type?: number;
   is_draft: boolean;
   block_sources: { block_id: number; weight_kg: number }[];
 }
@@ -23,6 +25,7 @@ interface ICreateShipmentPayload {
 interface IFormValues {
   country: number | undefined;
   customer: number | undefined;
+  product_type: number | undefined;
 }
 
 /**
@@ -73,6 +76,7 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
     };
     if (values.country != null) payload.country = values.country;
     if (values.customer != null) payload.customer = values.customer;
+    if (values.product_type != null) payload.product_type = values.product_type;
     createMutation.mutate(payload);
   }
 
@@ -93,6 +97,10 @@ export function ShipmentCreateModal({ open, onClose, onSuccess }: IShipmentCreat
       destroyOnHidden
     >
       <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form.Item name="product_type" label={t('sheet.row.product_type')}>
+          <ProductTypeSelect />
+        </Form.Item>
+
         <Form.Item name="country" label={t('shipment_create.country')}>
           <CountrySelect placeholder={t('shipment_create.country')} allowClear />
         </Form.Item>

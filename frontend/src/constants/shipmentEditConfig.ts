@@ -29,6 +29,7 @@ export type OptionsSource =
   | 'importFirms'
   | 'borderPoints'
   | 'varieties'
+  | 'productTypes'
   | 'transportUsers'
   | 'vehicleCondition'
   | 'documentsStatus'
@@ -129,6 +130,7 @@ export const EDIT_FIELD_GROUPS: IEditFieldGroup[] = [
     fields: [
       HARVEST_STATUS_FIELD,
       { key: 'variety', labelKey: 'shipment_edit_drawer.field.variety', inputType: 'select', optionsSource: 'varieties' },
+      { key: 'product_type', labelKey: 'sheet.row.product_type', inputType: 'select', optionsSource: 'productTypes' },
       { key: 'weight_net', labelKey: 'shipment_edit_drawer.field.weight_net', inputType: 'number', min: 0, suffix: 'kg' },
       { key: 'weight_gross', labelKey: 'shipment_edit_drawer.field.weight_gross', inputType: 'number', min: 0, suffix: 'kg' },
       { key: 'packaging_kg', labelKey: 'shipment_edit_drawer.field.packaging_kg', inputType: 'number', min: 0, suffix: 'kg' },

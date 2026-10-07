@@ -1982,6 +1982,7 @@
       "documents": "Resminamalar (13:00)",
       "export_code": "Eksport kody",
       "export_date": "Eksport senesi",
+      "product_type": "Önüm",
       "shipment_code": "Iberiş kody",
       "harvest_block": "Ýygylan bölümi",
       "export_firm": "Eksport eden Firma",
@@ -4291,5 +4292,9 @@
   "product": {
     "tomato": "Pomidor",
     "pepper": "Burç"
+  },
+  "errors": {
+    "mixed_product": "Bir ýük awtoulagynda pomidor bilen burçy garyşdyrmak bolmaz",
+    "product_mismatch": "Blogyň önümi iş saparyň önümine gabat gelmeýär"
   }
 }

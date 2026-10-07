@@ -10,7 +10,10 @@ import { CitySelect } from '@/components/CitySelect';
 import { CustomerSelect } from '@/components/CustomerSelect';
 import { ImportFirmSelect } from '@/components/ImportFirmSelect';
 import { ExportFirmSelect } from '@/components/ExportFirmSelect';
+import { ProductTypeSelect } from '@/components/ProductTypeSelect';
+import { useProductTypes } from '@/hooks/useAdmin';
 import { COLORS, FONT } from '@/constants/styles';
+import { localizeErrorCode } from '@/utils/apiErrorText';
 import type { IDraftFirmSplitInput } from '@/types';
 
 // ─── Firm split row ───────────────────────────────────────────────────────
@@ -20,6 +23,7 @@ interface IFirmSplitRowProps {
   firmId: number | null;
   weightKg: string;
   usedFirmIds: number[];
+  productType: string;
   onFirmChange: (firmId: number | null) => void;
   onWeightChange: (weight: string) => void;
   onRemove: () => void;
@@ -30,6 +34,7 @@ function FirmSplitRow({
   firmId,
   weightKg,
   usedFirmIds,
+  productType,
   onFirmChange,
   onWeightChange,
   onRemove,
@@ -51,6 +56,7 @@ function FirmSplitRow({
         value={firmId}
         onChange={onFirmChange}
         checkQuota
+        productType={productType}
         excludeIds={usedFirmIds.filter((id) => id !== firmId)}
         size="small"
         placeholder={t('sheet.dest_modal.firm_ph')}
@@ -114,6 +120,10 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
   const [city, setCity] = useState<number | null>(null);
   const [customer, setCustomer] = useState<number | null>(null);
   const [importFirm, setImportFirm] = useState<number | null>(null);
+  const [productTypeId, setProductTypeId] = useState<number | null>(null);
+  const { data: productTypes } = useProductTypes();
+  // Quota is per product: the firm picker checks the chosen product's balances.
+  const productCode = productTypes?.find((p) => p.id === productTypeId)?.code ?? 'tomato';
   const [firmSplits, setFirmSplits] = useState<IFirmSplitDraft[]>([]);
 
   const usedFirmIds = firmSplits
@@ -143,6 +153,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
     setCity(null);
     setCustomer(null);
     setImportFirm(null);
+    setProductTypeId(null);
     setFirmSplits([]);
   }
 
@@ -175,6 +186,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
         city: city ?? undefined,
         customer: customer ?? undefined,
         import_firm: importFirm ?? undefined,
+        product_type: productTypeId ?? undefined,
         firm_splits: firm_splits.length > 0 ? firm_splits : undefined,
       },
       {
@@ -186,7 +198,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
         onError: (err) => {
           const data = (err as { response?: { data?: Record<string, unknown> } }).response?.data;
           if (data && typeof data === 'object' && typeof data.error === 'string' && data.error) {
-            toast.error(data.error);
+            toast.error(localizeErrorCode(data.error));
             return;
           }
           toast.error(t('sheet.dest_modal.toast_error'));
@@ -241,6 +253,18 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
               style={{ fontFamily: FONT.mono }}
             />
           </div>
+        </div>
+
+        {/* Product — tomato unless changed */}
+        <div>
+          <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
+            {t('sheet.row.product_type')}
+          </label>
+          <ProductTypeSelect
+            value={productTypeId}
+            onChange={setProductTypeId}
+            style={{ width: '100%' }}
+          />
         </div>
 
         {/* Country (required) */}
@@ -310,6 +334,7 @@ export function DestinationDraftModal({ open, onClose }: IDestinationDraftModalP
             firmId={split.firm_id}
             weightKg={split.weight_kg}
             usedFirmIds={usedFirmIds}
+            productType={productCode}
             onFirmChange={(firmId) => handleFirmChange(split.key, firmId)}
             onWeightChange={(weight) => handleWeightChange(split.key, weight)}
             onRemove={() => handleRemoveFirmSplit(split.key)}

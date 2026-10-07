@@ -280,6 +280,11 @@ export interface IShipmentListItem {
   // Fields for Kanban "My Tasks" missing-field detection
   city_name: string | null;
   variety_name: string | null;
+  /** Product of the shipment (FK id); null reads as tomato. */
+  product_type: number | null;
+  /** 'tomato' | 'pepper' | null (null reads as tomato). */
+  product_type_code: string | null;
+  product_type_name: string | null;
   border_point_name: string | null;
   harvest_status: string | null;
   documents_status: string | null;
@@ -437,6 +442,11 @@ export interface IShipmentSheetItem {
   variety_name: string | null;
   variety_code: string | null;
   variety_color?: string | null;
+  /** Product of the shipment (FK id); null reads as tomato. */
+  product_type: number | null;
+  /** 'tomato' | 'pepper' | null (null reads as tomato). */
+  product_type_code: string | null;
+  product_type_name: string | null;
   /** Full set of sorts on this shipment. First entry = dominant/primary. */
   varieties_dominant?: IVarietyInline[];
   // Weight
@@ -2037,6 +2047,8 @@ export interface IDraftCreatePayload {
   country?: number | null;
   city?: number | null;
   customer?: number | null;
+  /** Product id; omitted = the server defaults to tomato. */
+  product_type?: number | null;
   firm_splits?: IDraftFirmSplitInput[];
 }
 

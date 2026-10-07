@@ -66,6 +66,10 @@ const mockFirms: { id: number; code: string; name_tk: string; name_en: string | 
   { id: 2, code: 'OY', name_tk: 'Oguz Yoly', name_en: null, is_active: true },
 ];
 
+// Mutable so the product tests can vary the product + sort lists.
+let mockProductTypes: { id: number; name: string; code: string | null }[] = [];
+let mockVarieties: { id: number; name: string; product_type_code?: string | null }[] = [];
+
 // Captures the payload the customer create modal submits, and lets a test drive
 // the mutation's onSuccess as the real hook would.
 const createCustomerMutate = vi.fn();
@@ -77,16 +81,17 @@ vi.mock('@/hooks/useAdmin', () => ({
   useAdminImportFirms: () => ({ data: [] }),
   useAdminUsers: () => ({ data: [] }),
   useGreenhouseBlocks: () => ({ data: [] }),
-  useTomatoVarieties: () => ({ data: [] }),
+  useTomatoVarieties: () => ({ data: mockVarieties }), useProductTypes: () => ({ data: mockProductTypes }),
   useBorderPoints: () => ({ data: [] }),
   useShipmentOptions: () => ({ data: [] }),
   useCreateCustomer: () => ({ mutate: createCustomerMutate, isPending: false }),
 }));
 
+const quotaProductArgs: unknown[] = [];
 // Mutable per test: undefined = still loading (no warnings, no link).
 let mockBalances: Record<string, { remaining_kg: number }> | undefined;
 vi.mock('@/hooks/useQuotaDashboard', () => ({
-  useQuotaFirmBalances: () => ({ data: mockBalances }),
+  useQuotaFirmBalances: (...args: unknown[]) => { quotaProductArgs.push(args[0]); return { data: mockBalances }; },
 }));
 
 // Drives the quota-page link's permission gate. Also keeps useAuth's internal
@@ -448,5 +453,45 @@ describe('SheetCellEditor — customer cell create button', () => {
     expect(patchMutate.mock.calls[0][0]).toEqual({
       id: MOCK_SHEET_DATA[0].id, field: 'customer', value: 77,
     });
+  });
+});
+
+describe('SheetCellEditor — product', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  const PRODUCT_ROW: IRowConfig = {
+    row_number: 51, field_key: 'product_type', default_who_key: 'sheet.who.gadam',
+    label_key: 'sheet.row.product_type', input_type: 'dropdown', options_source: 'productTypes', style: 'base',
+  };
+
+  beforeEach(() => {
+    mockUser = { is_superuser: true, role: 'admin', page_permissions: {} };
+    mockProductTypes = [
+      { id: 1, name: 'Pomidor', code: 'tomato' },
+      { id: 2, name: 'Bolgar burç', code: 'pepper' },
+      { id: 3, name: 'Not a real product', code: null },
+    ];
+  });
+
+  it('the product cell offers tomato and pepper only', async () => {
+    useSheetStore.getState().setEditingCell({ shipmentId: MOCK_SHEET_DATA[0].id, rowKey: 'product_type' });
+    wrap(MOCK_SHEET_DATA[0], PRODUCT_ROW);
+
+    await userEvent.click(screen.getByRole('combobox'));
+    expect(await screen.findByText('Bolgar burç')).toBeInTheDocument();
+    expect(screen.getAllByText('Pomidor').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Not a real product')).not.toBeInTheDocument();
+  });
+
+  it('the firm cell reads the quota of the own product of the shipment', () => {
+    quotaProductArgs.length = 0;
+    wrap({ ...MOCK_SHEET_DATA[0], product_type_code: 'pepper' }, FIRM_SPLITS_ROW);
+    expect(quotaProductArgs).toContain('pepper');
+
+    quotaProductArgs.length = 0;
+    wrap({ ...MOCK_SHEET_DATA[0], product_type_code: null }, FIRM_SPLITS_ROW);
+    expect(quotaProductArgs).toContain('tomato');
   });
 });

@@ -1982,6 +1982,7 @@
       "documents": "Documents (13:00)",
       "export_code": "Export Code",
       "export_date": "Export date",
+      "product_type": "Product",
       "shipment_code": "Shipment Code",
       "harvest_block": "Harvest Block",
       "export_firm": "Export Firm",
@@ -4288,5 +4289,9 @@
   "product": {
     "tomato": "Tomato",
     "pepper": "Pepper"
+  },
+  "errors": {
+    "mixed_product": "Tomato and pepper cannot be mixed in one truck",
+    "product_mismatch": "The blocks' product does not match the trip's product"
   }
 }

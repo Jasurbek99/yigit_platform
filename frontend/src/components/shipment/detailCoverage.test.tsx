@@ -105,3 +105,12 @@ describe('the export date row', () => {
     expect(row!.compareDocumentPosition(loadingStart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+describe('the product row', () => {
+  it('is on the Detail page and shows the shipment product by name', () => {
+    renderDetail({ ...MOCK_SHIPMENT_DETAIL, product_type: 2, product_type_code: 'pepper', product_type_name: 'Bolgar burç' } as IShipmentDetail);
+    const row = document.getElementById('detail-field-product_type');
+    expect(row).not.toBeNull();
+    expect(row).toHaveTextContent('Bolgar burç');
+  });
+});

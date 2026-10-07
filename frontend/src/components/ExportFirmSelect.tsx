@@ -24,6 +24,8 @@ interface IExportFirmSelectProps {
    * contract screens pick a firm for other reasons and must stay unfiltered.
    */
   checkQuota?: boolean;
+  /** Product whose quota the `checkQuota` gate reads: 'tomato' (default) or 'pepper'. */
+  productType?: string;
 }
 
 interface IFirmOption {
@@ -48,12 +50,11 @@ export function ExportFirmSelect({
   style,
   excludeIds = [],
   checkQuota = false,
+  productType = 'tomato',
 }: IExportFirmSelectProps) {
   const { t } = useTranslation();
   const { data: firms = [], isLoading } = useAdminFirms();
-  // 'tomato' like every other caller: no picker carries a product type and
-  // pepper is a rare separate quota domain.
-  const { data: balances } = useQuotaFirmBalances('tomato', { enabled: checkQuota });
+  const { data: balances } = useQuotaFirmBalances(productType, { enabled: checkQuota });
 
   const options = useMemo<IFirmOption[]>(
     () =>

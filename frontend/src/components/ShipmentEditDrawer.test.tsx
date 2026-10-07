@@ -45,7 +45,7 @@ vi.mock('@/hooks/useAdmin', () => ({
   useCities: () => ({ data: [] }),
   useCustomers: () => ({ data: [] }),
   useAdminImportFirms: () => ({ data: [] }),
-  useTomatoVarieties: () => ({ data: [] }),
+  useTomatoVarieties: () => ({ data: [] }), useProductTypes: () => ({ data: [] }),
   useBorderPoints: () => ({ data: [] }),
   useShipmentOptions: () => ({ data: [] }),
 }));

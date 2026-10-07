@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useDrafts, useJoinShipments } from '@/hooks/useDrafts';
 import { FONT } from '@/constants/styles';
+import { localizeErrorCode } from '@/utils/apiErrorText';
 import type { IShipmentDraft } from '@/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -56,7 +57,7 @@ export function JoinSupplyModal({ open, targetId, onClose, onSuccess }: IJoinSup
         },
         onError: (err) => {
           const msg = (err as { response?: { data?: { error?: string } } }).response?.data?.error;
-          toast.error(msg ?? t('join_supply.toast_error'));
+          toast.error(msg ? localizeErrorCode(msg) : t('join_supply.toast_error'));
         },
       },
     );

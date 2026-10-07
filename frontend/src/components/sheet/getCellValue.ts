@@ -56,6 +56,8 @@ export function getCellValue(
       }
       return shipment.variety_name ?? '—';
     }
+    case 'product_type':
+      return shipment.product_type_name ?? '—';
     case 'vehicle_responsible':
       return shipment.vehicle_responsible ?? '—';
     case 'vehicle_condition':

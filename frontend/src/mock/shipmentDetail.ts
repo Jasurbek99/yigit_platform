@@ -42,7 +42,7 @@ export const MOCK_SHIPMENT_DETAIL: IShipmentDetail = {
   notes: null,
   customs_clearance_planned_day: 'wed',
   transport_docs_given_at: null,
-  export_code: '01|FB|045|A4|25|08', export_date: '2025-02-01',
+  export_code: '01|FB|045|A4|25|08', export_date: '2025-02-01', product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor',
   previous_platform_id: null,
   sales_report_date: null,
   harvest_date: null,

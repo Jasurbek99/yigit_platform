@@ -36,7 +36,7 @@ export function firmCommitPayload(current: number[], next: number[]): number[] |
 export function ShipmentFirmSelector({ shipment, readOnly }: IShipmentFirmSelectorProps) {
   const { t } = useTranslation();
   const { data: firms } = useAdminFirms();
-  const { data: balances } = useQuotaFirmBalances('tomato', { enabled: !readOnly });
+  const { data: balances } = useQuotaFirmBalances(shipment.product_type_code ?? 'tomato', { enabled: !readOnly });
   const { mutate, isPending } = useSetFirmSplits(shipment.id);
 
   const currentIds = shipment.firm_splits.map((s) => s.export_firm_id);

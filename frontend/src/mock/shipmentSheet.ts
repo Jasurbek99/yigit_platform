@@ -23,7 +23,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null,
     truck_head_2_id: null, truck_plate_2: null, driver_2_id: null, driver_2_name: null, driver_2_phone: null, driver_passport_serial: null, driver_passport_issue_date: null, driver_2_passport_serial: null, driver_2_passport_issue_date: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-09-27', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-09-27', product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 10000, amount_usd: 8200 },
       { firm_code: 'OY', firm_name: 'Oguz Yoly', weight_kg: 7545, amount_usd: 6187 },
@@ -54,7 +54,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: true,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null,
     truck_head_2_id: null, truck_plate_2: null, driver_2_id: null, driver_2_name: null, driver_2_phone: null, driver_passport_serial: null, driver_passport_issue_date: null, driver_2_passport_serial: null, driver_2_passport_issue_date: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-09-30', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: true, has_doc_advance: true, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-09-30', product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [{ firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 18545, amount_usd: 15763 }],
     block_sources: [{ block_code: 'C', weight_kg: 18545 }],
     created_by_name: 'soltanmyrat', created_at: '2025-09-30T08:00:00+05:00', updated_at: '2025-10-12T10:00:00+05:00',
@@ -82,7 +82,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     doc_azyk: true, doc_suriji: true, doc_hil: true, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null,
     truck_head_2_id: null, truck_plate_2: null, driver_2_id: null, driver_2_name: null, driver_2_phone: null, driver_passport_serial: null, driver_passport_issue_date: null, driver_2_passport_serial: null, driver_2_passport_issue_date: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-10-18', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-10-18', product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'YE', firm_name: 'Ygtybarly Enjam', weight_kg: 9255, amount_usd: null },
       { firm_code: 'ISG', firm_name: 'Isgar HJ', weight_kg: 9255, amount_usd: null },
@@ -115,7 +115,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null,
     truck_head_2_id: null, truck_plate_2: null, driver_2_id: null, driver_2_name: null, driver_2_phone: null, driver_passport_serial: null, driver_passport_issue_date: null, driver_2_passport_serial: null, driver_2_passport_issue_date: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-10-21', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-10-21', product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'GB', firm_name: 'Gokbulut H.J.', weight_kg: 10013, amount_usd: null },
       { firm_code: 'DM', firm_name: 'Datly Miwe H.J.', weight_kg: 10013, amount_usd: null },
@@ -145,7 +145,7 @@ export const MOCK_SHEET_DATA: IShipmentSheetItem[] = [
     doc_azyk: false, doc_suriji: false, doc_hil: false, doc_kalibrowka: false,
     loading_ended_at: null, vehicle_live_status: null, truck_plate: null, driver_name: null, driver_phone: null,
     truck_head_2_id: null, truck_plate_2: null, driver_2_id: null, driver_2_name: null, driver_2_phone: null, driver_passport_serial: null, driver_passport_issue_date: null, driver_2_passport_serial: null, driver_2_passport_issue_date: null, dest_entry_at: null, additional_notes_arap: null,
-    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-10-21', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
+    has_sales_report: false, has_doc_advance: false, notes: null, export_manager_note: null, warehouse_note: null, document_note: null, customs_clearance_planned_day: null, transport_docs_given_at: null, greenhouse_arrived_at: null, export_code: null, export_date: '2025-10-21', product_type: 1, product_type_code: 'tomato', product_type_name: 'Pomidor', previous_platform_id: null, column_color: null, sales_report_date: null, harvest_date: null,
     firm_splits: [
       { firm_code: 'YGT', firm_name: 'Yigit H.J.', weight_kg: 9757, amount_usd: null },
       { firm_code: 'HMS', firm_name: 'Hemsaya H.J.', weight_kg: 9757, amount_usd: null },
