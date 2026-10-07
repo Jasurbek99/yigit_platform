@@ -66,6 +66,16 @@ def _stamp_pair(firm, wanted: bool):
 # Constant: TN VED (HS) code for fresh tomatoes. Overridable per line if needed.
 TOMATO_HS_CODE = '070200000'
 
+TOMATO_NAMES = ('Fresh tomatoes', 'Помидор свежий', 'Ter pomidor')
+
+
+def product_names(product) -> tuple[str, str, str]:
+    """(en, ru, tk) for a ProductType; each blank part falls back to tomato."""
+    return tuple(
+        (getattr(product, field, None) or '').strip() or fallback
+        for field, fallback in zip(('name_en', 'name_ru', 'name_tk'), TOMATO_NAMES)
+    )
+
 # The shipment's whole-truck packing cells that MUST be filled in the Sheet before
 # any document generates (gross + net + boxes + pallets). ``box_count`` /
 # ``pallet_count`` may legitimately be 0? no — a truck always carries boxes on
@@ -1413,6 +1423,8 @@ def build_contract_context(contract, lang: str = 'ru', overrides: dict | None = 
 
     return {
         'contract_no': contract.contract_number or '',
+        'product_name_ru': product_names(contract.product_type)[1],
+        'product_name_tk': product_names(contract.product_type)[2],
         'contract_date': _date(contract.contract_date or contract.start_date),
         # Financials — one numeric value shown in both language columns (RU grouping).
         'total_sum': _money(amount, 'ru'),

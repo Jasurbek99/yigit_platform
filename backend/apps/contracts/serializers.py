@@ -16,6 +16,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.core.models import ProductType
 from apps.core.permissions import get_editable_fields
 from apps.core.seasons import get_active_season
 from apps.contracts.models import (
@@ -112,6 +113,9 @@ class ContractListSerializer(serializers.ModelSerializer):
         decimal_places=2,
         read_only=True,
     )
+    product_type_code = serializers.CharField(
+        source='product_type.code', read_only=True, default=None,
+    )
 
     class Meta:
         model = Contract
@@ -129,6 +133,8 @@ class ContractListSerializer(serializers.ModelSerializer):
             'season',
             'season_name',
             'contract_type',
+            'product_type',
+            'product_type_code',
             'passport_sdelka',
             'incoterm',
             'planned_trucks',
@@ -221,6 +227,7 @@ class ContractCreateSerializer(serializers.ModelSerializer):
             'season',
             'customer',
             'contract_type',
+            'product_type',
             'passport_sdelka',
             'incoterm',
             'contract_date',
@@ -276,6 +283,9 @@ class ContractCreateSerializer(serializers.ModelSerializer):
         # so the create form need not ask.
         if not validated_data.get('season'):
             validated_data['season'] = get_active_season()
+        # Omitted product → tomato (pepper spec §4.3); the API stays backward-compatible.
+        if not validated_data.get('product_type'):
+            validated_data['product_type'] = ProductType.tomato()
 
         export_firm = validated_data['export_firm']
         # The number embeds the document date — contract_date is that date;

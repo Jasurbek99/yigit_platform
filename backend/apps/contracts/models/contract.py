@@ -74,6 +74,12 @@ class Contract(models.Model):
         on_delete=models.PROTECT,
         related_name='contracts',
     )
+    # Pepper spec 2026-10-05 §4.3: the goods this contract covers. NULL ≡ tomato
+    # (rows written by old beta code).
+    product_type = models.ForeignKey(
+        'core.ProductType', on_delete=models.PROTECT, null=True, blank=True,
+        related_name='contracts',
+    )
     customer = models.ForeignKey(
         'core.Customer',
         on_delete=models.PROTECT,

@@ -18,12 +18,14 @@ import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.db.models import Q
 
 from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.contract_number import next_contract_no
 from apps.contracts.services.letter_number import ensure_letter_numbers
-from apps.core.models import ExportFirm
+from apps.core.models import ExportFirm, ProductType
 from apps.export.models import PackingTemplateShare, Shipment, ShipmentFirmSplit
+from apps.export.services.product_type import shipment_product_code
 
 # Invoices at/above this settle through the bank; below, in cash. Non-blocking —
 # surfaced as a warning so the operator can split a truck under the threshold.
@@ -87,14 +89,24 @@ def money_warning(amount_usd) -> str | None:
     return 'bank' if Decimal(amount_usd) >= USD_BANK_THRESHOLD else 'cash'
 
 
-def framework_contracts_for_pair(export_firm_id: int, import_firm_id: int):
-    """Active framework contracts for a (seller, buyer) pair, newest first."""
-    return Contract.objects.filter(
+def framework_contracts_for_pair(
+    export_firm_id: int, import_firm_id: int, product_code: str = 'tomato',
+):
+    """Active framework contracts for a (seller, buyer) pair and product, newest first.
+
+    product_type NULL counts as tomato (contracts created before the field).
+    """
+    qs = Contract.objects.filter(
         export_firm_id=export_firm_id,
         import_firm_id=import_firm_id,
         contract_type=Contract.TYPE_FRAMEWORK,
         status=Contract.STATUS_ACTIVE,
-    ).order_by('-contract_year', '-seq', '-created_at')
+    )
+    if product_code == 'tomato':
+        qs = qs.filter(Q(product_type__code='tomato') | Q(product_type__isnull=True))
+    else:
+        qs = qs.filter(product_type__code=product_code)
+    return qs.order_by('-contract_year', '-seq', '-created_at')
 
 
 def _split_for(shipment: Shipment, export_firm_id: int) -> ShipmentFirmSplit | None:
@@ -220,11 +232,11 @@ def link_split_to_contract(
         if not contract_id:
             raise ValueError('contract_id is required for framework mode.')
         contract = framework_contracts_for_pair(
-            export_firm_id, shipment.import_firm_id
+            export_firm_id, shipment.import_firm_id, shipment_product_code(shipment),
         ).filter(pk=contract_id).first()
         if contract is None:
             raise ValueError(
-                'contract_id is not an active framework contract for this pair.'
+                'contract_id is not an active framework contract for this pair and product.'
             )
     elif mode == 'one_time':
         price = parse_price_per_kg(price_per_kg)
@@ -288,6 +300,7 @@ def _create_one_time_contract(
         export_firm_id=split.export_firm_id,
         import_firm_id=shipment.import_firm_id,
         season=shipment.season,
+        product_type=shipment.product_type or ProductType.tomato(),
         contract_date=contract_date,
         start_date=contract_date,
         planned_trucks=1,

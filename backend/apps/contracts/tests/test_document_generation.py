@@ -692,6 +692,7 @@ def _mock_contract(amount='7830.00', qty='9000', end=date(2026, 12, 31),
         planned_quantity_kg=Decimal(qty) if qty is not None else None,
         price_per_kg=Decimal(price) if price is not None else None,
         export_firm=_mock_seller(), import_firm=buyer,
+        product_type=None,  # NULL ≡ tomato
     )
 
 

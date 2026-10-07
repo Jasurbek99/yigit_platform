@@ -156,7 +156,7 @@ class ContractViewSet(SeasonScopedMixin, ModelViewSet):
         """
         qs = Contract.objects.select_related(
             'export_firm', 'import_firm', 'import_firm__country', 'season', 'customer',
-            'created_by',
+            'created_by', 'product_type',
         ).annotate(
             # Drives the list's Delete action and destroy()'s guard: a contract
             # with sales is in use and must not be deleted. Exists(), not
@@ -904,6 +904,7 @@ class ShipmentFirmContractsView(APIView):
 
     def get(self, request):
         from apps.export.models import Shipment
+        from apps.export.services.product_type import shipment_product_code
         from apps.contracts.services.shipment_firm_contracts import (
             framework_contracts_for_pair,
             money_warning,
@@ -932,7 +933,9 @@ class ShipmentFirmContractsView(APIView):
         for split in shipment.firm_splits.all():
             options = (
                 list(
-                    framework_contracts_for_pair(split.export_firm_id, import_firm_id)
+                    framework_contracts_for_pair(
+                        split.export_firm_id, import_firm_id, shipment_product_code(shipment),
+                    )
                     .values('id', 'contract_number')
                 )
                 if import_firm_id
