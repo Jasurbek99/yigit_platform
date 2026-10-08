@@ -673,6 +673,9 @@ more than the addressee + one line:
   label comes from the template, and a label typed into the firm card («Юр.Адрес:»,
   «Юридический адрес:», «Address:» …) is stripped by `_strip_address_label`. A blank
   address prints no line (`{% if %}`). Since 2026-10-08. ARZA prints no addresses.
+  The **invoice** (RU/EN) seller and buyer boxes follow the same rule with «Адрес:» /
+  «Address:» (template label from `LABELS[lang]['address']`). The CMR and the contract
+  build their addresses separately and are unchanged.
 - **FITO** — the truck line (`1 автомашина: {plate}`) + sender/consignee blocks.
 - **Customs (ARZA)** — a truck **table** (T/b · plate · product · boxes · gross)
   and the full four-paragraph legal boilerplate (gümrük Kodeksi articles, the

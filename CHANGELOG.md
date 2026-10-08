@@ -5,6 +5,7 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Fixed
+- **Invoice addresses: one «Адрес:» / «Address:» label (fix(p4)).** Same rule as CT-1 / Fito: the invoice_ru / invoice_en seller and buyer boxes print one template label, the label typed into the firm card is stripped, a blank address prints no line. Templates regenerated.
 - **ARZA signature by legal form (fix(p4)).** The customs letter signs «Hususy Telekeçi: <person>» for a sole proprietor (HT) and «Direktor: <director>» for every other firm, instead of «Telekeçi <firm name>». Template `customs_tk` regenerated.
 - **One «Адрес:» label in CT-1 / Fito (fix(p4)).** The templates print «Адрес:» before the sender and consignee addresses; labels typed into firm cards («Юр.Адрес:», «Юридический адрес:», «Address:» …) are stripped, a blank address prints no line. Templates `ct1_ru` / `fito_ru` regenerated.
 - **Letterhead keeps its own colours (fix(p4)).** Theme colours in the firm blank (text and shapes) are fixed to RGB before the merge — the Yigit green printed orange in CT-1 / Fito / ARZA because it resolved against the letter's theme.

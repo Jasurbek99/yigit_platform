@@ -5,7 +5,7 @@ from django.test import SimpleTestCase, TestCase
 from docx import Document
 
 from apps.contracts.services.document_context import (
-    _strip_address_label, build_ct1_context, build_fito_context,
+    _strip_address_label, build_ct1_context, build_fito_context, build_invoice_context,
 )
 from apps.contracts.services.document_render import generate
 from apps.contracts.tests.test_contract_sale_api import (
@@ -69,3 +69,44 @@ class LetterAddressTest(TestCase):
         self.imp.save(update_fields=['address'])
         for key in ('ct1_ru', 'fito_ru'):
             self.assertFalse(any(t.strip() == 'Адрес:' for t in self._paragraphs(key)), key)
+
+
+class InvoiceAddressTest(TestCase):
+    """The invoice's seller / buyer boxes: same rule as the letters, label per language."""
+
+    def setUp(self):
+        season = _make_season()
+        imp = _make_import_firm('IMPINVADDR')
+        firm = _make_export_firm('INVADDRF')
+        firm.address_ru = 'Юр.Адрес: Туркменистан, Ахалская область'
+        firm.address_en = 'Legal address: Turkmenistan, Ahal region'
+        firm.save(update_fields=['address_ru', 'address_en'])
+        imp.address = 'Юридический адрес: РК, г. Шымкент'
+        imp.save(update_fields=['address'])
+        contract = _make_contract('INVADDR-1', firm, imp, season)
+        self.sale = _make_invoice(contract, invoice_number=1)
+        self.sale.shipment = _make_packed_shipment(season, imp, code='0909002/25')
+        self.sale.save(update_fields=['shipment'])
+        self.sale.refresh_from_db()
+
+    def _cells(self, key):
+        data, _, _ = generate(key, self.sale, 'docx', {'place_loading': 'Kaka'}, highlight=False)
+        doc = Document(BytesIO(data))
+        return [p.text for table in doc.tables for cell in table._cells for p in cell.paragraphs]
+
+    def test_context_carries_the_bare_addresses(self):
+        ctx = build_invoice_context(self.sale, 'ru', {})
+        self.assertEqual(ctx['seller_address'], 'Туркменистан, Ахалская область')
+        self.assertEqual(ctx['buyer_address'], 'РК, г. Шымкент')
+
+    def test_ru_invoice_prints_one_label(self):
+        texts = self._cells('invoice_ru')
+        self.assertIn('Адрес: Туркменистан, Ахалская область', texts)
+        self.assertIn('Адрес: РК, г. Шымкент', texts)
+        self.assertFalse(any('Юр' in t for t in texts))
+
+    def test_en_invoice_prints_address_label(self):
+        texts = self._cells('invoice_en')
+        self.assertIn('Address: Turkmenistan, Ahal region', texts)
+        self.assertIn('Address: РК, г. Шымкент', texts)
+        self.assertFalse(any('Legal address' in t or 'Юр' in t for t in texts))

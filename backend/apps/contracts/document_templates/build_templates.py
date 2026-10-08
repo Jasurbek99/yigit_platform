@@ -34,6 +34,7 @@ LABELS = {
         'number_line': '№ {{ invoice_no }} от   {{ invoice_date }}',
         'contract_line': 'Контракт № {{ contract_line }}',
         'seller': 'ПРОДАВЕЦ:',
+        'address': 'Адрес',
         'buyer': 'ПОКУПАТЕЛЬ:',
         'country': 'Страна происхождение товара:',
         'loading': 'Место погрузки груза:',
@@ -55,6 +56,7 @@ LABELS = {
         'number_line': '№ {{ invoice_no }}, {{ invoice_date }}',
         'contract_line': 'Contract № {{ contract_line }}',
         'seller': 'SELLER:',
+        'address': 'Address',
         'buyer': 'BUYER:',
         'country': 'Country of origin:',
         'loading': 'Place of loading cargo:',
@@ -158,9 +160,12 @@ def _party_block(doc, lab) -> None:
     _col_widths(boxes, widths)
     boxes.rows[0].height = Cm(8)
     boxes.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
-    _fill_party_cell(boxes.cell(0, 0), '{{ seller_name }}', '{{ seller_address }}', '{{ seller_bank }}')
+    # One printed label; the one typed into a firm card is stripped by the builder.
+    seller_addr = f"{{% if seller_address %}}{lab['address']}: {{{{ seller_address }}}}{{% endif %}}"
+    buyer_addr = f"{{% if buyer_address %}}{lab['address']}: {{{{ buyer_address }}}}{{% endif %}}"
+    _fill_party_cell(boxes.cell(0, 0), '{{ seller_name }}', seller_addr, '{{ seller_bank }}')
     _no_border(boxes.cell(0, 1))
-    _fill_party_cell(boxes.cell(0, 2), '{{ buyer_name }}', '{{ buyer_address }}', '{{ buyer_bank }}')
+    _fill_party_cell(boxes.cell(0, 2), '{{ buyer_name }}', buyer_addr, '{{ buyer_bank }}')
 
 
 def _info_block(doc, lab) -> None:
