@@ -59,6 +59,13 @@ _UNIVERSAL = {'me.board'} | _FEEDBACK_COMMON | _TEAM_PAGES
 _GATE_PAGES = {'export.gate'}
 _GATE_RESOURCES = {'gate'}
 
+# Agent market. The phone pages belong to the external agent roles alone; our
+# staff see only the desktop `market.agents` page. External roles are kept out of
+# every every-role loop below.
+_MARKET_PHONE_PAGES = {'market.home', 'market.team'}
+_MARKET_RESOURCES = {'market_agent', 'market_team'}
+_EXTERNAL = ('agent', 'agent_seller')
+
 # Contracts module pages (contracts.list, contracts.sales) default to
 # MANAGEMENT ONLY: admin / director / export_manager get them automatically
 # because their sets are derived from _ALL_PAGES (contracts.* is not admin.*).
@@ -94,7 +101,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # analytics.boss, audit_log, director.stuck_shipments and the feedback pages
     # survive because their prefixes are not 'admin.'. feedback.admin_inbox is
     # removed — that inbox stays admin-only.
-    'director': _ALL_PAGES - _ALL_ADMIN - {'feedback.admin_inbox'} - _GATE_PAGES,
+    'director': _ALL_PAGES - _ALL_ADMIN - {'feedback.admin_inbox'} - _GATE_PAGES - _MARKET_PHONE_PAGES,
     # export_manager: drop the previous admin.permissions exception — AD-15
     # restricts permission-matrix CRUD to admin only. Also drop stuck-shipments
     # (director/boss oversight page) and the admin feedback inbox.
@@ -104,7 +111,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # admin.shipment_settings is added back in explicitly (2026-09-02) — Gadam
     # owns the Sheet, so he must be able to grant a row without an admin.
     'export_manager': (
-        _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'} - _GATE_PAGES
+        _ALL_PAGES - _ALL_ADMIN - {'director.stuck_shipments', 'feedback.admin_inbox'} - _GATE_PAGES - _MARKET_PHONE_PAGES
     ) | {'admin.shipment_settings'},
     'weight_master': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
@@ -152,12 +159,17 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # He sees trucks only through the gate lists, never the Sheet or the list.
     # Kept out of the every-role loops below (Fleet Map, Tır Takip) too.
     'garawul': {'export.gate', 'me.board'},
+    # Agent market: the phone shell only — nothing of the internal app.
+    'agent': {'market.home', 'market.team'},
+    'agent_seller': {'market.home'},
     'sales_rep': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
         'export.advances', _BOARD,
         _HARVEST_BOARD,
         # Sales rep worklist — dedicated page for their destination-country reports.
         'export.sales_reports',
+        # Agent logins desktop page (create / edit agents).
+        'market.agents',
     } | _UNIVERSAL,
     'finansist': {
         'dashboard', 'export.shipments', _SHEET, _SHIP_DASHBOARD,
@@ -179,7 +191,7 @@ PAGE_DEFAULTS: dict[str, set[str]] = {
     # _BOSS_DEAD_PAGES. He owns the process end-to-end and must not need to log
     # in as another role to see a step (2026-08-05 design). _UNIVERSAL is a
     # subset of _ALL_PAGES, so nothing he had before is lost.
-    'boss': _ALL_PAGES - _BOSS_DEAD_PAGES,
+    'boss': _ALL_PAGES - _BOSS_DEAD_PAGES - _MARKET_PHONE_PAGES,
 }
 
 # loading_dept_head_deputy: identical page access to the head (June 2026 request).
@@ -205,7 +217,7 @@ PAGE_DEFAULTS['document_team'] = set(PAGE_DEFAULTS['export_manager']) | _UNIVERS
 # written once, here, instead of in a deny-list plus a 14-role nav array.
 # admin / director / export_manager / boss already hold it via _ALL_PAGES.
 for _role in PAGE_DEFAULTS:
-    if _role not in ('seller', 'garawul'):
+    if _role not in ('seller', 'garawul', *_EXTERNAL):
         PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | {'transport.map'}
 
 # Task Rules (registered 2026-09-22) — the read-only catalog behind My Tasks.
@@ -247,7 +259,7 @@ for _role in ('warehouse_chief', 'loading_dept_head', 'loading_dept_head_deputy'
 # to hidden.
 _TIR_TAKIP = {k for k in PAGE_REGISTRY if k == 'tir_takip' or k.startswith('tir_takip.')}
 for _role in PAGE_DEFAULTS:
-    if _role == 'garawul':
+    if _role in ('garawul', *_EXTERNAL):
         continue
     PAGE_DEFAULTS[_role] = PAGE_DEFAULTS[_role] | _TIR_TAKIP
 
@@ -260,6 +272,7 @@ _VCRUD = (True, True, True, True)   # full CRUD
 _VIEW = (True, False, False, False)  # read-only
 _VCE = (True, True, True, False)     # view + create + edit, no delete
 _VE = (True, False, True, False)     # view + edit only
+_NONE = (False, False, False, False)  # explicit all-denied row
 
 _ALL_RESOURCES = set(RESOURCE_REGISTRY.keys())
 
@@ -276,7 +289,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # _VCRUD wildcard above, same as every other resource admin manages.
     },
     'director': {
-        **{r: _VCRUD for r in _ALL_RESOURCES - _GATE_RESOURCES},
+        **{r: _VCRUD for r in _ALL_RESOURCES - _GATE_RESOURCES - _MARKET_RESOURCES},
+        **{r: _VIEW for r in _MARKET_RESOURCES},
         # sale: director may create/edit but NOT delete — sale deletion is
         # admin-only (rollback is too easy to mess up). See ContractSaleViewSet.
         'sale': _VCE,
@@ -289,7 +303,8 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         # resource this endpoint used to gate on, including soft-delete).
     },
     'export_manager': {
-        **{r: _VCRUD for r in _ALL_RESOURCES - _GATE_RESOURCES},
+        **{r: _VCRUD for r in _ALL_RESOURCES - _GATE_RESOURCES - _MARKET_RESOURCES},
+        **{r: _VIEW for r in _MARKET_RESOURCES},
         # Assignment: export_manager promotes drafts to yuklenme (Finding #1)
         'shipment_assign': _VCE,
         # truck_split_default: read-only for export_manager — only the director
@@ -358,6 +373,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'sales_report': _VCE,           # Arap creates sales reports
         'shipment_comment': _VCE,
         'advance': _VIEW,
+        'market_agent': _VCE,           # creates / edits agent logins
     },
     'finansist': {
         'shipment': _VE,
@@ -388,6 +404,11 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'garawul': {
         'gate': _VE,    # read the lists, mark / undo
     },
+    # Agent market: the agent runs his own team; the seller holds no resource.
+    'agent': {'market_team': _VCRUD},
+    # An all-denied row, not {}: the admin matrix GET builds from existing rows and
+    # PUT rejects a matrix missing any role, so a role with no row breaks Save.
+    'agent_seller': {'market_team': _NONE},
     # boss: full CRUD on every resource. The read-only guard now lives in the
     # frontend view/edit toggle, not in the permission matrix (2026-08-05).
     # Three carve-outs, all mirrored in core migration 0033:

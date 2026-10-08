@@ -47,8 +47,10 @@ class BossPermissionDefaultsTests(TestCase):
             .filter(role='boss', is_visible=True)
             .values_list('page_code', flat=True)
         )
-        self.assertEqual(visible, set(PAGE_REGISTRY.keys()) - _BOSS_DEAD_PAGES)
-        self.assertEqual(len(visible), len(PAGE_REGISTRY) - 4)
+        # market.home / market.team are the agent-market phone pages: agents only.
+        expected = set(PAGE_REGISTRY.keys()) - _BOSS_DEAD_PAGES - {'market.home', 'market.team'}
+        self.assertEqual(visible, expected)
+        self.assertEqual(len(visible), len(PAGE_REGISTRY) - 4 - 2)
 
     def test_pages_gated_outside_the_matrix_are_hidden_from_boss(self):
         """Each of the four is refused by a gate the matrix cannot reach:

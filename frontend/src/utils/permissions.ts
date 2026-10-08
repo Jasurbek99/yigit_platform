@@ -89,6 +89,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   '/tir-takip':                 'tir_takip',
   '/export/gaplama':            'tir_takip.gaplama',
   '/export/gate':               'export.gate',
+  '/market/agents':             'market.agents',
   '/worklog':                   'worklog',
   '/team/kpi':                  'team_kpi',
 };
