@@ -400,8 +400,8 @@ def build_customs() -> Path:
 
     sign = doc.add_table(rows=1, cols=2)
     _col_widths(sign, [Cm(6), Cm(11)])
-    _set_cell(sign.cell(0, 0), 'Telekeçi', bold=True, size=12)
-    _set_cell(sign.cell(0, 1), '{{ seller_name }}', bold=True, size=12)
+    _set_cell(sign.cell(0, 0), '{{ signer_title }}:', bold=True, size=12)
+    _set_cell(sign.cell(0, 1), '{{ signer_name }}', bold=True, size=12)
 
     out = OUT_DIR / 'customs_tk.docx'
     doc.save(out)

@@ -677,7 +677,10 @@ more than the addressee + one line:
 - **Customs (ARZA)** — a truck **table** (T/b · plate · product · boxes · gross)
   and the full four-paragraph legal boilerplate (gümrük Kodeksi articles, the
   finance-ministry order), with the generate-time `place_loading` inserted, plus
-  the `Telekeçi` signature.
+  the signature line `signer_title: signer_name` — «Hususy Telekeçi: Döwranow J.A.»
+  for an HT seller (`legal_type.full_tk` + `name_bare_tk`), else «Direktor: <director_tk
+  or director>» (same helpers as the contract, `_seller_title` / `_seller_director_for`).
+  Since 2026-10-08; before it printed «Telekeçi <firm name>» for every firm.
 
 `_letter_figures(invoice)` supplies per-firm net/gross/boxes/plate (same rule as
 the invoice line item). CT-1 still fills with no shipment link (weights fall back

@@ -1077,6 +1077,9 @@ def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = No
         'gross': _kg(fig.gross, lang),
         'boxes': str(fig.boxes) if fig.boxes else '',
         'doc_date': _date(invoice.invoice_date),
+        # Signature line: «Hususy Telekeçi: <person>» or «Direktor: <director>».
+        'signer_title': _seller_title(seller, 'tk'),
+        'signer_name': _seller_director_for(seller, 'tk'),
     }
 
 
