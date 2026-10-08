@@ -51,7 +51,61 @@ def _two_section_letterhead() -> bytes:
     return _save(doc)
 
 
+def _green_theme_letterhead():
+    """A blank whose title is green through a THEME colour (accent6), like the
+    Yigit blank: its own theme says accent6 = 70AD47, the letter's says F79646."""
+    from lxml import etree
+
+    doc = Document(BytesIO(letterhead_bytes('ÝIGIT', ' № ______')))
+    run = doc.paragraphs[1].runs[0]
+    color = run._r.get_or_add_rPr().get_or_add_color()
+    color.set(qn('w:val'), '70AD47')
+    color.set(qn('w:themeColor'), 'accent6')
+    theme = next(p for p in doc.part.package.iter_parts() if str(p.partname).startswith('/word/theme/'))
+    root = etree.fromstring(theme.blob)
+    a = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+    root.find(f'.//{{{a}}}accent6/{{{a}}}srgbClr').set('val', '70AD47')
+    theme._blob = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
+    return doc
+
+
 class ApplyLetterheadTest(TestCase):
+    def test_theme_colour_keeps_the_letterheads_green(self):
+        out = Document(BytesIO(apply_letterhead(_letter(), _save(_green_theme_letterhead()), 1)))
+        color = next(p for p in out.paragraphs if '№' in p.text).runs[0]._r.rPr.find(qn('w:color'))
+        self.assertEqual(color.get(qn('w:val')), '70AD47')
+        self.assertIsNone(color.get(qn('w:themeColor')))  # the letter's theme would make it orange
+
+    def test_drawing_scheme_colour_becomes_rgb(self):
+        from lxml import etree
+
+        from apps.contracts.services.letterhead_render import _freeze_theme_colors
+
+        doc = _green_theme_letterhead()
+        a = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+        holder = etree.SubElement(doc.paragraphs[0]._p, f'{{{a}}}solidFill')
+        scheme = etree.SubElement(holder, f'{{{a}}}schemeClr', val='accent6')
+        etree.SubElement(scheme, f'{{{a}}}lumMod', val='75000')
+        _freeze_theme_colors(doc)
+        rgb = holder.find(f'{{{a}}}srgbClr')
+        self.assertIsNotNone(rgb)
+        self.assertEqual(rgb.get('val'), '70AD47')
+        self.assertEqual(rgb[0].get('val'), '75000')  # tint/shade modifiers kept
+        self.assertIsNone(holder.find(f'{{{a}}}schemeClr'))
+
+    def test_theme_ignores_a_non_hex_colour(self):
+        from lxml import etree
+
+        from apps.contracts.services.letterhead_render import _theme_palette
+
+        doc = _green_theme_letterhead()
+        theme = next(p for p in doc.part.package.iter_parts() if str(p.partname).startswith('/word/theme/'))
+        root = etree.fromstring(theme.blob)
+        a = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+        root.find(f'.//{{{a}}}accent6/{{{a}}}srgbClr').set('val', '"><evil/>')
+        theme._blob = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
+        self.assertNotIn('accent6', _theme_palette(doc))
+
     def test_letterhead_goes_on_top_with_number(self):
         out = apply_letterhead(_letter(), letterhead_bytes('ÝIGIT', ' № ______'), 15)
         text = _text(out)

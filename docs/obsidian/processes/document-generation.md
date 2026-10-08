@@ -696,7 +696,9 @@ Spec: `docs/superpowers/specs/2026-10-05-firm-letterhead-letter-numbers-design.m
   letterhead body **at the top** of the letter (`docxcompose.Composer(letter).insert(0, head)`).
   The letter stays the master document, so its fonts, margins and saved layout survive.
   Before the insert, the letterhead's inherited spacing and run fonts/sizes are written
-  onto its paragraphs per attribute. Its trailing empty lines are dropped, and its
+  onto its paragraphs per attribute, and its theme colours («accent6» etc. in text and
+  shapes) are replaced by their RGB values. Otherwise they resolve against the letter's
+  theme: the Yigit green (70AD47) printed orange (F79646), fixed 2026-10-08. Its trailing empty lines are dropped, and its
   sections take the letter's page size (otherwise the Yigit blank pushed ARZA onto a 2nd
   page). The date blank «__» ___ 20 ý. is never filled.
 - **No letterhead → the letter is unchanged.** Another firm's letterhead is never used.

@@ -11,13 +11,16 @@ the Yigit blank took the letter's line spacing and pushed ARZA onto a 2nd page.
 from __future__ import annotations
 
 import logging
+import re
 from io import BytesIO
 
 from docx import Document
 from docx.enum.section import WD_SECTION
+from docx.oxml import parse_xml
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 from docxcompose.composer import Composer
+from lxml import etree
 
 from apps.core.letterhead import UNREADABLE_DOCX_ERRORS, fill_number
 
@@ -104,6 +107,78 @@ def _freeze_run_fonts(doc) -> None:
                 rpr.get_or_add_sz().set(qn('w:val'), size)
 
 
+_A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+_HEX = re.compile(r'^[0-9A-Fa-f]{6}$')
+# Names a colour reference may use → the theme's colour-scheme slot (default
+# clrSchemeMapping: text = dark, background = light).
+_THEME_SLOT = {
+    'tx1': 'dk1', 'bg1': 'lt1', 'tx2': 'dk2', 'bg2': 'lt2',
+    'text1': 'dk1', 'background1': 'lt1', 'text2': 'dk2', 'background2': 'lt2',
+    'dark1': 'dk1', 'light1': 'lt1', 'dark2': 'dk2', 'light2': 'lt2',
+    'hyperlink': 'hlink', 'followedHyperlink': 'folHlink',
+}
+# (theme attribute, its tint/shade companions, the attribute holding the concrete colour)
+_W_THEME_ATTRS = (
+    ('themeColor', ('themeTint', 'themeShade'), ('val', 'color')),
+    ('themeFill', ('themeFillTint', 'themeFillShade'), ('fill',)),
+)
+
+
+def _theme_palette(doc) -> dict:
+    """The letterhead theme's colour scheme as ``{slot: 'RRGGBB'}``."""
+    theme = next(
+        (p for p in doc.part.package.iter_parts() if str(p.partname).startswith('/word/theme/')),
+        None,
+    )
+    if theme is None:
+        return {}
+    # The theme comes from an uploaded file: parse it with python-docx's hardened
+    # parser (no entity resolution), like every other part of the document.
+    scheme = parse_xml(theme.blob).find(f'.//{{{_A}}}clrScheme')
+    palette = {}
+    for slot in (scheme if scheme is not None else []):
+        rgb = slot.find(f'{{{_A}}}srgbClr')
+        sys_clr = slot.find(f'{{{_A}}}sysClr')
+        value = rgb.get('val') if rgb is not None else (sys_clr.get('lastClr') if sys_clr is not None else None)
+        if value and _HEX.match(value):
+            palette[etree.QName(slot).localname] = value
+    return palette
+
+
+def _freeze_theme_colors(doc) -> None:
+    """Replace the letterhead's THEME colour references with their RGB values.
+
+    A Word blank often colours its text and shapes through the theme ("accent6")
+    rather than a fixed RGB. Once merged, the reference resolves against the
+    LETTER's theme: the Yigit blank's green (70AD47) turned orange (F79646).
+    """
+    palette = _theme_palette(doc)
+
+    def rgb(name):
+        return palette.get(_THEME_SLOT.get(name, name))
+
+    body = doc.element.body
+    for element in body.iter():
+        for theme_attr, companions, concrete_attrs in _W_THEME_ATTRS:
+            name = element.get(qn(f'w:{theme_attr}'))
+            if name is None:
+                continue
+            concrete = next((a for a in concrete_attrs if element.get(qn(f'w:{a}')) is not None), concrete_attrs[0])
+            # Word stores the resolved colour (tint/shade applied) next to the
+            # reference; use it, falling back to the plain theme colour.
+            if not _HEX.match(element.get(qn(f'w:{concrete}')) or '') and rgb(name):
+                element.set(qn(f'w:{concrete}'), rgb(name))
+            for attr in (theme_attr, *companions):
+                element.attrib.pop(qn(f'w:{attr}'), None)
+    for scheme in list(body.iter(f'{{{_A}}}schemeClr')):
+        value = rgb(scheme.get('val'))
+        if value is None:  # e.g. phClr — a placeholder the shape style fills in
+            continue
+        fixed = etree.Element(f'{{{_A}}}srgbClr', val=value)
+        fixed.extend(list(scheme))  # keep lumMod / tint / shade modifiers
+        scheme.getparent().replace(scheme, fixed)
+
+
 def _trim_trailing_empty_paragraphs(doc) -> None:
     """Drop the letterhead's empty paragraphs after its last content.
 
@@ -132,6 +207,7 @@ def apply_letterhead(letter_bytes: bytes, letterhead_bytes: bytes, number: int |
     fill_number(head, number)
     _freeze_spacing(head)
     _freeze_run_fonts(head)
+    _freeze_theme_colors(head)
     _trim_trailing_empty_paragraphs(head)
     letter = Document(BytesIO(letter_bytes))
     # Sections of different page sizes cannot share a page, so a US Letter blank
