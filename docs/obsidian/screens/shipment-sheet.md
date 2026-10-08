@@ -1159,3 +1159,7 @@ rows, so a re-type doesn't create a near-duplicate.
 - [[../processes/shipment-lifecycle]] — How filling a timestamp cell advances the status
 - [[../processes/permissions-system]] — Dynamic permission registry, `canEditField` / `canDo`
 - [[../reference/api-endpoint-map]] — `GET /export/shipments/sheet/` and the inline patch contract
+
+## Product row (2026-10-07)
+
+Editable «Продукт» row (`product_type`, томат / перец select; `getCellValue` reads `product_type_name`) inside the normal field-permission chain — `product_type` was already in `seed_permissions.py` / `permission_registry.py`. The payload also carries `product_type_code`. A PATCH is 400 `mixed_product` / `product_mismatch` when the shipment's blocks are of another product, and `product_type` can never be cleared from the UI. A product change re-syncs quota usage. Variety dropdowns list only the shipment's product's varieties (NULL reads as tomato). Sheet Join of a supply into a destination of another product is 400. Detail, the edit drawer and the create forms use the same select (default tomato; the supply-draft modal derives it from the blocks). See [[../reference/product-types]].

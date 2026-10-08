@@ -2244,6 +2244,7 @@
     "open_button": "Üpjünçilik bölegi",
     "field_weight": "Jemi agram (kg)",
     "field_blocks": "Bloklar",
+    "field_product": "Önüm",
     "field_variety": "Sort",
     "field_harvest_status": "Hasyl ýagdaýy",
     "field_export_code": "Eksport kody",
@@ -2492,6 +2493,7 @@
     "btn_save": "Sakla",
     "toast_saved": "Paletler ýatda saklandy",
     "toast_closed": "Manifest tamamlandy — sort awto-hasap edildi",
+    "toast_close_error": "Manifesti ýapyp bolmady",
     "toast_logo_todo": "Logo Tiger eksport entek hazyr däl",
     "rollup_title": "Sort roll-up (R17)",
     "rollup_computed": "Paletlerden hasaplanan",
@@ -4316,6 +4318,7 @@
   },
   "errors": {
     "mixed_product": "Bir ýük awtoulagynda pomidor bilen burçy garyşdyrmak bolmaz",
-    "product_mismatch": "Blogyň önümi iş saparyň önümine gabat gelmeýär"
+    "product_mismatch": "Blogyň önümi iş saparyň önümine gabat gelmeýär",
+    "contract_product_mismatch": "Şertnamanyň önümi iş saparyň önümine gabat gelmeýär"
   }
 }

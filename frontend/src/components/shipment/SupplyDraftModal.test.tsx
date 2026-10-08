@@ -21,7 +21,11 @@ vi.mock('sonner', () => ({
 
 vi.mock('@/hooks/useAdmin', () => ({
   useGreenhouseBlocks: () => ({
-    data: [{ id: 7, code: 'A', name: 'A', is_active: true }],
+    data: [
+      { id: 7, code: 'A', name: 'A', is_active: true },
+      { id: 8, code: 'PP', name: 'PP', is_active: true, product_type_code: 'pepper' },
+      { id: 9, code: 'TT', name: 'TT', is_active: true, product_type_code: 'tomato' },
+    ],
     isLoading: false,
   }),
   useTomatoVarieties: () => ({
@@ -99,6 +103,22 @@ describe('SupplyDraftModal', () => {
     expect(payload.weight_net).toBe(22000);
     // Variety/harvest_status/export_code/notes were never touched — must be omitted, not sent as null.
     expect(payload).not.toHaveProperty('varieties');
+  });
+
+  it('shows the product derived from the chosen blocks, read-only', async () => {
+    wrap();
+    expect(screen.queryByText('Pepper')).not.toBeInTheDocument();
+    await userEvent.click(fieldControl('Blocks'));
+    await userEvent.click(await screen.findByText('PP'));
+    expect(await screen.findByText('Pepper')).toBeInTheDocument();
+  });
+
+  it('warns when the chosen blocks mix tomato and pepper', async () => {
+    wrap();
+    await userEvent.click(fieldControl('Blocks'));
+    await userEvent.click(await screen.findByText('PP'));
+    await userEvent.click(await screen.findByText('TT'));
+    expect(await screen.findByText('Tomato and pepper cannot be mixed in one truck')).toBeInTheDocument();
   });
 
   it('maps a picked variety to varieties: [id]', async () => {

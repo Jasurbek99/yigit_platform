@@ -89,3 +89,215 @@ class ContractProductTests(TestCase):
     def test_product_names_fallback(self):
         from apps.contracts.services.document_context import product_names
         self.assertEqual(product_names(None), ('Fresh tomatoes', 'Помидор свежий', 'Ter pomidor'))
+
+
+class ContractProductMismatchApiTests(TestCase):
+    """I3: a shipment and the contracts it is sold under carry the same product
+    (NULL ≡ tomato on both sides) — guarded from the shipment PATCH and the sale API."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from django.core.management import call_command
+        call_command('seed_permissions')
+
+    def setUp(self):
+        from django.core.cache import cache
+        from rest_framework.test import APIClient
+        cache.clear()
+        self.client = APIClient()
+        self.admin = User.objects.create(username='cpm_admin', role='admin')
+        self.client.force_authenticate(self.admin)
+        self.ef = _efirm('CPM')
+        self.imf = _ifirm('CB')
+        self.pepper = ProductType.objects.get(code='pepper')
+        self.tomato = ProductType.objects.get(code='tomato')
+        self.ship = _shipment(self.imf, code='0301001/25')
+        self.ship.product_type = self.pepper
+        self.ship.save(update_fields=['product_type'])
+        self.t = _contract(self.ef, self.imf, '11/25-CPM-EXP', 11, self.tomato)
+        self.legacy = _contract(self.ef, self.imf, '12/25-CPM-EXP', 12, None)
+        self.p = _contract(self.ef, self.imf, '13/25-CPM-EXP', 13, self.pepper)
+
+    def _sale(self, contract, **extra):
+        from apps.contracts.models import ContractSale
+        return ContractSale.objects.create(
+            contract=contract, shipment=self.ship, export_firm=self.ef,
+            total_usd='1000.00', **extra,
+        )
+
+    def _patch_ship(self, product):
+        return self.client.patch(
+            f'/api/v1/export/shipments/{self.ship.id}/', {'product_type': product.id}, format='json',
+        )
+
+    # --- shipment PATCH --------------------------------------------------------
+
+    def test_patch_product_away_from_linked_contract_refused(self):
+        self._sale(self.p)
+        resp = self._patch_ship(self.tomato)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['product_type'], ['contract_product_mismatch'])
+        self.ship.refresh_from_db()
+        self.assertEqual(self.ship.product_type.code, 'pepper')
+
+    def test_patch_to_pepper_with_legacy_null_contract_refused(self):
+        self.ship.product_type = self.tomato
+        self.ship.save(update_fields=['product_type'])
+        self._sale(self.legacy)
+        resp = self._patch_ship(self.pepper)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['product_type'], ['contract_product_mismatch'])
+
+    def test_void_sale_does_not_block(self):
+        self._sale(self.p, status='void')
+        resp = self._patch_ship(self.tomato)
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_patch_to_contract_product_allowed(self):
+        self.ship.product_type = self.tomato
+        self.ship.save(update_fields=['product_type'])
+        self._sale(self.p)
+        resp = self._patch_ship(self.pepper)
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    def test_resend_same_product_on_legacy_mismatched_truck_ok(self):
+        self._sale(self.t)  # pre-guard data: pepper truck on a tomato contract
+        resp = self._patch_ship(self.pepper)
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+    # --- contract-sale API -----------------------------------------------------
+
+    def test_create_sale_on_other_product_contract_refused(self):
+        resp = self.client.post('/api/v1/contracts/sales/', {
+            'contract': self.t.pk, 'shipment': self.ship.pk, 'export_firm': self.ef.pk,
+            'total_usd': '1000.00',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['contract'], ['contract_product_mismatch'])
+
+    def test_create_sale_pepper_on_legacy_null_contract_refused(self):
+        resp = self.client.post('/api/v1/contracts/sales/', {
+            'contract': self.legacy.pk, 'shipment': self.ship.pk, 'export_firm': self.ef.pk,
+            'total_usd': '1000.00',
+        }, format='json')
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_create_sale_same_product_ok(self):
+        resp = self.client.post('/api/v1/contracts/sales/', {
+            'contract': self.p.pk, 'shipment': self.ship.pk, 'export_firm': self.ef.pk,
+            'total_usd': '1000.00',
+        }, format='json')
+        self.assertEqual(resp.status_code, 201, resp.data)
+
+    def test_patch_sale_onto_other_product_contract_refused(self):
+        sale = self._sale(self.p)
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/', {'contract': self.t.pk}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(resp.data['contract'], ['contract_product_mismatch'])
+
+    def test_status_only_patch_on_legacy_mismatched_sale_ok(self):
+        sale = self._sale(self.t)  # pre-guard data: pepper truck on a tomato contract
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/', {'status': 'sent'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+
+class BackfillContractProductsTests(TestCase):
+    """I5: backfill_contract_products sets NULL contract products to tomato."""
+
+    def setUp(self):
+        self.ef = _efirm('BCP')
+        self.imf = _ifirm('BB')
+        self.pepper = ProductType.objects.get(code='pepper')
+        self.legacy = _contract(self.ef, self.imf, '21/25-BCP-EXP', 21, None)
+        self.p = _contract(self.ef, self.imf, '22/25-BCP-EXP', 22, self.pepper)
+
+    def _run(self, *args):
+        from io import StringIO
+
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('backfill_contract_products', *args, stdout=out)
+        return out.getvalue()
+
+    def test_dry_run_writes_nothing(self):
+        out = self._run()
+        self.assertIn('DRY RUN', out)
+        self.assertIn('NULL -> tomato: 1', out)
+        self.legacy.refresh_from_db()
+        self.assertIsNone(self.legacy.product_type)
+
+    def test_apply_sets_tomato_and_leaves_pepper(self):
+        out = self._run('--apply')
+        self.assertIn('APPLIED', out)
+        self.legacy.refresh_from_db()
+        self.p.refresh_from_db()
+        self.assertEqual(self.legacy.product_type.code, 'tomato')
+        self.assertEqual(self.p.product_type.code, 'pepper')
+
+
+class SetProductContractGuardTests(TestCase):
+    """Every product write (block-edit adopt, backfill) respects the contracts the
+    truck is sold under — not only the shipment PATCH (final-review follow-up)."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        from apps.core.models import GreenhouseBlock, TomatoVariety
+        from apps.export.models import ShipmentBlockSource
+        cache.clear()
+        self.user = User.objects.create(username='spg_user', role='admin')
+        self.ef = _efirm('SPG')
+        self.imf = _ifirm('SB')
+        self.pepper = ProductType.objects.get(code='pepper')
+        self.tomato = ProductType.objects.get(code='tomato')
+        self.legacy = _contract(self.ef, self.imf, '31/25-SPG-EXP', 31, None)
+        self.p = _contract(self.ef, self.imf, '32/25-SPG-EXP', 32, self.pepper)
+        # Old beta code: NULL product, pepper block, sold under a NULL (≡ tomato) contract.
+        self.ship = _shipment(self.imf, code='0301101/25')
+        self.ship.product_type = None
+        self.ship.save(update_fields=['product_type'])
+        pepper_block = GreenhouseBlock.objects.create(
+            code='SPB', variety_main=TomatoVariety.objects.get(name='Maranella'),
+        )
+        ShipmentBlockSource.objects.create(shipment=self.ship, block=pepper_block, weight_kg='9000')
+
+    def _sale(self, contract):
+        from apps.contracts.models import ContractSale
+        return ContractSale.objects.create(
+            contract=contract, shipment=self.ship, export_firm=self.ef, total_usd='1000.00',
+        )
+
+    def test_set_product_refuses_contract_of_other_product(self):
+        from apps.export.services.product_type import ContractProductError, set_shipment_product
+        self._sale(self.legacy)
+        with self.assertRaisesMessage(ContractProductError, 'contract_product_mismatch'):
+            set_shipment_product(self.ship, self.pepper, self.user)
+        self.ship.refresh_from_db()
+        self.assertIsNone(self.ship.product_type)
+
+    def test_set_product_matching_contract_ok(self):
+        from apps.export.services.product_type import set_shipment_product
+        self._sale(self.p)
+        self.assertTrue(set_shipment_product(self.ship, self.pepper, self.user))
+
+    def test_null_to_tomato_under_null_contract_ok(self):
+        from apps.export.services.product_type import set_shipment_product
+        self._sale(self.legacy)
+        self.assertTrue(set_shipment_product(self.ship, self.tomato, self.user))
+
+    def test_backfill_skips_and_lists_contract_mismatch(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+        self._sale(self.legacy)
+        for args in ((), ('--apply',)):
+            out = StringIO()
+            call_command('backfill_product_types', *args, stdout=out)
+            self.assertIn('refused (contract product): 1', out.getvalue())
+            self.assertIn('0301101/25', out.getvalue())
+        self.ship.refresh_from_db()
+        self.assertIsNone(self.ship.product_type)

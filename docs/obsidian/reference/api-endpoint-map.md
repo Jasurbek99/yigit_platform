@@ -30,7 +30,7 @@ tags: [reference, api, backend, frontend]
 
 | Method | Endpoint | ViewSet | Hook | Page |
 |--------|----------|---------|------|------|
-| GET | `/api/v1/export/shipments/` | ShipmentViewSet (list) | `useShipments` | ShipmentList — accepts `?season=<id>` (AD-16); default = active season; no active season = empty list (D7 fail-closed); a closed season requires `closed_season.can_view` else `403`; a `sales_rep` (non-superuser) sees only rows with `customer__sales_rep = user`, same as the Sheet (detail routes unscoped) |
+| GET | `/api/v1/export/shipments/` | ShipmentViewSet (list) | `useShipments` | ShipmentList — accepts `?product_type=tomato\|pepper` (NULL counts as tomato; pepper spec 2026-10-07) and `?season=<id>` (AD-16); default = active season; no active season = empty list (D7 fail-closed); a closed season requires `closed_season.can_view` else `403`; a `sales_rep` (non-superuser) sees only rows with `customer__sales_rep = user`, same as the Sheet (detail routes unscoped) |
 | GET | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (detail) | `useShipmentDetail` | ShipmentDetail |
 | POST | `/api/v1/export/shipments/` | ShipmentViewSet (create) | `useShipments` (mutation) | ShipmentCreateModal |
 | PATCH | `/api/v1/export/shipments/{id}/` | ShipmentViewSet (partial_update) | `useShipmentPatch` | ShipmentDetail, ShipmentSheet |
@@ -478,6 +478,7 @@ as for truck heads (admin page uses it; the picker does not). Consumed by the
 | GET | `/api/v1/core/cities/` | `useCities` | CitySelect |
 | GET | `/api/v1/core/customers/` | `useCustomers` | CustomerSelect |
 | GET | `/api/v1/core/truck-destinations/?is_active=true` | `useTruckDestinations` | TruckForecast |
+| GET/POST/PATCH/DELETE | `/api/v1/core/product-types/` | `useProductTypes` + CRUD (`useAdmin`) | `/admin/shipment-settings` → «Продукты», ProductTypeSelect. Reads open, writes `REFERENCE_DATA_WRITE`; delete of a product in use → 400. Fields: id, name, code, hs_code, name_en/ru/tk. See [[product-types]] |
 
 ## Quality certificates (2026-09-22)
 

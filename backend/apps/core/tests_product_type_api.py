@@ -36,6 +36,26 @@ class ProductTypeApiTests(TestCase):
         self.pepper.refresh_from_db()
         self.assertEqual(self.pepper.hs_code, '0709601001')
 
+    def test_code_is_locked_after_create(self):
+        """The code drives quota, documents and filters — renaming it would orphan them."""
+        self.client.force_authenticate(_user('a3', 'admin'))
+        resp = self.client.patch(
+            f'/api/v1/core/product-types/{self.pepper.id}/',
+            {'code': 'paprika', 'hs_code': '0709601002'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.pepper.refresh_from_db()
+        self.assertEqual(self.pepper.code, 'pepper')
+        self.assertEqual(self.pepper.hs_code, '0709601002')
+
+    def test_code_is_writable_on_create(self):
+        self.client.force_authenticate(_user('a4', 'admin'))
+        resp = self.client.post(
+            '/api/v1/core/product-types/', {'name': 'Hyyar', 'code': 'cucumber'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(ProductType.objects.get(name='Hyyar').code, 'cucumber')
+
     def test_sales_rep_cannot_write(self):
         self.client.force_authenticate(_user('s2', 'sales_rep'))
         resp = self.client.patch(f'/api/v1/core/product-types/{self.pepper.id}/', {'hs_code': 'x'}, format='json')

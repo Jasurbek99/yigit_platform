@@ -2,6 +2,7 @@
 import datetime
 from decimal import Decimal
 
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -11,7 +12,8 @@ from apps.core.models import (
     ShipmentStatusType, TomatoVariety, User,
 )
 from apps.export.models import (
-    QuotaUsageRecord, Shipment, ShipmentBlockSource, ShipmentFirmSplit,
+    QuotaIssuance, QuotaIssuanceFirmAllocation, QuotaUsageRecord, Shipment,
+    ShipmentBlockSource, ShipmentFirmSplit,
 )
 
 
@@ -79,6 +81,16 @@ class ProductGuardTests(TestCase):
             {'blocks': [{'block_id': block.id, 'weight_kg': 16800}]}, format='json',
         )
 
+    def _allocate(self, product_type, kg='50000'):
+        issuance = QuotaIssuance.objects.create(
+            issue_date=datetime.date.today(), product_type=product_type,
+            validity='this_month', season=self.season,
+        )
+        QuotaIssuanceFirmAllocation.objects.create(
+            issuance=issuance, export_firm=self.firm, kg_quota=Decimal(kg),
+        )
+        cache.clear()
+
     def _split(self, row):
         ShipmentFirmSplit.objects.create(
             shipment=row, export_firm=self.firm, weight_kg=Decimal('9000'), split_order=1,
@@ -87,6 +99,7 @@ class ProductGuardTests(TestCase):
     # --- block-sources endpoint -------------------------------------------------
 
     def test_block_edit_on_supply_row_switches_product(self):
+        self._allocate('pepper')
         row = self._row(product=self.tomato, blocks=[self.tb])
         self._split(row)
         from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
@@ -100,6 +113,25 @@ class ProductGuardTests(TestCase):
         usage = QuotaUsageRecord.objects.filter(shipment=row)
         self.assertEqual(usage.count(), 1)
         self.assertEqual(usage.first().product_type, 'pepper')
+
+    def test_block_edit_switch_refused_when_split_firm_lacks_new_quota(self):
+        """I2: adopting pepper on a split truck needs pepper quota for every split firm."""
+        from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
+        self._allocate('tomato')
+        row = self._row(product=self.tomato, blocks=[self.tb])
+        self._split(row)
+        sync_draft_quota_usage_for_shipment(row, self.em, product_type='tomato')
+        resp = self._post_blocks(row, self.pb)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('has no remaining', resp.data['error'])
+        self.assertEqual(Shipment.objects.get(pk=row.pk).product_type.code, 'tomato')
+        self.assertEqual(
+            list(row.block_sources.values_list('block_id', flat=True)), [self.tb.id],
+        )
+        self.assertEqual(
+            list(QuotaUsageRecord.objects.filter(shipment=row).values_list('product_type', flat=True)),
+            ['tomato'],
+        )
 
     def test_block_edit_same_product_keeps_product(self):
         row = self._row(product=self.pepper, blocks=[self.pb])
@@ -202,6 +234,7 @@ class ProductGuardTests(TestCase):
 
     def test_patch_product_without_blocks_moves_quota(self):
         from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
+        self._allocate('pepper')
         self._split(self.dest)
         sync_draft_quota_usage_for_shipment(self.dest, self.em, product_type='tomato')
         self.assertEqual(
@@ -215,6 +248,60 @@ class ProductGuardTests(TestCase):
             list(QuotaUsageRecord.objects.filter(shipment=self.dest).values_list('product_type', flat=True)),
             ['pepper'],
         )
+
+    def test_patch_product_refused_when_split_firm_lacks_new_quota(self):
+        """I2: tomato -> pepper on a split truck needs pepper quota for every split firm."""
+        from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
+        self._allocate('tomato')
+        self._split(self.dest)
+        sync_draft_quota_usage_for_shipment(self.dest, self.em, product_type='tomato')
+        resp = self._patch_product(self.dest, self.pepper)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('has no remaining', str(resp.data['product_type'][0]))
+        self.assertEqual(Shipment.objects.get(pk=self.dest.pk).product_type.code, 'tomato')
+        self.assertEqual(
+            list(QuotaUsageRecord.objects.filter(shipment=self.dest).values_list('product_type', flat=True)),
+            ['tomato'],
+        )
+
+    def test_patch_product_without_splits_needs_no_quota(self):
+        resp = self._patch_product(self.dest, self.pepper)
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(Shipment.objects.get(pk=self.dest.pk).product_type.code, 'pepper')
+
+    def test_patch_product_null_refused_and_quota_stays(self):
+        from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment
+        dest_p = self._row(destination=True, product=self.pepper)
+        self._split(dest_p)
+        sync_draft_quota_usage_for_shipment(dest_p, self.em, product_type='pepper')
+        self.client.force_authenticate(self.em)
+        resp = self.client.patch(
+            f'/api/v1/export/shipments/{dest_p.id}/', {'product_type': None}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(Shipment.objects.get(pk=dest_p.pk).product_type.code, 'pepper')
+        self.assertEqual(
+            list(QuotaUsageRecord.objects.filter(shipment=dest_p).values_list('product_type', flat=True)),
+            ['pepper'],
+        )
+
+    def test_patch_to_product_without_code_refused(self):
+        badamjan = ProductType.objects.create(name='Badamjan')
+        resp = self._patch_product(self.dest, badamjan)
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertEqual(Shipment.objects.get(pk=self.dest.pk).product_type.code, 'tomato')
+
+    def test_create_with_product_without_code_refused(self):
+        badamjan = ProductType.objects.create(name='Badamjan')
+        self.client.force_authenticate(self.em)
+        resp = self.client.post(
+            '/api/v1/export/shipments/',
+            {'is_draft': True, 'product_type': badamjan.id, 'skip_forecast_check': True,
+             'block_sources': [{'block_id': self.tb.id, 'weight_kg': 9000}]},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.data)
+        self.assertIn('product_type', resp.data)
 
     def test_patch_unrelated_field_does_not_touch_quota(self):
         from apps.export.services.quota_sync import sync_draft_quota_usage_for_shipment

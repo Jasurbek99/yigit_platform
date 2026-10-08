@@ -2244,6 +2244,7 @@
     "open_button": "Supply Plan",
     "field_weight": "Total Weight (kg)",
     "field_blocks": "Blocks",
+    "field_product": "Product",
     "field_variety": "Variety",
     "field_harvest_status": "Harvest Status",
     "field_export_code": "Export Code",
@@ -2488,6 +2489,7 @@
     "btn_save": "Save",
     "toast_saved": "Pallets saved",
     "toast_closed": "Manifest closed — variety auto-computed",
+    "toast_close_error": "Could not close the manifest",
     "toast_logo_todo": "Logo Tiger export not yet available",
     "rollup_title": "Variety roll-up (R17)",
     "rollup_computed": "Computed from pallets",
@@ -4313,6 +4315,7 @@
   },
   "errors": {
     "mixed_product": "Tomato and pepper cannot be mixed in one truck",
-    "product_mismatch": "The blocks' product does not match the trip's product"
+    "product_mismatch": "The blocks' product does not match the trip's product",
+    "contract_product_mismatch": "The contract's product does not match the trip's product"
   }
 }

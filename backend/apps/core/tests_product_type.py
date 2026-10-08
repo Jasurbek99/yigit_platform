@@ -47,3 +47,21 @@ class SeedMigrationTests(TestCase):
             TomatoVariety.objects.filter(product_type__code='pepper').values_list('name', flat=True)
         )
         self.assertEqual(names, {'Maranella', 'Gialte', 'Redwing', 'Camier'})
+
+    def test_existing_untagged_pepper_variety_is_tagged_pepper(self):
+        """A pepper-named variety already in the DB with no product must not be
+        swept into tomato by the "tag the rest tomato" pass."""
+        import importlib
+
+        from django.apps import apps as django_apps
+
+        seed = importlib.import_module('apps.core.migrations.0074_seed_pepper_products').seed
+        TomatoVariety.objects.filter(name='Maranella').update(product_type=None)
+        TomatoVariety.objects.create(name='T-Untagged')
+
+        seed(django_apps, None)
+        seed(django_apps, None)  # idempotent
+
+        self.assertEqual(TomatoVariety.objects.get(name='Maranella').product_type.code, 'pepper')
+        self.assertEqual(TomatoVariety.objects.get(name='T-Untagged').product_type.code, 'tomato')
+        self.assertEqual(TomatoVariety.objects.filter(name='Maranella').count(), 1)

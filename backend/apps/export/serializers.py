@@ -1797,6 +1797,15 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         allow_blank=True,
         allow_null=True,
     )
+    # Only the two coded products, never cleared: a NULL or code-less product
+    # would silently move the truck's quota usage to tomato (pepper spec §2).
+    product_type = serializers.PrimaryKeyRelatedField(
+        queryset=ProductType.objects.filter(
+            code__in=[ProductType.CODE_TOMATO, ProductType.CODE_PEPPER],
+        ),
+        allow_null=False,
+        required=False,
+    )
 
     class Meta:
         model = Shipment
@@ -1817,7 +1826,8 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
         # Runs before the role early-return: it is a data rule, not a permission.
         if 'product_type' in attrs and self.instance is not None:
             from apps.export.services.product_type import (
-                PRODUCT_MISMATCH, ProductMismatchError, product_code, resolve_product_type,
+                PRODUCT_MISMATCH, ContractProductError, ProductMismatchError, check_contract_product,
+                product_code, resolve_product_type,
             )
             block_ids = list(self.instance.block_sources.values_list('block_id', flat=True))
             try:
@@ -1826,6 +1836,16 @@ class ShipmentPatchSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'product_type': str(exc)})
             if blocks_product is not None and blocks_product.code != product_code(attrs['product_type']):
                 raise serializers.ValidationError({'product_type': PRODUCT_MISMATCH})
+            # The contracts the truck is already sold under fix its product.
+            try:
+                check_contract_product(self.instance, attrs['product_type'])
+            except ContractProductError as exc:
+                raise serializers.ValidationError({'product_type': str(exc)})
+            from apps.export.services.product_type import ProductQuotaError, check_product_quota
+            try:
+                check_product_quota(self.instance, attrs['product_type'])
+            except ProductQuotaError as exc:
+                raise serializers.ValidationError({'product_type': str(exc)})
 
         role = self.context.get('role')
         if role in PRIVILEGED_ROLES:
@@ -1941,7 +1961,10 @@ class ShipmentCreateSerializer(serializers.Serializer):
     # Pepper spec 2026-10-05: explicit product. Omitted → derived from the blocks,
     # else tomato. Sent AND blocks of another product → 400.
     product_type = serializers.PrimaryKeyRelatedField(
-        queryset=ProductType.objects.all(), required=False, allow_null=True,
+        queryset=ProductType.objects.filter(
+            code__in=[ProductType.CODE_TOMATO, ProductType.CODE_PEPPER],
+        ),
+        required=False, allow_null=True,
     )
     # Destination import firm (optional at draft time)
     import_firm = serializers.PrimaryKeyRelatedField(

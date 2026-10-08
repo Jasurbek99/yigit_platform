@@ -524,6 +524,24 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
                 'Cannot create a sale against a cancelled contract.'
             )
 
+        # The sale's contract and truck must carry the same product (NULL ≡
+        # tomato). Checked on create and when either link changes, so a
+        # status-only PATCH on a pre-guard sale still goes through.
+        if self.instance is None or any(
+            field in attrs and attrs[field] != getattr(self.instance, field)
+            for field in ('contract', 'shipment')
+        ):
+            from apps.export.services.product_type import (
+                CONTRACT_PRODUCT_MISMATCH, product_code, shipment_product_code,
+            )
+            sale_contract = self._merged(attrs, 'contract')
+            sale_shipment = self._merged(attrs, 'shipment')
+            if (
+                sale_contract is not None and sale_shipment is not None
+                and product_code(sale_contract.product_type) != shipment_product_code(sale_shipment)
+            ):
+                raise serializers.ValidationError({'contract': CONTRACT_PRODUCT_MISMATCH})
+
         # Line items must break down the sale exactly (weights + money reconcile),
         # so quotas / contract rollups — which read the sale's own totals — stay
         # correct. Compared with a 0.01 tolerance for rounding. (When the sale has

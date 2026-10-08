@@ -3414,7 +3414,7 @@ class ShipmentViewSet(ModelViewSet):
         from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 
         weight_net_before = snapshot_fields(shipment, ['weight_net']) if sync_weight_net else None
-        from apps.export.services.product_type import ProductMismatchError
+        from apps.export.services.product_type import ProductMismatchError, ProductQuotaError
         try:
             with transaction.atomic():
                 count = write_block_sources(shipment, entries, replace=True)
@@ -3430,7 +3430,7 @@ class ShipmentViewSet(ModelViewSet):
                     shipment.weight_net = new_total
                     shipment.updated_by = request.user
                     shipment.save(update_fields=['weight_net', 'updated_by'])
-        except ProductMismatchError as exc:
+        except (ProductMismatchError, ProductQuotaError) as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         if sync_weight_net:

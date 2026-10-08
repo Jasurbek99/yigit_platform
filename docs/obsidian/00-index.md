@@ -129,6 +129,7 @@ See [[roles-matrix]] for the full capability matrix.
 
 ## Reference
 
+- [[product-types]] — Tomato / pepper product: `ProductType` codes + HS + names, variety and block product, shipment product rule, guarded block writes, deploy notes
 - [[api-endpoint-map]] — Every API endpoint mapped to frontend hook, page, and backend model
 - [[data-model-map]] — All 40+ models with ER diagram and field lists
 - [[contracts-contract-model]] — Contract model (P4 Slice A): fields, status enum, computed properties, API endpoints

@@ -11,10 +11,22 @@ from apps.core.models import GreenhouseBlock, ProductType
 
 MIXED_PRODUCT = 'mixed_product'
 PRODUCT_MISMATCH = 'product_mismatch'
+# The truck's product differs from a contract it is sold under (frontend errors.*).
+CONTRACT_PRODUCT_MISMATCH = 'contract_product_mismatch'
 
 
 class ProductMismatchError(ValueError):
     """Message is MIXED_PRODUCT or PRODUCT_MISMATCH (frontend i18n keys errors.*)."""
+
+
+class ProductQuotaError(ValueError):
+    """A split firm has no quota for the product the truck is moving to (→ 400)."""
+
+
+class ContractProductError(ProductMismatchError):
+    """The truck is sold under a contract of another product. Message is
+    CONTRACT_PRODUCT_MISMATCH; a ProductMismatchError, so every caller that
+    already turns a product mismatch into a 400 handles it too."""
 
 
 def product_code(product) -> str:
@@ -48,16 +60,75 @@ def check_blocks_fit(shipment, block_ids):
     return product
 
 
+def check_product_quota(shipment, product) -> None:
+    """Refuse moving a split truck to a product a split firm has no quota for.
+
+    Same hard block as set_firm_splits, against the shipment's own season. A
+    change that keeps the effective code (NULL -> tomato) is not a quota move.
+    """
+    from apps.export.services_quota import compute_firm_quota_balances
+
+    code = product_code(product)
+    if code == shipment_product_code(shipment):
+        return
+    firms = [s.export_firm for s in shipment.firm_splits.select_related('export_firm')]
+    if not firms:
+        return
+    balances = compute_firm_quota_balances(code, shipment.season)
+    blocked = [
+        f for f in firms
+        if balances.get(f.id) is None or balances[f.id]['remaining_kg'] <= 0
+    ]
+    if blocked:
+        names = ', '.join(f.name_short or f.code for f in blocked)
+        raise ProductQuotaError(f'{names} has no remaining {code} quota.')
+
+
+def check_contract_product(shipment, product) -> None:
+    """Refuse a product the truck's contracts disagree with (pepper spec fact 9).
+
+    Non-void sales under non-cancelled contracts fix the product; a contract
+    with no product reads as tomato. A change that keeps the effective code
+    (NULL -> tomato, or re-sending the current product) is not checked, so
+    older mismatched data stays editable. Reverse accessor only — export does
+    not import contracts.
+    """
+    code = product_code(product)
+    if code == shipment_product_code(shipment):
+        return
+    linked_codes = {
+        linked or ProductType.CODE_TOMATO
+        for linked in shipment.sales.exclude(status='void')
+        .exclude(contract__status='cancelled')
+        .values_list('contract__product_type__code', flat=True)
+    }
+    if linked_codes - {code}:
+        raise ContractProductError(CONTRACT_PRODUCT_MISMATCH)
+
+
 def set_shipment_product(shipment, product, user) -> bool:
-    """Write the product with .update() (no auto-advance) and re-sync quota usage."""
+    """Write the product with .update() (no auto-advance) and re-sync quota usage.
+
+    Raises ContractProductError when the truck's contracts are of another
+    product, and ProductQuotaError when a split firm lacks quota for the new
+    product — nothing written in either case. Quota is re-synced only when the effective code moves.
+    Writes one product_type AuditLog row (user may be None for system writes).
+    """
     from apps.export.models import Shipment
     from apps.export.services.quota_sync import invalidate_quota_caches, sync_draft_quota_usage_for_shipment
+    from apps.export.services.sheet_audit import diff_audit_rows, snapshot_fields
 
     if product is None or shipment.product_type_id == product.id:
         return False
+    check_contract_product(shipment, product)
+    check_product_quota(shipment, product)
+    code_moves = product_code(product) != shipment_product_code(shipment)
+    before = snapshot_fields(shipment, ['product_type'])
     Shipment.objects.filter(pk=shipment.pk).update(product_type=product)
     shipment.product_type = product
-    if shipment.firm_splits.exists():
+    for row in diff_audit_rows(shipment, before, snapshot_fields(shipment, ['product_type']), user):
+        row.save()
+    if code_moves and shipment.firm_splits.exists():
         sync_draft_quota_usage_for_shipment(shipment, user, product_type=product_code(product))
         transaction.on_commit(invalidate_quota_caches)
     return True

@@ -15,6 +15,12 @@ describe('localizeErrorCode', () => {
     expect(localizeErrorCode('product_mismatch')).toBe(MISMATCH_RU);
   });
 
+  it('translates the contract/truck product mismatch code', () => {
+    expect(localizeErrorCode('contract_product_mismatch')).toBe('Продукт контракта не совпадает с продуктом рейса');
+    const err = { response: { data: { product_type: ['contract_product_mismatch'] } } } as AxiosError;
+    expect(extractPatchError(err, 'fallback')).toBe('Продукт контракта не совпадает с продуктом рейса');
+  });
+
   it('passes any other message through untouched', () => {
     expect(localizeErrorCode('Role cannot edit this field.')).toBe('Role cannot edit this field.');
   });

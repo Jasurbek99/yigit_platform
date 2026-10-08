@@ -185,6 +185,12 @@ class ProductTypeSerializer(serializers.ModelSerializer):
         model = ProductType
         fields = ['id', 'name', 'code', 'hs_code', 'name_en', 'name_ru', 'name_tk']
 
+    def update(self, instance, validated_data):
+        # The code keys quota, documents and filters; it is set once on create.
+        # Ignored (not refused) so the edit form may resend it unchanged.
+        validated_data.pop('code', None)
+        return super().update(instance, validated_data)
+
 
 class TomatoVarietySerializer(serializers.ModelSerializer):
     product_type_code = serializers.CharField(source='product_type.code', read_only=True, default=None)

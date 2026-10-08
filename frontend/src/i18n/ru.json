@@ -2246,6 +2246,7 @@
     "open_button": "План поставки",
     "field_weight": "Общий вес (кг)",
     "field_blocks": "Блоки",
+    "field_product": "Продукт",
     "field_variety": "Сорт",
     "field_harvest_status": "Статус урожая",
     "field_export_code": "Экспортный код",
@@ -2490,6 +2491,7 @@
     "btn_save": "Сохранить",
     "toast_saved": "Паллеты сохранены",
     "toast_closed": "Манифест закрыт — сорт пересчитан",
+    "toast_close_error": "Не удалось закрыть манифест",
     "toast_logo_todo": "Экспорт в Logo Tiger пока недоступен",
     "rollup_title": "Сорт roll-up (R17)",
     "rollup_computed": "Рассчитано из паллет",
@@ -4315,6 +4317,7 @@
   },
   "errors": {
     "mixed_product": "В одной фуре нельзя смешивать томат и перец",
-    "product_mismatch": "Продукт блоков не совпадает с продуктом рейса"
+    "product_mismatch": "Продукт блоков не совпадает с продуктом рейса",
+    "contract_product_mismatch": "Продукт контракта не совпадает с продуктом рейса"
   }
 }

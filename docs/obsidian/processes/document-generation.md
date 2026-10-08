@@ -941,3 +941,17 @@ The CMR now renders onto the **official 24-box form** (xlsx overlay,
 `build_cmr_overlay`) — no longer a simplified layout. The truck CMR needs
 `firm_splits` (sellers) + whole-truck packing; per-firm docs need the firm's
 `ContractSale`.
+
+## Product on documents — tomato / pepper (2026-10-07)
+
+Documents print the **shipment's product** (`product_type`; NULL = tomato) via `_invoice_product` / `product_names` in `contracts/services/document_context.py`. Each field falls back to today's tomato constant when the product or the admin value is blank, so a missing admin entry never breaks a document. Values live in the `ProductType` admin («Продукты» in `/admin/shipment-settings`); see [[../reference/product-types]].
+
+| Document | Reads |
+|---|---|
+| Invoice / spec | HS code `line.hs_code → product.hs_code → TOMATO_HS_CODE (070200000)`; product name `name_en` / `name_ru` |
+| CMR box 16 | tomato or no product keeps the office's wording; any other product prints its name **uppercased** in the document language |
+| CT-1 / Fito letters | tomato or no product keeps the office literals («Свежие Помидоры» / «Свежих Помидоров»); other products print `name_ru` (a nominative name sits in the Fito genitive slot — wording tweak later) |
+| Customs letter (TK) | `name_tk` |
+| KZ contract goods cell | `{{ product_name_ru }}/ {{ product_name_tk }}` from the **contract's own product** (NULL = tomato). The tomato cell now prints «Помидор свежий/ Ter pomidor» instead of the old «Томаты/ Pomidor» |
+
+Pepper: HS `0709601000`, «Fresh sweet peppers» / «Перец сладкий свежий» / «Ter bolgar burç». The TIR carnet and other `.xlsx` overlays are unchanged.

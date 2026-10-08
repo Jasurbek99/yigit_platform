@@ -39,6 +39,7 @@ Contracts are the root of the P4 module. Contract sales (reverse accessor `contr
 | `last_invoice_number` | `IntegerField` | nullable; tracks last assigned invoice serial |
 | `sent_to_unk` | `BooleanField` | default False |
 | `status` | `CharField(20)` | choices: active / completed / closed / cancelled |
+| `product_type` | FK → `core.ProductType` | PROTECT, nullable (contracts 0018/0019). NULL reads as tomato; new rows default to tomato. Drives the goods cell of the KZ contract and which framework contracts a truck is offered. API: `product_type`, `product_type_code` |
 | `created_by` | FK → `AUTH_USER_MODEL` | PROTECT, nullable |
 | `created_at` | `DateTimeField` | auto_now_add |
 | `updated_at` | `DateTimeField` | auto_now |
