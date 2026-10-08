@@ -38,7 +38,10 @@ per truck, debts and market analytics, and builds `SalesReport` from the journal
 | Q9 | First release = all five parts A–E, on a feature branch in a worktree |
 | Q10 | New app `market` (not inside `export`) |
 | Q11 | New roles `agent`, `agent_seller`; the existing unused `seller` role is not touched |
-| Q12 | The journal drives shipment status: first sale → `satylyar`, truck sold out → `satyldy` |
+| Q12 | First sale → `satylyar` automatically. The **lot** closes by itself at 0 boxes left (no close button — Gurban's rule in the artifact chat). `satyldy` is **not** automatic: the agent presses «Отчёт готов» on a closed lot (2026-10-08) |
+| Q18 | The "managers" in the artifact chat = our agents (`Customer`); the artifact's owner = YGT side. No separate agent-manager role |
+| Q20–21 | Phone part = **separate light app** at `/m/` (second Vite entry, no Ant Design), installable **PWA**, responsive phone / tablet / desktop in the artifact's design; all rules server-side so a React Native app can follow |
+| Q19 | The agent **does not sell** (as in the chat): no sales / spoilage / expenses. It sees everything of its customer, assigns sellers, corrects receipt, manages the team, deletes a seller's wrong entry, accepts payments, presses «Отчёт готов». A seller who scans the truck's pallet QR on an unassigned lot is **assigned automatically** |
 | Q13 | A debt sale **requires** a buyer |
 | Q14 | Excel export in release 1: per-truck table and debts |
 | Q15 | `SalesReport.weight_rejected_kg` = loaded − sold (as today). Spoilage from the journal is shown separately in analytics; the rest is shrinkage (усушка) |
@@ -59,9 +62,10 @@ per truck, debts and market analytics, and builds `SalesReport` from the journal
 
 - `market` imports `core` (Customer, User, Country, City) and `export` (Shipment, SalesReport,
   ExpenseCategory, report services). Nothing in `export` / `core` imports `market`.
-- `export` learns about the journal only through its **own** field `SalesReport.source`
-  (`manual` | `journal`, default `manual`), written by `market`. The manual save endpoint refuses line/expense
-  edits when `source = journal` (Kurs, notes and approval stay editable). This keeps the arrow one-way.
+- `export` learns about the journal only through two **own** fields on `SalesReport`, written by `market`:
+  `source` (`manual` | `journal`, default `manual`) and `journal_open` (bool, default false). The manual save
+  endpoint refuses line/expense edits when `source = journal` (Kurs and notes stay editable); the approve
+  endpoint refuses while `journal_open = true`. This keeps the arrow one-way.
 - No Django signals. Everything runs from explicit service calls in `market/services/`.
 
 ## 2. Data model (`backend/apps/market/models/`, package with `__init__.py` re-exports)
@@ -97,7 +101,8 @@ No JSONField / ArrayField.
 | default_price_kg | Decimal, null | prefill for the first sale |
 | currency | Char(3) | from `shipment.country.currency` at creation; KZT / RUB in release 1 |
 | opened_at / opened_by | datetime / FK User | |
-| closed_at | datetime, null | set when sold out; cleared on reopen |
+| closed_at | datetime, null | set automatically when `left = 0`; cleared automatically when boxes free up |
+| reported_at / reported_by | datetime / FK User, null | the agent's «Отчёт готов» |
 
 ### Sale
 | Field | Type | Note |
@@ -166,13 +171,16 @@ No stored per-lot totals: all lot / panel / analytics numbers are DB aggregates.
   `types/index.ts`, i18n ×3, `roleColors.ts`, `UsersPage.tsx`, `StaffPageAccessPage.tsx`,
   `TaskCardEditor.helpers.ts`, hardcoded role tuples in views.
 - New roles get **no** existing pages (all seeded `is_visible=False`) except the new market pages.
-- Pages: `market_home` (phone shell), `market_team` (agent), `market_panel` (agent),
-  `market_analytics` (desktop). Resources: `market_lot`, `market_sale`, `market_payment`, `market_team`.
+- Pages (dotted, like `export.gate`): `market.home` (phone shell), `market.team` (agent), `market.agents`
+  (desktop agent logins), later `market.panel` (agent) and `market.analytics` (desktop). Resources:
+  `market_agent`, `market_team`, later `market_lot`, `market_sale`, `market_payment`.
+- External roles are fenced in `CookieJWTAuthentication`: they may call only `/api/v1/auth/` and
+  `/api/v1/market/` (403 elsewhere), so a view with loose read permissions cannot leak internal data.
 
 | Who | Sees | Writes |
 |---|---|---|
-| `agent_seller` | lots where `seller = me` | sales, spoilage, expenses, payments on own lots; buyers of own customer |
-| `agent` | all lots / buyers / payments of `member.customer` | everything the seller can + assign seller, edit lot receipt fields, team (bazaars, seller logins) |
+| `agent_seller` | lots where `seller = me` | sales, spoilage, expenses, payments on own lots; buyers of own customer; claims an unassigned lot by QR (§4) |
+| `agent` | all lots / buyers / payments of `member.customer` | **no selling** (no sale / spoilage / expense create). Assign seller, edit lot receipt fields, delete a wrong entry, accept / undo payments, «Отчёт готов», team (bazaars, seller logins) |
 | `sales_rep` | lots of customers where `Customer.sales_rep = me` | read only |
 | `boss`, `admin`, `export_manager`, `director` | everything | read only (admin also manages agent logins) |
 
@@ -188,18 +196,42 @@ No stored per-lot totals: all lot / panel / analytics numbers are DB aggregates.
 **Which shipments an agent sees:** `shipment.customer = member.customer`, status phase TRANSIT, BORDER or
 DEST (from `yola_chykdy` onward), plus their closed lots for history. Sorted: arrived first, then in transit.
 
-**Lot creation:** on first open by the agent or seller (get-or-create in a service, inside a transaction).
-No signal, no batch job.
+**Lot creation:** on first open by the agent, or by a seller scanning the truck's QR (get-or-create in a
+service, inside a transaction, shipment row locked). No signal, no batch job.
+
+**QR claim (Q19)** — reuse the existing pallet label (`docs/obsidian/processes/pallet-qr-scan.md`): it
+encodes `{base}/scan/{shipment id}`, so no new QR is printed.
+- `/scan/:id` checks the role first: `agent_seller` / `agent` go to the market lot screen; every other role
+  keeps today's scan page. The export scan endpoint is never called for market roles (they have no
+  `shipment.can_view`).
+- Seller scans a shipment of **its own customer**: lot created if missing; if `lot.seller` is empty it becomes
+  this seller (audited); if it is this seller, the lot just opens; if it is another seller →
+  403 «Машина назначена другому продавцу».
+- Shipment of another customer → 404 (do not reveal it exists).
+- The agent can still reassign the seller at any time.
 
 **Status driving (Q12)** — through the existing operator-entered lifecycle fields, which `Shipment.save()`
-→ `auto_advance_if_ready` turns into `transition_to()` calls (status is never written directly):
+→ `auto_advance_if_ready` turns into `transition_to()` calls (status is never written directly).
+Writing these fields from a service is allowed: AD-1 is retired — `docs/ADR.md` ADR-010 "2026-05 amendment"
+makes all eight lifecycle timestamps, incl. `arrived_at`, `sale_started_at`, `sale_ended_at`,
+operator-entered; `transition_to()` no longer stamps any of them.
 - first sale on a lot → set `arrived_at` if empty and `sale_started_at` if empty → cascade to `satylyar`;
-- lot sold out (`used ≥ boxes_received`) → set `closed_at` and `sale_ended_at` → `satyldy`.
+- **Lot close is automatic** (artifact rule: no close button): the write that makes `left = 0` sets
+  `closed_at` and hides the sell form; deleting an entry or raising `boxes_received` clears it again.
+  Closing the lot does **not** touch the shipment status.
+- `satyldy` is the **agent's action**: on a closed lot the agent presses «Отчёт готов» → set `reported_at`
+  and `sale_ended_at` → `satyldy`, and the report is built (§7). Refused (400 «Сначала продайте или
+  спишите остаток: N ящиков») while `left > 0`. A closed but unreported lot shows «Всё продано — нажмите
+  «Отчёт готов»».
 - **Verify during implementation:** from statuses 4–8 the cascade may stop on steps that need other
-  fields (e.g. the transshipment question). If so the journal still works and the rep finishes those steps;
+  fields (e.g. the transshipment question), and `bardy → satylyar` also needs `city` filled on the Sheet
+  (pallet-qr-scan doc). If so the journal still works and the rep finishes those steps;
   write a test that pins down the exact behaviour for a lot opened at `barysh_gumrugi`.
-- Reopen (an entry deleted on a closed lot, or `boxes_received` raised) clears `lot.closed_at`; it does
-  **not** move the shipment status back. The next sell-out overwrites `sale_ended_at`.
+- After «Отчёт готов» sales and spoilage stay deletable only while the report is not approved (to fix a
+  mistake). A delete that frees boxes reopens the lot and sets `SalesReport.journal_open = true` (§7), so the
+  stale report cannot be approved; the shipment status is **not** moved back. When the lot closes again the
+  agent presses «Отчёт готов» again: the report is rebuilt, `journal_open` cleared, `sale_ended_at`
+  overwritten. Expenses stay allowed until approval.
 
 **Journal rules** (formulas exactly as the study §4, with Decimal):
 - `used = Σ sale.boxes + Σ spoilage.boxes`; `left = boxes_received − used`.
@@ -209,7 +241,9 @@ No signal, no batch job.
 - Sale validations: `gross_kg` required; `net_kg > 0`; `price_kg > 0`; `buyer` required for debt.
 - Correction = delete + re-enter (author or agent), plus the 7-second «Отменить» toast which calls delete.
 - No create / delete of sales or spoilage after the lot's `SalesReport` is approved. Payments stay allowed.
-- Writes go through `SeasonNotClosed` like every shipment child (see open item 2).
+- Market writes are **exempt** from the season-close freeze (`SeasonNotClosed`): a truck may still be selling
+  after the season closes (user decision 2026-10-08). List the market endpoints in `tests_season_optout.py`.
+  Reads still use `SeasonScopedMixin` with `season_field='shipment__season'`.
 
 ## 5. Debts and payments (part C)
 
@@ -243,14 +277,16 @@ with last-entry status and their open lots; lots on sale oldest first with "N-й
 
 ## 7. SalesReport from the journal (part E)
 
-Service `market.services.report.build_sales_report(lot)` runs when the lot closes and again on every
-journal write to a closed lot while the report is not approved:
-- `source = journal`, `currency = lot.currency`, `weight_loaded_kg = shipment.weight_net`,
+Service `market.services.report.build_sales_report(lot, user)` runs when the agent presses «Отчёт готов»
+and again on every journal write to a reported lot whose report is not approved:
+- `source = journal`, `journal_open = lot is open`, `currency = lot.currency`, `weight_loaded_kg = shipment.weight_net`,
   `weight_sold_kg = Σ sale.net_kg`, `weight_rejected_kg = loaded − sold` (Q15).
 - Line items: sales grouped by `price_kg` → one row per price (`quantity_kg = Σ net_kg`,
   `amount_local = Σ total`). Manual totals that differ from the formula stay in `amount_local`.
 - Expenses: one row per category (`Σ amount`, label for "other").
 - Totals via the existing `_recompute_totals` logic (reuse the export service, do not duplicate it).
+- After building, call `export.services.task_rules.close_sales_report_task(shipment, user)` exactly like the
+  manual save does — otherwise the rep's «Hasabat doldur» task never closes.
 - Rate (Kurs), notes and approval stay manual through the existing endpoints. After approval the lot
   journal is frozen (§4).
 - Manual `SalesReport` entry is unchanged for shipments without a lot.
@@ -262,7 +298,7 @@ journal write to a closed lot while the report is not approved:
 | Endpoint | Purpose |
 |---|---|
 | `GET lots/` · `GET lots/{id}/` | scoped lists (open / closed / in transit), lot detail with computed totals |
-| `POST lots/open/` `{shipment_id}` | get-or-create the lot |
+| `POST lots/open/` `{shipment_id}` | get-or-create the lot; a seller calling it on an unassigned lot claims it (QR) |
 | `PATCH lots/{id}/` | agent: seller, boxes_received, boxes_per_pallet, tare_g, default_price_kg |
 | `POST/DELETE lots/{id}/sales/` | sale create / delete |
 | `POST/DELETE lots/{id}/spoilage/` | spoilage create / delete |
@@ -278,12 +314,30 @@ All writes accept the existing idempotency key header (phones on bad networks re
 
 ## 9. Frontend
 
-- **Phone shell `/m`** outside `AppLayout`, like `/scan/:id` (`App.tsx`, `pages/scan/ScanPage.tsx`):
-  lots list, lot screen with the sell form, spoilage, expenses sheet, debts, payment sheet; agent also gets
-  team and panel. `IndexRoute` sends `agent` / `agent_seller` to `/m`.
-- Follow the artifact's UX (study §7): 64–76 px targets, stepper, live thousands spacing, price remembered
-  from the last sale, sheets pinned to the top so the keyboard does not cover them, undo toasts, truck
-  drawing with pallets, Russian plurals.
+- **Separate market app** (user decision 2026-10-08): a second Vite entry in the same `frontend/` project —
+  `frontend/m.html` + `src/market-app/` — built as its own light bundle (**no Ant Design**), served at `/m/`
+  on the same origin (same cookie login, no CORS). It reuses `services/api.ts`, i18n and types. Its own
+  login screen `/m/login`; a 401 inside `/m/` goes there, not to the main `/login`.
+  Screens: lots list, lot screen with the sell form, spoilage, expenses sheet, debts, payment sheet; agent
+  also gets team and panel. The agent's lot screen has no sell form.
+- The main app never renders for external roles: an `ExternalRoleGate` around `AppLayout` and the main
+  login send them to `/m/` with a full page load. The existing pallet label opens `/scan/{id}` in the main
+  app; for external roles that route forwards to `/m/scan/{id}` (QR claim, §4).
+- **PWA:** `public/m/manifest.webmanifest` (`name` «YGT Продажа», `start_url`/`scope` `/m/`,
+  `display: standalone`, PNG icons 192/512 + maskable, `apple-touch-icon` for iPhone) and a minimal
+  service worker `public/m/sw.js` (scope `/m/`) with **no caching** — online-only, it exists only so Android
+  offers «Установить». Requires HTTPS (beta has it).
+- **Design = the artifact** (study §7): its colour tokens (tomato red, vine green, crate amber, light + dark
+  via `prefers-color-scheme`), Sofia Sans / Sofia Sans Condensed, 64–76 px targets, stepper, live thousands
+  spacing, price remembered from the last sale, sheets pinned to the top so the keyboard does not cover them,
+  undo toasts, truck drawing with pallets, Russian plurals.
+- **Responsive like the artifact:** phone 1 column; lists 2 columns from 760 px, 3 from 1100 px; container
+  ≤ 1200 px; lot screen two columns from 1000 px (form left, totals + list right); sell form fields side by
+  side from a 520 px container (iPad); 16 px side gutter, no horizontal scroll.
+- **Ready for a React Native app later:** every rule (stock, net weight, debts, FIFO, lot close) is decided
+  by the server; the phone only previews numbers. A native app reuses the same `/api/v1/market/` API; it
+  will need a token login instead of the cookie (ADR-009 "Mobile CRM will need separate token flow") — not
+  built now.
 - Texts in `src/i18n/{ru,tk,en}.json`; Russian is the agents' language. Shipment wording rule: never the
   word "draft" in UI.
 - **Desktop page** «Продажи агентов» inside `AppLayout` for our roles (analytics + Excel buttons).
@@ -294,9 +348,16 @@ All writes accept the existing idempotency key header (phones on bad networks re
 
 - Branch `feat/agent-market` in its own worktree; one commit per logical unit; merge only on the user's
   word.
-- Migrations: check numbers are free right before writing (parallel sessions). `core`: role choices +
-  permission data migration. `export`: `SalesReport.source` (NOT NULL **with a DB default** `'manual'` —
-  beta runs old code on the same DB). `market/0001` + category data migration.
+- Migrations: `core`: role choices + permission data migration. `export`: `SalesReport.source` and
+  `journal_open` (NOT NULL **with DB defaults** `'manual'` / false — beta runs old code on the same DB).
+  `market/0001` + category data migration.
+- **The local DB is shared with main and beta.** While the branch lives, its migrations are **not** applied to
+  the shared DB: tests run on a private test DB (`TEST_DB_NAME=… --noinput`). The usual "apply migrations
+  yourself" habit does not apply on this branch. Migrations are applied only at merge time.
+- At merge: re-check numbers against main (`ls migrations | tail -3`, `git log origin/main`); renumber only the
+  branch's **unapplied** migrations, or add a `--merge` migration.
+- After merge, and again after the beta deploy, re-run the permission seed: a permissions-page Save from code
+  that does not know the `market_*` page codes deletes their rows (the `tir_takip` incident, 2026-09-16).
 - Docs: `docs/obsidian/` module + roles notes, `CHANGELOG.md`, `BUILD_TEST_LOG.md`, `api-contract` skill.
 
 ## 11. Testing (TDD, backend first)
@@ -304,24 +365,30 @@ All writes accept the existing idempotency key header (phones on bad networks re
 - Oversell rejected, including two concurrent sale requests on one lot.
 - pallet / truck / spoilage box arithmetic; net-weight and tare validations; debt sale without buyer → 400.
 - FIFO allocation across lots; capped overpayment; payment delete restores debts.
+- QR claim: unassigned → assigned to the scanner; own → opens; other seller's → 403; other customer → 404.
+- Agent cannot create sales / spoilage / expenses (403) but can delete them and take payments.
 - Scoping: seller sees only own lots; agent only its customer; sales_rep only own customers; external roles
   get 403 on export endpoints.
-- First sale / sell-out set the lifecycle fields and the status advances through `transition_to`
-  (incl. a lot opened at `barysh_gumrugi`).
+- First sale sets `arrived_at` / `sale_started_at` and the status advances through `transition_to`
+  (incl. a lot opened at `barysh_gumrugi`); `left = 0` closes the lot but does **not** set `satyldy`;
+  «Отчёт готов» does and is refused while `left > 0`; a delete after it reopens the lot, keeps the status
+  and blocks approval.
 - `build_sales_report` output; rebuild after a late expense; frozen after approval; manual endpoint refuses
-  line edits when `source = journal`.
+  line edits when `source = journal`; approve refused after a reopen (`journal_open`); the «Hasabat doldur»
+  task closes.
 - After the role changes: run `TestEveryRoleCanEditItsOwnSheetRow` (real seed data, every role).
 - Frontend: vitest for the sell form maths and the payment sheet. Browser checks only after hours (shared DB).
 
 ## 12. Out of scope (phase 2+)
 
 Our customs / freight / production cost in profit; several sellers per truck (logic); agent managers;
-offline mode; QR codes; editing a saved sale; goods not shipped by YGT; USD before approval; currencies
+offline mode; a new market QR (the existing pallet label is reused); editing a saved sale; goods not shipped by YGT; USD before approval; currencies
 other than KZT / RUB in the UI.
 
 ## 13. Open items
 
-1. «Кара» — meaning unknown; added as a category named «Кара» until the user explains.
-2. Season close freezes market writes (`SeasonNotClosed`). A truck still selling when the season is closed
-   would be blocked — confirm with the user whether market writes should be exempt.
-3. Reopening a lot does not move the shipment status back from `satyldy` (§4).
+1. «Кара» — kept as a category named «Кара» (user OK 2026-10-08).
+2. Season freeze — resolved: market writes exempt (§4).
+3. Reopening — resolved: lot reopens by itself; status stays; report approval blocked until the next
+   «Отчёт готов» (§4).
+4. «Отчёт готов» with boxes left — resolved: refused (400) until `left = 0` (user 2026-10-08).
