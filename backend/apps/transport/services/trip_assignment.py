@@ -3,6 +3,7 @@
 Reacting to Planning's own changes lives in trip_changes.py (spec §6).
 """
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from apps.core.models import User
 from apps.export.models import AuditLog, Shipment
@@ -12,14 +13,15 @@ from apps.export.services.trip_lock import TRIP_LOCKED_FIELDS
 from apps.transport.models import ExternalTrip, Trailer, TruckHead
 from apps.transport.services.matching import normalize_plate
 from apps.transport.services.trip_push import enqueue_push
+from apps.transport.services.trip_push_ops import PUSH_OPS
 
 # What a trip writes on its shipment: the locked set minus the gapy-only issue date.
 TRANSPORT_FIELDS = tuple(f for f in TRIP_LOCKED_FIELDS if f != 'driver_passport_issue_date')
 EMPTY_VALUES = {field: None for field in TRANSPORT_FIELDS}
 # Our own columns cleared whenever a trip leaves its shipment.
 RELEASED_TRIP_COLUMNS = {
-    'shipment': None, 'conflict_note': None, 'conflict_kind': None, 'conflict_from': None,
-    'conflict_to': None, 'last_pushed_export_code': None, 'last_pushed_loading': None,
+    'shipment': None, 'linked_at': None, 'conflict_note': None, 'conflict_kind': None, 'conflict_from': None,
+    'conflict_to': None, **{push.sent_column: None for push in PUSH_OPS.values()},
 }
 
 
@@ -81,6 +83,8 @@ def _check_trip(trip: ExternalTrip, shipment: Shipment, confirm_unknown_country:
         raise AssignmentError('trip_closed')
     if trip.shipment_id:
         raise AssignmentError('trip_taken')
+    if trip.rejected_at:
+        raise AssignmentError('trip_rejected')
     if trip.destination_country_code is None:
         if not confirm_unknown_country:
             raise AssignmentError('country_unknown')
@@ -89,20 +93,22 @@ def _check_trip(trip: ExternalTrip, shipment: Shipment, confirm_unknown_country:
 
 
 def assign_trip(trip: ExternalTrip, shipment: Shipment, user: User, *, confirm_unknown_country: bool = False) -> None:
-    """Join a free trip to a Preparation shipment and tell Planning the code and loading place."""
+    """Join a free trip to a Preparation shipment and tell Planning everything we know."""
     try:
         with transaction.atomic():
             trip = ExternalTrip.objects.select_for_update().get(pk=trip.pk)
             _check_shipment(shipment)
             _check_trip(trip, shipment, confirm_unknown_country)
-            trip.shipment = shipment
-            trip.save(update_fields=['shipment'])
+            trip.shipment, trip.linked_at = shipment, timezone.now()
+            trip.save(update_fields=['shipment', 'linked_at'])
             write_transport_fields(shipment, trip_values(trip), user)
     except IntegrityError as exc:  # OneToOne race: another assign won
         raise AssignmentError('trip_taken') from exc
-    linked = ExternalTrip.objects.select_related('shipment__loading_location').get(pk=trip.pk)
-    enqueue_push(linked, 'export-code')
-    enqueue_push(linked, 'loading')
+    linked = ExternalTrip.objects.select_related(
+        'shipment__loading_location', 'shipment__city', 'shipment__product_type',
+    ).prefetch_related('shipment__block_sources__block').get(pk=trip.pk)
+    for op in PUSH_OPS:
+        enqueue_push(linked, op)
 
 
 def release_trip(trip: ExternalTrip, shipment: Shipment, user: User) -> None:

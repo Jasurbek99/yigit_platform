@@ -12,6 +12,10 @@ export function useTripMessages() {
         : null,
     pushError: (stored: string) => {
       const { op, code } = pushErrorParts(stored);
+      // Nothing re-sends a rejection by itself: the user has to reject again.
+      if (op === 'rejection' && code === 'PLANNING_UNAVAILABLE') {
+        return t('truck_board.push_error.rejection_unavailable');
+      }
       return t(`truck_board.push_error.${code}`, {
         defaultValue: t('truck_board.push_error.generic', { op: t(`truck_board.push_op.${op}`, op), code }),
       });

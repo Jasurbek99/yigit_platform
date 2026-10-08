@@ -1,15 +1,15 @@
-"""What we tell Planning (MVP: export-code, loading) — spec §7.
+"""What we tell Planning — spec §7 and docs/superpowers/specs/2026-10-07-planning-write-ops-design.md.
 
-Contract: planning-integration-api.v1.yaml, ExportCodeUpdate / LoadingUpdate
-(both extend EventEnvelope: eventId, occurredAt, source=EXTERNAL).
+Contract: planning-integration-api.v1.yaml. Every body extends EventEnvelope
+(eventId, occurredAt, source=EXTERNAL). Bodies and the op table: trip_push_ops.py.
 """
 import logging
 from datetime import datetime, timezone as dt_tz
 
 from django.db import transaction
 
-from apps.export.models import Shipment
 from apps.transport.models import ExternalTrip
+from apps.transport.services.trip_push_ops import PUSH_OPS, REJECTION_OP, PushOp
 
 logger = logging.getLogger(__name__)
 
@@ -20,71 +20,63 @@ def build_event(trip: ExternalTrip, op: str, now_ms: int) -> tuple[str, str]:
     return f'ygt-{trip.integration_trip_id}-{op}-{now_ms}', occurred
 
 
-def export_code_body(shipment: Shipment) -> dict | None:
-    """ExportCodeUpdate body, or None while the shipment has no export code."""
-    if not shipment.export_code:
-        return None
-    return {'exportCode': shipment.export_code}
+def _envelope(trip: ExternalTrip, op: str, occurred_at: str | None = None) -> tuple[str, dict]:
+    """(eventId, EventEnvelope fields) for a new enqueue; occurred_at defaults to now."""
+    now_ms = int(datetime.now(tz=dt_tz.utc).timestamp() * 1000)
+    event_id, now_iso = build_event(trip, op, now_ms)
+    return event_id, {'eventId': event_id, 'occurredAt': occurred_at or now_iso, 'source': 'EXTERNAL'}
 
 
-def loading_body(shipment: Shipment) -> dict | None:
-    """LoadingUpdate body: city = our loading location; place = the blocks (names), first code as ref."""
-    # .all() + sort in Python so a prefetch (push_pending_corrections) is reused.
-    sources = sorted(shipment.block_sources.all(), key=lambda source: source.id)
-    if not sources or not shipment.loading_location_id:
-        return None
-    names = [s.block.name or s.block.code for s in sources]
-    return {'city': shipment.loading_location.name, 'place': {'ref': sources[0].block.code, 'name': ', '.join(names)}}
-
-
-def export_code_signature(shipment: Shipment) -> str | None:
-    return shipment.export_code or None
-
-
-def loading_signature(shipment: Shipment) -> str | None:
-    """What a `loading` push would say, as one comparable string."""
-    body = loading_body(shipment)
-    return f"{body['city']}|{body['place']['name']}" if body else None
-
-
-# op → (body builder, signature of what was sent, ExternalTrip column holding it)
-PUSH_OPS = {
-    'export-code': (export_code_body, export_code_signature, 'last_pushed_export_code'),
-    'loading': (loading_body, loading_signature, 'last_pushed_loading'),
-}
-
-
-def enqueue_push(trip: ExternalTrip, op: str) -> None:
-    """Build the body now (frozen occurredAt/eventId), remember what was sent, POST after commit."""
+def _queue_after_commit(trip_id: int, op: str, body: dict, event_id: str, sent_column: str | None = None) -> None:
+    """POST after the caller's commit; a broker outage must not fail the request."""
     from apps.transport.tasks import push_trip_update
 
-    build_body, signature, marker = PUSH_OPS[op]
-    body = build_body(trip.shipment)
-    if body is None:
-        return
-    now_ms = int(datetime.now(tz=dt_tz.utc).timestamp() * 1000)
-    event_id, occurred_at = build_event(trip, op, now_ms)
-    body = {'eventId': event_id, 'occurredAt': occurred_at, 'source': 'EXTERNAL', **body}
-    setattr(trip, marker, signature(trip.shipment))
-    trip.save(update_fields=[marker])
-    trip_id = trip.pk
-
     def send() -> None:
-        # Runs after the caller's commit: the join is already saved, so a broker
-        # outage must not fail the request. Forget the marker instead — the next
-        # poll tick (which itself runs on the broker) enqueues it again.
         try:
             push_trip_update.delay(trip_id, op, body, event_id)
         except Exception:  # kombu/redis raise different types; any failure means "not queued"
-            logger.warning('Could not queue Planning %s push for trip %s; retried next poll', op, trip_id,
-                           exc_info=True)
-            ExternalTrip.objects.filter(pk=trip_id).update(**{marker: None})
+            logger.warning('Could not queue Planning %s push for trip %s', op, trip_id, exc_info=True)
+            if sent_column:
+                # Forget what we "sent" — the next poll tick enqueues it again.
+                ExternalTrip.objects.filter(pk=trip_id).update(**{sent_column: None})
+            else:
+                # One-shot op: nothing re-sends it, so show it on the board.
+                ExternalTrip.objects.filter(pk=trip_id).update(
+                    last_push_status='error', last_push_error=f'{op}: PLANNING_UNAVAILABLE')
 
     transaction.on_commit(send)
 
 
+def _value_for(trip: ExternalTrip, push: PushOp) -> tuple[dict | None, str | None]:
+    """(body, signature) of one op for a linked trip; (None, None) when there is nothing to send.
+
+    A time stamped before the trip joined its shipment belongs to an earlier
+    truck (e.g. the gate arrival of the truck this one replaced), so it is not
+    sent. linked_at NULL (links older than the column) filters nothing.
+    """
+    shipment = trip.shipment
+    if push.stamp_field and trip.linked_at:
+        stamp = getattr(shipment, push.stamp_field)
+        if stamp and stamp < trip.linked_at:
+            return None, None
+    return push.build_body(shipment), push.signature(shipment)
+
+
+def enqueue_push(trip: ExternalTrip, op: str) -> None:
+    """Build the body now (frozen occurredAt/eventId), remember what was sent, POST after commit."""
+    push = PUSH_OPS[op]
+    body, signature = _value_for(trip, push)
+    if body is None:
+        return
+    occurred_at = getattr(trip.shipment, push.stamp_field).isoformat() if push.stamp_field else None
+    event_id, envelope = _envelope(trip, op, occurred_at)
+    setattr(trip, push.sent_column, signature)
+    trip.save(update_fields=[push.sent_column])
+    _queue_after_commit(trip.pk, op, {**envelope, **body}, event_id, push.sent_column)
+
+
 def push_pending_corrections() -> int:
-    """Linked trips whose export code or loading place changed since our last push get one new push.
+    """Linked trips whose pushed values changed since our last push get one new push per op.
 
     Runs every poll tick, so an edit on the Sheet reaches Planning within ~2
     minutes without export importing transport. Compares against what we last
@@ -95,11 +87,19 @@ def push_pending_corrections() -> int:
     pushed = 0
     trips = ExternalTrip.objects.filter(shipment__isnull=False).exclude(
         status__in=ExternalTrip.CLOSED_STATUSES,
-    ).select_related('shipment__loading_location').prefetch_related('shipment__block_sources__block')
+    ).select_related(
+        'shipment__loading_location', 'shipment__city', 'shipment__product_type',
+    ).prefetch_related('shipment__block_sources__block')
     for trip in trips:
-        for op, (_, signature, marker) in PUSH_OPS.items():
-            current = signature(trip.shipment)
-            if current and current != getattr(trip, marker):
+        for op, push in PUSH_OPS.items():
+            _, current = _value_for(trip, push)
+            if current and current != getattr(trip, push.sent_column):
                 enqueue_push(trip, op)
                 pushed += 1
     return pushed
+
+
+def enqueue_rejection(trip: ExternalTrip, reason: str) -> None:
+    """One-shot TripRejection push: not in the correction loop, so no sent_column."""
+    event_id, envelope = _envelope(trip, REJECTION_OP)
+    _queue_after_commit(trip.pk, REJECTION_OP, {**envelope, 'reason': reason}, event_id)

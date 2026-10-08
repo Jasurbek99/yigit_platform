@@ -73,7 +73,7 @@ export function TripPickerModal({ shipment, onClose }: ITripPickerModalProps) {
               const mismatch = tripCountryMismatch(trip.destination_country_code, shipment.country_code);
               return (
                 <List.Item key={trip.id}>
-                  <Radio value={trip.id} disabled={mismatch} style={{ width: '100%' }}>
+                  <Radio value={trip.id} disabled={mismatch || !!trip.rejected_at} style={{ width: '100%' }}>
                     <Typography.Text style={{ fontFamily: FONT.mono, fontWeight: 600 }}>
                       {trip.tractor_plate} / {trip.trailer_plate}
                     </Typography.Text>
@@ -81,6 +81,11 @@ export function TripPickerModal({ shipment, onClose }: ITripPickerModalProps) {
                       {trip.destination_country_code ?? '—'} · {trip.driver_full_name} · {fmt(trip.planned_departure)}
                     </span>
                     {mismatch && <Tag color="red" style={{ marginLeft: 8 }}>{t('truck_board.country_mismatch')}</Tag>}
+                    {trip.rejected_at && (
+                      <Tag color="red" style={{ marginLeft: 8 }}>
+                        {t('truck_board.rejected_tag', { reason: trip.rejection_reason })}
+                      </Tag>
+                    )}
                   </Radio>
                 </List.Item>
               );

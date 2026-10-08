@@ -9,6 +9,7 @@ import {
   useAssignTrip, useCandidateShipments, useExternalTrips, useTripSyncState,
 } from '@/hooks/useExternalTrips';
 import { LinkedTripsTab } from './truckBoard/LinkedTripsTab';
+import { RejectTripModal } from './truckBoard/RejectTripModal';
 import { ShipmentNeedCard } from './truckBoard/ShipmentNeedCard';
 import { TripCard } from './truckBoard/TripCard';
 import { TripDrawer } from './truckBoard/TripDrawer';
@@ -33,6 +34,7 @@ export default function TruckBoard() {
   const [shipmentId, setShipmentId] = useState<number | null>(null);
   const [tripId, setTripId] = useState<number | null>(null);
   const [drawerTripId, setDrawerTripId] = useState<number | null>(null);
+  const [rejectTripId, setRejectTripId] = useState<number | null>(null);
 
   const shipment = shipments.find((s) => s.id === shipmentId) ?? null;
   const trip = trips.find((tr) => tr.id === tripId) ?? null;
@@ -120,7 +122,9 @@ export default function TruckBoard() {
           },
         ]}
       />
-      <TripDrawer trip={trips.find((tr) => tr.id === drawerTripId) ?? null} onClose={() => setDrawerTripId(null)} />
+      <TripDrawer trip={trips.find((tr) => tr.id === drawerTripId) ?? null} canReject={canAssign && !isReadOnly}
+        onReject={(tr) => { setDrawerTripId(null); setRejectTripId(tr.id); }} onClose={() => setDrawerTripId(null)} />
+      <RejectTripModal trip={trips.find((tr) => tr.id === rejectTripId) ?? null} onClose={() => setRejectTripId(null)} />
     </div>
   );
 }

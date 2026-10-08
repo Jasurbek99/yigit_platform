@@ -1,23 +1,27 @@
-import { Button, Descriptions, Drawer } from 'antd';
+import { Button, Descriptions, Drawer, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { openTripDocument } from '@/hooks/useExternalTrips';
 import type { IExternalTrip } from '@/types/externalTrip';
 import { TripMiniMap } from './TripMiniMap';
+import { rejectionFailed } from './truckBoardHelpers';
 import { useTripMessages } from './useTripMessages';
 
 interface ITripDrawerProps {
   trip: IExternalTrip | null;
+  canReject: boolean;
+  onReject: (trip: IExternalTrip) => void;
   onClose: () => void;
 }
 
-export function TripDrawer({ trip, onClose }: ITripDrawerProps) {
+export function TripDrawer({ trip, canReject, onReject, onClose }: ITripDrawerProps) {
   const { t } = useTranslation();
   const messages = useTripMessages();
   const openPdf = (tripId: number) =>
     openTripDocument(tripId).catch(() => toast.error(t('truck_board.error.pdf')));
   const vehicle = (plate: string, brand: string | null, model: string | null, company: string | null) =>
     [plate, [brand, model].filter(Boolean).join(' '), company].filter(Boolean).join(' · ');
+  const canRejectTrip = canReject && trip !== null && !trip.shipment && (!trip.rejected_at || rejectionFailed(trip));
   return (
     <Drawer open={trip !== null} onClose={onClose} width={520} destroyOnHidden title={t('truck_board.details')}>
       {trip && (
@@ -46,11 +50,24 @@ export function TripDrawer({ trip, onClose }: ITripDrawerProps) {
                 ? trip.visas.map((v) => <div key={v.country}>{v.country} — {v.expiry_date}</div>)
                 : '—'}
             </Descriptions.Item>
+            {trip.rejected_at && (
+              <Descriptions.Item label={t('truck_board.rejected_label')}>
+                {trip.rejection_reason} · {trip.rejected_by_name ?? '—'} · {trip.rejected_at.slice(0, 16).replace('T', ' ')}
+              </Descriptions.Item>
+            )}
           </Descriptions>
+          {rejectionFailed(trip) && (
+            <Typography.Text type="danger" style={{ display: 'block', fontSize: 12, marginTop: 8 }}>
+              {messages.pushError(trip.last_push_error ?? '')}
+            </Typography.Text>
+          )}
           {trip.position && <TripMiniMap lat={trip.position.lat} lon={trip.position.lon} height={220} />}
-          <Button style={{ marginTop: 12 }} onClick={() => openPdf(trip.id)}>
-            {t('truck_board.documents_pdf')}
-          </Button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <Button onClick={() => openPdf(trip.id)}>{t('truck_board.documents_pdf')}</Button>
+            {canRejectTrip && (
+              <Button danger onClick={() => onReject(trip)}>{t('truck_board.reject')}</Button>
+            )}
+          </div>
         </>
       )}
     </Drawer>

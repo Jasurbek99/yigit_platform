@@ -39,6 +39,12 @@ describe('TripPickerModal', () => {
     );
   });
 
+  it('shows a rejected trip with its reason and does not let it be picked', () => {
+    setup([{ ...trip(4, '04DD', 'KZ'), rejected_at: '2026-10-07T10:00:00Z', rejection_reason: 'No KZ visa' }]);
+    expect(screen.getByRole('radio', { name: /04DD/ })).toBeDisabled();
+    expect(screen.getByText('Rejected: No KZ visa')).toBeInTheDocument();
+  });
+
   it('unknown country asks first, then sends the confirm flag', () => {
     const confirm = vi.spyOn(Modal, 'confirm').mockImplementation((cfg) => {
       cfg.onOk?.();

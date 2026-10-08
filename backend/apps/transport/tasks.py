@@ -11,7 +11,8 @@ from apps.transport.services.traccar_client import TraccarUnavailable
 from apps.transport.services.trip_assignment import release_cancelled_shipments
 from apps.transport.services.trip_changes import apply_trip_change, find_pending_changes
 from apps.transport.services.trip_notify import notify_roles
-from apps.transport.services.trip_push import PUSH_OPS, push_pending_corrections
+from apps.transport.services.trip_push import push_pending_corrections
+from apps.transport.services.trip_push_ops import PUSH_OPS, push_path
 from apps.transport.services.trip_sync import sync_external_trips
 from apps.transport.services.trips_client import TripsApiUnavailable, get_trips_client
 
@@ -97,7 +98,7 @@ def _record_push(trip: ExternalTrip, op: str, error: str | None, status: str, *,
     """One trip carries two ops; an ok on one must not wipe the other's error.
 
     `resend` forgets what we "sent" so the next poll tick enqueues it again —
-    only when Planning never got it. A refusal keeps the marker: re-sending the
+    only when Planning never got it. A refusal keeps what we sent: re-sending the
     same value would be refused again every tick; a real change re-sends it.
     """
     if error:
@@ -105,10 +106,10 @@ def _record_push(trip: ExternalTrip, op: str, error: str | None, status: str, *,
     elif not trip.last_push_error or trip.last_push_error.startswith(f'{op}:'):
         trip.last_push_status, trip.last_push_error = status, None
     fields = ['last_push_status', 'last_push_error']
-    if resend:
-        marker = PUSH_OPS[op][2]
-        setattr(trip, marker, None)
-        fields.append(marker)
+    if resend and op in PUSH_OPS:
+        sent_column = PUSH_OPS[op].sent_column
+        setattr(trip, sent_column, None)
+        fields.append(sent_column)
     trip.save(update_fields=fields)
 
 
@@ -131,7 +132,7 @@ def push_trip_update(self, trip_id: int, op: str, body: dict, event_id: str) -> 
     """POST one operation to Planning. Retries keep the same event_id (= Idempotency-Key)."""
     trip = ExternalTrip.objects.select_related('shipment').get(pk=trip_id)
     try:
-        status_code, payload = get_trips_client().post_op(str(trip.integration_trip_id), op, body, event_id)
+        status_code, payload = get_trips_client().post_op(str(trip.integration_trip_id), push_path(op), body, event_id)
     except TripsApiUnavailable as exc:
         # With exc= given, Celery re-raises exc itself (not MaxRetriesExceededError)
         # once retries run out, so the limit is checked by hand.

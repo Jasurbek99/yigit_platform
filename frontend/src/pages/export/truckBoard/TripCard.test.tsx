@@ -51,4 +51,17 @@ describe('TripCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /More/ }));
     expect(screen.queryByTestId('trip-mini-map')).toBeNull();
   });
+
+  it('marks a rejected trip with its reason', () => {
+    render(<TripCard trip={{ ...full, rejected_at: '2026-10-07T10:00:00Z', rejection_reason: 'No KZ visa' }}
+      selected={false} countryCode="RU" onSelect={vi.fn()} onOpen={vi.fn()} />);
+    expect(screen.getByText('Rejected: No KZ visa')).toBeInTheDocument();
+  });
+
+  it('says when Planning did not receive the rejection', () => {
+    render(<TripCard trip={{ ...full, rejected_at: '2026-10-07T10:00:00Z', rejection_reason: 'No KZ visa',
+      last_push_status: 'error', last_push_error: 'rejection: PLANNING_UNAVAILABLE' }}
+      selected={false} countryCode="RU" onSelect={vi.fn()} onOpen={vi.fn()} />);
+    expect(screen.getByText('Planning did not receive the rejection — reject the trip again')).toBeInTheDocument();
+  });
 });

@@ -7,7 +7,8 @@ const base = {
   tractor_brand: 'DAF', tractor_model: 'XF480', tractor_company: '"YIGIT" HJ', tractor_source: 'GARAGE',
   trailer_brand: 'SCHMITZ Cargobull', trailer_model: 'S.KO', trailer_company: null, trailer_source: 'GARAGE',
   driver_source: 'GARAGE', shipment: null, shipment_code: null, conflict_note: null, conflict_kind: null,
-  conflict_from: null, conflict_to: null, last_push_status: null, last_push_error: null, position: null,
+  conflict_from: null, conflict_to: null, last_push_status: null, last_push_error: null,
+  rejection_reason: null, rejected_at: null, rejected_by_name: null, position: null,
   has_unrecognised_visa: false,
 } as const;
 

@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from apps.transport.models import ExternalTrip, ExternalTripSyncState
 from apps.transport.services.trip_parsing import parse_trip
+from apps.transport.services.trip_push_ops import REJECTION_OP
 from apps.transport.services.trips_client import TripsApiUnavailable, get_trips_client
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,16 @@ def _upsert(item: dict, client) -> ExternalTrip | None:
     for name, value in fields.items():
         setattr(trip, name, value)
     trip.save(update_fields=[*fields, 'synced_at'])
-    return trip if trip.shipment_id and is_real_change(old, fields) else None
+    changed = is_real_change(old, fields)
+    if changed:
+        # Planning swapped the truck or driver (or cancelled): our rejection is answered.
+        # Filtered queryset updates, not the copy read above: a reject may have
+        # committed since, and our columns stay out of the poll's own save.
+        answered = ExternalTrip.objects.filter(pk=trip.pk, rejected_at__isnull=False)
+        answered.update(**dict.fromkeys(ExternalTrip.REJECTION_FIELDS))
+        ExternalTrip.objects.filter(pk=trip.pk, last_push_error__startswith=f'{REJECTION_OP}:').update(
+            last_push_status=None, last_push_error=None)
+    return trip if trip.shipment_id and changed else None
 
 
 def _sync_page(items: list[dict], client, changed: list, errors: list) -> datetime | None:

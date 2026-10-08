@@ -44,6 +44,10 @@ export interface IExternalTrip {
   conflict_to: string | null;
   last_push_status: string | null;
   last_push_error: string | null;
+  /** Our rejection sent to Planning; cleared when Planning swaps the truck or driver. */
+  rejection_reason: string | null;
+  rejected_at: string | null;
+  rejected_by_name: string | null;
   position: ITripPosition | null;
 }
 
