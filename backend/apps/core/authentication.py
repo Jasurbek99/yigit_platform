@@ -1,5 +1,13 @@
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.conf import settings
+
+from apps.core.models.user import EXTERNAL_ROLES
+
+# External users (agents and their sellers) may reach only these API trees.
+# Checked here because every DRF view authenticates through this class; a view
+# that forgot its permission_classes still cannot leak internal data to them.
+EXTERNAL_ALLOWED_PREFIXES = ('/api/v1/auth/', '/api/v1/market/')
 
 
 class CookieJWTAuthentication(JWTAuthentication):
@@ -22,6 +30,8 @@ class CookieJWTAuthentication(JWTAuthentication):
             return None
         validated_token = self.get_validated_token(raw_token)
         user = self.get_user(validated_token)
+        if getattr(user, 'role', None) in EXTERNAL_ROLES and not request.path.startswith(EXTERNAL_ALLOWED_PREFIXES):
+            raise PermissionDenied('Not available for this role.')
         # Mark request so DRF's CSRFCheck skips enforcement for JWT-authed requests.
         request._dont_enforce_csrf_checks = True
         return user, validated_token
