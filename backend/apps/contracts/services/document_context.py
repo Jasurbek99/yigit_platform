@@ -256,6 +256,20 @@ def _firm_attr(firm, base: str, lang: str) -> str:
     return ''
 
 
+# A label someone typed in front of a firm's address in its card — «Юр.Адрес:»,
+# «Юридический адрес:», «Address:» … (seven spellings in the data on 2026-10-08).
+# The CT-1 / Fito templates print their own «Адрес:», so the typed one goes.
+_ADDRESS_LABEL = re.compile(
+    r'^\s*(?:(?:юр(?:идический)?\.?\s*)?адрес|(?:legal\s+)?address)\s*:\s*',
+    re.IGNORECASE,
+)
+
+
+def _strip_address_label(address: str | None) -> str:
+    """The address without a typed leading label; blank stays blank."""
+    return _ADDRESS_LABEL.sub('', address or '', count=1)
+
+
 def _truck_plate(shipment) -> str:
     """Every registration a shipment runs under, comma-separated ('' if none).
 
@@ -1005,9 +1019,9 @@ def build_ct1_context(invoice, lang: str = 'ru', overrides: dict | None = None) 
     fig = _letter_figures(invoice)
     return {
         'firm_name': _firm_attr(seller, 'name', lang),
-        'firm_address': _firm_attr(seller, 'address', lang),
+        'firm_address': _strip_address_label(_firm_attr(seller, 'address', lang)),
         'buyer_name': getattr(buyer, 'name_company', '') or '',
-        'buyer_address': getattr(buyer, 'address', '') or '',
+        'buyer_address': _strip_address_label(getattr(buyer, 'address', '')),
         'product': _letter_product(invoice, 'Свежие Помидоры'),
         'contract_line': _contract_line(contract),
         'net': _kg(fig.net, lang),
@@ -1028,9 +1042,9 @@ def build_fito_context(invoice, lang: str = 'ru', overrides: dict | None = None)
     fig = _letter_figures(invoice)
     return {
         'firm_name': _firm_attr(seller, 'name', lang),
-        'firm_address': _firm_attr(seller, 'address', lang),
+        'firm_address': _strip_address_label(_firm_attr(seller, 'address', lang)),
         'buyer_name': getattr(buyer, 'name_company', '') or '',
-        'buyer_address': getattr(buyer, 'address', '') or '',
+        'buyer_address': _strip_address_label(getattr(buyer, 'address', '')),
         'country': _country_name(invoice, lang),
         'product': _letter_product(invoice, 'Свежих Помидоров'),
         'net': _kg(fig.net, lang),

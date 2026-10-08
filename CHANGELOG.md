@@ -5,6 +5,7 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Fixed
+- **One «Адрес:» label in CT-1 / Fito (fix(p4)).** The templates print «Адрес:» before the sender and consignee addresses; labels typed into firm cards («Юр.Адрес:», «Юридический адрес:», «Address:» …) are stripped, a blank address prints no line. Templates `ct1_ru` / `fito_ru` regenerated.
 - **Letterhead keeps its own colours (fix(p4)).** Theme colours in the firm blank (text and shapes) are fixed to RGB before the merge — the Yigit green printed orange in CT-1 / Fito / ARZA because it resolved against the letter's theme.
 - **Truck product vs its contracts on every write path (fix(p3)).** The «product = contract's product» check moved into `set_shipment_product` (`check_contract_product`), so the block-edit adopt, manifest close and `backfill_product_types --apply` refuse it too (400 / listed as «refused (contract product)»), not only the shipment PATCH. Re-sending the truck's current product no longer trips the check.
 

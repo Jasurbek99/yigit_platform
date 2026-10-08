@@ -669,6 +669,10 @@ Layouts mirror the office `letter CT1` / `fito` / `customs` sheets, so they carr
 more than the addressee + one line:
 - **CT-1** — sender + consignee (Отправитель / Грузополучатель) blocks and the
   Нетто / Брутто / Кол-во мест weights.
+- **Addresses (CT-1 and FITO)** print as «Адрес: …» under each party's name. The
+  label comes from the template, and a label typed into the firm card («Юр.Адрес:»,
+  «Юридический адрес:», «Address:» …) is stripped by `_strip_address_label`. A blank
+  address prints no line (`{% if %}`). Since 2026-10-08. ARZA prints no addresses.
 - **FITO** — the truck line (`1 автомашина: {plate}`) + sender/consignee blocks.
 - **Customs (ARZA)** — a truck **table** (T/b · plate · product · boxes · gross)
   and the full four-paragraph legal boilerplate (gümrük Kodeksi articles, the
