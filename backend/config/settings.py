@@ -114,6 +114,7 @@ INSTALLED_APPS = [
     'apps.core',
     'apps.greenhouse',
     'apps.export',
+    'apps.market',
     'apps.contracts',
     'apps.transport',
     'apps.feedback',
