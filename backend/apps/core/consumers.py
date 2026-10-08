@@ -17,12 +17,14 @@ import logging
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
+from apps.core.models.user import EXTERNAL_ROLES
 from apps.core.services import presence, worklog
 
 logger = logging.getLogger(__name__)
 
 
 CLOSE_CODE_UNAUTHENTICATED = 4401
+CLOSE_CODE_FORBIDDEN_ROLE = 4403
 
 
 class AppConsumer(AsyncJsonWebsocketConsumer):
@@ -38,6 +40,14 @@ class AppConsumer(AsyncJsonWebsocketConsumer):
         if user is None or user.is_anonymous:
             logger.info('AppConsumer reject anonymous handshake')
             await self.close(code=CLOSE_CODE_UNAUTHENTICATED)
+            return
+        # External roles (agents) are fenced to /api/v1/auth|market/ (see
+        # authentication.EXTERNAL_ALLOWED_PREFIXES); this socket carries internal
+        # staff presence and sheet pokes, so reject before accept / group join /
+        # WorkSession write.
+        if getattr(user, 'role', None) in EXTERNAL_ROLES:
+            logger.info('AppConsumer reject external role user=%s', user.username)
+            await self.close(code=CLOSE_CODE_FORBIDDEN_ROLE)
             return
         await self.accept()
         logger.info('AppConsumer accepted user=%s channel=%s', user.username, self.channel_name)
