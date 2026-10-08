@@ -5,6 +5,7 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Fixed
+- **Tassyknama date is a date picker (fix(frontend)).** The sole-proprietor certificate date on the export firm card (inline and in the create drawer) was a plain text input that only accepted `YYYY-MM-DD` — typing «07.12.2022» was rejected by the API with a generic error. Now an Ant DatePicker (DD.MM.YYYY) that sends ISO.
 - **Invoice addresses: one «Адрес:» / «Address:» label (fix(p4)).** Same rule as CT-1 / Fito: the invoice_ru / invoice_en seller and buyer boxes print one template label, the label typed into the firm card is stripped, a blank address prints no line. Templates regenerated.
 - **ARZA signature by legal form (fix(p4)).** The customs letter signs «Hususy Telekeçi: <person>» for a sole proprietor (HT) and «Direktor: <director>» for every other firm, instead of «Telekeçi <firm name>». Template `customs_tk` regenerated.
 - **One «Адрес:» label in CT-1 / Fito (fix(p4)).** The templates print «Адрес:» before the sender and consignee addresses; labels typed into firm cards («Юр.Адрес:», «Юридический адрес:», «Address:» …) are stripped, a blank address prints no line. Templates `ct1_ru` / `fito_ru` regenerated.
