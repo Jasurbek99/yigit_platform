@@ -25,6 +25,7 @@ from apps.market.services import (
     update_lot,
 )
 from apps.market.views.base import RussianMixin, answers_errors
+from apps.market.views.entries import LotEntriesMixin
 
 
 class _LotResource(RussianMixin):
@@ -34,10 +35,16 @@ class _LotResource(RussianMixin):
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
 
 
-class LotViewSet(_LotResource, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    """`/market/lots/`: list (`?state=open|closed`), detail, open (`POST open/`), agent PATCH."""
+class LotViewSet(_LotResource, LotEntriesMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin,
+                 viewsets.GenericViewSet):
+    """`/market/lots/`: list (`?state=open|closed`), detail, open (`POST open/`), agent PATCH,
+    and the lot's sales / spoilage / expenses (LotEntriesMixin).
 
-    http_method_names = ['get', 'post', 'patch']
+    DELETE is only for the entry routes: there is no destroy, so `lots/{id}/` answers 405.
+    """
+
+    http_method_names = ['get', 'post', 'patch', 'delete']
+    lookup_value_regex = r'\d+'
 
     def get_queryset(self):
         """The lots the caller may see (not season-scoped)."""
