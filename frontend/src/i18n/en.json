@@ -4484,7 +4484,8 @@
       "undo": "Undo",
       "save_error": "Could not save. Check the internet and press again.",
       "undo_error": "Could not undo the sale. Delete it from the list.",
-      "closed": "Truck closed. No boxes left."
+      "closed": "Truck closed. No boxes left.",
+      "needs_receipt": "Ask the agent to enter how many boxes arrived."
     }
   }
 }

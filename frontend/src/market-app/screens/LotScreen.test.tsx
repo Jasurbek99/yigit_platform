@@ -103,4 +103,11 @@ describe('LotScreen', () => {
     expect(await screen.findByText('Машина закрыта. Ящиков не осталось.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
   });
+
+  it('shows «Пусть агент укажет…» instead of the form while the receipt is missing', async () => {
+    detail = () => ({ ...lotDetailFixture(), needs_receipt: true });
+    renderLot();
+    expect(await screen.findByText('Пусть агент укажет, сколько ящиков пришло.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
+  });
 });
