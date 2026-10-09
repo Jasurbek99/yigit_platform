@@ -417,6 +417,16 @@ Reachability is seeded by data migration `core.0020` (sets `admin.users` + `admi
 
 A page shows up on the head's Staff Page Access screen only once the head's own role sees it. That is why `core.0071` (2026-09-30) gave the head Truck Board, Transport Plan and Tır Takip: before that, none of them could be delegated.
 
+### External roles and the fence (agent market, 2026-10)
+
+`agent` and `agent_seller` (`EXTERNAL_ROLES`) are outside people, not staff. They are kept inside `/m/` by a fence, not by the matrix alone:
+
+- **REST**: `CookieJWTAuthentication` raises 403 for an external role on any path outside `/api/v1/auth/` and `/api/v1/market/`, whatever the permission rows say.
+- **WebSocket**: `AppConsumer.connect` closes with 4403 for them (no presence roster, no `sheet_changed` pokes, no WorkSession).
+- **Frontend**: `ExternalRoleGate` and `LoginPage` send them to `/m/`.
+
+New codes (seeded by `seed_permissions` + data migration `core/0076`): pages `market.home`, `market.team` (phone shell for the external roles; subtracted from boss / director / export_manager / document_team, admin keeps every page) and `market.agents` (desktop agent-logins page: admin, boss, director, export_manager, document_team, `sales_rep`); resources `market_agent` (sales_rep view / create / edit; director / export_manager / document_team view; admin / boss full) and `market_team` (agent full CRUD; staff view; `agent_seller` an explicit all-denied row, because the matrix save rejects a matrix missing a role). `agent` / `agent_seller` are also excluded from the Fleet Map and Tır Takip every-role loops. Agent logins are created only through `/api/v1/market/agents/` (they need an `AgentMember` row), not the Users page. Details: [[agent-market]].
+
 ### Browsing closed seasons (AD-16)
 
 `closed_season` is a resource with only `can_view` ever seeded — create/edit/delete are meaningless for it (closed seasons are read-only). It answers one question: **may this role select a closed season in the header switcher and read it?** It is intentionally a separate resource from `season` (which governs the season CRUD/close/open admin page), because `RoleResourcePermission`'s fixed action vocabulary (`can_view`/`can_create`/`can_edit`/`can_delete`) has no room for a custom "view only when closed" action on an existing resource without a schema change.
