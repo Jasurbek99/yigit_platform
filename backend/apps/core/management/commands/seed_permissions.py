@@ -63,7 +63,7 @@ _GATE_RESOURCES = {'gate'}
 # staff see only the desktop `market.agents` page. External roles are kept out of
 # every every-role loop below.
 _MARKET_PHONE_PAGES = {'market.home', 'market.team'}
-_MARKET_RESOURCES = {'market_agent', 'market_team'}
+_MARKET_RESOURCES = {'market_agent', 'market_team', 'market_lot'}
 _EXTERNAL = ('agent', 'agent_seller')
 
 # Contracts module pages (contracts.list, contracts.sales) default to
@@ -375,6 +375,7 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
         'shipment_comment': _VCE,
         'advance': _VIEW,
         'market_agent': _VCE,           # creates / edits agent logins
+        'market_lot': _VIEW,            # reads his customers' lots (core/0077)
     },
     'finansist': {
         'shipment': _VE,
@@ -405,11 +406,12 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     'garawul': {
         'gate': _VE,    # read the lists, mark / undo
     },
-    # Agent market: the agent runs his own team; the seller holds no resource.
-    'agent': {'market_team': _VCRUD},
-    # An all-denied row, not {}: the admin matrix GET builds from existing rows and
-    # PUT rejects a matrix missing any role, so a role with no row breaks Save.
-    'agent_seller': {'market_team': _NONE},
+    # Agent market: the agent runs his own team; agent and seller both work the
+    # lots — who may do what on a lot is decided in apps/market/services (core/0077).
+    'agent': {'market_team': _VCRUD, 'market_lot': _VCRUD},
+    # market_team stays an all-denied row, not absent: the admin matrix GET builds
+    # from existing rows and PUT rejects a matrix missing any role.
+    'agent_seller': {'market_team': _NONE, 'market_lot': _VCRUD},
     # boss: full CRUD on every resource. The read-only guard now lives in the
     # frontend view/edit toggle, not in the permission matrix (2026-08-05).
     # Three carve-outs, all mirrored in core migration 0033:

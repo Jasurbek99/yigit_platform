@@ -35,7 +35,7 @@ _NARROWED = {'closed_season', 'truck_split_default', 'sale', 'fleet'}
 # Agent market: boss is read-only there (agent-market spec §3 — "everything,
 # read only"; agent logins are created by admin / sales rep). Seeded in
 # seed_permissions and core/0076, not in 0033.
-_MARKET_READ_ONLY = {'market_agent', 'market_team'}
+_MARKET_READ_ONLY = {'market_agent', 'market_team', 'market_lot'}
 
 
 class BossPermissionDefaultsTests(TestCase):
