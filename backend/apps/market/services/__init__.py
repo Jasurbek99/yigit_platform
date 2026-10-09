@@ -2,8 +2,26 @@
 from apps.market.services.access import (
     MarketAccessError,
     check_customer_in_scope,
+    own_market_customer,
     own_team_customer,
 )
+from apps.market.services.lots import (
+    VISIBLE_STATUS_CODES,
+    LotNotFound,
+    MarketRuleError,
+    available_shipments,
+    lots_for,
+    open_lot,
+    update_lot,
+    visible_shipments,
+)
 from apps.market.services.me import build_me_payload
+from apps.market.services.reference import get_or_create_buyer, market_expense_categories, search_buyers
+from apps.market.services.totals import lot_totals, needs_receipt, refresh_closed
 
-__all__ = ['MarketAccessError', 'build_me_payload', 'check_customer_in_scope', 'own_team_customer']
+__all__ = [
+    'VISIBLE_STATUS_CODES', 'LotNotFound', 'MarketAccessError', 'MarketRuleError', 'available_shipments',
+    'build_me_payload', 'check_customer_in_scope', 'get_or_create_buyer', 'lot_totals', 'lots_for',
+    'market_expense_categories', 'needs_receipt', 'open_lot', 'own_market_customer', 'own_team_customer',
+    'refresh_closed', 'search_buyers', 'update_lot', 'visible_shipments',
+]
