@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactElement, type ReactNode } from 'react';
+import { isTopSheet, pushSheet, removeSheet } from './sheetStack';
 
 interface ISheetProps {
   readonly title: string;
@@ -32,7 +33,8 @@ function trapTab(root: HTMLElement | null, e: KeyboardEvent): void {
 /**
  * Modal sheet: pinned to the top on phones (the keyboard never covers it), centred from 700 px.
  * Mounting it opens it: focus moves to the first field, Tab stays inside, the page behind
- * does not scroll; unmounting gives focus back to what opened it.
+ * does not scroll; unmounting gives focus back to what opened it. With sheets over sheets
+ * only the top one takes Escape / Tab, and the page unlocks when the last one closes.
  */
 export function Sheet({ title, onClose, children }: ISheetProps): ReactElement {
   const titleId = useId();
@@ -42,18 +44,20 @@ export function Sheet({ title, onClose, children }: ISheetProps): ReactElement {
   onCloseRef.current = onClose;
 
   useEffect(() => {
+    const token = {};
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    pushSheet(token);
     focusables(sheetRef.current)[0]?.focus();
+    // Every open sheet listens; only the top one acts (sheetStack).
     const onKey = (e: KeyboardEvent): void => {
+      if (!isTopSheet(token)) return;
       if (e.key === 'Escape') onCloseRef.current();
       else if (e.key === 'Tab') trapTab(sheetRef.current, e);
     };
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = overflow;
+      removeSheet(token);
       opener?.focus();
     };
   }, []);
