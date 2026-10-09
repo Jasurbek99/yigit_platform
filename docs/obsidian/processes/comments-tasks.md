@@ -126,7 +126,7 @@ Validation:
 | `POST` | `/comments/{id}/done/` | Mark task done; assignee permission |
 | `POST` | `/comments/{id}/reopen/` | Reopen task; author or assignee |
 
-`/api/v1/core/users/mentionable/?q=&limit=10` — autocomplete for the @ popover. Returns mixed list:
+`/api/v1/core/users/mentionable/?q=&limit=10` — autocomplete for the @ popover (agent-market users and roles `agent` / `agent_seller` are never offered). Returns mixed list:
 ```json
 [
   {"type":"user","id":42,"name":"Ahmet","role":"export_manager"},

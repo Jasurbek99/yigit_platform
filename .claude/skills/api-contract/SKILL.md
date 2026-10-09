@@ -349,7 +349,7 @@ External roles `agent` / `agent_seller` may call **only** `/api/v1/auth/` and `/
 { "id": 52, "username": "seller1", "first_name": "Murat", "last_name": "", "is_active": true,
   "bazaar": { "id": 3, "name": "Alay" } }          // bazaar is null only if unbound
 // POST body: { "username", "password", "first_name", "bazaar_id" }; password and bazaar_id are required,
-//   bazaar_id must be an ACTIVE bazaar of the agent (else 400 "Unknown bazaar.")
+//   bazaar_id must be an ACTIVE bazaar of the agent (else 400 "Неизвестный базар.")
 // PATCH body: first_name, last_name, is_active, password, bazaar_id. username is read-only after create;
 //   role / is_staff / is_superuser cannot be set. A weak or username-like password -> 400 {"password": [...]}.
 // GET /team/sellers/?active=1 lists active sellers only.

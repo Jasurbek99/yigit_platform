@@ -17,7 +17,7 @@ stays `IsAuthenticated`.
 
 A Bitrix-style **visual dashboard** (redesigned from an earlier plain table): a horizontal
 ranking bar chart followed by a responsive grid of per-user KPI cards, one row's worth of
-data per active user, ranked by tasks completed in a selectable period (`today` / `week` /
+data per active staff user (agent-market roles excluded), ranked by tasks completed in a selectable period (`today` / `week` /
 `month` / `season`, `Segmented` control, reflected in `?period=` via `useSearchParams`).
 
 ## Data Source
