@@ -47,7 +47,7 @@ input{font:inherit;color:inherit}
 .mk-btn--quiet{border-color:var(--line)}
 .mk-btn--danger{border-color:var(--tomato);color:var(--tomato)}
 .mk-btn:disabled{opacity:.45;cursor:default}
-.mk-small{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:12px;border:2px solid var(--line);background:var(--card);font-weight:800;font-size:15px}
+.mk-small{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 14px;border-radius:12px;border:2px solid var(--line);background:var(--card);font-weight:800;font-size:15px}
 .mk-small--danger{border-color:var(--tomato);color:var(--tomato)}
 .mk-small--ok{border-color:var(--vine);color:var(--vine)}
 .mk-add{margin-top:12px}
