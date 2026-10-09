@@ -47,7 +47,7 @@ class AgentPermissionSeedTests(TestCase):
                 self.assertEqual(RolePagePermission.objects.filter(role=code).count(), len(PAGE_REGISTRY))
 
     def test_internal_roles_do_not_see_phone_pages(self):
-        for role in ('director', 'export_manager', 'document_team', 'sales_rep', 'boss'):
+        for role in ('admin', 'director', 'export_manager', 'document_team', 'sales_rep', 'boss'):
             with self.subTest(role=role):
                 self.assertFalse(_visible(role) & {'market.home', 'market.team'})
                 self.assertIn('market.agents', _visible(role))
@@ -77,3 +77,16 @@ class AgentPermissionSeedTests(TestCase):
         mig = _perm_migration()
         self.assertEqual(set(mig.AGENT_VISIBLE), PAGE_DEFAULTS['agent'])
         self.assertEqual(set(mig.SELLER_VISIBLE), PAGE_DEFAULTS['agent_seller'])
+
+    def test_fresh_seed_market_pages_match_migration(self):
+        # A fresh seed_permissions DB and a migrated DB (core/0076) must agree.
+        mig = _perm_migration()
+        for code, _ in ROLE_CHOICES:
+            if code == 'agent':
+                expected = set(mig.AGENT_VISIBLE)
+            elif code == 'agent_seller':
+                expected = set(mig.SELLER_VISIBLE)
+            else:
+                expected = {'market.agents'} if code in mig.AGENTS_PAGE_ROLES else set()
+            with self.subTest(role=code):
+                self.assertEqual(_visible(code) & MARKET_PAGES, expected)

@@ -33,3 +33,44 @@ class ExternalRoleFenceTests(TestCase):
 
     def test_internal_roles_not_fenced(self):
         self.assertNotEqual(_cookie_client(self.admin).get('/api/v1/core/countries/').status_code, 403)
+
+
+class ExternalRolesLeftOutOfStaffRostersTests(TestCase):
+    """Agent-market logins are not staff: no @mention, team KPI or worklog row."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = User.objects.create_user(
+            username='roster_staff', password='pw', role='document_team', first_name='Zarina')
+        cls.seller = User.objects.create_user(
+            username='roster_seller', password='pw', role='agent_seller', first_name='Zarema')
+        cls.agent = User.objects.create_user(
+            username='roster_agent', password='pw', role='agent', first_name='Zaur')
+
+    def _client(self):
+        client = APIClient()
+        client.force_authenticate(user=self.staff)
+        return client
+
+    def test_mentionable_skips_external_users_and_roles(self):
+        rows = self._client().get('/api/v1/core/users/mentionable/?q=Za&limit=50').json()
+        user_ids = {r['id'] for r in rows if r['type'] == 'user'}
+        self.assertIn(self.staff.id, user_ids)
+        self.assertNotIn(self.seller.id, user_ids)
+        self.assertNotIn(self.agent.id, user_ids)
+        roles = {r['code'] for r in self._client().get('/api/v1/core/users/mentionable/?q=agent').json()
+                 if r['type'] == 'role'}
+        self.assertFalse(roles & {'agent', 'agent_seller'})
+
+    def test_team_kpi_roster_skips_external_users(self):
+        from apps.core.services_team_kpi import compute_team_kpi
+        ids = {r['user_id'] for r in compute_team_kpi('week')}
+        self.assertIn(self.staff.id, ids)
+        self.assertNotIn(self.seller.id, ids)
+        self.assertNotIn(self.agent.id, ids)
+
+    def test_worklog_team_skips_external_users(self):
+        names = {r['user_name'] for r in self._client().get('/api/v1/core/worklog/team/').json()['results']}
+        self.assertIn('Zarina', names)
+        self.assertNotIn('Zarema', names)
+        self.assertNotIn('Zaur', names)

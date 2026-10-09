@@ -95,8 +95,9 @@ _BOSS_DEAD_PAGES = {
 
 PAGE_DEFAULTS: dict[str, set[str]] = {
     # admin: sole top-tier system administrator. Sees every page including
-    # the permission matrix and admin pages. See AD-15.
-    'admin': _ALL_PAGES,
+    # the permission matrix and admin pages. See AD-15. The market phone pages
+    # are the agents' own (core/0076 leaves them hidden for admin too).
+    'admin': _ALL_PAGES - _MARKET_PHONE_PAGES,
     # director loses admin.* pages with AD-15 — operational role only.
     # analytics.boss, audit_log, director.stuck_shipments and the feedback pages
     # survive because their prefixes are not 'admin.'. feedback.admin_inbox is
