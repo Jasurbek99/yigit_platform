@@ -55,7 +55,8 @@ class AgentPermissionSeedTests(TestCase):
     def test_resource_grants(self):
         self.assertEqual(_flags('agent', 'market_team'), (True, True, True, True))
         self.assertEqual(_flags('sales_rep', 'market_agent'), (True, True, True, False))
-        for role in ('director', 'export_manager', 'document_team'):
+        # boss is read-only on the market too (spec §3).
+        for role in ('director', 'export_manager', 'document_team', 'boss'):
             with self.subTest(role=role):
                 self.assertEqual(_flags(role, 'market_agent'), (True, False, False, False))
                 self.assertEqual(_flags(role, 'market_team'), (True, False, False, False))

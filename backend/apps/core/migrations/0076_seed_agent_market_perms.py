@@ -52,7 +52,8 @@ RESOURCE_GRANTS = {
     # rejects a matrix with a missing role).
     ('agent_seller', 'market_team'): NONE,
     ('admin', 'market_agent'): VCRUD, ('admin', 'market_team'): VCRUD,
-    ('boss', 'market_agent'): VCRUD, ('boss', 'market_team'): VCRUD,
+    # boss is read-only on the market (agent-market spec §3).
+    ('boss', 'market_agent'): VIEW, ('boss', 'market_team'): VIEW,
     ('sales_rep', 'market_agent'): VCE,
     **{(r, res): VIEW for r in ('director', 'export_manager', 'document_team')
        for res in ('market_agent', 'market_team')},

@@ -22,6 +22,8 @@ class TeamApiTests(TestCase):
         AgentMember.objects.create(user=cls.other_agent, customer=cls.other)
         cls.foreign_bazaar = Bazaar.objects.create(customer=cls.other, name='Чужой')
         cls.boss = User.objects.create_user(username='tm_boss', password='pw', role='boss')
+        # admin holds create on market_team, so the agent-only rule (not the matrix) refuses it.
+        cls.admin = User.objects.create_user(username='tm_adm', password='pw', role='admin')
 
     def _as(self, user):
         c = APIClient()
@@ -81,7 +83,7 @@ class TeamApiTests(TestCase):
 
     def test_boss_reads_but_cannot_write_team(self):
         self.assertEqual(self._as(self.boss).get('/api/v1/market/team/bazaars/').status_code, 200)
-        # boss holds VCRUD by convention, but team writes are the agent's own:
+        # boss is read-only on market_team (spec §3), so the matrix refuses the write:
         resp = self._as(self.boss).post('/api/v1/market/team/bazaars/', {'name': 'x'}, format='json')
         self.assertEqual(resp.status_code, 403)
 
@@ -204,8 +206,12 @@ class TeamApiTests(TestCase):
         anonymous = APIClient().get('/api/v1/market/me/')
         self.assertIn(anonymous.status_code, (401, 403))
         self.assertRegex(anonymous.json()['error'], cyrillic)
-        denied = self._as(self.boss).post('/api/v1/market/team/bazaars/', {'name': 'x'}, format='json')
+        denied = self._as(self.admin).post('/api/v1/market/team/bazaars/', {'name': 'x'}, format='json')
+        self.assertEqual(denied.status_code, 403)
         self.assertEqual(denied.json()['error'], 'Командой управляет только агент.')
+        read_only = self._as(self.boss).post('/api/v1/market/team/bazaars/', {'name': 'x'}, format='json')
+        self.assertEqual(read_only.status_code, 403)
+        self.assertRegex(read_only.json()['error'], cyrillic)
 
     def test_seller_login_changes_are_audited_without_the_password(self):
         audit = apps.get_model('export', 'AuditLog').objects.filter(model_name='SellerLogin')

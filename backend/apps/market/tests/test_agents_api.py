@@ -18,6 +18,7 @@ class AgentLoginsApiTests(TestCase):
         cls.other_rep = User.objects.create_user(username='al_rep2', password='pw', role='sales_rep')
         cls.admin = User.objects.create_user(username='al_adm', password='pw', role='admin')
         cls.director = User.objects.create_user(username='al_dir', password='pw', role='director')
+        cls.boss = User.objects.create_user(username='al_boss', password='pw', role='boss')
         cls.cust = Customer.objects.create(name='Агент К', sales_rep=cls.rep)
         cls.foreign = Customer.objects.create(name='Агент Ч', sales_rep=cls.other_rep)
 
@@ -46,6 +47,13 @@ class AgentLoginsApiTests(TestCase):
     def test_director_is_read_only(self):
         self.assertEqual(self._as(self.director).get(URL).status_code, 200)
         self.assertEqual(self._as(self.director).post(URL, self._body(self.cust), format='json').status_code, 403)
+
+    def test_boss_is_read_only(self):
+        # Spec §3: boss sees everything, read only; agent logins are created by admin / sales rep.
+        self.assertEqual(self._as(self.boss).get(URL).status_code, 200)
+        resp = self._as(self.boss).post(URL, self._body(self.cust), format='json')
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(User.objects.filter(username='agent_k').exists())
 
     def test_list_is_scoped_for_rep(self):
         self._as(self.admin).post(URL, self._body(self.cust, 'a1'), format='json')

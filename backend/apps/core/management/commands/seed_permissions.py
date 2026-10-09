@@ -414,7 +414,10 @@ RESOURCE_DEFAULTS: dict[str, dict[str, tuple[bool, bool, bool, bool]]] = {
     # frontend view/edit toggle, not in the permission matrix (2026-08-05).
     # Three carve-outs, all mirrored in core migration 0033:
     'boss': {
-        **{r: _VCRUD for r in _ALL_RESOURCES},
+        **{r: _VCRUD for r in _ALL_RESOURCES - _MARKET_RESOURCES},
+        # Agent market: boss reads everything, writes nothing — agent logins are
+        # created by admin / sales rep (agent-market spec §3; mirrored in core/0076).
+        **{r: _VIEW for r in _MARKET_RESOURCES},
         # closed_season: read-only by design (D1), same carve-out admin has.
         'closed_season': _VIEW,
         # truck_split_default: read-only — only the director may change the
