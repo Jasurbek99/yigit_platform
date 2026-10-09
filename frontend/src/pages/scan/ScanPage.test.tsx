@@ -7,6 +7,12 @@ import api from '@/services/api';
 import ScanPage from './ScanPage';
 
 vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+// ProtectedRoute has already loaded the user by the time ScanPage renders.
+const mockAuth = vi.hoisted(() => {
+  const state: { user: { role: string } | null } = { user: { role: 'transport' } };
+  return state;
+});
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: mockAuth.user, isLoading: false, isError: false }) }));
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
@@ -46,7 +52,28 @@ const OPEN_STEP = {
 };
 
 describe('ScanPage', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.user = { role: 'transport' };
+  });
+
+  it.each(['agent_seller', 'agent'])(
+    'forwards %s to the market QR claim without touching the export API',
+    async (role) => {
+      mockAuth.user = { role };
+      const replace = vi.fn();
+      vi.stubGlobal('location', { ...window.location, replace });
+      try {
+        renderAt('5');
+        await waitFor(() => expect(replace).toHaveBeenCalledWith('/m/scan/5'));
+        const urls = vi.mocked(api.get).mock.calls.map((c) => String(c[0]));
+        expect(urls.filter((u) => u.includes('/export/'))).toEqual([]);
+        expect(api.post).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 
   it('shows the truck and its current status', async () => {
     (api.get as any).mockResolvedValue({ data: OPEN_STEP });

@@ -4366,7 +4366,8 @@
       "submit": "Giriş",
       "required": "Logini we paroly giriziň",
       "bad_credentials": "Login ýa-da parol nädogry",
-      "error": "Girip bolmady. Internedi barlaň."
+      "error": "Girip bolmady. Gaýtadan synanyşyň.",
+      "offline": "Aragatnaşyk ýok. Internedi barlaň."
     },
     "team": {
       "title": "Topar",
@@ -4394,6 +4395,15 @@
       "required": "Bu meýdany dolduryň",
       "save_error": "Ýatda saklamak başa barmady",
       "password_hint": "Telefondaky köne giriş 8 sagada çenli işlemegini dowam etdirer. Girişi derrew ýapmak üçin «Öçürmek» düwmesine basyň."
+    },
+    "scan": {
+      "opening": "Maşyn açylýar…",
+      "error": "Maşyny açyp bolmady. Internedi barlaň.",
+      "to_lots": "Maşynlara"
+    },
+    "fmt": {
+      "boxes_one": "{{count}} ýäşik",
+      "boxes_other": "{{count}} ýäşik"
     }
   }
 }

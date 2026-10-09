@@ -4363,7 +4363,8 @@
       "submit": "Sign in",
       "required": "Enter the login and password",
       "bad_credentials": "Wrong login or password",
-      "error": "Could not sign in. Check the internet."
+      "error": "Could not sign in. Try again.",
+      "offline": "No connection. Check the internet."
     },
     "team": {
       "title": "Team",
@@ -4391,6 +4392,15 @@
       "required": "Fill in this field",
       "save_error": "Could not save",
       "password_hint": "The old login on the phone keeps working for up to 8 hours. To cut access right away, press «Disable»."
+    },
+    "scan": {
+      "opening": "Opening the truck…",
+      "error": "Could not open the truck. Check the internet.",
+      "to_lots": "To the trucks"
+    },
+    "fmt": {
+      "boxes_one": "{{count}} box",
+      "boxes_other": "{{count}} boxes"
     }
   }
 }

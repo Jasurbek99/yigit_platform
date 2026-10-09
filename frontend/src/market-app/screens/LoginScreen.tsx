@@ -18,6 +18,13 @@ function marketNext(next: string | null): string | null {
   return safe.slice(2);
 }
 
+/** 400 / 401 = wrong login or password; no answer at all = no connection. */
+function loginErrorKey(status: number | undefined): string {
+  if (status === 400 || status === 401) return 'market.login.bad_credentials';
+  if (status === undefined) return 'market.login.offline';
+  return 'market.login.error';
+}
+
 export default function LoginScreen(): ReactElement {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -44,7 +51,7 @@ export default function LoginScreen(): ReactElement {
         window.location.replace('/');
       }
     } catch (err) {
-      setError(httpStatus(err) === 401 ? t('market.login.bad_credentials') : t('market.login.error'));
+      setError(t(loginErrorKey(httpStatus(err))));
       setBusy(false);
     }
   };
