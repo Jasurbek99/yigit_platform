@@ -1,3 +1,6 @@
+import re
+
+from django.apps import apps
 from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -162,3 +165,65 @@ class TeamApiTests(TestCase):
             f'/api/v1/market/team/sellers/{sid}/', {'bazaar_id': self.foreign_bazaar.pk}, format='json')
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(User.objects.get(pk=sid).agent_member.bazaar_id, created['bazaar']['id'])
+
+    def test_password_with_edge_whitespace_rejected(self):
+        bazaar_id = self._bazaar().json()['id']
+        resp = self._as(self.agent).post('/api/v1/market/team/sellers/', {
+            'username': 'seller_ws', 'password': 'Pass-1234 ', 'first_name': 'W', 'bazaar_id': bazaar_id,
+        }, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()['password'], ['Пароль не может начинаться или заканчиваться пробелом.'])
+        self.assertFalse(User.objects.filter(username='seller_ws').exists())
+
+    def test_whitespace_password_rejected_on_reset(self):
+        sid = self._seller('seller_wr').json()['id']
+        resp = self._as(self.agent).patch(
+            f'/api/v1/market/team/sellers/{sid}/', {'password': ' Another-Pass-82'}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('password', resp.json())
+
+    def test_created_seller_can_log_in(self):
+        self._seller('seller_li')
+        login = APIClient().post(
+            '/api/v1/auth/login/', {'username': 'seller_li', 'password': 'Strong-Pass-71'}, format='json')
+        self.assertEqual(login.status_code, 200, login.content)
+
+    def test_errors_are_in_russian(self):
+        cyrillic = re.compile('[А-Яа-яЁё]')
+        bazaar_id = self._bazaar().json()['id']
+        short = self._as(self.agent).post('/api/v1/market/team/sellers/', {
+            'username': 'seller_sh', 'password': 'Ab-1', 'first_name': 'S', 'bazaar_id': bazaar_id,
+        }, format='json')
+        self.assertEqual(short.status_code, 400)
+        self.assertRegex(short.json()['password'][0], cyrillic)
+        # A DRF built-in message too, not only our own literals.
+        missing = self._as(self.agent).patch(
+            f'/api/v1/market/team/bazaars/{self.foreign_bazaar.pk}/', {'name': 'x'}, format='json')
+        self.assertEqual(missing.status_code, 404)
+        self.assertRegex(missing.json()['error'], cyrillic)
+        anonymous = APIClient().get('/api/v1/market/me/')
+        self.assertIn(anonymous.status_code, (401, 403))
+        self.assertRegex(anonymous.json()['error'], cyrillic)
+        denied = self._as(self.boss).post('/api/v1/market/team/bazaars/', {'name': 'x'}, format='json')
+        self.assertEqual(denied.json()['error'], 'Командой управляет только агент.')
+
+    def test_seller_login_changes_are_audited_without_the_password(self):
+        audit = apps.get_model('export', 'AuditLog').objects.filter(model_name='SellerLogin')
+        sid = self._seller('seller_au').json()['id']
+        self.assertTrue(audit.filter(action='create', object_id=sid, user=self.agent).exists())
+        self._as(self.agent).patch(f'/api/v1/market/team/sellers/{sid}/', {'password': 'Another-Pass-82'}, format='json')
+        self.assertTrue(audit.filter(action='update', object_id=sid, detail='password reset').exists())
+        self._as(self.agent).patch(f'/api/v1/market/team/sellers/{sid}/', {'is_active': False}, format='json')
+        self.assertTrue(audit.filter(action='update', object_id=sid, detail='is_active → False').exists())
+        for detail in audit.values_list('detail', flat=True):
+            self.assertNotIn('Pass', detail)
+
+
+class MarketViewsSpeakRussianTests(TestCase):
+
+    def test_every_market_view_uses_the_russian_mixin(self):
+        from apps.market import views
+        from apps.market.views.base import RussianMixin
+        for name in views.__all__:
+            with self.subTest(view=name):
+                self.assertTrue(issubclass(getattr(views, name), RussianMixin))

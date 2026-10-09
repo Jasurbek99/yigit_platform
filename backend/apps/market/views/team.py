@@ -9,9 +9,10 @@ from apps.core.permissions import DynamicResourcePermission
 from apps.market.models import Bazaar
 from apps.market.scoping import customer_ids_for, member_of
 from apps.market.serializers.team import BazaarSerializer, SellerSerializer
+from apps.market.views.base import LoginAuditMixin, RussianMixin
 
 
-class _TeamBase(mixins.ListModelMixin, mixins.CreateModelMixin,
+class _TeamBase(RussianMixin, mixins.ListModelMixin, mixins.CreateModelMixin,
                 mixins.UpdateModelMixin, viewsets.GenericViewSet):
     resource_code = 'market_team'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
@@ -25,7 +26,7 @@ class _TeamBase(mixins.ListModelMixin, mixins.CreateModelMixin,
         """Team writes belong to the agent itself — staff only read."""
         member = member_of(self.request.user)
         if self.request.user.role != 'agent' or member is None:
-            raise PermissionDenied('Only the agent manages its team.')
+            raise PermissionDenied('Командой управляет только агент.')
         return member.customer
 
     def get_serializer_context(self):
@@ -45,8 +46,9 @@ class BazaarViewSet(_TeamBase):
         serializer.save(customer=self._own_customer())
 
 
-class SellerViewSet(_TeamBase):
+class SellerViewSet(LoginAuditMixin, _TeamBase):
     serializer_class = SellerSerializer
+    audit_model = 'SellerLogin'
 
     def get_queryset(self):
         qs = User.objects.filter(role='agent_seller', agent_member__isnull=False).select_related('agent_member__bazaar')
@@ -55,7 +57,7 @@ class SellerViewSet(_TeamBase):
         return self._scope(qs, 'agent_member__customer_id').order_by('first_name', 'username')
 
 
-class MarketMeView(APIView):
+class MarketMeView(RussianMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

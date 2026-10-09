@@ -6,15 +6,17 @@ from apps.core.models import User
 from apps.core.permissions import DynamicResourcePermission
 from apps.market.scoping import customer_ids_for
 from apps.market.serializers.agents import AgentLoginSerializer
+from apps.market.views.base import LoginAuditMixin, RussianMixin
 
 
-class AgentLoginViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
+class AgentLoginViewSet(RussianMixin, LoginAuditMixin, mixins.ListModelMixin, mixins.CreateModelMixin,
                         mixins.UpdateModelMixin, viewsets.GenericViewSet):
     """Our staff create and manage agent logins (role `agent`)."""
 
     resource_code = 'market_agent'
     permission_classes = [IsAuthenticated, DynamicResourcePermission]
     serializer_class = AgentLoginSerializer
+    audit_model = 'AgentLogin'
     http_method_names = ['get', 'post', 'patch']
 
     def get_queryset(self):
@@ -28,5 +30,5 @@ class AgentLoginViewSet(mixins.ListModelMixin, mixins.CreateModelMixin,
         ids = customer_ids_for(self.request.user)
         customer = serializer.validated_data['customer_obj']
         if ids is not None and customer.pk not in ids:
-            raise PermissionDenied('Not your customer.')
-        serializer.save()
+            raise PermissionDenied('Это не ваш клиент.')
+        super().perform_create(serializer)

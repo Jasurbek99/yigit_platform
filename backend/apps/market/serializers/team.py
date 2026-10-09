@@ -1,10 +1,9 @@
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
 from apps.core.models import City, User
 from apps.market.models import AgentMember, Bazaar
+from apps.market.passwords import check_login_password
 
 
 class BazaarSerializer(serializers.ModelSerializer):
@@ -16,7 +15,7 @@ class BazaarSerializer(serializers.ModelSerializer):
 
     def validate_city_id(self, value):
         if value is not None and not City.objects.filter(pk=value).exists():
-            raise serializers.ValidationError('Unknown city.')
+            raise serializers.ValidationError('Неизвестный город.')
         return value
 
     def validate_name(self, value):
@@ -26,7 +25,7 @@ class BazaarSerializer(serializers.ModelSerializer):
         if self.instance is not None:
             clash = clash.exclude(pk=self.instance.pk)
         if customer is not None and clash.exists():
-            raise serializers.ValidationError('A bazaar with this name already exists.')
+            raise serializers.ValidationError('Базар с таким названием уже есть.')
         return value
 
 
@@ -53,22 +52,18 @@ class SellerSerializer(serializers.ModelSerializer):
     def validate_bazaar_id(self, value):
         customer = self.context['customer']
         if not Bazaar.objects.filter(pk=value, customer=customer, is_active=True).exists():
-            raise serializers.ValidationError('Unknown bazaar.')
+            raise serializers.ValidationError('Неизвестный базар.')
         return value
 
     def validate(self, attrs):
         if self.instance is None:
             for key in ('password', 'bazaar_id'):
                 if not attrs.get(key):
-                    raise serializers.ValidationError({key: 'Required.'})
+                    raise serializers.ValidationError({key: 'Обязательное поле.'})
         password = attrs.get('password')
         if password:
-            candidate = self.instance or User(
-                username=attrs.get('username', ''), first_name=attrs.get('first_name', ''))
-            try:
-                validate_password(password, user=candidate)
-            except DjangoValidationError as e:
-                raise serializers.ValidationError({'password': list(e.messages)})
+            check_login_password(password, self.instance or User(
+                username=attrs.get('username', ''), first_name=attrs.get('first_name', '')))
         return attrs
 
     @transaction.atomic
