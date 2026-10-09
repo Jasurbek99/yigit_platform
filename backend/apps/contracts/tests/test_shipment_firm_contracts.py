@@ -89,7 +89,34 @@ class LinkServiceTest(TestCase):
         self.assertEqual(sale.shipment_id, self.shipment.id)
         self.assertEqual(sale.quantity_kg, Decimal('9000.00'))
         self.assertEqual(sale.total_usd, Decimal('8000.00'))
-        self.assertIsNone(sale.invoice_number)  # filled later by a person
+        self.assertEqual(sale.invoice_number, 1)  # YGT's first number this year
+        self.assertEqual(sale.invoice_date, datetime.date(2025, 9, 22))  # the truck's date
+
+    def test_link_numbers_above_the_firm_floor(self) -> None:
+        from apps.contracts.models import InvoiceNumberBase
+        InvoiceNumberBase.objects.create(export_firm=self.ygt, year=2025, last_number=40)
+        sale = link_split_to_contract(
+            shipment=self.shipment, export_firm_id=self.ygt.id,
+            mode='one_time', contract_id=None, user=self.user, price_per_kg='0.90',
+        )
+        self.assertEqual(sale.invoice_number, 41)
+
+    def test_relink_to_another_contract_keeps_the_number(self) -> None:
+        first = link_split_to_contract(
+            shipment=self.shipment, export_firm_id=self.ygt.id,
+            mode='one_time', contract_id=None, user=self.user, price_per_kg='0.90',
+        )
+        fw = Contract.objects.create(
+            contract_number='6/25-YGT-EXP', seq=6, contract_year=2025,
+            contract_type=Contract.TYPE_FRAMEWORK,
+            export_firm=self.ygt, import_firm=self.buyer, season=_season(),
+        )
+        again = link_split_to_contract(
+            shipment=self.shipment, export_firm_id=self.ygt.id,
+            mode='framework', contract_id=fw.id, user=self.user,
+        )
+        self.assertEqual(again.pk, first.pk)
+        self.assertEqual(again.invoice_number, first.invoice_number)
 
     def test_framework_link_reuses_existing(self) -> None:
         fw = Contract.objects.create(

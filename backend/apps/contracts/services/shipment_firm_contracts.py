@@ -7,7 +7,8 @@ truck) is bridged to a Contract via a ContractSale row keyed by
     pair, or
   - creates a new **one_time** contract (auto-numbered, no passport).
 
-The invoice number/date are left blank — a person fills them at document time.
+The sale gets its invoice number and date here (services/invoice_number.py); a
+re-link to another contract of the same firm keeps them.
 
 This lives in ``contracts`` (which may import ``export``); the export-side
 firm-split code must never call into contracts (dependency direction).
@@ -22,6 +23,7 @@ from django.db.models import Q
 
 from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.contract_number import next_contract_no
+from apps.contracts.services.invoice_number import ensure_invoice_number
 from apps.contracts.services.letter_number import ensure_letter_numbers
 from apps.core.models import ExportFirm, ProductType
 from apps.export.models import PackingTemplateShare, Shipment, ShipmentFirmSplit
@@ -249,7 +251,6 @@ def link_split_to_contract(
         'import_firm_id': shipment.import_firm_id,
         'quantity_kg': split.weight_kg,
         'total_usd': split.amount_usd,
-        # invoice_number / invoice_date stay NULL — filled later by a person.
     }
     if price is not None:
         # The operator just agreed this price for this truck, so it belongs on the
@@ -266,6 +267,10 @@ def link_split_to_contract(
         defaults=defaults,
     )
     _fill_packing_from_template(sale, shipment)
+    # Per-firm/year invoice number, given once — a re-link (another contract of
+    # the same firm) keeps it, since the counter is the firm's, not the contract's.
+    # Before the letter numbers: they take their year from the invoice date.
+    ensure_invoice_number(sale)
     ensure_letter_numbers(sale)
     return sale
 

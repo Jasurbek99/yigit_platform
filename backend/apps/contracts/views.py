@@ -54,6 +54,7 @@ from apps.contracts.services.document_render import (
 # One definition of the per-firm packing columns and of the firm ↔ share rule,
 # shared with the contract-link service — the two write the same sale fields and
 # must never drift into printing one firm's boxes on another firm's invoice.
+from apps.contracts.services.invoice_number import ensure_invoice_number, mark_invoice_printed
 from apps.contracts.services.letter_number import (
     LETTER_TYPE_FOR_KEY, SALE_FIELD, ensure_letter_numbers, number_taken,
 )
@@ -568,6 +569,10 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
         if _requires_place_loading(doc_type) and _place_loading_missing(request):
             return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
 
+        is_invoice = doc_type.startswith('invoice')
+        if is_invoice:
+            # Fallback for sales created before auto-numbering or by hand.
+            invoice = ensure_invoice_number(invoice)
         if doc_type in LETTER_TYPE_FOR_KEY:
             invoice = ensure_letter_numbers(invoice)
 
@@ -579,6 +584,9 @@ class ContractSaleViewSet(SeasonScopedMixin, ModelViewSet):
             return Response({'error': str(exc)}, status=400)
         except DocumentRenderError as exc:
             return Response({'error': str(exc)}, status=503)
+
+        if is_invoice:
+            mark_invoice_printed([invoice.pk])
 
         doc_key = {'ct1_ru': 'ct1', 'fito_ru': 'phyto', 'customs_tk': 'customs_request'}.get(doc_type)
         if doc_key and invoice.shipment_id:
@@ -602,6 +610,15 @@ PLACE_LOADING_REQUIRED_MESSAGE = (
 def _place_loading_missing(request) -> bool:
     """Whether the request omitted the generate-time loading point."""
     return not request.query_params.get('place_loading', '').strip()
+
+
+def _number_truck_invoices(shipment) -> None:
+    """CMR and TIR carnet print every invoice number on the truck — give the
+    truck's unnumbered live sales theirs first (mutates the prefetched rows the
+    document renders)."""
+    for sale in shipment.sales.all():
+        if sale.status != ContractSale.STATUS_VOID:
+            ensure_invoice_number(sale)
 
 
 # Only these ask the operator for a loading point in the UI, so only these may
@@ -665,6 +682,7 @@ class ShipmentCmrView(APIView):
             return Response(
                 {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing}, status=400,
             )
+        _number_truck_invoices(shipment)
 
         try:
             data, filename, content_type = generate(
@@ -724,6 +742,7 @@ class ShipmentTirView(APIView):
             return Response(
                 {'error': PACKING_REQUIRED_MESSAGE, 'missing_packing': missing}, status=400,
             )
+        _number_truck_invoices(shipment)
 
         requested = request.query_params.get('drivers', '')
         two_drivers = (requested == '2') if requested in ('1', '2') else bool(
@@ -801,7 +820,9 @@ class ShipmentPacketZipView(APIView):
         active_sales = [s for s in shipment.sales.all() if s.status != ContractSale.STATUS_VOID]
         if _place_loading_missing(request):
             return Response({'error': PLACE_LOADING_REQUIRED_MESSAGE}, status=400)
-        active_sales = [ensure_letter_numbers(s) for s in active_sales]
+        # Same prefetched rows the CMR in the zip renders from; invoice number
+        # first, since the letter numbers take their year from the invoice date.
+        active_sales = [ensure_letter_numbers(ensure_invoice_number(s)) for s in active_sales]
 
         try:
             data = generate_packet_zip(
@@ -812,6 +833,7 @@ class ShipmentPacketZipView(APIView):
         except DocumentRenderError as exc:
             return Response({'error': str(exc)}, status=503)
 
+        mark_invoice_printed([sale.pk for sale in active_sales])
         # The letters are per sale: with every sale void the packet is the CMR alone.
         _mark_downloaded(
             shipment, ['cmr'] + (['ct1', 'phyto', 'customs_request'] if active_sales else []), request.user,
