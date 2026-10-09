@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
+import { EXTERNAL_ROLES } from '@/constants/roles';
+import type { UserRole } from '@/types';
 import { useMarketMe, useMarketUserName } from '../hooks/useMarketMe';
 
 async function logout() {
@@ -18,8 +21,14 @@ export default function Shell() {
   const { t } = useTranslation();
   const me = useMarketMe();
   const userName = useMarketUserName();
+  // Staff belong in the main app.
+  const isStaff = Boolean(me.data && !EXTERNAL_ROLES.includes(me.data.role as UserRole));
 
-  if (me.isLoading) {
+  useEffect(() => {
+    if (isStaff) window.location.replace('/');
+  }, [isStaff]);
+
+  if (me.isLoading || isStaff) {
     return (
       <div className="mk-loading">
         <i className="mk-loading-dot" />

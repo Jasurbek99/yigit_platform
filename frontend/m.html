@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;600;800&family=Sofia+Sans+Condensed:wght@700;900&display=swap" rel="stylesheet" />
+    <!-- Runs before any module: i18n init writes ygt_lang, so read now whether the user chose a language. -->
+    <script>document.documentElement.dataset.langChosen = /(?:^|; )ygt_lang=/.test(document.cookie) ? 'yes' : 'no';</script>
   </head>
   <body>
     <div id="root"></div>
