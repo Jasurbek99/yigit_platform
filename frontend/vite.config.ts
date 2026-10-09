@@ -2,8 +2,25 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
+// `npm run dev`: /m/... deep links of the agent market app serve m.html (nginx
+// does the same in production with `location /m/`).
+const marketAppFallback = {
+  name: 'market-app-fallback',
+  configureServer(server: import('vite').ViteDevServer) {
+    server.middlewares.use((req, _res, next) => {
+      if (req.url && (req.url === '/m' || (req.url.startsWith('/m/') && !req.url.includes('.')))) req.url = '/m.html';
+      next();
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), marketAppFallback],
+  build: {
+    rollupOptions: {
+      input: { main: resolve(__dirname, 'index.html'), m: resolve(__dirname, 'm.html') },
+    },
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

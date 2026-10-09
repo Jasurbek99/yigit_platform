@@ -4344,6 +4344,52 @@
       "created": "Login döredildi",
       "password_changed": "Parol çalşyryldy",
       "save_error": "Ýatda saklamak başa barmady"
+    },
+    "shell": {
+      "brand": "Satuw",
+      "logout": "Çykmak",
+      "nav_lots": "Maşynlar",
+      "nav_team": "Topar",
+      "loading": "Ýüklenýär…",
+      "load_error": "Ýükläp bolmady. Internedi barlaň we sahypany täzeläň.",
+      "empty_title": "Häzirlikçe maşyn ýok",
+      "empty_text": "Maşynlar bazaryňyza iberilende şu ýerde peýda bolar."
+    },
+    "login": {
+      "title": "Satuw",
+      "subtitle": "Agentler we satyjylar üçin giriş",
+      "username": "Login",
+      "password": "Parol",
+      "submit": "Giriş",
+      "required": "Logini we paroly giriziň",
+      "bad_credentials": "Login ýa-da parol nädogry",
+      "error": "Girip bolmady. Internedi barlaň."
+    },
+    "team": {
+      "title": "Topar",
+      "bazaars": "Bazarlar",
+      "add_bazaar": "Bazar goşmak",
+      "bazaar_name": "Bazaryň ady",
+      "no_bazaars": "Häzirlikçe bazar ýok",
+      "sellers": "Satyjylar",
+      "add_seller": "Satyjy goşmak",
+      "no_sellers": "Häzirlikçe satyjy ýok",
+      "need_bazaar": "Ilki bazar goşuň.",
+      "username": "Login",
+      "password": "Parol",
+      "first_name": "Ady",
+      "bazaar": "Bazar",
+      "choose_bazaar": "Bazary saýlaň",
+      "save": "Ýatda saklamak",
+      "cancel": "Ýatyrmak",
+      "change_password": "Paroly çalyşmak",
+      "new_password": "Täze parol",
+      "disable": "Öçürmek",
+      "enable": "Açmak",
+      "active": "Işleýär",
+      "inactive": "Öçürilen",
+      "required": "Bu meýdany dolduryň",
+      "save_error": "Ýatda saklamak başa barmady"
     }
   }
 }

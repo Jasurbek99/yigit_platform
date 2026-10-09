@@ -1,0 +1,13 @@
+/* Agent market colour tokens — verbatim from the artifact (spec §9). */
+:root{
+  --bg:#F2F5F0; --card:#FFFFFF; --ink:#18261E; --muted:#56665C; --line:#D2DBD3;
+  --tomato:#D4271D; --tomato-ink:#FFFFFF; --vine:#1B7438; --vine-soft:#E1F1E5;
+  --crate:#8F5C00; --crate-soft:#FAEED3; --empty:#E2E8E2; --focus:#1463D8; --shade:rgba(12,22,16,.55);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0F1512; --card:#19221D; --ink:#EDF2ED; --muted:#9DADA2; --line:#2E3C34;
+    --tomato:#FF6A5E; --tomato-ink:#2A0A07; --vine:#55C982; --vine-soft:#173123;
+    --crate:#E6B255; --crate-soft:#35290F; --empty:#27332C; --focus:#7FB2FF; --shade:rgba(0,0,0,.65);
+  }
+}

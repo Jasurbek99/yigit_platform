@@ -4341,6 +4341,52 @@
       "created": "Login created",
       "password_changed": "Password changed",
       "save_error": "Could not save"
+    },
+    "shell": {
+      "brand": "Sales",
+      "logout": "Log out",
+      "nav_lots": "Trucks",
+      "nav_team": "Team",
+      "loading": "Loading…",
+      "load_error": "Could not load. Check the internet and reload the page.",
+      "empty_title": "No trucks yet",
+      "empty_text": "Trucks appear here once they are sent to your bazaar."
+    },
+    "login": {
+      "title": "Sales",
+      "subtitle": "Sign in for agents and sellers",
+      "username": "Login",
+      "password": "Password",
+      "submit": "Sign in",
+      "required": "Enter the login and password",
+      "bad_credentials": "Wrong login or password",
+      "error": "Could not sign in. Check the internet."
+    },
+    "team": {
+      "title": "Team",
+      "bazaars": "Bazaars",
+      "add_bazaar": "Add bazaar",
+      "bazaar_name": "Bazaar name",
+      "no_bazaars": "No bazaars yet",
+      "sellers": "Sellers",
+      "add_seller": "Add seller",
+      "no_sellers": "No sellers yet",
+      "need_bazaar": "Add a bazaar first.",
+      "username": "Login",
+      "password": "Password",
+      "first_name": "Name",
+      "bazaar": "Bazaar",
+      "choose_bazaar": "Choose a bazaar",
+      "save": "Save",
+      "cancel": "Cancel",
+      "change_password": "Change password",
+      "new_password": "New password",
+      "disable": "Disable",
+      "enable": "Enable",
+      "active": "Active",
+      "inactive": "Disabled",
+      "required": "Fill in this field",
+      "save_error": "Could not save"
     }
   }
 }
