@@ -288,3 +288,62 @@ class InvoiceDownloadNumberingTest(_SeededPermsMixin, TestCase):
         self.sale.refresh_from_db()
         self.assertEqual(self.sale.invoice_number, 1)
         self.assertIsNotNone(self.sale.invoice_printed_at)
+
+
+class ManualSaleNumberingApiTest(_SeededPermsMixin, TestCase):
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.client.force_authenticate(user=_make_user('inv_num_api', 'export_manager'))
+        self.season = _make_season()
+        imp = _make_import_firm('IMPNUMAPI')
+        self.firm = _make_export_firm('NUMAPI')
+        self.c1 = _make_contract('NUMAPI-1', self.firm, imp, self.season)
+        self.c2 = _make_contract('NUMAPI-2', self.firm, imp, self.season)
+
+    def _post(self, **extra):
+        payload = {'contract': self.c1.pk, 'invoice_date': '2025-10-02', 'total_usd': '500.00', **extra}
+        return self.client.post('/api/v1/contracts/sales/', payload, format='json')
+
+    def test_blank_number_takes_the_firms_next(self) -> None:
+        InvoiceNumberBase.objects.create(export_firm=self.firm, year=2025, last_number=9)
+        resp = self._post()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()['invoice_number'], 10)
+
+    def test_number_taken_on_another_contract_of_the_firm_is_400(self) -> None:
+        _sale(self.c2, 12, '2025-03-01')
+        resp = self._post(invoice_number=12)
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn('invoice_number', resp.json())
+
+    def test_same_number_in_another_year_is_fine(self) -> None:
+        _sale(self.c2, 12, '2024-03-01')
+        resp = self._post(invoice_number=12)
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+    def test_status_patch_does_not_clash_with_itself(self) -> None:
+        sale = _sale(self.c1, 15, '2025-10-02')
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/?season={self.season.pk}', {'status': 'paid'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+    def test_moving_the_date_into_a_clashing_year_is_400(self) -> None:
+        _sale(self.c2, 15, '2026-02-01')
+        sale = _sale(self.c1, 15, '2025-10-02')
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/?season={self.season.pk}',
+            {'invoice_date': '2026-01-05'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.content)
+
+    def test_editing_a_legacy_duplicate_without_touching_its_number_is_fine(self) -> None:
+        # Before per-firm numbering, numbers were unique per contract only — live
+        # data holds firm/year duplicates, and they must stay editable.
+        _sale(self.c2, 1, '2025-03-01')
+        sale = _sale(self.c1, 1, '2025-10-02')
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/?season={self.season.pk}',
+            {'status': 'paid', 'invoice_number': 1, 'contract': self.c1.pk}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)

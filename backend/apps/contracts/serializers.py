@@ -14,6 +14,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.core.models import ProductType
@@ -30,6 +31,7 @@ from apps.contracts.services.contract_number import (
     next_contract_no,
     parse_contract_number,
 )
+from apps.contracts.services.invoice_number import ensure_invoice_number
 from apps.contracts.services.letter_number import ensure_letter_numbers
 from apps.contracts.services.document_context import (
     country_template_supported,
@@ -440,8 +442,8 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
       Posting with no money info at all is rejected with 400.
     - The parent contract must not be 'cancelled'. Posting against a cancelled
       contract is rejected with 400.
-    - Duplicate (contract, invoice_number) is rejected by the DB unique constraint,
-      surfaced as a 400 by DRF's UniqueTogetherValidator.
+    - A number already used by the contract's export firm in the invoice's year
+      → 400; a blank number takes the firm's next one.
     - When ``line_items`` are supplied, they must break down the sale exactly:
       sum(quantity_kg) == quantity_kg and sum(qty × price) == total_usd. Sending
       ``line_items: []`` clears them; omitting the field leaves them untouched.
@@ -578,7 +580,40 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
                     f'total (${sale_total}).'
                 )
 
+        self._check_invoice_number_free(attrs)
         return attrs
+
+    def _check_invoice_number_free(self, attrs: dict) -> None:
+        """Invoice numbers are unique per export firm per year (spec 2026-10-03) —
+        across ALL of the firm's contracts, which the DB constraint cannot see.
+
+        On an edit, only when the number, date or contract actually changes: rows
+        from before this rule hold firm/year duplicates and must stay editable."""
+        if self.instance is not None and not any(
+            field in attrs and attrs[field] != getattr(self.instance, field)
+            for field in ('invoice_number', 'invoice_date', 'contract')
+        ):
+            return
+        number = self._merged(attrs, 'invoice_number')
+        sale_contract = self._merged(attrs, 'contract')
+        if number is None or sale_contract is None:
+            return
+        invoice_date = self._merged(attrs, 'invoice_date')
+        year = invoice_date.year if invoice_date else timezone.localdate().year
+        clash = ContractSale.objects.filter(
+            contract__export_firm_id=sale_contract.export_firm_id,
+            invoice_date__year=year,
+            invoice_number=number,
+        )
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError({
+                'invoice_number': (
+                    f'Invoice № {number} is already used by '
+                    f'{sale_contract.export_firm.code} in {year}.'
+                ),
+            })
 
     def _replace_line_items(self, sale: ContractSale, line_items: list[dict]) -> None:
         """Replace all of a sale's line items — line_number reassigned by order,
@@ -607,6 +642,9 @@ class ContractSaleCreateSerializer(serializers.ModelSerializer):
         sale = super().create(validated_data)
         if line_items is not None:
             self._replace_line_items(sale, line_items)
+        # A blank number takes the firm's next one for the invoice's year; before
+        # the letter numbers, which take their year from the invoice date.
+        ensure_invoice_number(sale)
         ensure_letter_numbers(sale)
         return sale
 
