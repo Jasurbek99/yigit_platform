@@ -41,6 +41,7 @@ const BlocksPage = lazy(() => import('@/pages/admin/BlocksPage'));
 const BlockDetailPage = lazy(() => import('@/pages/admin/BlockDetailPage'));
 const TruckDestinationsPage = lazy(() => import('@/pages/admin/TruckDestinationsPage'));
 const CustomersPage = lazy(() => import('@/pages/admin/CustomersPage'));
+const AgentLoginsPage = lazy(() => import('@/pages/market/AgentLoginsPage'));
 const ShipmentSettingsPage = lazy(() => import('@/pages/admin/ShipmentSettingsPage'));
 const AuditLogPage = lazy(() => import('@/pages/admin/AuditLogPage'));
 const StaffPageAccessPage = lazy(() => import('@/pages/admin/StaffPageAccessPage'));
@@ -254,6 +255,9 @@ export default function App() {
                   } />
                   <Route path="admin/customers" element={
                     <ProtectedRoute pageCode="admin.customers"><CustomersPage /></ProtectedRoute>
+                  } />
+                  <Route path="market/agents" element={
+                    <ProtectedRoute pageCode="market.agents"><AgentLoginsPage /></ProtectedRoute>
                   } />
                   <Route path="admin/shipment-settings" element={
                     <ProtectedRoute pageCode="admin.shipment_settings"><ShipmentSettingsPage /></ProtectedRoute>

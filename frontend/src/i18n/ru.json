@@ -4321,5 +4321,28 @@
     "mixed_product": "В одной фуре нельзя смешивать томат и перец",
     "product_mismatch": "Продукт блоков не совпадает с продуктом рейса",
     "contract_product_mismatch": "Продукт контракта не совпадает с продуктом рейса"
+  },
+  "market": {
+    "agents": {
+      "nav": "Логины агентов",
+      "title": "Логины агентов",
+      "add": "Добавить логин",
+      "create": "Создать",
+      "col_customer": "Клиент",
+      "col_username": "Логин",
+      "col_name": "Имя",
+      "col_active": "Активен",
+      "change_password": "Сменить пароль",
+      "new_password": "Новый пароль",
+      "customer": "Клиент",
+      "username": "Логин",
+      "password": "Пароль",
+      "first_name": "Имя",
+      "last_name": "Фамилия",
+      "required": "Обязательное поле",
+      "created": "Логин создан",
+      "password_changed": "Пароль изменён",
+      "save_error": "Не удалось сохранить"
+    }
   }
 }

@@ -4322,5 +4322,28 @@
     "mixed_product": "Bir ýük awtoulagynda pomidor bilen burçy garyşdyrmak bolmaz",
     "product_mismatch": "Blogyň önümi iş saparyň önümine gabat gelmeýär",
     "contract_product_mismatch": "Şertnamanyň önümi iş saparyň önümine gabat gelmeýär"
+  },
+  "market": {
+    "agents": {
+      "nav": "Agent loginleri",
+      "title": "Agent loginleri",
+      "add": "Login goşmak",
+      "create": "Döretmek",
+      "col_customer": "Müşderi",
+      "col_username": "Login",
+      "col_name": "Ady",
+      "col_active": "Işjeň",
+      "change_password": "Paroly çalyşmak",
+      "new_password": "Täze parol",
+      "customer": "Müşderi",
+      "username": "Login",
+      "password": "Parol",
+      "first_name": "Ady",
+      "last_name": "Familiýasy",
+      "required": "Hökmany meýdan",
+      "created": "Login döredildi",
+      "password_changed": "Parol çalşyryldy",
+      "save_error": "Ýatda saklamak başa barmady"
+    }
   }
 }

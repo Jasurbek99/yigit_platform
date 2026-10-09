@@ -191,6 +191,7 @@ export default function AppLayout() {
     '/admin/permissions': t('nav.admin_permissions'),
     '/admin/blocks': t('nav.admin_blocks'),
     '/admin/customers': t('nav.admin_customers'),
+    '/market/agents': t('market.agents.nav'),
     '/admin/truck-destinations': t('nav.admin_truck_dest'),
     '/admin/fleet': t('nav.admin_fleet'),
     '/admin/shipment-settings': t('nav.admin_shipment_settings'),
@@ -305,6 +306,7 @@ export default function AppLayout() {
     '/admin/firms': { key: '/admin/firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_firms') },
     '/admin/import-firms': { key: '/admin/import-firms', icon: <IconBuildingBank size={15} />, label: t('nav.admin_import_firms') },
     '/admin/customers': { key: '/admin/customers', icon: <IconUser size={15} />, label: t('nav.admin_customers') },
+    '/market/agents': { key: '/market/agents', icon: <IconUser size={15} />, label: t('market.agents.nav') },
     '/admin/blocks': { key: '/admin/blocks', icon: <IconBuildingWarehouse size={15} />, label: t('nav.admin_blocks') },
     '/admin/truck-destinations': { key: '/admin/truck-destinations', icon: <IconTruck size={15} />, label: t('nav.admin_truck_dest') },
     // page_code `transport.fleet` (registered 2026-09-03) — canSeePage, not an
@@ -401,7 +403,7 @@ export default function AppLayout() {
     group('nav.group_sales', ['/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices']),
     group('nav.group_finance', ['/export/advances', '/export/overdue', '/admin/expense-template']),
     group('nav.group_analytics', ['/analytics/clients-report', '/team/kpi', '/worklog']),
-    group('nav.group_reference', ['/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations', '/admin/fleet']),
+    group('nav.group_reference', ['/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/market/agents', '/admin/blocks', '/admin/truck-destinations', '/admin/fleet']),
     group('nav.group_system', ['/admin/users', '/admin/permissions', '/admin/staff-access', '/admin/shipment-settings', '/admin/sales-rep-coverage', '/admin/audit-log', '/admin/process-links']),
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
   ];
@@ -423,7 +425,7 @@ export default function AppLayout() {
       '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
     ]),
     group('nav.group_contracts', ['/contracts', '/sales', '/documents']),
-    group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks']),
+    group('nav.group_management', ['/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/market/agents', '/admin/blocks']),
     group('nav.group_system', ['/admin/users', '/admin/truck-destinations', '/admin/fleet', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links']),
     group('nav.group_team', ['/worklog', '/team/kpi']),
     group('nav.group_feedback', ['/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback']),
