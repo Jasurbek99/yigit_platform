@@ -36,7 +36,7 @@ New page codes: `market.home`, `market.team` (phone shell), `market.agents` (des
 | `agent_seller` | `market.home` | `market_team` all-denied row |
 | `sales_rep` | + `market.agents` | `market_agent` view / create / edit |
 | `admin` | every page (incl. `market.home` / `market.team`) | full CRUD on both |
-| `boss`, `director`, `export_manager`, `document_team` | `market.agents` (phone pages subtracted) | boss: full CRUD; others: view |
+| `boss`, `director`, `export_manager`, `document_team` | `market.agents` (phone pages subtracted) | view only (spec §3; boss too, unlike his usual full CRUD) |
 | everyone else | none | none |
 
 Why `agent_seller` has an explicit all-denied `market_team` row: the admin matrix GET builds from existing rows and PUT rejects a matrix missing any role, so a role with zero resource rows would break `/admin/permissions` Save for everyone.
@@ -49,6 +49,8 @@ App `market` (migration `market/0001_initial`, depends on `core/0076`):
 
 - `Bazaar` — `customer` FK (PROTECT), `name` (unique per customer, Cyrillic collation), `city` FK (nullable), `is_active`. Table `market_bazaars`.
 - `AgentMember` — `user` 1:1, `customer` FK (PROTECT), `bazaar` FK (nullable, sellers only). Table `market_agent_members`.
+- `apps/market/services/` (views only call these): `build_me_payload(user)` (`/me/` body), `own_team_customer(user)` (team writes: only the agent itself, else `MarketAccessError`), `check_customer_in_scope(user, customer)` (agent-login create: a sales rep only for his own customers). `RussianMixin` turns `MarketAccessError` into a 403 with its Russian message.
+- `apps/market/serializers/logins.py`: `LoginSerializerMixin`, shared by agent and seller logins (username read-only on update, password rules, `set_password` on create / update).
 - `apps/market/scoping.py`: `customer_ids_for(user)` — agent / seller: own customer; `sales_rep`: customers where he is the rep; admin / boss / director / export_manager / document_team / superuser: `None` (all); others: none. `member_of(user)`.
 
 ## Endpoints (`/api/v1/market/`)
@@ -57,7 +59,7 @@ Shapes are in the `api-contract` skill.
 
 - `GET|POST|PATCH /agents/` — agent logins (staff; scoped by `customer_ids_for`; resource `market_agent`).
 - `GET|POST|PATCH /team/bazaars/`, `/team/sellers/` — resource `market_team`. Reads scoped; **writes only by the agent himself** (staff get 403 on write).
-- `GET /me/` — role, customer, bazaar of the caller.
+- `GET /me/` — role, username, first name, customer, bazaar of the caller (the `/m/` header reads its name from here).
 
 ## Rules and gotchas
 

@@ -5,6 +5,12 @@ All notable changes to the YGT Platform.
 ## [Unreleased]
 
 ### Fixed
+- **Agent market: boss is read-only on agent logins and the agent team (fix(core)).** Spec §3 — boss gets view on `market_agent` / `market_team` (was full CRUD) in `seed_permissions` and `core/0076`; `/market/agents` hides «Добавить логин» and the edit controls from him.
+
+### Changed
+- **Agent market part A review refactor (refactor(p3), refactor(frontend)).** Market rules moved from views to `apps/market/services/`; one login serializer mixin for agent and seller logins; `/market/me/` now returns `username` and `first_name` (the `/m/` header no longer calls `/auth/me/`); `/market/agents` uses ProTable with sorting; `/m/` team screen and the agent-logins page split into one component per file; one shared DRF error helper (`utils/drfErrors.ts`).
+
+### Fixed
 - **Agent market part A review fixes (fix(market), fix(core), fix(frontend)).** Agent / seller passwords with a leading or trailing space are refused (login trims, so they could never sign in); agent-login passwords are checked against the login's username and name; agent and seller login create / password reset / enable-disable go to the audit log (no password); all `/api/v1/market/` errors are Russian; agent roles no longer show in @mentions, team KPI, the worklog team list or staff role pickers; a fresh `seed_permissions` hides the phone pages from admin like core/0076; `/m/` team screen shows a load error instead of an empty team; «Сменить пароль» explains the 8-hour old login; the WebSocket stops reconnecting on 4403; nginx redirects `/m` → `/m/`.
 - **One «Адрес:» label in CT-1 / Fito (fix(p4)).** The templates print «Адрес:» before the sender and consignee addresses; labels typed into firm cards («Юр.Адрес:», «Юридический адрес:», «Address:» …) are stripped, a blank address prints no line. Templates `ct1_ru` / `fito_ru` regenerated.
 - **Letterhead keeps its own colours (fix(p4)).** Theme colours in the firm blank (text and shapes) are fixed to RGB before the merge — the Yigit green printed orange in CT-1 / Fito / ARZA because it resolved against the letter's theme.
