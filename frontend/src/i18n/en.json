@@ -4413,7 +4413,8 @@
       "paid_sum": "Paid {{v}}",
       "due_sum": "Debt {{v}}",
       "cost_line": "Costs: {{v}}",
-      "spoiled_line": "Spoiled: {{v}}"
+      "spoiled_line": "Spoiled: {{v}}",
+      "spoiled_in_row": "spoiled {{v}}"
     },
     "lot": {
       "back": "Trucks",

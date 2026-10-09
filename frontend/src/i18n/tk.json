@@ -4416,7 +4416,8 @@
       "paid_sum": "Tölendi {{v}}",
       "due_sum": "Bergi {{v}}",
       "cost_line": "Çykdajylar: {{v}}",
-      "spoiled_line": "Zaýalanan: {{v}}"
+      "spoiled_line": "Zaýalanan: {{v}}",
+      "spoiled_in_row": "zaýalanan {{v}}"
     },
     "lot": {
       "back": "Maşynlar",

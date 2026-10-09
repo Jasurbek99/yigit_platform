@@ -13,7 +13,7 @@ vi.mock('@/services/api', () => ({
 }));
 
 const closedLot = lotFixture({
-  id: 6, closed_at: oct(5, 12),
+  id: 6, closed_at: oct(5, 12), totals: { ...lotFixture().totals, spoiled_boxes: 3, spoiled_kg: '20.00' },
   shipment: { id: 8, code: '26-0099', export_code: null, status_code: 'satyldy', product: { code: 'pepper', name_ru: 'Перец' } },
 });
 const shipments = [
@@ -65,6 +65,7 @@ describe('HomeScreen', () => {
     expect(within(card).getByText('Расходы: 1 000 ₸')).toBeInTheDocument();
     expect(await screen.findByText('Закрытые машины')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /26-0099, Перец/ })).toHaveAttribute('href', '/lots/6');
+    expect(screen.getByText('Закрыта 5 окт., 32 ящика, 210,5 кг, испорчено 3 ящика, 20 кг')).toBeInTheDocument();
     expect(screen.queryByText('В пути и прибывшие')).not.toBeInTheDocument();
     expect(api.get).not.toHaveBeenCalledWith('/market/shipments/');
   });

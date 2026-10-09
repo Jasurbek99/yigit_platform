@@ -31,11 +31,16 @@ export function ClosedLotsList({ lots }: IClosedLotsListProps): ReactElement | n
             t('market.home.closed_on', { date: dayShort(lot.closed_at ?? lot.opened_at) }),
             boxes(totals.sold_boxes),
             Number(totals.sold_kg) > 0 ? t('market.lot.kg_value', { v: kg(totals.sold_kg) }) : '',
+          ];
+          const spoiled = [
+            totals.spoiled_boxes > 0 ? boxes(totals.spoiled_boxes) : '',
+            Number(totals.spoiled_kg) > 0 ? t('market.lot.kg_value', { v: kg(totals.spoiled_kg) }) : '',
           ].filter(Boolean).join(', ');
+          if (spoiled) sub.push(t('market.home.spoiled_in_row', { v: spoiled }));
           return (
             <Link key={lot.id} className="mk-done" to={`/lots/${lot.id}`}>
               <span className="mk-done-name">{name}</span>
-              <span className="mk-done-sub">{sub}</span>
+              <span className="mk-done-sub">{sub.filter(Boolean).join(', ')}</span>
               <span className="mk-done-money mk-num">
                 {money(totals.sales_total, currency)}
                 {Number(totals.debt_total) > 0 && (

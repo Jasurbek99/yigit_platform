@@ -4419,7 +4419,8 @@
       "paid_sum": "Оплачено {{v}}",
       "due_sum": "Долг {{v}}",
       "cost_line": "Расходы: {{v}}",
-      "spoiled_line": "Испорчено: {{v}}"
+      "spoiled_line": "Испорчено: {{v}}",
+      "spoiled_in_row": "испорчено {{v}}"
     },
     "lot": {
       "back": "Машины",
