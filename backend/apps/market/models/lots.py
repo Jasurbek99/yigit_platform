@@ -18,6 +18,9 @@ class Lot(models.Model):
     currency = models.CharField(max_length=3)
     opened_at = models.DateTimeField(auto_now_add=True)
     opened_by = models.ForeignKey('core.User', on_delete=models.PROTECT, related_name='+')
+    # False while the agent has not said how many boxes came (the shipment had no box
+    # count, so boxes_received is a placeholder 1). Set True by the agent's receipt.
+    receipt_confirmed = models.BooleanField(default=True)
     # Set automatically when nothing is left; cleared when boxes free up (spec §4).
     closed_at = models.DateTimeField(null=True, blank=True)
 

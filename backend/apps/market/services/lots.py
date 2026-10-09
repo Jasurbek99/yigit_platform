@@ -95,6 +95,7 @@ def _new_lot_defaults(shipment: Shipment) -> dict:
     currency = shipment.country.currency if shipment.country_id else None
     return {
         'boxes_received': boxes if boxes > 0 else 1,
+        'receipt_confirmed': boxes > 0,
         'boxes_per_pallet': boxes // pallets if boxes > 0 and pallets > 0 else 1,
         'currency': currency or 'KZT',
     }
@@ -123,7 +124,9 @@ def open_lot(user: User, shipment_id: int) -> tuple[Lot, bool]:
     with transaction.atomic():
         # Plain lock, no joins: two scans of the same QR must not open two lots.
         shipment = Shipment.objects.select_for_update().get(pk=shipment_id)
-        lot = Lot.objects.filter(shipment=shipment).first()
+        # Lock order Shipment → Lot; the lot lock keeps a claim from overwriting
+        # a seller the agent set meanwhile (update_lot locks the lot too).
+        lot = Lot.objects.select_for_update().filter(shipment=shipment).first()
         created = lot is None
         if created:
             lot = Lot.objects.create(shipment=shipment, opened_by=user, **_new_lot_defaults(shipment))
@@ -160,6 +163,9 @@ def update_lot(user: User, lot: Lot, data: dict) -> Lot:
     with transaction.atomic():
         lot = Lot.objects.select_for_update().get(pk=lot.pk)
         values = _checked_values(lot, member.customer_id, data)
+        if 'boxes_received' in values:
+            # The agent's receipt, even if it repeats the placeholder count.
+            values['receipt_confirmed'] = True
         changed = [k for k, v in values.items() if getattr(lot, k) != v]
         for key in changed:
             setattr(lot, key, values[key])

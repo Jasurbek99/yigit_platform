@@ -5,7 +5,8 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.market.models import Lot, Sale
+from apps.export.models import ExpenseCategory
+from apps.market.models import Lot, LotExpense, Sale
 from apps.market.tests.factories import make_shipment, make_world
 
 
@@ -46,12 +47,36 @@ class OpenLotTests(TestCase):
         self.assertEqual(b.status_code, 200)
         self.assertEqual(Lot.objects.count(), 1)
 
-    def test_missing_box_count_needs_receipt(self):
+    def _open_bare(self):
         bare = make_shipment(self.w, 'MK-NB', 'bardy')
         bare.box_count = None
         bare.save(update_fields=['box_count'])
-        body = _as(self.w.agent).post('/api/v1/market/lots/open/', {'shipment_id': bare.pk}, format='json').json()
+        return _as(self.w.agent).post('/api/v1/market/lots/open/', {'shipment_id': bare.pk}, format='json').json()
+
+    def test_missing_box_count_needs_receipt(self):
+        body = self._open_bare()
         self.assertEqual((body['boxes_received'], body['boxes_per_pallet'], body['needs_receipt']), (1, 1, True))
+
+    def test_expense_keeps_needs_receipt(self):
+        lot = Lot.objects.get(pk=self._open_bare()['id'])
+        LotExpense.objects.create(lot=lot, category=ExpenseCategory.objects.get(code='KARA'), amount=Decimal('50'),
+                                  created_by=self.w.agent)
+        self.assertTrue(_as(self.w.agent).get(f'/api/v1/market/lots/{lot.pk}/').json()['needs_receipt'])
+
+    def test_agent_receipt_clears_needs_receipt(self):
+        lot_id = self._open_bare()['id']
+        resp = _as(self.w.agent).patch(f'/api/v1/market/lots/{lot_id}/', {'boxes_received': 1}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertFalse(resp.json()['needs_receipt'])
+        self.assertTrue(Lot.objects.get(pk=lot_id).receipt_confirmed)
+
+    def test_claim_refused_after_agent_assigned_seller(self):
+        lot_id = _as(self.w.agent).post('/api/v1/market/lots/open/', {'shipment_id': self.w.shipment.pk},
+                                        format='json').json()['id']
+        _as(self.w.agent).patch(f'/api/v1/market/lots/{lot_id}/', {'seller_id': self.w.seller2.pk}, format='json')
+        resp = _as(self.w.seller).post('/api/v1/market/lots/open/', {'shipment_id': self.w.shipment.pk}, format='json')
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(Lot.objects.get(pk=lot_id).seller_id, self.w.seller2.pk)
 
     def test_seller_claims_unassigned_lot(self):
         resp = _as(self.w.seller).post('/api/v1/market/lots/open/', {'shipment_id': self.w.shipment.pk}, format='json')

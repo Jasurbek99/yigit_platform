@@ -51,11 +51,10 @@ def needs_receipt(lot: Lot) -> bool:
     """True while the agent still has to say how many boxes came.
 
     The shipment had no box count, so the lot opened with a placeholder of 1
-    box; until it is corrected, the first sale would close the truck.
+    box (receipt_confirmed=False); until the agent sets boxes_received, the
+    first sale would close the truck.
     """
-    if lot.boxes_received != 1 or lot.shipment.box_count:
-        return False
-    return not (lot.sales.exists() or lot.spoilage.exists() or lot.expenses.exists())
+    return not lot.receipt_confirmed
 
 
 def refresh_closed(lot: Lot) -> bool:
