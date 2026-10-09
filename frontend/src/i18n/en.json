@@ -3071,7 +3071,9 @@
       "weight_master": "Packer",
       "boss": "Boss",
       "seller": "Seller",
-      "garawul": "Gate guard"
+      "garawul": "Gate guard",
+      "agent": "Agent",
+      "agent_seller": "Agent seller"
     },
     "field_label": {
       "sales_report_approved_at": "Sales report approved",

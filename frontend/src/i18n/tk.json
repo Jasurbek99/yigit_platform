@@ -3076,7 +3076,9 @@
       "weight_master": "Gapançy",
       "boss": "Ýolbaşçy",
       "seller": "Satyjy",
-      "garawul": "Garawul"
+      "garawul": "Garawul",
+      "agent": "Agent",
+      "agent_seller": "Agentiň satyjysy"
     },
     "field_label": {
       "sales_report_approved_at": "Satuw hasabaty tassyklandy",

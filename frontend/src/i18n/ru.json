@@ -3073,7 +3073,9 @@
       "weight_master": "Упаковщик",
       "boss": "Руководитель",
       "seller": "Продавец",
-      "garawul": "Охранник"
+      "garawul": "Охранник",
+      "agent": "Агент",
+      "agent_seller": "Продавец агента"
     },
     "field_label": {
       "sales_report_approved_at": "Отчёт о продаже утверждён",

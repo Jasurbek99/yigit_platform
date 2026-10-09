@@ -87,7 +87,7 @@ function renderedMenuGroupLabels(): string[] {
   );
 }
 
-// The exact 54 route keys BOSS_MENU_GROUPS produces, in group + item order,
+// The exact 55 route keys BOSS_MENU_GROUPS produces, in group + item order,
 // transcribed from AppLayout.tsx. Exists so a future edit to the boss
 // composition (its whole reason for staying untouched by this refactor) has
 // a hard failure to trip, not just "still non-empty".
@@ -101,16 +101,16 @@ const EXPECTED_BOSS_ORDERED_KEYS = [
   '/contracts', '/sales', '/export/my-reports', '/export/domestic-sales', '/export/prices',
   '/export/advances', '/export/overdue', '/admin/expense-template',
   '/analytics/clients-report', '/team/kpi', '/worklog',
-  '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks', '/admin/truck-destinations', '/admin/fleet',
+  '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/market/agents', '/admin/blocks', '/admin/truck-destinations', '/admin/fleet',
   '/admin/users', '/admin/permissions', '/admin/staff-access', '/admin/shipment-settings', '/admin/sales-rep-coverage', '/admin/audit-log', '/admin/process-links',
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
 ];
 
-// The exact 54 route keys STAFF_MENU_GROUPS produces, in group + item order,
+// The exact 55 route keys STAFF_MENU_GROUPS produces, in group + item order,
 // transcribed directly from STAFF_MENU_GROUPS in AppLayout.tsx (not from the
 // task brief). Symmetric to EXPECTED_BOSS_ORDERED_KEYS above: an ordered
 // per-composition check is the only guard that catches an item landing in
-// the wrong group while the overall label list and the unordered 54-key set
+// the wrong group while the overall label list and the unordered 55-key set
 // both stay correct (e.g. moving /me/board into nav.group_main while moving
 // something else out of it to keep group_export's count unchanged).
 const EXPECTED_STAFF_ORDERED_KEYS = [
@@ -123,7 +123,7 @@ const EXPECTED_STAFF_ORDERED_KEYS = [
   '/export/my-reports', '/export/advances', '/transport/map', '/export/truck-board', '/transport/plan',
   '/export/drafts', '/export/assign', '/export/domestic-sales', '/export/prices', '/tir-takip', '/export/gaplama',
   '/contracts', '/sales', '/documents',
-  '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/admin/blocks',
+  '/export/plan', '/export/quota', '/admin/seasons', '/admin/firms', '/admin/import-firms', '/admin/customers', '/market/agents', '/admin/blocks',
   '/admin/users', '/admin/truck-destinations', '/admin/fleet', '/admin/shipment-settings', '/admin/permissions', '/admin/staff-access', '/admin/sales-rep-coverage', '/admin/expense-template', '/admin/packing-templates', '/admin/audit-log', '/admin/process-links',
   '/worklog', '/team/kpi',
   '/feedback/submit', '/feedback/my-tickets', '/feedback/public', '/admin/feedback',
@@ -239,12 +239,12 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('boss menu renders exactly the expected 53 route keys, in order', () => {
+  it('boss menu renders exactly the expected 55 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_BOSS_ORDERED_KEYS);
   });
 
-  it('staff menu renders exactly the expected 53 route keys, in order', () => {
+  it('staff menu renders exactly the expected 55 route keys, in order', () => {
     renderLayout(fakeUser({ role: 'export_manager' as UserRole }));
     expect(renderedMenuItemKeys()).toEqual(EXPECTED_STAFF_ORDERED_KEYS);
   });
@@ -264,7 +264,7 @@ describe('AppLayout menu composition', () => {
     }
   });
 
-  it('staff and boss reach the same 54-key set, grouped differently, and both surface Draft Shipments + Assignment Board', () => {
+  it('staff and boss reach the same 55-key set, grouped differently, and both surface Draft Shipments + Assignment Board', () => {
     renderLayout(fakeUser({ role: 'boss' as UserRole }));
     const bossKeys = renderedMenuItemKeys();
     cleanup();
@@ -286,8 +286,9 @@ describe('AppLayout menu composition', () => {
     // 51 as of 2026-09-30: /export/gate (garawul gate guard screen) added.
     // 53 as of 2026-09-30: the two RESTORED pages back in both sidebars (owner request 2026-09-29).
     // 54 as of 2026-09-30: /export/truck-board (Planning trips ↔ shipments) after /transport/map.
-    expect(bossKeys).toHaveLength(54);
-    expect(staffKeys).toHaveLength(54);
+    // 55 as of 2026-10-08: /market/agents (agent logins) after /admin/customers.
+    expect(bossKeys).toHaveLength(55);
+    expect(staffKeys).toHaveLength(55);
     for (const key of RESTORED) {
       expect(staffKeys).toContain(key);
       expect(bossKeys).toContain(key);
