@@ -60,7 +60,7 @@ from apps.contracts.services.letter_number import (
 )
 from apps.contracts.services.shipment_firm_contracts import (
     FIRM_PACKING_FIELDS as _FIRM_PACKING_FIELDS,
-    template_share_for,
+    release_item, release_orphan_sales, sales_to_release, template_share_for,
 )
 from apps.contracts.services.files import (
     MAX_FILES_PER_CONTRACT,
@@ -1048,6 +1048,56 @@ class ShipmentFirmContractsView(APIView):
 # `int`), so a value past this overflows the column and raises an unhandled
 # DataError (-> 500) from update_or_create instead of the 400 bad input deserves.
 INT32_MAX = 2_147_483_647
+
+
+class ShipmentReleaseSalesView(APIView):
+    """Release the sales a firm change or a cancel left behind (spec 2026-10-03 §4-5).
+
+    ``GET ?keep=<id,id>`` | ``?cancel=1`` → preview: the sales that change WOULD
+    release, for the warning the frontend shows before it saves.
+    ``POST`` → release the sales the truck's CURRENT state orphans. Idempotent.
+
+    Gated by 'shipment' (view / create) — the same right as the export
+    firm-splits action, because the caller is whoever changes the firms and may
+    hold no 'sale' rights.
+    """
+
+    permission_classes = [IsAuthenticated, DynamicResourcePermission]
+    resource_code = 'shipment'
+
+    def _shipment(self, pk):
+        from apps.export.models import Shipment
+
+        return Shipment.objects.filter(pk=pk).select_related('season', 'status').first()
+
+    def get(self, request, pk=None):
+        shipment = self._shipment(pk)
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+        if request.query_params.get('cancel') == '1':
+            keep = None
+        else:
+            raw = request.query_params.get('keep', '')
+            try:
+                keep = {int(part) for part in raw.split(',') if part.strip()}
+            except ValueError:
+                return Response({'error': 'keep must be comma-separated firm ids.'}, status=400)
+        return Response({'items': [release_item(s) for s in sales_to_release(shipment, keep)]})
+
+    def post(self, request, pk=None):
+        shipment = self._shipment(pk)
+        if shipment is None:
+            return Response({'error': 'Shipment not found.'}, status=404)
+        assert_season_open(shipment.season)
+        result = release_orphan_sales(shipment)
+        if result.released:
+            # A released sale may reopen «Kontrakt» (tasks.prepare_contract).
+            sync_prepare_contract(shipment, request.user)
+        return Response({
+            'released': result.released,
+            'contracts_deleted': result.contracts_deleted,
+            'contracts_cancelled': result.contracts_cancelled,
+        })
 
 
 class InvoiceNumberBaseView(APIView):
