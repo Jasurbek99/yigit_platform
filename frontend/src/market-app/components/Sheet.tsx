@@ -1,17 +1,17 @@
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId, type ReactElement, type ReactNode } from 'react';
 
 interface ISheetProps {
-  title: string;
-  onClose: () => void;
-  children: ReactNode;
+  readonly title: string;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
 }
 
 /** Modal sheet: pinned to the top on phones (the keyboard never covers it), centred from 700 px. */
-export default function Sheet({ title, onClose, children }: ISheetProps) {
+export function Sheet({ title, onClose, children }: ISheetProps): ReactElement {
   const titleId = useId();
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKey);

@@ -1,7 +1,8 @@
+import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 
 /** Placeholder — the lots (trucks) list arrives in Part B. */
-export default function HomeScreen() {
+export default function HomeScreen(): ReactElement {
   const { t } = useTranslation();
   return (
     <div className="mk-empty">

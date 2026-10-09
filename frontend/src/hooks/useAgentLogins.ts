@@ -1,5 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
 import api from '@/services/api';
+import type { IApiListResponse } from '@/types';
 
 export interface IAgentLogin {
   id: number;
@@ -18,16 +19,24 @@ export interface IAgentLoginCreate {
   last_name?: string;
 }
 
-const KEY = ['market', 'agents'] as const;
+/** PATCH body: the login's `id` plus the fields to change. */
+export interface IAgentLoginUpdate {
+  id: number;
+  is_active?: boolean;
+  password?: string;
+  first_name?: string;
+}
 
-export function useAgentLogins() {
+const KEY: readonly string[] = ['market', 'agents'];
+
+export function useAgentLogins(): UseQueryResult<IAgentLogin[]> {
   return useQuery({
     queryKey: KEY,
-    queryFn: async () => (await api.get<{ results: IAgentLogin[] }>('/market/agents/')).data.results,
+    queryFn: async () => (await api.get<IApiListResponse<IAgentLogin>>('/market/agents/')).data.results,
   });
 }
 
-export function useCreateAgentLogin() {
+export function useCreateAgentLogin(): UseMutationResult<IAgentLogin, Error, IAgentLoginCreate> {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: IAgentLoginCreate) => (await api.post<IAgentLogin>('/market/agents/', body)).data,
@@ -35,10 +44,10 @@ export function useCreateAgentLogin() {
   });
 }
 
-export function useUpdateAgentLogin() {
+export function useUpdateAgentLogin(): UseMutationResult<IAgentLogin, Error, IAgentLoginUpdate> {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...body }: { id: number; is_active?: boolean; password?: string; first_name?: string }) =>
+    mutationFn: async ({ id, ...body }: IAgentLoginUpdate) =>
       (await api.patch<IAgentLogin>(`/market/agents/${id}/`, body)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });

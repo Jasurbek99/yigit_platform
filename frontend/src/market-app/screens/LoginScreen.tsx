@@ -1,10 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactElement } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
 import { EXTERNAL_ROLES } from '@/constants/roles';
+import { httpStatus } from '@/utils/drfErrors';
 import { safeNextPath } from '@/utils/loginRedirect';
 import type { UserRole } from '@/types';
+
+interface ILoginResponse {
+  role: UserRole;
+}
 
 /** `?next=/m/team` → `/team` for the router (basename `/m`); anything outside the market app → null. */
 function marketNext(next: string | null): string | null {
@@ -13,11 +18,7 @@ function marketNext(next: string | null): string | null {
   return safe.slice(2);
 }
 
-function errorStatus(err: unknown): number | undefined {
-  return (err as { response?: { status?: number } } | null)?.response?.status;
-}
-
-export default function LoginScreen() {
+export default function LoginScreen(): ReactElement {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -26,7 +27,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const submit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     if (!username.trim() || !password) {
       setError(t('market.login.required'));
@@ -35,7 +36,7 @@ export default function LoginScreen() {
     setBusy(true);
     setError(null);
     try {
-      const { data } = await api.post<{ role: UserRole }>('/auth/login/', { username: username.trim(), password });
+      const { data } = await api.post<ILoginResponse>('/auth/login/', { username: username.trim(), password });
       if (EXTERNAL_ROLES.includes(data.role)) {
         navigate(marketNext(params.get('next')) ?? '/', { replace: true });
       } else {
@@ -43,14 +44,14 @@ export default function LoginScreen() {
         window.location.replace('/');
       }
     } catch (err) {
-      setError(errorStatus(err) === 401 ? t('market.login.bad_credentials') : t('market.login.error'));
+      setError(httpStatus(err) === 401 ? t('market.login.bad_credentials') : t('market.login.error'));
       setBusy(false);
     }
   };
 
   return (
     <div className="mk-app">
-      <form className="mk-login" onSubmit={submit} noValidate>
+      <form className="mk-login" onSubmit={handleSubmit} noValidate>
         <h1 className="mk-brand">{t('market.login.title')}</h1>
         <p className="mk-note">{t('market.login.subtitle')}</p>
         <label className="mk-label" htmlFor="mk-login-username">{t('market.login.username')}</label>

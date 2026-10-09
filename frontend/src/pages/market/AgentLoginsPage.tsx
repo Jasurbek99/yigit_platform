@@ -1,219 +1,112 @@
-import { useState } from 'react';
-import type { FormInstance } from 'antd';
-import { Button, Form, Input, Modal, Select, Space, Switch, Table, Typography } from 'antd';
+import { useState, type ReactElement } from 'react';
+import { Button, Space, Switch, Typography } from 'antd';
 import { PlusOutlined, KeyOutlined } from '@ant-design/icons';
+import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { useCustomers } from '@/hooks/useAdmin';
-import {
-  useAgentLogins, useCreateAgentLogin, useUpdateAgentLogin,
-  type IAgentLogin, type IAgentLoginCreate,
-} from '@/hooks/useAgentLogins';
+import { useAgentLogins, useUpdateAgentLogin, type IAgentLogin } from '@/hooks/useAgentLogins';
 import { canDo } from '@/utils/permissions';
+import { AgentLoginCreateModal } from './AgentLoginCreateModal';
+import { AgentPasswordModal } from './AgentPasswordModal';
 
-const { Paragraph, Title } = Typography;
+const { Title } = Typography;
 
-type FieldErrors = Record<string, string[] | string>;
-
-// Turns a DRF `{field: [msg]}` 400 body into Ant Design field errors for the
-// fields this form owns. Returns false when none match (403, network error,
-// non_field_errors, ...), so the caller can fall back to a toast.
-function applyServerErrors<T>(form: FormInstance<T>, err: unknown, formFields: string[]): boolean {
-  const data = (err as { response?: { data?: FieldErrors } })?.response?.data;
-  if (!data || typeof data !== 'object') return false;
-  const fields = Object.entries(data)
-    .filter(([name]) => formFields.includes(name))
-    .map(([name, msgs]) => ({ name, errors: Array.isArray(msgs) ? msgs : [String(msgs)] }));
-  if (fields.length === 0) return false;
-  form.setFields(fields as never);
-  return true;
+function fullName(row: IAgentLogin): string {
+  return [row.first_name, row.last_name].filter(Boolean).join(' ');
 }
-
-const CREATE_FIELDS = ['customer_id', 'username', 'password', 'first_name', 'last_name'];
 
 /**
  * «Логины агентов» (`/market/agents`) — staff create and manage the logins
- * agents use in the agent market. Admin/boss: full; sales rep: own customers;
- * director/export manager/document team: read-only (resource `market_agent`).
+ * agents use in the agent market. Admin: full; sales rep: own customers;
+ * boss / director / export manager / document team: read-only (resource `market_agent`).
  */
-export default function AgentLoginsPage() {
+export default function AgentLoginsPage(): ReactElement {
   const { t } = useTranslation();
   const { user } = useAuth();
   const canCreate = canDo(user, 'market_agent', 'create');
   const canEdit = canDo(user, 'market_agent', 'edit');
 
   const { data: agents, isLoading } = useAgentLogins();
-  const { data: customers, isLoading: customersLoading } = useCustomers();
-  const create = useCreateAgentLogin();
   const update = useUpdateAgentLogin();
-
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createForm] = Form.useForm<IAgentLoginCreate>();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [pwTarget, setPwTarget] = useState<IAgentLogin | null>(null);
-  const [pwForm] = Form.useForm<{ password: string }>();
 
-  const submitCreate = (values: IAgentLoginCreate) => {
-    const body: IAgentLoginCreate = {
-      customer_id: values.customer_id,
-      username: values.username,
-      password: values.password,
-      first_name: values.first_name,
-      ...(values.last_name ? { last_name: values.last_name } : {}),
-    };
-    create.mutate(body, {
-      onSuccess: () => {
-        toast.success(t('market.agents.created'));
-        setCreateOpen(false);
-        createForm.resetFields();
-      },
-      onError: (err) => {
-        if (!applyServerErrors(createForm, err, CREATE_FIELDS)) toast.error(t('market.agents.save_error'));
-      },
-    });
-  };
-
-  const submitPassword = (values: { password: string }) => {
-    if (!pwTarget) return;
-    update.mutate({ id: pwTarget.id, password: values.password }, {
-      onSuccess: () => {
-        toast.success(t('market.agents.password_changed'));
-        setPwTarget(null);
-        pwForm.resetFields();
-      },
-      onError: (err) => {
-        if (!applyServerErrors(pwForm, err, ['password'])) toast.error(t('market.agents.save_error'));
-      },
-    });
-  };
-
-  const toggleActive = (row: IAgentLogin, is_active: boolean) => {
-    update.mutate({ id: row.id, is_active }, {
+  const handleToggleActive = (row: IAgentLogin, isActive: boolean): void => {
+    update.mutate({ id: row.id, is_active: isActive }, {
       onError: () => toast.error(t('market.agents.save_error')),
     });
   };
+
+  const columns: ProColumns<IAgentLogin>[] = [
+    {
+      title: t('market.agents.col_customer'),
+      dataIndex: ['customer', 'name'],
+      defaultSortOrder: 'ascend',
+      sorter: (a, b) => a.customer.name.localeCompare(b.customer.name) || a.username.localeCompare(b.username),
+    },
+    {
+      title: t('market.agents.col_username'),
+      dataIndex: 'username',
+      sorter: (a, b) => a.username.localeCompare(b.username),
+    },
+    {
+      title: t('market.agents.col_name'),
+      dataIndex: 'first_name',
+      render: (_, row) => fullName(row),
+      sorter: (a, b) => fullName(a).localeCompare(fullName(b)),
+    },
+    {
+      title: t('market.agents.col_active'),
+      dataIndex: 'is_active',
+      sorter: (a, b) => (b.is_active ? 1 : 0) - (a.is_active ? 1 : 0) || a.username.localeCompare(b.username),
+      render: (_, row) => (
+        <Switch
+          checked={row.is_active}
+          disabled={!canEdit}
+          aria-label={t('market.agents.col_active')}
+          onChange={(checked) => handleToggleActive(row, checked)}
+        />
+      ),
+    },
+    ...(canEdit
+      ? [{
+          title: '',
+          key: 'actions',
+          render: (_: unknown, row: IAgentLogin) => (
+            <Button size="small" icon={<KeyOutlined />} onClick={() => setPwTarget(row)}>
+              {t('market.agents.change_password')}
+            </Button>
+          ),
+        }]
+      : []),
+  ];
 
   return (
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 12 }}>
         <Title level={4} style={{ margin: 0 }}>{t('market.agents.title')}</Title>
         {canCreate && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCreateOpen(true)}>
             {t('market.agents.add')}
           </Button>
         )}
       </Space>
 
-      <Table<IAgentLogin>
+      <ProTable<IAgentLogin>
         rowKey="id"
         size="small"
         loading={isLoading}
         dataSource={agents ?? []}
+        columns={columns}
+        search={false}
+        options={false}
+        toolBarRender={false}
         pagination={false}
-        columns={[
-          { title: t('market.agents.col_customer'), dataIndex: ['customer', 'name'] },
-          { title: t('market.agents.col_username'), dataIndex: 'username' },
-          {
-            title: t('market.agents.col_name'),
-            render: (_: unknown, row) => [row.first_name, row.last_name].filter(Boolean).join(' '),
-          },
-          {
-            title: t('market.agents.col_active'),
-            dataIndex: 'is_active',
-            render: (value: boolean, row) => (
-              <Switch
-                checked={value}
-                disabled={!canEdit}
-                aria-label={t('market.agents.col_active')}
-                onChange={(checked) => toggleActive(row, checked)}
-              />
-            ),
-          },
-          ...(canEdit
-            ? [{
-                title: '',
-                key: 'actions',
-                render: (_: unknown, row: IAgentLogin) => (
-                  <Button size="small" icon={<KeyOutlined />} onClick={() => setPwTarget(row)}>
-                    {t('market.agents.change_password')}
-                  </Button>
-                ),
-              }]
-            : []),
-        ]}
       />
 
-      <Modal
-        open={createOpen}
-        title={t('market.agents.add')}
-        okText={t('market.agents.create')}
-        cancelText={t('common.cancel')}
-        confirmLoading={create.isPending}
-        onOk={() => createForm.submit()}
-        onCancel={() => setCreateOpen(false)}
-        destroyOnHidden
-      >
-        <Form form={createForm} layout="vertical" onFinish={submitCreate}>
-          <Form.Item
-            name="customer_id"
-            label={t('market.agents.customer')}
-            rules={[{ required: true, message: t('market.agents.required') }]}
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              loading={customersLoading}
-              options={(customers ?? []).map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </Form.Item>
-          <Form.Item
-            name="username"
-            label={t('market.agents.username')}
-            rules={[{ required: true, message: t('market.agents.required') }]}
-          >
-            <Input autoComplete="off" />
-          </Form.Item>
-          <Form.Item
-            name="password"
-            label={t('market.agents.password')}
-            rules={[{ required: true, message: t('market.agents.required') }]}
-          >
-            <Input.Password autoComplete="new-password" />
-          </Form.Item>
-          <Form.Item
-            name="first_name"
-            label={t('market.agents.first_name')}
-            rules={[{ required: true, message: t('market.agents.required') }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="last_name" label={t('market.agents.last_name')}>
-            <Input />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        open={pwTarget !== null}
-        title={`${t('market.agents.change_password')}: ${pwTarget?.username ?? ''}`}
-        okText={t('common.save')}
-        cancelText={t('common.cancel')}
-        confirmLoading={update.isPending}
-        onOk={() => pwForm.submit()}
-        onCancel={() => setPwTarget(null)}
-        destroyOnHidden
-      >
-        <Paragraph type="secondary">{t('market.agents.password_hint')}</Paragraph>
-        <Form form={pwForm} layout="vertical" onFinish={submitPassword}>
-          <Form.Item
-            name="password"
-            label={t('market.agents.new_password')}
-            rules={[{ required: true, message: t('market.agents.required') }]}
-          >
-            <Input.Password autoComplete="new-password" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      <AgentLoginCreateModal open={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      <AgentPasswordModal target={pwTarget} onClose={() => setPwTarget(null)} />
     </div>
   );
 }

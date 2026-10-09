@@ -62,8 +62,13 @@ export function isExportManagerLike(role: string | null | undefined): boolean {
   return !!role && EXPORT_MANAGER_LIKE.includes(role);
 }
 
+/** The agent at a destination market (runs his team in the /m/ app). Mirrors backend AGENT_ROLE. */
+export const AGENT_ROLE: UserRole = 'agent';
+/** The agent's seller at one bazaar. Mirrors backend AGENT_SELLER_ROLE. */
+export const AGENT_SELLER_ROLE: UserRole = 'agent_seller';
+
 /** Agent-market roles: confined to the separate /m/ app, never the internal UI. */
-export const EXTERNAL_ROLES: ReadonlyArray<UserRole> = ['agent', 'agent_seller'];
+export const EXTERNAL_ROLES: ReadonlyArray<UserRole> = [AGENT_ROLE, AGENT_SELLER_ROLE];
 
 /** ROLE_CHOICES without the agent-market roles — for staff rosters, pickers and row-access grants. */
 export const STAFF_ROLE_CHOICES = ROLE_CHOICES.filter(

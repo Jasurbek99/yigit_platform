@@ -11,11 +11,15 @@ vi.mock('@/services/api', () => ({
 }));
 
 function mockMe(role: string) {
-  vi.mocked(api.get).mockImplementation((url: string) =>
+  vi.mocked(api.get).mockImplementation(() =>
     Promise.resolve({
-      data: url.includes('/market/me/')
-        ? { role, customer: role.startsWith('agent') ? { id: 1, name: 'ТОО «Алматы Овощ»' } : null, bazaar: null }
-        : { first_name: 'Ерлан', username: 'erlan' },
+      data: {
+        role,
+        username: 'erlan',
+        first_name: 'Ерлан',
+        customer: role.startsWith('agent') ? { id: 1, name: 'ТОО «Алматы Овощ»' } : null,
+        bazaar: null,
+      },
     }),
   );
 }
@@ -53,6 +57,8 @@ describe('Shell', () => {
     mockMe('agent');
     renderShell();
     expect(await screen.findByText('ТОО «Алматы Овощ»')).toBeInTheDocument();
+    expect(screen.getByText('Ерлан')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledTimes(1);
     expect(screen.getByText('home')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Команда' })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
