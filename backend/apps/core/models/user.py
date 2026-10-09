@@ -35,8 +35,21 @@ ROLE_CHOICES = [
     # Owadandepe) and marks trucks in and out. Bound to that gate by
     # User.loading_location. Sees only the gate screen and his gate tasks.
     ('garawul', 'Gate Guard'),
+    # agent: our agent at a destination market (core.Customer), bound to it by
+    # market.AgentMember. Manages its bazaars and seller logins, does not sell.
+    # External user on public networks — fenced to /api/v1/market/ (see
+    # CookieJWTAuthentication). Spec 2026-10-08-agent-market-sales-design.md.
+    ('agent', 'Agent'),
+    # agent_seller: the agent's seller at one bazaar; records sales on a phone.
+    ('agent_seller', 'Agent Seller'),
     ('boss', 'Boss'),
 ]
+
+# Roles of people outside YGT (agents at the destination market and their sellers).
+# They may call only the auth and market APIs — enforced in CookieJWTAuthentication.
+AGENT_ROLE = 'agent'
+AGENT_SELLER_ROLE = 'agent_seller'
+EXTERNAL_ROLES: frozenset[str] = frozenset({AGENT_ROLE, AGENT_SELLER_ROLE})
 
 
 class User(AbstractUser):

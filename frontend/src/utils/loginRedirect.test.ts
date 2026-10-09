@@ -20,6 +20,11 @@ describe('loginPathFor', () => {
     expect(loginPathFor('/login?next=%2Fscan%2F719')).toBe('/login?next=%2Fscan%2F719');
     expect(loginPathFor('/login')).toBe('/login');
   });
+
+  it('sends the market app to its own login', () => {
+    expect(loginPathFor('/m/team')).toBe('/m/login?next=%2Fm%2Fteam');
+    expect(loginPathFor('/m/login?next=%2Fm%2Fteam')).toBe('/m/login?next=%2Fm%2Fteam');
+  });
 });
 
 describe('safeNextPath', () => {

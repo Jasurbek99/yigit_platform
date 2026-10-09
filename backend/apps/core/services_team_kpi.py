@@ -14,6 +14,7 @@ from django.utils import timezone
 from zoneinfo import ZoneInfo
 
 from apps.core.models import User, WorkSessionDaily
+from apps.core.models.user import EXTERNAL_ROLES
 from apps.core.roles import task_roles_for
 
 _TM_TZ = ZoneInfo('Asia/Ashgabat')
@@ -169,7 +170,7 @@ def compute_team_kpi(period: str, season=None) -> list[dict]:
     trend_dates = [trend_start_date + timedelta(days=i) for i in range(_TREND_DAYS)]
 
     # 4. Roster merge.
-    users = User.objects.filter(is_active=True).values(
+    users = User.objects.filter(is_active=True).exclude(role__in=EXTERNAL_ROLES).values(
         'id', 'username', 'first_name', 'last_name', 'role',
     )
     payload: list[dict] = []

@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.models import User, WorkSession, WorkSessionDaily
+from apps.core.models.user import EXTERNAL_ROLES
 
 
 # ── Serializers ──────────────────────────────────────────────────────────
@@ -145,7 +146,8 @@ class WorklogTeamView(APIView):
         )
         by_user = {r['user_id']: int(r['active_seconds'] or 0) for r in rows}
 
-        users = User.objects.filter(is_active=True).order_by('first_name', 'username').values(
+        users = User.objects.filter(is_active=True).exclude(role__in=EXTERNAL_ROLES).order_by(
+            'first_name', 'username').values(
             'id', 'username', 'first_name', 'last_name', 'role',
         )
         payload = []

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#2E9A4B" />
+    <title>YGT Продажа</title>
+    <link rel="manifest" href="/m/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/m/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Продажа" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:wght@400;600;800&family=Sofia+Sans+Condensed:wght@700;900&display=swap" rel="stylesheet" />
+    <!-- Runs before any module: i18n init writes ygt_lang, so read now whether the user chose a language. -->
+    <script>document.documentElement.dataset.langChosen = /(?:^|; )ygt_lang=/.test(document.cookie) ? 'yes' : 'no';</script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/market-app/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,86 @@
+/* Agent market app — ported from the artifact (study §7, spec §9). Every class is `mk-`. */
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.4 "Sofia Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+.mk-num{font-family:"Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;font-weight:900;font-variant-numeric:tabular-nums}
+
+.mk-app{max-width:1200px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(110px + env(safe-area-inset-bottom,0px))}
+@media (min-width:700px){.mk-app{padding-left:24px;padding-right:24px}}
+
+.mk-loading{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted);font-weight:600;text-align:center}
+.mk-loading-dot{width:28px;height:28px;border-radius:50%;background:var(--tomato)}
+
+/* header */
+.mk-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;margin-bottom:16px}
+.mk-brand{margin:0;font:900 clamp(26px,8vw,34px)/1.05 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif}
+.mk-who{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-left:auto;font-size:15px;font-weight:600;color:var(--muted)}
+.mk-who-name{color:var(--ink);font-weight:800;overflow-wrap:anywhere}
+
+.mk-title{margin:0 0 6px;font:900 32px/1.05 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;overflow-wrap:anywhere}
+.mk-section{margin:30px 0 10px;font-size:18px;font-weight:800}
+.mk-note{margin:0 0 12px;color:var(--muted);font-size:15px}
+
+/* lists: 1 / 2 / 3 columns at 0 / 760 / 1100 px */
+.mk-list{display:grid;gap:12px}
+@media (min-width:760px){.mk-list{grid-template-columns:1fr 1fr}}
+@media (min-width:1100px){.mk-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.mk-card{display:block;width:100%;min-width:0;text-align:left;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px}
+.mk-card--off{border-style:dashed}
+.mk-card-name{margin:0;font-weight:800;font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+.mk-card-sub{margin:4px 0 0;color:var(--muted);font-size:15px;overflow-wrap:anywhere}
+.mk-card-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.mk-tag{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;background:var(--crate-soft);color:var(--crate);font-weight:800;font-size:15px}
+
+.mk-empty{background:var(--card);border:2px dashed var(--line);border-radius:18px;padding:28px 18px;text-align:center}
+.mk-empty-title{margin:0 0 6px;font-size:22px;font-weight:800}
+.mk-empty-text{margin:0 auto;color:var(--muted);max-width:30ch}
+
+/* buttons: .mk-btn = the artifact's .plain; --tomato = .addtruck / .save; --scan = .scan */
+.mk-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;padding:0 16px;border-radius:16px;border:2px solid var(--ink);background:var(--card);font-weight:800;font-size:18px}
+.mk-btn--tomato{min-height:68px;border-color:var(--tomato);background:var(--tomato);color:var(--tomato-ink);font-size:21px}
+.mk-btn--scan{min-height:68px;font-size:21px}
+.mk-btn--quiet{border-color:var(--line)}
+.mk-btn--danger{border-color:var(--tomato);color:var(--tomato)}
+.mk-btn:disabled{opacity:.45;cursor:default}
+.mk-small{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 14px;border-radius:12px;border:2px solid var(--line);background:var(--card);font-weight:800;font-size:15px}
+.mk-small--danger{border-color:var(--tomato);color:var(--tomato)}
+.mk-small--ok{border-color:var(--vine);color:var(--vine)}
+.mk-add{margin-top:12px}
+@media (min-width:760px){.mk-add{max-width:420px}}
+
+/* fields */
+.mk-label{display:block;font-weight:600;margin:18px 0 6px}
+.mk-label--first{margin-top:0}
+.mk-field{display:block;width:100%;font-family:inherit;color:inherit;height:64px;border:2px solid var(--line);border-radius:16px;background:var(--bg);padding:0 16px;font-size:20px}
+.mk-field--bad{border-color:var(--tomato)}
+.mk-field::placeholder{color:var(--muted);opacity:.7}
+.mk-field--select{appearance:auto;padding:0 10px}
+.mk-err{margin:6px 0 0;color:var(--tomato);font-weight:600}
+
+/* sheet: pinned to the top on phones so the keyboard never covers it, centred from 700 px */
+.mk-overlay{position:fixed;inset:0;z-index:20;background:var(--shade);display:flex;align-items:flex-start;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 12px 12px;overflow:auto}
+.mk-sheet{width:100%;max-width:480px;background:var(--card);border-radius:22px;padding:20px 16px 16px}
+.mk-sheet-title{margin:0 0 6px;font:900 28px/1.1 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif}
+.mk-sheet-btns{display:grid;gap:8px;margin-top:20px}
+.mk-sheet-btns .mk-btn--tomato{min-height:62px}
+@media (min-width:700px){.mk-overlay{align-items:center}}
+
+.mk-toast{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:30;max-width:520px;margin:0 auto;background:var(--ink);color:var(--bg);border-radius:16px;padding:10px 10px 10px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:600;animation:mk-rise .18s ease-out}
+.mk-toast-btn{flex:none;min-height:48px;padding:0 18px;border-radius:12px;border:0;background:var(--bg);color:var(--ink);font-weight:800}
+@keyframes mk-rise{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.mk-toast{animation:none}}
+
+/* agent bottom bar */
+.mk-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:10;display:grid;grid-template-columns:1fr 1fr;background:var(--card);border-top:2px solid var(--line);padding:0 env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.mk-tab{display:flex;align-items:center;justify-content:center;height:64px;color:var(--muted);font-weight:800;font-size:19px;text-decoration:none}
+.mk-tab--on{color:var(--tomato);box-shadow:inset 0 3px 0 var(--tomato)}
+
+/* login */
+.mk-login{max-width:420px;margin:0 auto;padding-top:8vh}
+.mk-login .mk-brand{margin-bottom:6px}
+.mk-login .mk-btn--tomato{margin-top:24px}

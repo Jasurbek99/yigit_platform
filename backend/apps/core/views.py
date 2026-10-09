@@ -330,7 +330,7 @@ class MentionableView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        from apps.core.models.user import ROLE_CHOICES, User
+        from apps.core.models.user import EXTERNAL_ROLES, ROLE_CHOICES, User
 
         q = request.query_params.get('q', '').strip()
         try:
@@ -338,8 +338,8 @@ class MentionableView(APIView):
         except (ValueError, TypeError):
             limit = 10
 
-        # --- Users ---
-        user_qs = User.objects.filter(is_active=True)
+        # --- Users --- (agent-market logins are not staff; never offer them)
+        user_qs = User.objects.filter(is_active=True).exclude(role__in=EXTERNAL_ROLES)
         if q:
             user_qs = user_qs.filter(
                 Q(first_name__icontains=q) |
@@ -372,6 +372,8 @@ class MentionableView(APIView):
         q_lower = q.lower()
         role_results = []
         for code, label in ROLE_CHOICES:
+            if code in EXTERNAL_ROLES:
+                continue
             if q and q_lower not in code.lower() and q_lower not in label.lower():
                 continue
             role_results.append({

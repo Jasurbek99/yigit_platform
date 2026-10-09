@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
+import { ExternalRoleGate } from '@/components/ExternalRoleGate';
 import { COLORS, FONT } from '@/constants/styles';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -40,6 +41,7 @@ const BlocksPage = lazy(() => import('@/pages/admin/BlocksPage'));
 const BlockDetailPage = lazy(() => import('@/pages/admin/BlockDetailPage'));
 const TruckDestinationsPage = lazy(() => import('@/pages/admin/TruckDestinationsPage'));
 const CustomersPage = lazy(() => import('@/pages/admin/CustomersPage'));
+const AgentLoginsPage = lazy(() => import('@/pages/market/AgentLoginsPage'));
 const ShipmentSettingsPage = lazy(() => import('@/pages/admin/ShipmentSettingsPage'));
 const AuditLogPage = lazy(() => import('@/pages/admin/AuditLogPage'));
 const StaffPageAccessPage = lazy(() => import('@/pages/admin/StaffPageAccessPage'));
@@ -121,7 +123,9 @@ export default function App() {
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <AppLayout />
+                      <ExternalRoleGate>
+                        <AppLayout />
+                      </ExternalRoleGate>
                     </ProtectedRoute>
                   }
                 >
@@ -251,6 +255,9 @@ export default function App() {
                   } />
                   <Route path="admin/customers" element={
                     <ProtectedRoute pageCode="admin.customers"><CustomersPage /></ProtectedRoute>
+                  } />
+                  <Route path="market/agents" element={
+                    <ProtectedRoute pageCode="market.agents"><AgentLoginsPage /></ProtectedRoute>
                   } />
                   <Route path="admin/shipment-settings" element={
                     <ProtectedRoute pageCode="admin.shipment_settings"><ShipmentSettingsPage /></ProtectedRoute>

@@ -103,6 +103,7 @@ Client side, [`useSheetLiveSync`](../../../frontend/src/hooks/useSheetLiveSync.t
 | WS drop with browser still online | Reconnect with exponential backoff (1 s → 2 s → … cap 30 s). On `open`, `usePresenceSheet` re-emits `join` so the user re-enters the roster. |
 | Browser offline | Reconnect deferred until `navigator.onLine === true` fires. Connection-status dot goes yellow → red. |
 | Auth failure (cookie expired) | Server closes with code 4401. Client treats this as terminal (no reconnect); user has to log in again. |
+| Agent-market role (`agent` / `agent_seller`) | Server closes with code 4403. Also terminal on the client (no reconnect loop). |
 | Multi-tab same user | Each tab has its own WS and own roster entry. User sees themselves once via the `(you)` marker; other viewers see two entries. Acceptable — same as Google Docs. |
 
 ## Verification

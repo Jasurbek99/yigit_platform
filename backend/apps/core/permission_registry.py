@@ -120,6 +120,12 @@ PAGE_REGISTRY: dict[str, str] = OrderedDict([
     # Packing preset catalog (the digital "gross net" — Invoice/CMR configs). Same
     # non-admin prefix as expense_template: admin/director/export_manager manage it.
     ('export.packing_presets',  'Packing Presets (gross-net)'),
+    # Agent market (bazaar sales) — spec 2026-10-08-agent-market-sales-design.md.
+    # market.home / market.team: the phone shell of agents and their sellers.
+    # market.agents: our staff's desktop page to create agent logins.
+    ('market.home',             'Market: phone home (agent / seller)'),
+    ('market.team',             'Market: agent team (bazaars, seller logins)'),
+    ('market.agents',           'Market: agent logins'),
     ('admin.users',             'Admin: Users'),
     # Delegated staff page-access editor for department heads (ADR-022).
     ('admin.staff_access',      'Admin: Staff Page Access'),
@@ -196,6 +202,9 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # Gate marks (arrival / exit at a greenhouse gate). All-or-nothing, so absent
     # from RESOURCE_FIELDS. can_view = read the lists, can_edit = mark / undo.
     ('gate',                  'Gate (truck arrival / exit marks)'),
+    # Agent market. All-or-nothing, absent from RESOURCE_FIELDS.
+    ('market_agent',          'Market: agent logins'),
+    ('market_team',           'Market: agent bazaars and seller logins'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────

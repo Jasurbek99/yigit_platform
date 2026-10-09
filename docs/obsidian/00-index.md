@@ -78,6 +78,7 @@ flowchart LR
 | [[sales-report]] | Rich structured sales report with line items + itemized expenses + Kurs | ShipmentDetail (Sales Report section) |
 | [[comments-tasks]] | Cell-anchored threaded comments with @user/@role mentions and single-assignee tasks | ShipmentSheet (Comments Drawer), ShipmentDetail (Changes tab) |
 | [[gate]] | Gate guard (garawul): arrival/exit marks at one greenhouse location, gate tasks, Sheet row 49 «Ýyladyşhana geldi» | GatePage (`/export/gate`), SelfBoard (gate task card) |
+| [[agent-market]] | Bazaar sales for outside agents and their sellers: external roles, API fence, agent logins, separate phone app `/m/` (PWA), team screen (part A of E) | AgentLoginsPage (`/market/agents`), market app `/m/` |
 | [[realtime-presence]] | WebSocket presence avatars showing who is on the Sheet right now (Channels + Redis + uvicorn workers) | ShipmentSheet (toolbar) |
 | [[worklog]] | Per-user work-time logging over the same WS (heartbeat → core.work_sessions + reaper cron); visible to everyone | WorklogPage, header chip |
 | [[fleet-map]] | Live truck GPS positions from Traccar + TIR fleet registry (TruckHead/Trailer) driving shipment truck selection — standalone transport app, 2-min poller, read-only API | FleetMap (`/transport/map`), ShipmentTruckSelector, FleetAdminPage (`/admin/fleet`) |
@@ -99,6 +100,8 @@ flowchart LR
 | [[support-roles]] | Read-only or limited scope | Varies |
 | [[boss]] | Executive dashboard + full process reach (2026-08-05) | 1-13 |
 | [[garawul]] | Gate guard: arrival/exit marks at one greenhouse location (2026-09-29) | None directly (indirect, via R19/R21) |
+| [[agent]] | External agent (customer): runs bazaars and seller logins on the phone app `/m/` (2026-10-08) | None (fenced to `/api/v1/market/`) |
+| [[agent-seller]] | External seller at one bazaar (2026-10-08) | None (fenced to `/api/v1/market/`) |
 
 See [[roles-matrix]] for the full capability matrix.
 

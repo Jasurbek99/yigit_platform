@@ -23,6 +23,8 @@ export type UserRole =
   | 'seller'
   | 'quality_inspector'
   | 'garawul'
+  | 'agent'
+  | 'agent_seller'
   | 'boss';
 
 export interface IResourcePermission {

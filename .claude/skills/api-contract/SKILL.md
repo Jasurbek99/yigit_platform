@@ -319,6 +319,50 @@ Response item shape:
 }
 ```
 
+### Agent market: `/api/v1/market/` (2026-10-09, part A)
+
+External roles `agent` / `agent_seller` may call **only** `/api/v1/auth/` and `/api/v1/market/`; every other path returns **403** for them (fence in `CookieJWTAuthentication`; the WebSocket closes 4403). Lists are DRF-paginated (`{count, next, previous, results}`). Writes use `POST` / `PATCH` only (no DELETE: rows are deactivated with `is_active`). Field errors come back as 400 `{field: [msgs]}`.
+
+**Agent logins: `GET|POST|PATCH /api/v1/market/agents/`** (resource `market_agent`; staff. A sales_rep sees only the customers he is rep of; admin / boss / director / export_manager / document_team see all. Writes: admin and sales_rep only — boss / director / export_manager / document_team are read-only, POST / PATCH → 403)
+```json
+// GET item / POST + PATCH response
+{ "id": 41, "username": "ahmet", "first_name": "Ahmet", "last_name": "", "is_active": true,
+  "customer": { "id": 11, "name": "IP Ahmedov" } }
+
+// POST body (password required on create, checked by Django password validators)
+{ "customer_id": 11, "username": "ahmet", "password": "...", "first_name": "Ahmet", "last_name": "" }
+// PATCH body: any of first_name, last_name, is_active, password.
+// customer_id and username are silently ignored on update (a login never moves customer or renames).
+// password is write-only and never returned. POST with a customer outside the rep's scope -> 403.
+// password: Django validators run with the login's username/name; a leading or trailing space -> 400
+// {"password": ["Пароль не может начинаться или заканчиваться пробелом."]} (same rule on /team/sellers/).
+// Every /api/v1/market/ response speaks Russian (validators, 401/403/404 included).
+```
+
+**Team: `GET|POST|PATCH /api/v1/market/team/bazaars/` and `/team/sellers/`** (resource `market_team`; reads are scoped to the caller's customer, staff read all within their scope; **writes only by an `agent`**, anyone else gets 403 — `{"error": "Командой управляет только агент."}` for a role whose matrix row allows the write (admin), DRF's generic Russian 403 text for a view-only role (boss / director / export_manager / document_team))
+```json
+// Bazaar (GET / POST / PATCH)
+{ "id": 3, "name": "Alay", "city_id": 7, "is_active": true }
+// POST body: { "name": "Alay", "city_id": 7 }   city_id optional / nullable; unknown city or a duplicate name for the agent -> 400
+
+// Seller (GET / POST / PATCH response)
+{ "id": 52, "username": "seller1", "first_name": "Murat", "last_name": "", "is_active": true,
+  "bazaar": { "id": 3, "name": "Alay" } }          // bazaar is null only if unbound
+// POST body: { "username", "password", "first_name", "bazaar_id" }; password and bazaar_id are required,
+//   bazaar_id must be an ACTIVE bazaar of the agent (else 400 "Неизвестный базар.")
+// PATCH body: first_name, last_name, is_active, password, bazaar_id. username is read-only after create;
+//   role / is_staff / is_superuser cannot be set. A weak or username-like password -> 400 {"password": [...]}.
+// GET /team/sellers/?active=1 lists active sellers only.
+```
+
+**Me: `GET /api/v1/market/me/`** (any authenticated user)
+```json
+{ "role": "agent_seller", "username": "seller1", "first_name": "Murat",
+  "customer": { "id": 11, "name": "IP Ahmedov" }, "bazaar": { "id": 3, "name": "Alay" } }
+// customer is null for a user without an AgentMember; bazaar is null for an agent himself
+```
+The `/m/` header shows `first_name`, falling back to `username`. Login and logout use `/api/v1/auth/login/` and `/auth/logout/` as everywhere.
+
 ### Auth: `POST /api/v1/auth/login/`
 ```json
 // Request

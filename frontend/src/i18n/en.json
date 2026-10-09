@@ -36,6 +36,8 @@
     "loading_dept_head": "Loading Dept Head",
     "loading_dept_head_deputy": "Loading Dept Deputy",
     "garawul": "Gate guard",
+    "agent": "Agent",
+    "agent_seller": "Agent seller",
     "boss": "Boss"
   },
   "row_access": {
@@ -3069,7 +3071,9 @@
       "weight_master": "Packer",
       "boss": "Boss",
       "seller": "Seller",
-      "garawul": "Gate guard"
+      "garawul": "Gate guard",
+      "agent": "Agent",
+      "agent_seller": "Agent seller"
     },
     "field_label": {
       "sales_report_approved_at": "Sales report approved",
@@ -4317,5 +4321,76 @@
     "mixed_product": "Tomato and pepper cannot be mixed in one truck",
     "product_mismatch": "The blocks' product does not match the trip's product",
     "contract_product_mismatch": "The contract's product does not match the trip's product"
+  },
+  "market": {
+    "agents": {
+      "nav": "Agent logins",
+      "title": "Agent logins",
+      "add": "Add login",
+      "create": "Create",
+      "col_customer": "Customer",
+      "col_username": "Login",
+      "col_name": "Name",
+      "col_active": "Active",
+      "change_password": "Change password",
+      "new_password": "New password",
+      "customer": "Customer",
+      "username": "Login",
+      "password": "Password",
+      "first_name": "First name",
+      "last_name": "Last name",
+      "required": "Required field",
+      "created": "Login created",
+      "password_changed": "Password changed",
+      "save_error": "Could not save",
+      "password_hint": "The old login on the phone keeps working for up to 8 hours. To cut access right away, switch off «Active»."
+    },
+    "shell": {
+      "brand": "Sales",
+      "logout": "Log out",
+      "nav_lots": "Trucks",
+      "nav_team": "Team",
+      "loading": "Loading…",
+      "load_error": "Could not load. Check the internet and reload the page.",
+      "empty_title": "No trucks yet",
+      "empty_text": "Trucks appear here once they are sent to your bazaar."
+    },
+    "login": {
+      "title": "Sales",
+      "subtitle": "Sign in for agents and sellers",
+      "username": "Login",
+      "password": "Password",
+      "submit": "Sign in",
+      "required": "Enter the login and password",
+      "bad_credentials": "Wrong login or password",
+      "error": "Could not sign in. Check the internet."
+    },
+    "team": {
+      "title": "Team",
+      "bazaars": "Bazaars",
+      "add_bazaar": "Add bazaar",
+      "bazaar_name": "Bazaar name",
+      "no_bazaars": "No bazaars yet",
+      "sellers": "Sellers",
+      "add_seller": "Add seller",
+      "no_sellers": "No sellers yet",
+      "need_bazaar": "Add a bazaar first.",
+      "username": "Login",
+      "password": "Password",
+      "first_name": "Name",
+      "bazaar": "Bazaar",
+      "choose_bazaar": "Choose a bazaar",
+      "save": "Save",
+      "cancel": "Cancel",
+      "change_password": "Change password",
+      "new_password": "New password",
+      "disable": "Disable",
+      "enable": "Enable",
+      "active": "Active",
+      "inactive": "Disabled",
+      "required": "Fill in this field",
+      "save_error": "Could not save",
+      "password_hint": "The old login on the phone keeps working for up to 8 hours. To cut access right away, press «Disable»."
+    }
   }
 }

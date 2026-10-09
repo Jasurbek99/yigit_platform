@@ -4,6 +4,7 @@
  * operator has to scan the pallet again.
  */
 export function loginPathFor(path: string): string {
+  if (path.startsWith('/m/') || path === '/m') return path.startsWith('/m/login') ? path : `/m/login?next=${encodeURIComponent(path)}`;
   if (path.startsWith('/login')) return path;
   if (path === '/') return '/login';
   return `/login?next=${encodeURIComponent(path)}`;

@@ -94,7 +94,7 @@ All three endpoints require auth only; no role gate. Returned numbers are second
 |---|---|
 | `GET /api/v1/core/worklog/me/?from=&to=` | Self last-N-days with `today_active_seconds` + `total_active_seconds` |
 | `GET /api/v1/core/worklog/?user=&from=&to=` | Any user's per-day rows, defaults to last 7 days |
-| `GET /api/v1/core/worklog/team/?date=` | One row per active user for a single date (includes zero rows so the page shows the full roster) |
+| `GET /api/v1/core/worklog/team/?date=` | One row per active staff user for a single date (includes zero rows so the page shows the full roster; agent-market roles are left out) |
 
 ## Code Map
 

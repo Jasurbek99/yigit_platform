@@ -95,6 +95,8 @@ const ROLE_COLORS: Record<UserRole, string> = {
   // role. It is the one antd preset neither map had already spent.
   quality_inspector: 'yellow',
   garawul: 'magenta',
+  agent: 'lime',
+  agent_seller: 'green',
   boss: 'magenta',
 };
 

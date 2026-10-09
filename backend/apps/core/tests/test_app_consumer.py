@@ -22,7 +22,7 @@ from channels.testing.websocket import WebsocketCommunicator
 from django.test import TransactionTestCase
 from rest_framework_simplejwt.tokens import AccessToken
 
-from apps.core.models import User
+from apps.core.models import User, WorkSession
 from apps.core.services import presence
 from apps.core.services.sheet_events import broadcast_sheet_change
 from config.asgi import application
@@ -65,6 +65,28 @@ class AppConsumerTests(TransactionTestCase):
             connected, code = await comm.connect()
             self.assertFalse(connected)
             self.assertEqual(code, 4401)
+
+        asyncio.run(run())
+
+    def test_external_roles_rejected_internal_role_accepted(self) -> None:
+        """Agents / agent sellers may use only /api/v1/auth|market/, so no WS (4403)."""
+        async def run() -> None:
+            for role in ('agent_seller', 'agent'):
+                user = await _make_user(f'ext_{role}', role=role)
+                comm = await _connect(await _token_for(user))
+                connected, code = await comm.connect()
+                self.assertFalse(connected, role)
+                self.assertEqual(code, 4403, role)
+                sessions = await database_sync_to_async(
+                    lambda: WorkSession.objects.filter(user_id=user.id).count()
+                )()
+                self.assertEqual(sessions, 0, role)
+
+            internal = await _make_user('int_wh', role='warehouse_chief')
+            comm = await _connect(await _token_for(internal))
+            connected, _ = await comm.connect()
+            self.assertTrue(connected)
+            await comm.disconnect()
 
         asyncio.run(run())
 

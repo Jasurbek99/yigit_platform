@@ -39,7 +39,7 @@ import { PlanTaskCard } from '@/components/me/PlanTaskCard';
 import { formatDuration } from '@/components/shipment/PhaseContextStrip.helpers';
 import type { ITaskListItem, ShipmentPhase, TaskKind, TaskState } from '@/types';
 import { COLORS } from '@/constants/styles';
-import { EXPORT_MANAGER_LIKE, ROLE_CHOICES } from '@/constants/roles';
+import { EXPORT_MANAGER_LIKE, STAFF_ROLE_CHOICES } from '@/constants/roles';
 
 const { Title, Text } = Typography;
 
@@ -459,7 +459,7 @@ export default function SelfBoard() {
             style={{ width: 180 }}
             options={[
               { value: ALL_ROLES, label: t('me.board.filter_role') },
-              ...ROLE_CHOICES.map((r) => ({
+              ...STAFF_ROLE_CHOICES.map((r) => ({
                 value: r.value,
                 label: t(r.labelKey),
               })),

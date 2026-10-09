@@ -32,6 +32,11 @@ _MIGRATION = import_module('apps.core.migrations.0033_boss_process_visibility_pe
 # action, so can_delete is False for every role, boss included.
 _NARROWED = {'closed_season', 'truck_split_default', 'sale', 'fleet'}
 
+# Agent market: boss is read-only there (agent-market spec §3 — "everything,
+# read only"; agent logins are created by admin / sales rep). Seeded in
+# seed_permissions and core/0076, not in 0033.
+_MARKET_READ_ONLY = {'market_agent', 'market_team'}
+
 
 class BossPermissionDefaultsTests(TestCase):
     """The seed command's boss defaults, as applied to a fresh database."""
@@ -47,8 +52,10 @@ class BossPermissionDefaultsTests(TestCase):
             .filter(role='boss', is_visible=True)
             .values_list('page_code', flat=True)
         )
-        self.assertEqual(visible, set(PAGE_REGISTRY.keys()) - _BOSS_DEAD_PAGES)
-        self.assertEqual(len(visible), len(PAGE_REGISTRY) - 4)
+        # market.home / market.team are the agent-market phone pages: agents only.
+        expected = set(PAGE_REGISTRY.keys()) - _BOSS_DEAD_PAGES - {'market.home', 'market.team'}
+        self.assertEqual(visible, expected)
+        self.assertEqual(len(visible), len(PAGE_REGISTRY) - 4 - 2)
 
     def test_pages_gated_outside_the_matrix_are_hidden_from_boss(self):
         """Each of the four is refused by a gate the matrix cannot reach:
@@ -67,12 +74,21 @@ class BossPermissionDefaultsTests(TestCase):
     def test_boss_has_full_crud_on_every_unnarrowed_resource(self):
         rows = RoleResourcePermission.objects.filter(role='boss')
         self.assertEqual(rows.count(), len(RESOURCE_REGISTRY))
-        for row in rows.exclude(resource_code__in=_NARROWED):
+        for row in rows.exclude(resource_code__in=_NARROWED | _MARKET_READ_ONLY):
             with self.subTest(resource=row.resource_code):
                 self.assertTrue(row.can_view)
                 self.assertTrue(row.can_create)
                 self.assertTrue(row.can_edit)
                 self.assertTrue(row.can_delete)
+
+    def test_boss_is_read_only_on_the_agent_market(self):
+        for code in _MARKET_READ_ONLY:
+            with self.subTest(resource=code):
+                row = RoleResourcePermission.objects.get(role='boss', resource_code=code)
+                self.assertEqual(
+                    (row.can_view, row.can_create, row.can_edit, row.can_delete),
+                    (True, False, False, False),
+                )
 
     def test_fleet_is_view_create_edit_but_never_delete_for_boss(self):
         """Not a policy carve-out: no fleet ViewSet exposes `destroy`, so a

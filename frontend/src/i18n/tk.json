@@ -36,6 +36,8 @@
     "loading_dept_head": "Ýükleme gaplama bölüminiň müdiri",
     "loading_dept_head_deputy": "Ýükleme gaplama bölüminiň orunbassary",
     "garawul": "Garawul",
+    "agent": "Agent",
+    "agent_seller": "Agentiň satyjysy",
     "boss": "Başlyk"
   },
   "row_access": {
@@ -3074,7 +3076,9 @@
       "weight_master": "Gapançy",
       "boss": "Ýolbaşçy",
       "seller": "Satyjy",
-      "garawul": "Garawul"
+      "garawul": "Garawul",
+      "agent": "Agent",
+      "agent_seller": "Agentiň satyjysy"
     },
     "field_label": {
       "sales_report_approved_at": "Satuw hasabaty tassyklandy",
@@ -4320,5 +4324,76 @@
     "mixed_product": "Bir ýük awtoulagynda pomidor bilen burçy garyşdyrmak bolmaz",
     "product_mismatch": "Blogyň önümi iş saparyň önümine gabat gelmeýär",
     "contract_product_mismatch": "Şertnamanyň önümi iş saparyň önümine gabat gelmeýär"
+  },
+  "market": {
+    "agents": {
+      "nav": "Agent loginleri",
+      "title": "Agent loginleri",
+      "add": "Login goşmak",
+      "create": "Döretmek",
+      "col_customer": "Müşderi",
+      "col_username": "Login",
+      "col_name": "Ady",
+      "col_active": "Işjeň",
+      "change_password": "Paroly çalyşmak",
+      "new_password": "Täze parol",
+      "customer": "Müşderi",
+      "username": "Login",
+      "password": "Parol",
+      "first_name": "Ady",
+      "last_name": "Familiýasy",
+      "required": "Hökmany meýdan",
+      "created": "Login döredildi",
+      "password_changed": "Parol çalşyryldy",
+      "save_error": "Ýatda saklamak başa barmady",
+      "password_hint": "Telefondaky köne giriş 8 sagada çenli işlemegini dowam etdirer. Girişi derrew ýapmak üçin «Işjeň» belligini öçüriň."
+    },
+    "shell": {
+      "brand": "Satuw",
+      "logout": "Çykmak",
+      "nav_lots": "Maşynlar",
+      "nav_team": "Topar",
+      "loading": "Ýüklenýär…",
+      "load_error": "Ýükläp bolmady. Internedi barlaň we sahypany täzeläň.",
+      "empty_title": "Häzirlikçe maşyn ýok",
+      "empty_text": "Maşynlar bazaryňyza iberilende şu ýerde peýda bolar."
+    },
+    "login": {
+      "title": "Satuw",
+      "subtitle": "Agentler we satyjylar üçin giriş",
+      "username": "Login",
+      "password": "Parol",
+      "submit": "Giriş",
+      "required": "Logini we paroly giriziň",
+      "bad_credentials": "Login ýa-da parol nädogry",
+      "error": "Girip bolmady. Internedi barlaň."
+    },
+    "team": {
+      "title": "Topar",
+      "bazaars": "Bazarlar",
+      "add_bazaar": "Bazar goşmak",
+      "bazaar_name": "Bazaryň ady",
+      "no_bazaars": "Häzirlikçe bazar ýok",
+      "sellers": "Satyjylar",
+      "add_seller": "Satyjy goşmak",
+      "no_sellers": "Häzirlikçe satyjy ýok",
+      "need_bazaar": "Ilki bazar goşuň.",
+      "username": "Login",
+      "password": "Parol",
+      "first_name": "Ady",
+      "bazaar": "Bazar",
+      "choose_bazaar": "Bazary saýlaň",
+      "save": "Ýatda saklamak",
+      "cancel": "Ýatyrmak",
+      "change_password": "Paroly çalyşmak",
+      "new_password": "Täze parol",
+      "disable": "Öçürmek",
+      "enable": "Açmak",
+      "active": "Işleýär",
+      "inactive": "Öçürilen",
+      "required": "Bu meýdany dolduryň",
+      "save_error": "Ýatda saklamak başa barmady",
+      "password_hint": "Telefondaky köne giriş 8 sagada çenli işlemegini dowam etdirer. Girişi derrew ýapmak üçin «Öçürmek» düwmesine basyň."
+    }
   }
 }

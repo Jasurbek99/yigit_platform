@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/v1/me/', include('apps.core.urls.me')),
     path('api/v1/greenhouse/', include('apps.greenhouse.urls')),
     path('api/v1/export/', include('apps.export.urls')),
+    path('api/v1/market/', include('apps.market.urls')),
     path('api/v1/contracts/', include('apps.contracts.urls')),
     path('api/v1/transport/', include('apps.transport.urls')),
     path('api/v1/feedback/', include('apps.feedback.urls')),
