@@ -13,4 +13,6 @@ export const ROLE_COLOR: Record<string, string> = {
   garawul: 'magenta',  // must match UsersPage's ROLE_COLORS
   loading_dept_head_deputy: 'gold',  // must match UsersPage's ROLE_COLORS
   weight_master: 'geekblue',  // must match UsersPage's ROLE_COLORS
+  agent: 'lime',  // must match UsersPage's ROLE_COLORS
+  agent_seller: 'green',  // must match UsersPage's ROLE_COLORS
 };

@@ -36,6 +36,8 @@
     "loading_dept_head": "Начальник отдела загрузки",
     "loading_dept_head_deputy": "Заместитель начальника отдела загрузки",
     "garawul": "Охранник",
+    "agent": "Агент",
+    "agent_seller": "Продавец агента",
     "boss": "Босс"
   },
   "row_access": {

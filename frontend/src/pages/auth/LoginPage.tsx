@@ -8,6 +8,7 @@ import axios from 'axios';
 import api from '@/services/api';
 import type { ICurrentUser } from '@/types';
 import { COLORS } from '@/constants/styles';
+import { EXTERNAL_ROLES } from '@/constants/roles';
 import { safeNextPath } from '@/utils/loginRedirect';
 
 interface ILoginForm {
@@ -30,6 +31,10 @@ export default function LoginPage() {
       toast.success(t('login.toast_success', { name: data.first_name || data.username }), {
         description: t('login.toast_success_desc', { role: t(`roles.${data.role}`) }),
       });
+      if (EXTERNAL_ROLES.includes(data.role)) {
+        window.location.replace('/m/');
+        return;
+      }
       navigate(next ?? (data.role === 'boss' ? '/boss/dashboard' : '/'));
     },
     onError: (error: unknown) => {

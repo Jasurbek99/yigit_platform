@@ -2,6 +2,8 @@
  * Role choices — mirrors backend ROLE_CHOICES in apps/core/roles.py.
  * `labelKey` maps to existing `roles.*` i18n keys in tk/ru/en.json.
  */
+import type { UserRole } from '@/types';
+
 /**
  * Task ownership equivalence — mirrors TASK_ROLE_EQUIVALENTS in
  * backend/apps/core/roles.py. A deputy acts with identical authority to their
@@ -38,6 +40,8 @@ export const ROLE_CHOICES: ReadonlyArray<{ value: string; labelKey: string }> = 
   { value: 'seller',             labelKey: 'roles.seller' },
   { value: 'quality_inspector',  labelKey: 'roles.quality_inspector' },
   { value: 'garawul',            labelKey: 'roles.garawul' },
+  { value: 'agent',              labelKey: 'roles.agent' },
+  { value: 'agent_seller',       labelKey: 'roles.agent_seller' },
   { value: 'boss',               labelKey: 'roles.boss' },
 ] as const;
 
@@ -57,3 +61,6 @@ export const EXPORT_MANAGER_LIKE: readonly string[] = ['export_manager', 'docume
 export function isExportManagerLike(role: string | null | undefined): boolean {
   return !!role && EXPORT_MANAGER_LIKE.includes(role);
 }
+
+/** Agent-market roles: confined to the separate /m/ app, never the internal UI. */
+export const EXTERNAL_ROLES: ReadonlyArray<UserRole> = ['agent', 'agent_seller'];

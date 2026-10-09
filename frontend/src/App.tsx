@@ -8,6 +8,7 @@ import { Toaster } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
+import { ExternalRoleGate } from '@/components/ExternalRoleGate';
 import { COLORS, FONT } from '@/constants/styles';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -121,7 +122,9 @@ export default function App() {
                   path="/"
                   element={
                     <ProtectedRoute>
-                      <AppLayout />
+                      <ExternalRoleGate>
+                        <AppLayout />
+                      </ExternalRoleGate>
                     </ProtectedRoute>
                   }
                 >

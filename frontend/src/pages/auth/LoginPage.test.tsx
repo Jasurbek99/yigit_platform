@@ -162,6 +162,30 @@ describe('LoginPage', () => {
     });
   });
 
+  it.each(['agent', 'agent_seller'])(
+    'sends %s to the /m/ market app with a full page load',
+    async (role) => {
+      const replace = vi.fn();
+      vi.stubGlobal('location', { ...window.location, replace });
+      try {
+        vi.mocked(api.post).mockResolvedValueOnce({
+          data: { id: 4, username: 'ag', role, first_name: 'Ag', last_name: '', email: '' },
+        });
+        const user = userEvent.setup();
+        renderLogin(`/login?next=${encodeURIComponent('/scan/719')}`);
+        await user.type(screen.getByPlaceholderText('Username'), 'ag');
+        await user.type(screen.getByPlaceholderText('Password'), 'secret');
+        await user.click(screen.getByRole('button', { name: 'Sign In' }));
+        await waitFor(() => {
+          expect(replace).toHaveBeenCalledWith('/m/');
+        });
+        expect(mockNavigate).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
   it('does not navigate when the API rejects', async () => {
     vi.mocked(api.post).mockRejectedValueOnce({
       response: { status: 401, data: { error: 'bad creds' } },

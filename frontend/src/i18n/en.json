@@ -36,6 +36,8 @@
     "loading_dept_head": "Loading Dept Head",
     "loading_dept_head_deputy": "Loading Dept Deputy",
     "garawul": "Gate guard",
+    "agent": "Agent",
+    "agent_seller": "Agent seller",
     "boss": "Boss"
   },
   "row_access": {
