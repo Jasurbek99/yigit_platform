@@ -334,9 +334,12 @@ External roles `agent` / `agent_seller` may call **only** `/api/v1/auth/` and `/
 // PATCH body: any of first_name, last_name, is_active, password.
 // customer_id and username are silently ignored on update (a login never moves customer or renames).
 // password is write-only and never returned. POST with a customer outside the rep's scope -> 403.
+// password: Django validators run with the login's username/name; a leading or trailing space -> 400
+// {"password": ["Пароль не может начинаться или заканчиваться пробелом."]} (same rule on /team/sellers/).
+// Every /api/v1/market/ response speaks Russian (validators, 401/403/404 included).
 ```
 
-**Team: `GET|POST|PATCH /api/v1/market/team/bazaars/` and `/team/sellers/`** (resource `market_team`; reads are scoped to the caller's customer, staff read all within their scope; **writes only by an `agent`**, anyone else gets 403 `Only the agent manages his team.`)
+**Team: `GET|POST|PATCH /api/v1/market/team/bazaars/` and `/team/sellers/`** (resource `market_team`; reads are scoped to the caller's customer, staff read all within their scope; **writes only by an `agent`**, anyone else gets 403 `{"error": "Командой управляет только агент."}`)
 ```json
 // Bazaar (GET / POST / PATCH)
 { "id": 3, "name": "Alay", "city_id": 7, "is_active": true }

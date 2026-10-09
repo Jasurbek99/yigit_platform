@@ -65,11 +65,16 @@ Shapes are in the `api-contract` skill.
 - `core` cannot import `market`, so `seed_test_users` cannot make agent test logins; add a `market` management command in Part B if needed.
 - **Branch migrations (core 0075 / 0076, export 0099, market 0001) are NOT applied to the shared DB until the branch is merged.** Beta runs old code on the same DB.
 - After merge **and** after the beta deploy, re-run the permission seed (`seed_permissions` only creates missing rows).
+- **Passwords are never trimmed and never start or end with a space.** Login (`LoginSerializer`) trims what it receives, so a stored password with a phone keyboard's trailing space could never be typed back. `/market/agents/` and `/market/team/sellers/` reject such a password with 400 (`apps/market/passwords.py`), and the `/m/` inputs turn off autocorrect / autocapitalise / spellcheck.
+- **Login changes are audited** in `AuditLog` via `create_audit_entry` (`model_name` `AgentLogin` / `SellerLogin`, actions `create` / `update`): login created, `password reset`, `is_active → True|False`. The password itself is never logged.
+- **Market responses are Russian.** `LANGUAGE_CODE` is `tk` and there is no `LocaleMiddleware`, so every market view inherits `RussianMixin` (`apps/market/views/base.py`, `translation.override('ru')` around `dispatch`, Http404 → DRF `NotFound`). Our own messages are written in Russian in code (no `locale/` catalog).
+- **A password change does not end the old phone session**: the access token lives up to 8 h. To cut access at once, disable the login (both «Сменить пароль» sheets say so).
+- Staff rosters skip `EXTERNAL_ROLES`: @mention autocomplete (users and roles), team KPI and the worklog team list; frontend role pickers use `STAFF_ROLE_CHOICES`.
 - Every reference list an agent's phone needs (expense categories, cities, product types) must be served under `/api/v1/market/` from Part B on — they are behind the fence today.
 
 ## Deploy
 
-- The market app is a **second Vite entry served at `/m/`**: rebuild the **frontend image** (nginx `location /m/ { try_files $uri /m.html; }`, plus no-cache exact locations for `/m/sw.js` and `/m/manifest.webmanifest`).
+- The market app is a **second Vite entry served at `/m/`**: rebuild the **frontend image** (nginx `location /m/ { try_files $uri /m.html; }`, `location = /m` → 301 `/m/`, plus no-cache exact locations for `/m/sw.js` and `/m/manifest.webmanifest`).
 - `migrate core export market`.
 - **PWA install needs HTTPS** (beta `https://export.yigithj.com`). `public/m/manifest.webmanifest`, no-cache `sw.js` (registered in prod builds only, caches nothing), PNG icons (192, 512, maskable 512, apple-touch 180).
 
