@@ -84,3 +84,65 @@ input{font:inherit;color:inherit}
 .mk-login{max-width:420px;margin:0 auto;padding-top:8vh}
 .mk-login .mk-brand{margin-bottom:6px}
 .mk-login .mk-btn--tomato{margin-top:24px}
+
+/* trucks: home card (artifact .truck), drawing (.rig), what is left (.leftline), money (.moneyline) */
+.mk-truck{display:block;min-width:0;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:16px;color:inherit;text-decoration:none}
+.mk-truck:active{border-color:var(--ink)}
+.mk-truck-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.mk-truck-name{font-weight:800;font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+.mk-truck-date{flex:none;color:var(--muted);font-size:15px}
+.mk-truck-sub{display:block;color:var(--muted);font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.mk-product{display:inline-block;margin:4px 0 0;padding:2px 10px;border-radius:999px;background:var(--vine-soft);color:var(--vine);font-weight:800;font-size:15px}
+.mk-rig{display:flex;align-items:stretch;gap:4px;height:46px;margin:12px 0}
+.mk-rig--big{height:66px}.mk-cab{flex:none;width:30px;border-radius:12px 4px 4px 12px;background:var(--ink);position:relative}
+.mk-cab::after{content:"";position:absolute;left:6px;top:7px;bottom:7px;width:7px;border-radius:4px;background:var(--bg);opacity:.75}
+.mk-rig--big .mk-cab{width:40px}
+.mk-bed{flex:1;min-width:0;display:grid;grid-template-rows:1fr 1fr;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;padding:4px;border:2px solid var(--ink);border-radius:4px 8px 8px 4px}
+.mk-pal{border-radius:2px;background:linear-gradient(to top,var(--tomato) var(--p,0%),var(--empty) var(--p,0%))}
+.mk-rig--other .mk-pal{background:linear-gradient(to top,var(--vine) var(--p,0%),var(--empty) var(--p,0%))}
+.mk-leftline{margin:0;font-size:17px;color:var(--muted)}
+.mk-leftline b{font:900 34px/1 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;color:var(--ink);font-variant-numeric:tabular-nums}
+.mk-leftline--over b{color:var(--crate)}
+.mk-moneyline{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-weight:600}
+.mk-ok{color:var(--vine)}.mk-due{color:var(--crate)}
+.mk-badline{display:block;margin-top:6px;font-weight:600;color:var(--muted)}
+
+/* compact rows: closed lots (.done) and the agent's trucks still to open */
+.mk-done,.mk-road{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;align-items:center;min-height:48px;padding:14px 2px;border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.mk-done-name{font-weight:800;overflow-wrap:anywhere}.mk-done-sub{color:var(--muted);font-size:15px}
+.mk-done-money{grid-row:1 / span 2;grid-column:2;text-align:right;font-size:24px}
+.mk-done-due{display:block;font:600 14px/1.2 "Sofia Sans",system-ui,sans-serif;color:var(--crate)}
+.mk-road > *{grid-column:1}.mk-road .mk-product{justify-self:start}.mk-road .mk-small{grid-column:2;grid-row:1 / span 4}
+
+/* lot screen: back bar, two columns from 1000 px (form left, stats + entries right) */
+.mk-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.mk-back{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:0 16px 0 10px;border-radius:14px;border:2px solid var(--line);background:var(--card);font-weight:800;color:inherit;text-decoration:none}
+.mk-back svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.mk-cols{display:grid;gap:22px;margin-top:16px}
+.mk-cols > :empty{display:none}
+@media (min-width:1000px){
+  .mk-cols{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:28px;align-items:start}
+  .mk-cols > :empty{display:block}
+}
+.mk-stats{background:var(--card);border-radius:16px;padding:4px 14px}
+.mk-stat{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:0 12px;padding:10px 0}
+.mk-stat + .mk-stat{border-top:1px solid var(--line)}
+.mk-stat span{font-weight:600;color:var(--muted)}
+.mk-stat b{font:900 28px/1.1 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;margin-left:auto}
+.mk-stat--ok b{color:var(--vine)}.mk-stat--due b{color:var(--crate)}.mk-stat--cost b{color:var(--tomato)}
+.mk-stat--small b{font-size:22px;white-space:normal}
+
+/* entries (artifact .sale / .day) */
+.mk-sale{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:14px 2px;border-top:1px solid var(--line)}
+.mk-sale-what{font-weight:800;font-size:19px;overflow-wrap:anywhere}
+.mk-sale-sub{color:var(--muted);font-size:15px}
+.mk-sale-total{grid-row:1 / span 2;grid-column:2;align-self:center;font-size:28px;text-align:right;white-space:nowrap}
+.mk-sale-foot{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+.mk-sale--bad .mk-sale-what{color:var(--crate)}.mk-sale--bad .mk-sale-what,.mk-sale--bad .mk-sale-sub{grid-column:1 / -1}
+.mk-sale--cost .mk-sale-what,.mk-sale--cost .mk-sale-total{color:var(--tomato)}
+.mk-day{margin-top:18px;padding:12px 2px 10px;border-top:3px solid var(--ink)}.mk-day:first-child{margin-top:0}
+.mk-day-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px}
+.mk-day-date{font-weight:800;font-size:19px}
+.mk-day-net{font-size:28px;white-space:nowrap;margin-left:auto}
+.mk-day-sub{margin:0;color:var(--muted);font-size:15px}
+.mk-nosales{margin:0;padding:18px 2px;color:var(--muted);border-top:1px solid var(--line)}

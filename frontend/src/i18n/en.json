@@ -4400,7 +4400,53 @@
     },
     "fmt": {
       "boxes_one": "{{count}} box",
-      "boxes_other": "{{count}} boxes"
+      "boxes_other": "{{count}} boxes",
+      "pallets_one": "{{count}} pallet",
+      "pallets_other": "{{count}} pallets"
+    },
+    "home": {
+      "closed": "Closed trucks",
+      "closed_on": "Closed {{date}}",
+      "in_transit": "On the road and arrived",
+      "open": "Open",
+      "open_error": "Could not open the truck. Please try again.",
+      "paid_sum": "Paid {{v}}",
+      "due_sum": "Debt {{v}}",
+      "cost_line": "Costs: {{v}}",
+      "spoiled_line": "Spoiled: {{v}}"
+    },
+    "lot": {
+      "back": "Trucks",
+      "today": "Today, {{date}}",
+      "left_of_one": "box left of {{total}}",
+      "left_of_other": "boxes left of {{total}}",
+      "over_one": "box sold more than the truck had",
+      "over_other": "boxes sold more than the truck had",
+      "left_aria": "{{left}} of {{total}} boxes left",
+      "kg_value": "{{v}} kg",
+      "stat_sold": "Sold",
+      "stat_net_kg": "Weight without boxes",
+      "stat_sales": "Sales",
+      "stat_costs": "Costs",
+      "stat_after": "After costs",
+      "stat_paid": "Paid",
+      "stat_debt": "Debt",
+      "stat_diff": "Difference from the formula",
+      "stat_spoiled": "Spoiled",
+      "entries": "Sales from this truck",
+      "no_entries": "No sales yet. The first one will show here.",
+      "day_sales": "Sales {{v}}",
+      "day_costs": "costs {{v}}",
+      "day_avg": "average price {{v}}",
+      "sale_pallets": "{{pallets}} ({{boxes}})",
+      "whole_truck": "Whole truck ({{boxes}})",
+      "for_kg": "{{price}} per 1 kg",
+      "for_box": "{{price}} per 1 box",
+      "row_diff": "by formula {{calc}} ({{off}})",
+      "debt_tag": "Debt",
+      "debt_buyer": "Debt: {{name}}",
+      "spoiled_row": "Spoiled: {{v}}",
+      "expense_row": "Cost: {{name}}"
     }
   }
 }

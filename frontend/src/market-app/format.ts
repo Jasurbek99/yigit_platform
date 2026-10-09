@@ -44,6 +44,22 @@ export function money(v: string | number, currency: string): string {
   return `${formatNumber(v, 2)}${NBSP}${SYMBOLS[currency] ?? currency}`;
 }
 
+/** Minus sign (U+2212) before an amount, the artifact's `plain`: −1 000 ₸ / 1 000 ₸. */
+export function plainMoney(v: string | number, currency: string): string {
+  const n = Number(v);
+  return (n < 0 ? '−' : '') + money(Math.abs(n), currency);
+}
+
+/** Always signed, the artifact's `signed`: +200 ₸ / −200 ₸. */
+export function signedMoney(v: string | number, currency: string): string {
+  return (Number(v) > 0 ? '+' : '−') + money(Math.abs(Number(v)), currency);
+}
+
+/** A whole count with thousands grouped: 1 000. */
+export function int(n: number): string {
+  return formatNumber(n, 0);
+}
+
 /** Kilograms as a number ("80,5"); the unit word comes from the i18n string around it. */
 export function kg(v: string | number): string {
   return formatNumber(v, 2);
