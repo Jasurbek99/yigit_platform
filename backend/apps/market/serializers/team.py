@@ -91,5 +91,7 @@ class SellerSerializer(serializers.ModelSerializer):
             user.set_password(password)
         user.save()
         if bazaar_id:
-            AgentMember.objects.filter(user=user).update(bazaar_id=bazaar_id)
+            member = user.agent_member
+            member.bazaar_id = bazaar_id
+            member.save(update_fields=['bazaar'])
         return user

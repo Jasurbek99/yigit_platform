@@ -143,3 +143,22 @@ class TeamApiTests(TestCase):
     def test_unknown_city_is_400(self):
         resp = self._as(self.agent).post('/api/v1/market/team/bazaars/', {'name': 'Г', 'city_id': 999999}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+    def test_patch_moves_seller_to_another_own_bazaar(self):
+        created = self._seller('seller_mv').json()
+        sid = created['id']
+        second = self._bazaar('Второй').json()['id']
+        self.assertNotEqual(created['bazaar']['id'], second)
+        resp = self._as(self.agent).patch(
+            f'/api/v1/market/team/sellers/{sid}/', {'bazaar_id': second}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()['bazaar']['id'], second)
+        self.assertEqual(User.objects.get(pk=sid).agent_member.bazaar_id, second)
+
+    def test_patch_to_foreign_bazaar_is_400(self):
+        created = self._seller('seller_fb').json()
+        sid = created['id']
+        resp = self._as(self.agent).patch(
+            f'/api/v1/market/team/sellers/{sid}/', {'bazaar_id': self.foreign_bazaar.pk}, format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(User.objects.get(pk=sid).agent_member.bazaar_id, created['bazaar']['id'])
