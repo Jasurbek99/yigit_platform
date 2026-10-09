@@ -35,7 +35,7 @@ New page codes: `market.home`, `market.team` (phone shell), `market.agents` (des
 | `agent` | `market.home`, `market.team` (nothing else, not even the universal pages) | `market_team` VCRUD |
 | `agent_seller` | `market.home` | `market_team` all-denied row |
 | `sales_rep` | + `market.agents` | `market_agent` view / create / edit |
-| `admin` | every page (incl. `market.home` / `market.team`) | full CRUD on both |
+| `admin` | every page except the phone pages (`market.home` / `market.team` subtracted; `market.agents` visible) | full CRUD on both |
 | `boss`, `director`, `export_manager`, `document_team` | `market.agents` (phone pages subtracted) | view only (spec §3; boss too, unlike his usual full CRUD) |
 | everyone else | none | none |
 
