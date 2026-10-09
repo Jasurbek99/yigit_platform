@@ -70,11 +70,11 @@ describe('SellForm', () => {
     expect(screen.getByLabelText('Итого, ₸ (можно исправить)')).toHaveValue('4 500');
 
     const save = screen.getByRole('button', { name: 'Сохранить продажу' });
-    await user.click(save);
+    act(() => { save.click(); save.click(); }); // same tick: the second press must not post again
+    expect(await screen.findByText(/^Сохранено: 10 ящиков, 100 кг, 4\s500\s₸$/)).toBeInTheDocument();
     expect(api.post).toHaveBeenCalledTimes(1);
     expect(api.post).toHaveBeenCalledWith('/market/lots/5/sales/',
       { unit: 'box', qty: 10, gross_kg: '104.50', price_kg: '45.00', paid_on_spot: true }, expect.anything());
-    expect(await screen.findByText(/^Сохранено: 10 ящиков, 100 кг, 4\s500\s₸$/)).toBeInTheDocument();
     expect(save).toBeDisabled();
     expect(screen.getByLabelText('Сколько ящиков?')).toHaveValue('1');
     expect(screen.getByLabelText('Вес с ящиками, кг')).toHaveValue('');
