@@ -89,7 +89,10 @@ class TeamApiTests(TestCase):
 
     def test_me(self):
         body = self._as(self.agent).get('/api/v1/market/me/').json()
-        self.assertEqual(body, {'role': 'agent', 'customer': {'id': self.cust.pk, 'name': 'Агент Т'}, 'bazaar': None})
+        self.assertEqual(body, {
+            'role': 'agent', 'username': 'tm_ag', 'first_name': '',
+            'customer': {'id': self.cust.pk, 'name': 'Агент Т'}, 'bazaar': None,
+        })
         self.assertEqual(self._as(self.boss).get('/api/v1/market/me/').json()['customer'], None)
 
     def _seller(self, username='seller_p'):

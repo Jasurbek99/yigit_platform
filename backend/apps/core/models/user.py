@@ -47,7 +47,9 @@ ROLE_CHOICES = [
 
 # Roles of people outside YGT (agents at the destination market and their sellers).
 # They may call only the auth and market APIs — enforced in CookieJWTAuthentication.
-EXTERNAL_ROLES: frozenset[str] = frozenset({'agent', 'agent_seller'})
+AGENT_ROLE = 'agent'
+AGENT_SELLER_ROLE = 'agent_seller'
+EXTERNAL_ROLES: frozenset[str] = frozenset({AGENT_ROLE, AGENT_SELLER_ROLE})
 
 
 class User(AbstractUser):
