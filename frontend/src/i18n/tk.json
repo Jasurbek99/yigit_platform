@@ -4343,7 +4343,8 @@
       "required": "Hökmany meýdan",
       "created": "Login döredildi",
       "password_changed": "Parol çalşyryldy",
-      "save_error": "Ýatda saklamak başa barmady"
+      "save_error": "Ýatda saklamak başa barmady",
+      "password_hint": "Telefondaky köne giriş 8 sagada çenli işlemegini dowam etdirer. Girişi derrew ýapmak üçin «Işjeň» belligini öçüriň."
     },
     "shell": {
       "brand": "Satuw",
@@ -4389,7 +4390,8 @@
       "active": "Işleýär",
       "inactive": "Öçürilen",
       "required": "Bu meýdany dolduryň",
-      "save_error": "Ýatda saklamak başa barmady"
+      "save_error": "Ýatda saklamak başa barmady",
+      "password_hint": "Telefondaky köne giriş 8 sagada çenli işlemegini dowam etdirer. Girişi derrew ýapmak üçin «Öçürmek» düwmesine basyň."
     }
   }
 }

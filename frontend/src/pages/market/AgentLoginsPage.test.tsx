@@ -127,4 +127,12 @@ describe('AgentLoginsPage', () => {
 
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/market/agents/1/', { is_active: false }));
   });
+
+  it('the change-password dialog explains the 8-hour login', async () => {
+    renderPage();
+    await screen.findByText('agent_aman');
+    fireEvent.click(screen.getAllByRole('button', { name: /Сменить пароль/ })[0]);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/до 8 часов/)).toBeInTheDocument();
+  });
 });

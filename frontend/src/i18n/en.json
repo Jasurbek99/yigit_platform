@@ -4340,7 +4340,8 @@
       "required": "Required field",
       "created": "Login created",
       "password_changed": "Password changed",
-      "save_error": "Could not save"
+      "save_error": "Could not save",
+      "password_hint": "The old login on the phone keeps working for up to 8 hours. To cut access right away, switch off «Active»."
     },
     "shell": {
       "brand": "Sales",
@@ -4386,7 +4387,8 @@
       "active": "Active",
       "inactive": "Disabled",
       "required": "Fill in this field",
-      "save_error": "Could not save"
+      "save_error": "Could not save",
+      "password_hint": "The old login on the phone keeps working for up to 8 hours. To cut access right away, press «Disable»."
     }
   }
 }

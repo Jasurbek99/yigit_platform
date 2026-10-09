@@ -129,10 +129,11 @@ class RealtimeClient {
       // console when reporting a bug.
       //   1000 normal · 1006 abnormal (no close frame) · 1011 internal server error
       //   4401 our auth-failure code — terminal, no reconnect
+      //   4403 role not allowed on this socket (agent market) — terminal, no reconnect
       console.warn(
         `[realtime] closed code=${event.code} reason="${event.reason}" wasClean=${event.wasClean}`,
       );
-      if (event.code === 4401 || this.explicitlyClosed) return;
+      if (event.code === 4401 || event.code === 4403 || this.explicitlyClosed) return;
       this.scheduleReconnect();
     });
 

@@ -105,4 +105,26 @@ describe('TeamScreen', () => {
     expect(within(dialog).getByLabelText('Логин')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
+
+  it('shows a load error instead of the empty state when a list fails', async () => {
+    vi.mocked(api.get).mockImplementation((url: string) =>
+      url.includes('sellers') ? Promise.reject(new Error('offline')) : Promise.resolve(page(bazaars)),
+    );
+    renderTeam();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить');
+    expect(screen.queryByText('Продавцов пока нет')).not.toBeInTheDocument();
+  });
+
+  it('password fields do not autocorrect, and the change sheet explains the 8-hour login', async () => {
+    const user = userEvent.setup();
+    renderTeam();
+    await screen.findByText('Айдос, Зелёный');
+    await user.click(screen.getByRole('button', { name: 'Сменить пароль' }));
+    const dialog = screen.getByRole('dialog');
+    const field = within(dialog).getByLabelText('Новый пароль');
+    expect(field).toHaveAttribute('autocorrect', 'off');
+    expect(field).toHaveAttribute('autocapitalize', 'none');
+    expect(field).toHaveAttribute('spellcheck', 'false');
+    expect(within(dialog).getByText(/до 8 часов/)).toBeInTheDocument();
+  });
 });

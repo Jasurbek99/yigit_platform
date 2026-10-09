@@ -12,7 +12,7 @@ import {
 } from '@/hooks/useAgentLogins';
 import { canDo } from '@/utils/permissions';
 
-const { Title } = Typography;
+const { Paragraph, Title } = Typography;
 
 type FieldErrors = Record<string, string[] | string>;
 
@@ -203,6 +203,7 @@ export default function AgentLoginsPage() {
         onCancel={() => setPwTarget(null)}
         destroyOnHidden
       >
+        <Paragraph type="secondary">{t('market.agents.password_hint')}</Paragraph>
         <Form form={pwForm} layout="vertical" onFinish={submitPassword}>
           <Form.Item
             name="password"

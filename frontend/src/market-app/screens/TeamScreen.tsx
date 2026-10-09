@@ -124,10 +124,10 @@ function SellerSheet({ onClose }: { onClose: () => void }) {
     <Sheet title={t('market.team.add_seller')} onClose={onClose}>
       <form onSubmit={submit} noValidate>
         <Field id="mk-seller-username" label={t('market.team.username')} error={errors.username} first>
-          {(p) => <input {...p} value={form.username} onChange={set('username')} autoComplete="off" autoCapitalize="none" />}
+          {(p) => <input {...p} value={form.username} onChange={set('username')} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} />}
         </Field>
         <Field id="mk-seller-password" label={t('market.team.password')} error={errors.password}>
-          {(p) => <input {...p} type="text" value={form.password} onChange={set('password')} autoComplete="new-password" />}
+          {(p) => <input {...p} type="text" value={form.password} onChange={set('password')} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} />}
         </Field>
         <Field id="mk-seller-name" label={t('market.team.first_name')} error={errors.first_name}>
           {(p) => <input {...p} value={form.first_name} onChange={set('first_name')} autoComplete="off" />}
@@ -168,8 +168,9 @@ function PasswordSheet({ seller, onClose }: { seller: ISeller; onClose: () => vo
       <p className="mk-note">{sellerLabel(seller)}</p>
       <form onSubmit={submit} noValidate>
         <Field id="mk-seller-new-password" label={t('market.team.new_password')} error={errors.password} first>
-          {(p) => <input {...p} type="text" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" autoFocus />}
+          {(p) => <input {...p} type="text" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus />}
         </Field>
+        <p className="mk-note">{t('market.team.password_hint')}</p>
         <SheetButtons busy={save.isPending} onClose={onClose} formError={errors._} />
       </form>
     </Sheet>
@@ -190,6 +191,9 @@ export default function TeamScreen() {
 
   if (bazaars.isLoading || sellers.isLoading) {
     return <div className="mk-loading"><i className="mk-loading-dot" />{t('market.shell.loading')}</div>;
+  }
+  if (bazaars.isError || sellers.isError) {
+    return <p className="mk-err" role="alert">{t('market.shell.load_error')}</p>;
   }
 
   return (

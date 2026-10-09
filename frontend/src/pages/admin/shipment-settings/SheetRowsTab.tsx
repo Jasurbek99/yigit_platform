@@ -9,7 +9,7 @@ import {
   useReorderSheetRows,
   useSoftDeleteSheetRow,
 } from '@/hooks/useSheetRowSettings';
-import { ROLE_CHOICES } from '@/constants/roles';
+import { STAFF_ROLE_CHOICES } from '@/constants/roles';
 import { COLORS } from '@/constants/styles';
 import { SheetRowList, type RowFilter } from './sheet-rows/SheetRowList';
 import SheetRowDetail from './sheet-rows/SheetRowDetail';
@@ -46,7 +46,7 @@ export default function SheetRowsTab({ canWrite }: IProps) {
     if (!selected && rows.length > 0) setSelectedId(rows[0].id);
   }, [rows, selected]);
 
-  const roleOptions = ROLE_CHOICES.map((r) => ({ value: r.value, label: t(r.labelKey) }));
+  const roleOptions = STAFF_ROLE_CHOICES.map((r) => ({ value: r.value, label: t(r.labelKey) }));
 
   // Switching rows would silently drop an unedited draft — ask first.
   const handleSelect = useCallback(

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { RoleSidebar } from '@/pages/admin/permissions/RoleSidebar';
 import { useSheetRowSettings, useSaveRoleAccess } from '@/hooks/useSheetRowSettings';
-import { ROLE_CHOICES } from '@/constants/roles';
+import { STAFF_ROLE_CHOICES } from '@/constants/roles';
 import { COLORS } from '@/constants/styles';
 
 const { Text } = Typography;
@@ -23,7 +23,7 @@ export default function RowAccessTab({ canWrite }: IRowAccessTabProps) {
   const { data: rows = [], isLoading, isError } = useSheetRowSettings();
   const save = useSaveRoleAccess();
 
-  const roles = useMemo(() => ROLE_CHOICES.map((r) => r.value), []);
+  const roles = useMemo(() => STAFF_ROLE_CHOICES.map((r) => r.value), []);
   const [role, setRole] = useState<string>(roles[0]);
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState<Set<string> | null>(null);

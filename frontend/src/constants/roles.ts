@@ -64,3 +64,8 @@ export function isExportManagerLike(role: string | null | undefined): boolean {
 
 /** Agent-market roles: confined to the separate /m/ app, never the internal UI. */
 export const EXTERNAL_ROLES: ReadonlyArray<UserRole> = ['agent', 'agent_seller'];
+
+/** ROLE_CHOICES without the agent-market roles — for staff rosters, pickers and row-access grants. */
+export const STAFF_ROLE_CHOICES = ROLE_CHOICES.filter(
+  (r) => !(EXTERNAL_ROLES as readonly string[]).includes(r.value),
+);
