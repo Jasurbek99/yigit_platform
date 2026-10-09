@@ -8,8 +8,10 @@ import i18n from '@/i18n';
 import './styles/tokens.css';
 import './styles/base.css';
 import App from './App';
+import { registerMarketSw } from './registerSw';
 
 applyMarketLanguage(i18n, userChoseLanguage);
+registerMarketSw();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1 } },
