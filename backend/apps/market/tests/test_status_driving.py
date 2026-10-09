@@ -7,12 +7,13 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.export.models import AuditLog, Shipment
+from apps.export.models import AuditLog, ExpenseCategory, Shipment
 from apps.export.services.task_rules import generate_tasks_for_status
 from apps.market.models import Lot, Sale
 from apps.market.services.status import drive_first_sale
 from apps.market.tests.factories import make_shipment, make_world
 
+ON_THE_ROAD = 'Машина ещё в пути — продавать можно после таможни назначения.'
 SALE = {'unit': 'box', 'qty': 10, 'gross_kg': '104.50', 'price_kg': '45', 'paid_on_spot': True}
 
 
@@ -92,6 +93,21 @@ class FirstSaleDrivesStatusTests(TestCase):
         again = self._shipment(lot)
         self.assertEqual(again.sale_started_at, first.sale_started_at)
         self.assertEqual(AuditLog.objects.filter(model_name='Shipment', object_id=first.pk).count(), audit_count)
+
+    def test_on_the_road_refuses_sales_and_spoilage_but_takes_expenses(self):
+        lot = self._lot_at('ST-10', 'dest_entry')
+        client = APIClient()
+        client.force_authenticate(user=self.w.seller)
+        base = f'/api/v1/market/lots/{lot.pk}'
+        sale = client.post(f'{base}/sales/', SALE, format='json')
+        self.assertEqual(sale.status_code, 400, sale.content)
+        self.assertEqual(sale.json()['error'], ON_THE_ROAD)
+        spoil = client.post(f'{base}/spoilage/', {'boxes': 1}, format='json')
+        self.assertEqual(spoil.status_code, 400, spoil.content)
+        self.assertEqual(spoil.json()['error'], ON_THE_ROAD)
+        expense = client.post(f'{base}/expenses/', {'rows': [
+            {'category_id': ExpenseCategory.objects.get(code='KARA').pk, 'amount': '500'}]}, format='json')
+        self.assertEqual(expense.status_code, 201, expense.content)
 
     def test_closed_season_leaves_the_shipment_alone(self):
         lot = self._lot_at('ST-6', 'bardy')

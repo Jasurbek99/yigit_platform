@@ -29,6 +29,8 @@ NOT_ENTRY_OWNER = 'Удалить запись могут её автор или
 NEEDS_RECEIPT = 'Пусть агент укажет, сколько ящиков пришло.'
 LOT_CLOSED = 'Машина закрыта. Ящиков не осталось.'
 REPORT_APPROVED = 'Отчёт по машине утверждён — изменить продажи нельзя.'
+ON_THE_ROAD = 'Машина ещё в пути — продавать можно после таможни назначения.'
+ON_THE_ROAD_CODES = ('yola_chykdy', 'serhet_gechdi', 'dest_entry')
 ONLY_LEFT = 'В машине осталось только {boxes}'
 PALLETS_LEFT = 'Больше нельзя: целых паллет осталось {pallets} ({boxes})'
 NO_WHOLE_PALLET = 'На целую паллету не хватает. Осталось {boxes}.'
@@ -85,6 +87,15 @@ def _check_report_open(lot: Lot) -> None:
     """Sales and spoilage freeze once the shipment's sales report is approved."""
     if SalesReport.objects.filter(shipment_id=lot.shipment_id, approved_at__isnull=False).exists():
         raise MarketRuleError(REPORT_APPROVED)
+
+
+def _check_past_customs(lot: Lot) -> None:
+    """No sale / spoilage while the truck is still on the road, before destination customs.
+
+    Opening the lot, the receipt, the seller and expenses stay allowed there.
+    """
+    if lot.shipment.status.code in ON_THE_ROAD_CODES:
+        raise MarketRuleError(ON_THE_ROAD)
 
 
 def _check_stock_open(lot: Lot) -> int:
@@ -146,12 +157,14 @@ def create_sale(user: User, lot_id: int, data: dict) -> Sale:
     Raises:
         LotNotFound: the lot is not in `user`'s customers.
         MarketAccessError: `user` is not the lot's seller.
-        MarketRuleError: a stock, weight, price or buyer rule refuses the sale.
+        MarketRuleError: the truck is still on the road, or a stock, weight, price
+            or buyer rule refuses the sale.
     """
     with transaction.atomic():
         lot = _locked_lot(user, lot_id)
         _check_lot_seller(user, lot)
         _check_report_open(lot)
+        _check_past_customs(lot)
         left = _check_stock_open(lot)
         qty, boxes = _sale_boxes(lot, data.get('unit') or Sale.UNIT_BOX, data.get('qty'), left)
         gross_kg = data.get('gross_kg')
@@ -187,13 +200,15 @@ def create_spoilage(user: User, lot_id: int, data: dict) -> Spoilage:
 
     Raises:
         LotNotFound, MarketAccessError: as create_sale.
-        MarketRuleError: nothing written off, more boxes than left, weight below the tare.
+        MarketRuleError: the truck is still on the road, nothing written off, more
+            boxes than left, weight below the tare.
     """
     boxes, gross_kg = data.get('boxes') or 0, data.get('gross_kg')
     with transaction.atomic():
         lot = _locked_lot(user, lot_id)
         _check_lot_seller(user, lot)
         _check_report_open(lot)
+        _check_past_customs(lot)
         left = _check_stock_open(lot)
         if boxes <= 0 and (gross_kg is None or gross_kg <= ZERO):
             raise MarketRuleError(NOTHING_SPOILED)
