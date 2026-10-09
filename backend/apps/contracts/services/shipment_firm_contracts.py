@@ -7,7 +7,8 @@ truck) is bridged to a Contract via a ContractSale row keyed by
     pair, or
   - creates a new **one_time** contract (auto-numbered, no passport).
 
-The invoice number/date are left blank — a person fills them at document time.
+The sale gets its invoice number and date here (services/invoice_number.py); a
+re-link to another contract of the same firm keeps them.
 
 This lives in ``contracts`` (which may import ``export``); the export-side
 firm-split code must never call into contracts (dependency direction).
@@ -15,6 +16,7 @@ firm-split code must never call into contracts (dependency direction).
 from __future__ import annotations
 
 import datetime
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
@@ -22,6 +24,7 @@ from django.db.models import Q
 
 from apps.contracts.models import Contract, ContractSale
 from apps.contracts.services.contract_number import next_contract_no
+from apps.contracts.services.invoice_number import ensure_invoice_number
 from apps.contracts.services.letter_number import ensure_letter_numbers
 from apps.core.models import ExportFirm, ProductType
 from apps.export.models import PackingTemplateShare, Shipment, ShipmentFirmSplit
@@ -217,6 +220,9 @@ def link_split_to_contract(
             out-of-range one_time price, or a contract_id that is not an active
             framework contract for this pair.
     """
+    # A firm change / cancel whose release call never landed is retried here.
+    release_orphan_sales(shipment)
+
     if shipment.import_firm_id is None:
         raise ValueError('Shipment has no buyer (import_firm); set it first.')
 
@@ -249,7 +255,6 @@ def link_split_to_contract(
         'import_firm_id': shipment.import_firm_id,
         'quantity_kg': split.weight_kg,
         'total_usd': split.amount_usd,
-        # invoice_number / invoice_date stay NULL — filled later by a person.
     }
     if price is not None:
         # The operator just agreed this price for this truck, so it belongs on the
@@ -266,6 +271,10 @@ def link_split_to_contract(
         defaults=defaults,
     )
     _fill_packing_from_template(sale, shipment)
+    # Per-firm/year invoice number, given once — a re-link (another contract of
+    # the same firm) keeps it, since the counter is the firm's, not the contract's.
+    # Before the letter numbers: they take their year from the invoice date.
+    ensure_invoice_number(sale)
     ensure_letter_numbers(sale)
     return sale
 
@@ -310,3 +319,74 @@ def _create_one_time_contract(
         status=Contract.STATUS_ACTIVE,
         created_by=user,
     )
+
+
+def _sale_firm_id(sale: ContractSale) -> int:
+    """The sale's seller — the bridge column, else its contract's (never NULL)."""
+    return sale.export_firm_id or sale.contract.export_firm_id
+
+
+def sales_to_release(shipment: Shipment, keep_firm_ids: set[int] | None) -> list[ContractSale]:
+    """This truck's sales whose firm is not in ``keep_firm_ids`` (None = all, a cancel).
+
+    Only sales bridged to THIS truck: Excel-imported sales carry no shipment and
+    are never candidates.
+    """
+    sales = list(
+        ContractSale.objects.filter(shipment_id=shipment.pk)
+        .select_related('contract', 'contract__export_firm')
+        .order_by('id')
+    )
+    if keep_firm_ids is None:
+        return sales
+    return [sale for sale in sales if _sale_firm_id(sale) not in keep_firm_ids]
+
+
+def release_item(sale: ContractSale) -> dict:
+    """One line of the firm-change / cancel warning (and of the release result)."""
+    return {
+        'sale_id': sale.pk,
+        'export_firm': _sale_firm_id(sale),
+        'export_firm_code': sale.contract.export_firm.code,
+        'contract_number': sale.contract.contract_number,
+        'contract_type': sale.contract.contract_type,
+        'invoice_number': sale.invoice_number,
+        'invoice_printed': sale.invoice_printed_at is not None,
+    }
+
+
+@dataclass
+class ReleaseResult:
+    released: list[dict] = field(default_factory=list)
+    contracts_deleted: int = 0
+    contracts_cancelled: int = 0
+
+
+@transaction.atomic
+def release_orphan_sales(shipment: Shipment) -> ReleaseResult:
+    """Delete the sales the truck's CURRENT state orphans, and their one-time contracts.
+
+    Orphan = bridged to this truck and either the truck is cancelled or its firm is
+    no longer among the truck's firm splits. Idempotent. A one-time contract left
+    with no sales is deleted — unless scans were uploaded to it (attachments
+    cascade), then it is marked cancelled instead. Framework contracts stay.
+    """
+    if shipment.status.code == 'cancelled':
+        keep = None
+    else:
+        keep = set(shipment.firm_splits.values_list('export_firm_id', flat=True))
+    orphans = sales_to_release(shipment, keep)
+    result = ReleaseResult(released=[release_item(sale) for sale in orphans])
+    contracts = {sale.contract_id: sale.contract for sale in orphans}
+    for sale in orphans:
+        sale.delete()  # line items cascade; rollup re-runs in ContractSale.delete
+    for contract in contracts.values():
+        if contract.contract_type != Contract.TYPE_ONE_TIME or contract.sales.exists():
+            continue
+        if contract.attachments.exists():
+            Contract.objects.filter(pk=contract.pk).update(status=Contract.STATUS_CANCELLED)
+            result.contracts_cancelled += 1
+        else:
+            contract.delete()
+            result.contracts_deleted += 1
+    return result

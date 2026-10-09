@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Button,
   Card,
+  DatePicker,
   Descriptions,
   Drawer,
   Form,
@@ -25,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
+import dayjs from 'dayjs';
 import {
   useExportFirm,
   useCreateFirm,
@@ -378,7 +380,13 @@ export default function ExportFirmDetailPage() {
                   <InlineEdit value={firm.patent_number} editable={canEdit} onSave={(v) => saveField({ patent_number: v || null })} />
                 </Descriptions.Item>
                 <Descriptions.Item label={t('firms_admin.patent_date')} span={2}>
-                  <InlineEdit value={firm.patent_date} editable={canEdit} onSave={(v) => saveField({ patent_date: v || null })} />
+                  <DatePicker
+                    size="small"
+                    format="DD.MM.YYYY"
+                    value={firm.patent_date ? dayjs(firm.patent_date) : null}
+                    disabled={!canEdit}
+                    onChange={(date) => saveField({ patent_date: date ? date.format('YYYY-MM-DD') : null })}
+                  />
                 </Descriptions.Item>
               </>
             )}
@@ -560,8 +568,13 @@ export default function ExportFirmDetailPage() {
           <Form.Item name="patent_number" label={t('firms_admin.patent_number')}>
             <Input />
           </Form.Item>
-          <Form.Item name="patent_date" label={t('firms_admin.patent_date')}>
-            <Input placeholder="YYYY-MM-DD" />
+          <Form.Item
+            name="patent_date"
+            label={t('firms_admin.patent_date')}
+            getValueFromEvent={(date: dayjs.Dayjs | null) => date ? date.format('YYYY-MM-DD') : null}
+            getValueProps={(value: string | null) => ({ value: value ? dayjs(value) : null })}
+          >
+            <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
           </Form.Item>
           <Form.Item name="director" label={t('firms_admin.director')}>
             <Input />

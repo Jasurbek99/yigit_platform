@@ -120,7 +120,8 @@ HT    07.12.2022ý. senesindäki A seriýaly №0037564 Tassyknama
 
 Three fields on `ExportFirm` carry the certificate — `patent_series`,
 `patent_number`, `patent_date` (migration `core.0047`). They appear on the firm
-detail page **only when the legal form is HT**, and are required by the
+detail page **only when the legal form is HT** (the date is a DatePicker,
+shown DD.MM.YYYY, sent as ISO), and are required by the
 doc-readiness rule only for that form. Series and number are stored apart
 because the joining word belongs to the language: Turkmen writes
 `A seriýaly №0037564`, Russian `серии A №0037564`. One combined field could only

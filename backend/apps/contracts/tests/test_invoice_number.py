@@ -14,10 +14,12 @@ from apps.contracts.services.invoice_number import (
     allocate_invoice_number, ensure_invoice_number, mark_invoice_printed,
 )
 from apps.contracts.tests.test_contract_sale_api import (
-    _make_contract, _make_export_firm, _make_import_firm, _make_season,
+    _SeededPermsMixin, _make_contract, _make_export_firm, _make_import_firm, _make_season,
+    _make_user,
 )
 from apps.contracts.tests.test_document_generation import _make_packed_shipment
 from apps.core.models import Season, User
+from apps.export.models import ShipmentFirmSplit
 
 SEED_MIGRATION = 'apps.contracts.migrations.0016_seed_invoice_number_bases'
 
@@ -234,3 +236,114 @@ class InvoiceNumberBaseApiTest(TestCase):
             self.URL, {'export_firm': self.firm.id, 'year': 2026, 'last_number': 2147483648}, format='json',
         )
         self.assertEqual(resp.status_code, 400)
+
+
+class InvoiceDownloadNumberingTest(_SeededPermsMixin, TestCase):
+    """Fallback numbering + the printed mark on both invoice download paths."""
+
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.client.force_authenticate(user=_make_user('inv_num_dl', 'export_manager'))
+        self.season = _make_season()
+        self.imp = _make_import_firm('IMPNUMDL')
+        self.firm = _make_export_firm('NUMDL')
+        self.shipment = _make_packed_shipment(self.season, self.imp, code='0404001/25')
+        ShipmentFirmSplit.objects.create(
+            shipment=self.shipment, export_firm=self.firm,
+            weight_kg=Decimal('9000'), amount_usd=Decimal('8000'),
+        )
+        contract = _make_contract('NUMDL-C1', self.firm, self.imp, self.season)
+        # Dated but unnumbered — the shape of a sale created before auto-numbering.
+        self.sale = ContractSale.objects.create(
+            contract=contract, shipment=self.shipment, export_firm=self.firm,
+            invoice_date=datetime.date(2025, 10, 1),
+            quantity_kg=Decimal('18500.00'), price_per_kg=Decimal('0.0870'),
+        )
+
+    def test_invoice_download_numbers_and_marks_printed(self) -> None:
+        resp = self.client.get(f'/api/v1/contracts/sales/{self.sale.pk}/document/?place_loading=Kaka')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.sale.refresh_from_db()
+        self.assertEqual(self.sale.invoice_number, 1)
+        self.assertIsNotNone(self.sale.invoice_printed_at)
+
+    def test_a_letter_download_neither_numbers_nor_marks(self) -> None:
+        resp = self.client.get(f'/api/v1/contracts/sales/{self.sale.pk}/document/?type=ct1_ru')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.sale.refresh_from_db()
+        self.assertIsNone(self.sale.invoice_number)
+        self.assertIsNone(self.sale.invoice_printed_at)
+
+    def test_cmr_download_numbers_the_trucks_sales_without_marking(self) -> None:
+        # The CMR prints every invoice number on the truck, but it is not the invoice.
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/cmr/')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.sale.refresh_from_db()
+        self.assertEqual(self.sale.invoice_number, 1)
+        self.assertIsNone(self.sale.invoice_printed_at)
+
+    def test_packet_zip_numbers_and_marks_printed(self) -> None:
+        resp = self.client.get(f'/api/v1/contracts/shipments/{self.shipment.pk}/packet.zip?place_loading=Kaka')
+        self.assertEqual(resp.status_code, 200, resp.content[:200])
+        self.sale.refresh_from_db()
+        self.assertEqual(self.sale.invoice_number, 1)
+        self.assertIsNotNone(self.sale.invoice_printed_at)
+
+
+class ManualSaleNumberingApiTest(_SeededPermsMixin, TestCase):
+    def setUp(self) -> None:
+        self.client = APIClient()
+        self.client.force_authenticate(user=_make_user('inv_num_api', 'export_manager'))
+        self.season = _make_season()
+        imp = _make_import_firm('IMPNUMAPI')
+        self.firm = _make_export_firm('NUMAPI')
+        self.c1 = _make_contract('NUMAPI-1', self.firm, imp, self.season)
+        self.c2 = _make_contract('NUMAPI-2', self.firm, imp, self.season)
+
+    def _post(self, **extra):
+        payload = {'contract': self.c1.pk, 'invoice_date': '2025-10-02', 'total_usd': '500.00', **extra}
+        return self.client.post('/api/v1/contracts/sales/', payload, format='json')
+
+    def test_blank_number_takes_the_firms_next(self) -> None:
+        InvoiceNumberBase.objects.create(export_firm=self.firm, year=2025, last_number=9)
+        resp = self._post()
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()['invoice_number'], 10)
+
+    def test_number_taken_on_another_contract_of_the_firm_is_400(self) -> None:
+        _sale(self.c2, 12, '2025-03-01')
+        resp = self._post(invoice_number=12)
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertIn('invoice_number', resp.json())
+
+    def test_same_number_in_another_year_is_fine(self) -> None:
+        _sale(self.c2, 12, '2024-03-01')
+        resp = self._post(invoice_number=12)
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+    def test_status_patch_does_not_clash_with_itself(self) -> None:
+        sale = _sale(self.c1, 15, '2025-10-02')
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/?season={self.season.pk}', {'status': 'paid'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+
+    def test_moving_the_date_into_a_clashing_year_is_400(self) -> None:
+        _sale(self.c2, 15, '2026-02-01')
+        sale = _sale(self.c1, 15, '2025-10-02')
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/?season={self.season.pk}',
+            {'invoice_date': '2026-01-05'}, format='json',
+        )
+        self.assertEqual(resp.status_code, 400, resp.content)
+
+    def test_editing_a_legacy_duplicate_without_touching_its_number_is_fine(self) -> None:
+        # Before per-firm numbering, numbers were unique per contract only — live
+        # data holds firm/year duplicates, and they must stay editable.
+        _sale(self.c2, 1, '2025-03-01')
+        sale = _sale(self.c1, 1, '2025-10-02')
+        resp = self.client.patch(
+            f'/api/v1/contracts/sales/{sale.pk}/?season={self.season.pk}',
+            {'status': 'paid', 'invoice_number': 1, 'contract': self.c1.pk}, format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)

@@ -553,6 +553,22 @@ class LetterContextBuilderTest(SimpleTestCase):
         self.assertEqual(c['country'], 'Özbegistan')  # tk country name
         self.assertIn('93/26-DM-EXP', c['contract_line'])
 
+    def test_customs_signature_names_the_director(self):
+        invoice = _mock_invoice()
+        invoice.export_firm.director = 'Чарыев А.'
+        invoice.export_firm.director_tk = 'Çaryýew A.'
+        c = ctx.build_customs_context(invoice, 'tk')
+        self.assertEqual(c['signer_title'], 'Direktor')
+        self.assertEqual(c['signer_name'], 'Çaryýew A.')
+
+    def test_customs_signature_of_a_sole_proprietor_is_the_person(self):
+        invoice = _mock_invoice()
+        invoice.export_firm.legal_type = SimpleNamespace(code='HT', full_tk='Hususy Telekeçi')
+        invoice.export_firm.name_bare_tk = 'Döwranow J.A.'
+        c = ctx.build_customs_context(invoice, 'tk')
+        self.assertEqual(c['signer_title'], 'Hususy Telekeçi')
+        self.assertEqual(c['signer_name'], 'Döwranow J.A.')
+
     def test_country_falls_back_when_no_shipment(self):
         # No shipment → resolver falls back to buyer firm's country
         c = ctx.build_fito_context(_mock_invoice(with_shipment=False), 'ru')
@@ -632,7 +648,7 @@ class InvoiceRenderSmokeTest(TestCase):
         expected = {
             'ct1_ru': ('СТ-1', ('Грузополучатель', 'ООО TRUST', '9 000')),
             'fito_ru': ('Фитосанитарный', ('Грузополучатель', 'BR1427LB', '9 000')),
-            'customs_tk': ('ARZA', ('Ulag serişdeleriniň', 'BR1427LB', '10,720')),
+            'customs_tk': ('ARZA', ('Ulag serişdeleriniň', 'BR1427LB', '10,720', 'Direktor:')),
         }
         for key, (marker, required) in expected.items():
             data, filename, content_type = render.generate(key, _mock_invoice(), 'docx')

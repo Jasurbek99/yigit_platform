@@ -655,6 +655,33 @@ the live DB at the time: 90 shipments carried a slash-composed plate and 8 of
 them also carried a `trailer_id`, so 8 trucks' documents showed the id. The
 helper now returns the stored plates and nothing else.
 
+## Invoice number — auto, per firm per year (wired 2026-10-09)
+
+`services/invoice_number.py` (spec `docs/superpowers/specs/2026-10-03-invoice-auto-numbering-design.md`):
+the smallest number above the firm's yearly floor (`InvoiceNumberBase`, admin page
+«Нумерация инвойсов») that no sale of that firm/year holds — a freed number is reused.
+Date = the sale's `invoice_date`, else the truck's date, else today. Closed season → no number.
+
+Where a sale gets its number (always **before** the letter numbers, which take their year from it):
+
+| Moment | Code |
+|---|---|
+| «Привязать» (link a firm split to a contract) | `link_split_to_contract` → `ensure_invoice_number`; a re-link keeps it |
+| Manual sale with a blank number | `ContractSaleCreateSerializer.create` |
+| Invoice download (`type=invoice_*`) | `ContractSaleViewSet.document` — fallback for old/hand-made sales |
+| CMR / TIR carnet / packet zip | every live sale on the truck (they print all invoice numbers) |
+
+A number already used by the firm in that year (any contract) → 400 on POST/PATCH.
+`invoice_printed_at` is stamped on the **first** invoice download (single or packet) —
+not by CMR/TIR/letters. Letters (`ct1_ru` …) do not number the invoice.
+
+**Release (firm change / cancel):** `release_orphan_sales(shipment)` deletes the truck's
+sales whose firm is no longer in its firm splits (or all, if the truck is `cancelled`);
+an emptied one-time contract is deleted, or set `cancelled` if it has scans. Framework
+contracts stay. Runs automatically at the start of every «Привязать» on that truck, and via
+`GET|POST /api/v1/contracts/shipments/{id}/release-sales/` (`GET ?keep=1,2` / `?cancel=1`
+= preview; resource `shipment`). **No frontend caller yet** (plan Task 7 not built).
+
 ## Authority request letters (CT-1 / phyto / customs)
 
 Three request letters, each **single-language** per its source form: CT-1
@@ -673,11 +700,17 @@ more than the addressee + one line:
   label comes from the template, and a label typed into the firm card («Юр.Адрес:»,
   «Юридический адрес:», «Address:» …) is stripped by `_strip_address_label`. A blank
   address prints no line (`{% if %}`). Since 2026-10-08. ARZA prints no addresses.
+  The **invoice** (RU/EN) seller and buyer boxes follow the same rule with «Адрес:» /
+  «Address:» (template label from `LABELS[lang]['address']`). The CMR and the contract
+  build their addresses separately and are unchanged.
 - **FITO** — the truck line (`1 автомашина: {plate}`) + sender/consignee blocks.
 - **Customs (ARZA)** — a truck **table** (T/b · plate · product · boxes · gross)
   and the full four-paragraph legal boilerplate (gümrük Kodeksi articles, the
   finance-ministry order), with the generate-time `place_loading` inserted, plus
-  the `Telekeçi` signature.
+  the signature line `signer_title: signer_name` — «Hususy Telekeçi: Döwranow J.A.»
+  for an HT seller (`legal_type.full_tk` + `name_bare_tk`), else «Direktor: <director_tk
+  or director>» (same helpers as the contract, `_seller_title` / `_seller_director_for`).
+  Since 2026-10-08; before it printed «Telekeçi <firm name>» for every firm.
 
 `_letter_figures(invoice)` supplies per-firm net/gross/boxes/plate (same rule as
 the invoice line item). CT-1 still fills with no shipment link (weights fall back

@@ -15,6 +15,7 @@ from apps.contracts.views import (
     ShipmentFirmContractsView,
     ShipmentPacketZipView,
     ShipmentPackingView,
+    ShipmentReleaseSalesView,
     ShipmentTirView,
 )
 
@@ -52,6 +53,11 @@ urlpatterns = [
         'shipments/<int:pk>/packet.zip',
         ShipmentPacketZipView.as_view(),
         name='shipment-packet-zip',
+    ),
+    path(
+        'shipments/<int:pk>/release-sales/',
+        ShipmentReleaseSalesView.as_view(),
+        name='shipment-release-sales',
     ),
     path(
         'document-layouts/',

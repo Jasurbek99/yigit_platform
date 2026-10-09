@@ -422,10 +422,10 @@ def build_invoice_context(invoice, lang: str = 'ru', overrides: dict | None = No
         'invoice_date': _date(invoice.invoice_date),
         'contract_line': _contract_line(contract),
         'seller_name': _firm_attr(seller, 'name', lang),
-        'seller_address': _firm_attr(seller, 'address', lang),
+        'seller_address': _strip_address_label(_firm_attr(seller, 'address', lang)),
         'seller_bank': _firm_attr(seller, 'bank_details', lang),
         'buyer_name': getattr(buyer, 'name_company', '') or '',
-        'buyer_address': getattr(buyer, 'address', '') or '',
+        'buyer_address': _strip_address_label(getattr(buyer, 'address', '')),
         'buyer_bank': getattr(buyer, 'bank_details', '') or '',
         'country_origin': loc['country_origin'].format(year=year),
         'place_loading': overrides.get('place_loading', ''),  # picked at generate-time
@@ -1077,6 +1077,9 @@ def build_customs_context(invoice, lang: str = 'tk', overrides: dict | None = No
         'gross': _kg(fig.gross, lang),
         'boxes': str(fig.boxes) if fig.boxes else '',
         'doc_date': _date(invoice.invoice_date),
+        # Signature line: «Hususy Telekeçi: <person>» or «Direktor: <director>».
+        'signer_title': _seller_title(seller, 'tk'),
+        'signer_name': _seller_director_for(seller, 'tk'),
     }
 
 

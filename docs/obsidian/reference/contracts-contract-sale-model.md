@@ -21,7 +21,8 @@ The truck itself is `export.Shipment`; this row bridges to it by the identity ke
 |---|---|---|
 | `contract` | FK → `contracts.Contract` | PROTECT, required |
 | `shipment` | FK → `export.Shipment` | PROTECT, nullable — wired in later slice |
-| `invoice_number` | `IntegerField` | Unique per contract (see unique_together). Names the invoice document's number. |
+| `invoice_number` | `IntegerField` | nullable. Auto-assigned per export firm per year — unique across ALL the firm's contracts (see [[document-generation]] «Invoice number»). |
+| `invoice_printed_at` | `DateTimeField` | nullable — first invoice download |
 | `invoice_date` | `DateField` | Required. Names the invoice document's date. |
 | `serial_truck_number` | `IntegerField` | nullable — sequential truck serial for the contract |
 | `export_firm` | FK → `core.ExportFirm` | PROTECT, nullable — denormalized for reporting |
@@ -166,7 +167,7 @@ Resource `resource_code='sale'` (renamed from `invoice`).
 `ContractSaleCreateSerializer.validate()` enforces:
 1. Either (`quantity_kg` AND `price_per_kg`) OR `total_usd` must be provided — no money info at all is rejected (400).
 2. Parent contract must not be `cancelled` — 400 with clear error message.
-3. Duplicate `(contract, invoice_number)` → 400 via DRF UniqueTogetherValidator.
+3. A number the contract's export firm already uses in the invoice's year → 400 (`invoice_number`). A blank number takes the firm's next one on create.
 
 ## Upcoming (not in Slice B)
 
