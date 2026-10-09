@@ -1,0 +1,47 @@
+/* Lot screen: the sell form (artifact .sell / .units / .step / .field / .pay / .save) and the closed card. */
+.mk-sell{min-width:0;background:var(--card);border:2px solid var(--line);border-radius:20px;padding:14px;container-type:inline-size}
+.mk-sell svg{display:block;width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.mk-pair{display:grid;grid-template-columns:minmax(0,1fr);gap:0 14px}
+.mk-pair > *{min-width:0}
+
+/* «Что продаёте?» */
+.mk-units{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mk-unit{min-width:0;min-height:64px;padding:8px 12px;border:2px solid var(--line);border-radius:16px;background:var(--bg);display:flex;align-items:center;gap:10px;font-weight:800;line-height:1.1;text-align:left;overflow-wrap:anywhere}
+.mk-unit svg{flex:none;font-size:28px;stroke-width:2}
+.mk-unit[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+/* − N + */
+.mk-step{display:grid;grid-template-columns:76px minmax(0,1fr) 76px;gap:8px}
+.mk-step button{height:76px;border-radius:16px;border:2px solid var(--ink);background:var(--card);display:flex;align-items:center;justify-content:center}
+.mk-step button svg{font-size:34px;stroke-width:3.2}
+.mk-step button:active{background:var(--ink);color:var(--bg)}
+.mk-step input{min-width:0;height:76px;width:100%;text-align:center;font-size:52px;border:2px solid var(--line);border-radius:16px;background:var(--bg);padding:0 4px}
+.mk-step input[aria-invalid="true"]{border-color:var(--tomato)}
+.mk-allbox{margin:0;border:2px solid var(--line);border-radius:16px;background:var(--bg);padding:16px;font-weight:800;font-size:20px;text-align:center}
+.mk-hint{margin:8px 0 0;font-weight:600;color:var(--muted)}
+.mk-hint--warn{color:var(--crate)}
+
+/* number fields: weight, price, total */
+.mk-field--num{font-size:34px;min-width:0}
+
+/* paid / on debt */
+.mk-pay{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+.mk-pay button{min-height:60px;border-radius:16px;border:2px solid var(--line);background:var(--bg);font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px}
+.mk-pay button svg{font-size:20px;stroke-width:3}
+.mk-pay-paid[aria-pressed="true"]{background:var(--vine-soft);border-color:var(--vine);color:var(--vine)}
+.mk-pay-due[aria-pressed="true"]{background:var(--crate-soft);border-color:var(--crate);color:var(--crate)}
+
+.mk-sell .mk-save{margin-top:20px;min-height:70px;border-radius:18px;font-size:23px}
+
+.mk-closed{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:18px}
+.mk-closed p{margin:0;font-weight:800;font-size:20px}
+
+/* iPad: the form has room, so fields sit side by side and the whole form fits on one screen */
+@container (min-width:520px){
+  .mk-pair{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .mk-units{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .mk-unit{flex-direction:column;justify-content:center;gap:4px;min-height:78px;padding:8px 6px;text-align:center}
+  .mk-step{grid-template-columns:62px minmax(0,1fr) 62px}
+  .mk-step button,.mk-step input{height:64px}
+  .mk-step input{font-size:40px}
+}

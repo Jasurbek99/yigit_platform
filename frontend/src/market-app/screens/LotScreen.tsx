@@ -7,6 +7,7 @@ import { LotStats } from '../components/LotStats';
 import { ProductTag, isOtherProduct } from '../components/ProductTag';
 import { TruckRig } from '../components/TruckRig';
 import { useLot } from '../hooks/useLot';
+import { LotFormSlot } from './lot/LotFormSlot';
 
 /** `/lots/:id` — one truck on the bazaar: what is left, the stats and every entry (study §3.4). */
 export default function LotScreen(): ReactElement {
@@ -35,8 +36,8 @@ export default function LotScreen(): ReactElement {
         other={isOtherProduct(shipment.product)} />
       <LeftLine left={totals.left} total={lot.data.boxes_received} />
       <div className="mk-cols">
-        {/* Left column: Task 7's sell form (or the «closed» card) and Task 9's agent controls go here. */}
-        <section className="mk-lot-form" data-slot="lot-form" />
+        {/* Left column: the sell form or the «closed» card; Task 9's agent controls go here too. */}
+        <section className="mk-lot-form" data-slot="lot-form"><LotFormSlot lot={lot.data} /></section>
         <div>
           <LotStats lot={lot.data} />
           <EntryList lot={lot.data} />

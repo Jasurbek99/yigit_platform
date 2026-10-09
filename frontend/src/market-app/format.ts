@@ -29,6 +29,22 @@ export function parseDecimal(s: string): number | null {
   return Number(compact);
 }
 
+/** A typed amount for the API: "104,5" → "104.50"; empty (or not a number) → null, never "0.00". */
+export function apiDecimal(raw: string): string | null {
+  const n = parseDecimal(raw);
+  return n === null ? null : n.toFixed(2);
+}
+
+/** A number put back into a typed field: 1250.5 → "1 250,5" (plain spaces, as typed). */
+export function inputNumber(v: string | number): string {
+  return groupThousands(String(Number(v)), 2);
+}
+
+/** "₸", "₽"; an unknown currency shows its code. */
+export function currencySign(currency: string): string {
+  return SYMBOLS[currency] ?? currency;
+}
+
 /** `v` rounded to `decimals`, thousands grouped, trailing zero decimals dropped: 25695.50 → "25 695,5". */
 function formatNumber(v: string | number, decimals: number): string {
   const n = Number(v);
@@ -41,7 +57,7 @@ function formatNumber(v: string | number, decimals: number): string {
 
 /** "25 700 ₸", "18 000 ₽" — the sign after the amount; an unknown currency shows its code. */
 export function money(v: string | number, currency: string): string {
-  return `${formatNumber(v, 2)}${NBSP}${SYMBOLS[currency] ?? currency}`;
+  return `${formatNumber(v, 2)}${NBSP}${currencySign(currency)}`;
 }
 
 /** Minus sign (U+2212) before an amount, the artifact's `plain`: −1 000 ₸ / 1 000 ₸. */
