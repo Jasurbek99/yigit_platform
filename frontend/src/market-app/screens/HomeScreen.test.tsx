@@ -95,4 +95,28 @@ describe('HomeScreen', () => {
     renderHome();
     expect(await screen.findByText('Машин пока нет')).toBeInTheDocument();
   });
+
+  function mockAgentNoLots(shipmentsAnswer: () => Promise<unknown>): void {
+    vi.mocked(api.get).mockImplementation((url: string) => {
+      if (url === '/market/me/') return Promise.resolve({ data: { role: 'agent', username: 'u', first_name: '', customer: null, bazaar: null } });
+      if (url === '/market/shipments/') return shipmentsAnswer();
+      return Promise.resolve(page([]));
+    });
+  }
+
+  it('agent: a failed trucks request says so, not «Машин пока нет»', async () => {
+    mockAgentNoLots(() => Promise.reject(new Error('offline')));
+    renderHome();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить');
+    expect(screen.queryByText('Машин пока нет')).not.toBeInTheDocument();
+  });
+
+  it('agent: shows the loading line while the trucks load', async () => {
+    mockAgentNoLots(() => new Promise(() => undefined));
+    renderHome();
+    // The trucks request goes out only once the lots have loaded, so this loading line is the list's own.
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/market/shipments/'));
+    expect(screen.getByText('Загружаем…')).toBeInTheDocument();
+    expect(screen.queryByText('Машин пока нет')).not.toBeInTheDocument();
+  });
 });

@@ -22,7 +22,11 @@ export function InTransitList({ fallback = null }: IInTransitListProps): ReactEl
   const shipments = useMarketShipments();
   const openLot = useOpenLot();
   const pending = (shipments.data ?? []).filter((s) => s.lot_id === null);
-  if (shipments.isLoading) return null;
+  if (shipments.isLoading) {
+    return <div className="mk-loading"><i className="mk-loading-dot" />{t('market.shell.loading')}</div>;
+  }
+  // A failed request is not «no trucks»: say so, never the empty state.
+  if (shipments.isError) return <p className="mk-err" role="alert">{t('market.shell.load_error')}</p>;
   if (pending.length === 0) return <>{fallback}</>;
 
   const handleOpen = (shipmentId: number): void => {
