@@ -218,7 +218,7 @@ class ApprovedReportTests(_LotCase):
         self.assertEqual(spoil.json()['error'], message)
         expense = _as(self.w.seller).post(f'/api/v1/market/lots/{self.lot.pk}/expenses/', {'rows': [
             {'category_id': ExpenseCategory.objects.get(code='KARA').pk, 'amount': '500'}]}, format='json')
-        self.assertEqual(expense.status_code, 201, expense.content)
+        self.assertEqual(expense.json()['error'], message)
 
     def test_unapproved_report_does_not_freeze(self):
         SalesReport.objects.create(shipment=self.w.shipment, created_by=self.w.rep)
