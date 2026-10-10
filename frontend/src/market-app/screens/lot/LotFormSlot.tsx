@@ -1,11 +1,11 @@
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AGENT_SELLER_ROLE } from '@/constants/roles';
-import { drfFieldErrors } from '@/utils/drfErrors';
 import { showToast } from '../../components/toastStore';
 import { useDeleteEntry, type IDeleteEntryInput } from '../../hooks/useLotEntries';
 import { useMarketMe } from '../../hooks/useMarketMe';
 import type { ILotDetail } from '../../types';
+import { readableError } from './saleBody';
 import { SellForm } from './SellForm';
 
 interface ILotFormSlotProps {
@@ -26,9 +26,7 @@ export function LotFormSlot({ lot }: ILotFormSlotProps): ReactElement | null {
 
   const undo = (entry: IDeleteEntryInput): void => {
     deleteEntry.mutateAsync(entry).catch((err: unknown) => {
-      const body = drfFieldErrors(err);
-      const message = body?.error?.[0] ?? body?.detail?.[0];
-      showToast({ text: message ?? t('market.sell.undo_error') });
+      showToast({ text: readableError(err) ?? t('market.sell.undo_error') });
     });
   };
 

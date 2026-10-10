@@ -55,7 +55,7 @@ export function useSaveSale(lotId: number, onUndo: (entry: IDeleteEntryInput) =>
       return { status: 'saved' };
     } catch (err) {
       release();
-      return { status: 'failed', errors: sellErrors(err, t('market.sell.save_error')) };
+      return { status: 'failed', errors: sellErrors(err) };
     }
   };
 

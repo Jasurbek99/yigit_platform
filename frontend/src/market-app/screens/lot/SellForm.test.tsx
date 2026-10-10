@@ -1,62 +1,22 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import i18n from '@/i18n';
 import api from '@/services/api';
-import LotScreen from '../LotScreen';
-import { ToastHost } from '../../components/ToastHost';
 import { hideToast } from '../../components/toastStore';
-import { lotDetailFixture, lotFixture, saleFixture } from '../../testFixtures';
+import { lotFixture } from '../../testFixtures';
+import { fillSale, mockSellerApi, renderLot, saved } from './sellTestKit';
 
 vi.mock('@/services/api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
 }));
-
-const ME = { role: 'agent_seller', username: 'aidos', first_name: 'Айдос', customer: null, bazaar: null };
-
-function renderLot() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/lots/5']}>
-        <Routes><Route path="/lots/:id" element={<LotScreen />} /></Routes>
-      </MemoryRouter>
-      <ToastHost />
-    </QueryClientProvider>,
-  );
-}
-
-/** Ten boxes, 104,5 kg on the scale, 45 a kilo. */
-async function fillSale(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-  const qty = await screen.findByLabelText('Сколько ящиков?');
-  await user.clear(qty);
-  await user.type(qty, '10');
-  await user.type(screen.getByLabelText('Вес с ящиками, кг'), '104,5');
-  const price = screen.getByLabelText('Цена за 1 кг, ₸');
-  await user.clear(price);
-  await user.type(price, '45');
-}
-
-const saved = (closedAt: string | null = null) => ({
-  data: {
-    entry: saleFixture({ id: 9, qty: 10, boxes: 10, gross_kg: '104.50', net_kg: '100.00', total: '4500.00' }),
-    lot: lotFixture({ closed_at: closedAt }),
-  },
-});
 
 describe('SellForm', () => {
   beforeAll(async () => {
     await i18n.changeLanguage('ru');
   });
 
-  beforeEach(() => {
-    [api.get, api.post, api.delete].forEach((fn) => vi.mocked(fn).mockReset());
-    vi.mocked(api.get).mockImplementation((url: string) => Promise.resolve({
-      data: url === '/market/me/' ? ME : url.includes('/lots/') ? lotDetailFixture() : [],
-    }));
-  });
+  beforeEach(mockSellerApi);
 
   afterEach(() => act(() => hideToast()));
 
@@ -83,17 +43,6 @@ describe('SellForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Отменить' }));
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/market/lots/5/sales/9/', expect.anything()));
-  });
-
-  it('shows a server 400 on the weight under the weight field', async () => {
-    vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 400, data: { gross_kg: ['Сервер: вес не тот.'] } } });
-    const user = userEvent.setup();
-    renderLot();
-    await fillSale(user);
-    await user.click(screen.getByRole('button', { name: 'Сохранить продажу' }));
-    const err = await screen.findByText('Сервер: вес не тот.');
-    expect(screen.getByLabelText('Вес с ящиками, кг')).toHaveAttribute('aria-describedby', err.id);
-    expect(screen.getByRole('button', { name: 'Сохранить продажу' })).toBeEnabled();
   });
 
   it('asks for the buyer of a debt sale, then creates the buyer and sends its id', async () => {

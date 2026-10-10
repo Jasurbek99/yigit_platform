@@ -4488,7 +4488,8 @@
       "save_error": "Ýatda saklap bolmady. Interneti barlaň we ýene basyň.",
       "undo_error": "Satuwy yzyna alyp bolmady. Ony sanawdan pozuň.",
       "closed": "Maşyn ýapyldy. Gap galmady.",
-      "needs_receipt": "Agent näçe gap gelendigini görkezsin."
+      "needs_receipt": "Agent näçe gap gelendigini görkezsin.",
+      "in_progress": "Öňki ýatda saklamak entek dowam edýär — bir sekunt garaşyň."
     }
   }
 }

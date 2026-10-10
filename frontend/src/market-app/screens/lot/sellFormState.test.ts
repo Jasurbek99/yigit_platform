@@ -6,7 +6,9 @@ import {
   calcTotal, canSave, clampQty, firstPrice, formBoxes, netHint, newForm, qtyHint, stockOf, totalHint,
   type ISellForm,
 } from './sellFormState';
-import { checkSale, saleBody, sellErrors } from './saleBody';
+import { checkSale, readableError, saleBody, sellErrors } from './saleBody';
+
+const SAVE_ERROR = 'Не удалось сохранить. Проверьте интернет и нажмите ещё раз.';
 
 /** 68 boxes left, 50 per pallet, 450 g per empty box. */
 const stock = stockOf(lotFixture());
@@ -102,11 +104,24 @@ describe('saleBody', () => {
   });
 
   it('puts a server message under its field, anything else on the form line', () => {
-    expect(sellErrors({ response: { status: 400, data: { gross_kg: ['Мало'] } } }, 'нет связи')).toEqual({ gross_kg: 'Мало' });
-    expect(sellErrors({ response: { status: 400, data: { error: 'Закрыта' } } }, 'нет связи')).toEqual({ _: 'Закрыта' });
-    expect(sellErrors({ response: { status: 400, data: { unit: ['Плохо'] } } }, 'нет связи')).toEqual({ _: 'Плохо' });
-    expect(sellErrors({ response: { status: 400, data: { name: ['Длинно'] } } }, 'нет связи')).toEqual({ buyer_id: 'Длинно' });
-    expect(sellErrors(new Error('offline'), 'нет связи')).toEqual({ _: 'нет связи' });
+    const bad = (data: object, status = 400): object => ({ response: { status, data } });
+    expect(sellErrors(bad({ gross_kg: ['Мало'] }))).toEqual({ gross_kg: 'Мало' });
+    expect(sellErrors(bad({ error: 'Закрыта' }))).toEqual({ _: 'Закрыта' });
+    expect(sellErrors(bad({ detail: 'Нельзя' }, 403))).toEqual({ _: 'Нельзя' });
+    expect(sellErrors(bad({ unit: ['Плохо'] }))).toEqual({ _: 'Плохо' });
+    expect(sellErrors(bad({ name: ['Длинно'] }))).toEqual({ buyer_id: 'Длинно' });
+    expect(sellErrors(new Error('offline'))).toEqual({ _: SAVE_ERROR });
+  });
+
+  it('never shows a machine code: 409 is «still saving», any other status the save error', () => {
+    const bad = (data: object, status: number): object => ({ response: { status, data } });
+    expect(sellErrors(bad({ error: 'idempotency_in_progress' }, 409)))
+      .toEqual({ _: 'Предыдущее сохранение ещё идёт — подождите секунду.' });
+    expect(sellErrors(bad({ error: 'server_error' }, 500))).toEqual({ _: SAVE_ERROR });
+    expect(sellErrors(bad({ error: 'invalid_idempotency_key' }, 400))).toEqual({ _: SAVE_ERROR });
+    expect(sellErrors(bad({ error: 'Ой' }, 418))).toEqual({ _: SAVE_ERROR });
+    expect(readableError(bad({ error: 'server_error' }, 500))).toBeNull();
+    expect(readableError(bad({ error: 'Уже удалено' }, 404))).toBe('Уже удалено');
   });
 });
 

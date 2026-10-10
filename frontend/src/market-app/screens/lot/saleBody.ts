@@ -1,6 +1,6 @@
 // Checks on «Сохранить продажу», the request body and the server's answer (study §3.5 save order).
 import i18n from '@/i18n';
-import { drfFieldErrors, NON_FIELD_KEYS } from '@/utils/drfErrors';
+import { drfFieldErrors, httpStatus, NON_FIELD_KEYS } from '@/utils/drfErrors';
 import { apiDecimal, parseDecimal } from '../../format';
 import type { ISaleInput } from '../../types';
 import { netHint, netOf, type ILotStock, type ISellForm } from './sellFormState';
@@ -40,14 +40,38 @@ export function saleBody(form: ISellForm, buyerId?: number): ISaleInput {
   return body;
 }
 
-/** A failed save → messages per field; a non-field message (or no answer at all: `fallback`) → `_`. */
-export function sellErrors(err: unknown, fallback: string): SellErrors {
+/** Statuses whose body is a message for people (field errors, `{error}` texts); others carry codes. */
+const READABLE_STATUSES: readonly number[] = [400, 403, 404];
+/** `idempotency_in_progress`, `server_error`, `invalid_idempotency_key`: never shown as they are. */
+const MACHINE_CODE = /^[a-z_]+$/;
+
+/** The failure's body when it is meant to be read: 400 / 403 / 404 only, machine codes dropped. */
+function readableBody(err: unknown): Record<string, string[]> | null {
+  const status = httpStatus(err);
+  if (status === undefined || !READABLE_STATUSES.includes(status)) return null;
   const fields = drfFieldErrors(err);
-  if (!fields) return { _: fallback };
+  if (!fields) return null;
+  const kept = Object.entries(fields).filter(([, m]) => m.length > 0 && !MACHINE_CODE.test(m[0]));
+  return kept.length ? Object.fromEntries(kept) : null;
+}
+
+/** The text to show for a failed write: the server's own message, «ещё идёт» for a 409, else null. */
+export function readableError(err: unknown): string | null {
+  if (httpStatus(err) === 409) return i18n.t('market.sell.in_progress');
+  const body = readableBody(err);
+  if (!body) return null;
+  return NON_FIELD_KEYS.map((k) => body[k]?.[0]).find(Boolean) ?? null;
+}
+
+/** A failed save → messages per field; a non-field message → `_`; codes, 409, 5xx, no answer → a fixed text. */
+export function sellErrors(err: unknown): SellErrors {
+  const fallback = i18n.t('market.sell.save_error');
+  const body = readableBody(err);
+  if (!body) return { _: readableError(err) ?? fallback };
   const out: SellErrors = {};
-  for (const [key, messages] of Object.entries(fields)) {
+  for (const [key, messages] of Object.entries(body)) {
     const field = NON_FIELD_KEYS.includes(key) ? '_' : FIELD_OF[key] ?? '_';
-    out[field] ??= messages[0] ?? fallback;
+    out[field] ??= messages[0];
   }
   return out;
 }
