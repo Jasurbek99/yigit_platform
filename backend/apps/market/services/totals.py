@@ -5,6 +5,7 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 
 from apps.market.models import Lot
+from apps.market.services.dues import with_allocated
 
 CENT = Decimal('0.01')
 ZERO = Decimal('0')
@@ -19,14 +20,20 @@ def lot_totals(lot: Lot) -> dict:
     """Box counts, kg and money of `lot`, read fresh from the DB.
 
     Box counts are ints; kg and money are Decimals with two places.
-    `avg_price_kg` is None while nothing is sold. `debt_total` counts the sales
-    not paid on the spot (Part C replaces it with the allocated due).
+    `avg_price_kg` is None while nothing is sold. `paid_total` is the paid-on-spot
+    sales plus the payments allocated to the debt sales; `debt_total` is what
+    the debt sales still owe. Both are clamped per sale (an allocation counts
+    at most up to its sale's total), so `debt_total` equals Σ dues.sale_due.
     """
     sales = lot.sales.aggregate(
         sum_boxes=Sum('boxes'), sum_kg=Sum('net_kg'), sum_total=Sum('total'),
-        sum_paid=Sum('total', filter=Q(paid_on_spot=True)), sum_debt=Sum('total', filter=Q(paid_on_spot=False)),
+        sum_paid=Sum('total', filter=Q(paid_on_spot=True)),
     )
     spoiled = lot.spoilage.aggregate(sum_boxes=Sum('boxes'), sum_kg=Sum('net_kg'))
+    # Own query: joining allocations into the sales aggregate would repeat each sale row.
+    debts = list(with_allocated(lot.sales.order_by()).values_list('total', 'allocated'))
+    debt_paid = sum((min(allocated, total) for total, allocated in debts), ZERO)
+    debt_due = sum((max(ZERO, total - allocated) for total, allocated in debts), ZERO)
     expenses = _money(lot.expenses.aggregate(sum_amount=Sum('amount'))['sum_amount'])
     sold_boxes, spoiled_boxes = sales['sum_boxes'] or 0, spoiled['sum_boxes'] or 0
     sold_kg, sales_total = _money(sales['sum_kg']), _money(sales['sum_total'])
@@ -39,8 +46,8 @@ def lot_totals(lot: Lot) -> dict:
         'used': used,
         'left': lot.boxes_received - used,
         'sales_total': sales_total,
-        'paid_total': _money(sales['sum_paid']),
-        'debt_total': _money(sales['sum_debt']),
+        'paid_total': _money(sales['sum_paid']) + _money(debt_paid),
+        'debt_total': _money(debt_due),
         'expenses_total': expenses,
         'after_expenses': sales_total - expenses,
         'avg_price_kg': (sales_total / sold_kg).quantize(CENT) if sold_kg else None,

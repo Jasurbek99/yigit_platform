@@ -6,9 +6,13 @@ from apps.market.views import (
     AvailableShipmentsView,
     BazaarViewSet,
     BuyerListView,
+    DebtsView,
     ExpenseCategoryListView,
     LotViewSet,
     MarketMeView,
+    MarkSalePaidView,
+    PaymentCreateView,
+    PaymentDetailView,
     SellerViewSet,
 )
 
@@ -23,5 +27,9 @@ urlpatterns = [
     path('shipments/', AvailableShipmentsView.as_view(), name='market-shipments'),
     path('expense-categories/', ExpenseCategoryListView.as_view(), name='market-expense-categories'),
     path('buyers/', BuyerListView.as_view(), name='market-buyers'),
+    path('debts/', DebtsView.as_view(), name='market-debts'),
+    path('payments/', PaymentCreateView.as_view(), name='market-payments'),
+    path('payments/<int:pk>/', PaymentDetailView.as_view(), name='market-payment-detail'),
+    path('sales/<int:pk>/mark-paid/', MarkSalePaidView.as_view(), name='market-sale-mark-paid'),
     *router.urls,
 ]

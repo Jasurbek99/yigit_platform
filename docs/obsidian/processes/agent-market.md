@@ -1,12 +1,12 @@
 ---
-title: Agent Market (Parts A–B)
+title: Agent Market (Parts A–C)
 tags: [process, backend, frontend, market, agent, pwa]
 related: [[../roles/agent]], [[../roles/agent-seller]], [[permissions-system]], [[authentication]]
 ---
 
-# Agent Market (Parts A–B)
+# Agent Market (Parts A–C)
 
-Bazaar sales for outside agents (customers) and their sellers. Spec: `docs/superpowers/specs/2026-10-08-agent-market-sales-design.md`. Plans: `docs/superpowers/plans/2026-10-08-agent-market-a-foundation.md` (Part A, branch `feat/agent-market`) and `docs/superpowers/plans/2026-10-09-agent-market-b-lots-sales.md` (Part B, branch `feat/agent-market-b`).
+Bazaar sales for outside agents (customers) and their sellers. Spec: `docs/superpowers/specs/2026-10-08-agent-market-sales-design.md`. Plans: `docs/superpowers/plans/2026-10-08-agent-market-a-foundation.md` (Part A, branch `feat/agent-market`) and `docs/superpowers/plans/2026-10-09-agent-market-b-lots-sales.md` (Part B, branch `feat/agent-market-b`) and `docs/superpowers/plans/2026-10-10-agent-market-c-payments-debts.md` (Part C, branch `feat/agent-market-c`).
 
 ## What Part A does
 
@@ -57,7 +57,7 @@ App `market` (migration `market/0001_initial`, depends on `core/0076`):
 
 ## Endpoints (`/api/v1/market/`)
 
-Shapes are in the `api-contract` skill.
+Shapes are in the `api-contract` skill. Part C adds `GET /debts/`, `POST /payments/`, `DELETE /payments/{id}/`, `POST /sales/{id}/mark-paid/`.
 
 - `GET|POST|PATCH /agents/` — agent logins (staff; scoped by `customer_ids_for`; resource `market_agent`).
 - `GET|POST|PATCH /team/bazaars/`, `/team/sellers/` — resource `market_team`. Reads scoped; **writes only by the agent himself** (staff get 403 on write).
@@ -99,7 +99,7 @@ Spec: `docs/superpowers/specs/2026-10-08-agent-market-sales-design.md`. Code: `b
 
 1. **Open.** The agent opens a truck from «В пути и прибывшие» (`POST /market/lots/open/`, 201 created / 200 already open). Defaults come from the shipment: `boxes_received = box_count`, `boxes_per_pallet = box_count // pallet_count` (at least 1; 1 without a pallet count), currency from the destination country (else `KZT`).
 2. **Receipt.** A shipment with no box count opens with a placeholder of 1 box, one with no pallet count with 1 box per pallet; either way `receipt_confirmed = false`, so `needs_receipt = true`. The agent sets the real values in «Приёмка» (`PATCH`); any PATCH that sends `boxes_received` or `boxes_per_pallet` sets `receipt_confirmed = true`, even when it repeats the placeholder. `needs_receipt` is a **stored flag**: expenses and later `shipment.box_count` edits do not change it. While it is true the seller sees the card «Пусть агент укажет, сколько ящиков пришло.» instead of the sell form, and the server refuses sales and spoilage with that message.
-3. **Claim by QR.** The seller scans the pallet QR (`/scan/{id}`, the same QR staff use). The main app's `ScanPage` forwards `agent` / `agent_seller` to `/m/scan/{id}`; a logged-out seller goes to the main login with `?next=/scan/{id}`, and after login `LoginPage` sends an external role to `/m/scan/{id}` (any other `next` still means `/m/`); the market login also keeps `?next=/m/scan/{id}`. `/m/scan/{id}` calls `POST open/`: an unassigned lot becomes his, his own lot opens, another seller's lot answers 403 «Машина назначена другому продавцу.»; a seller of another agent gets 404. The agent can also assign or clear the seller (`seller_id`, an active seller of his own customer only: «Такого продавца у агента нет.»).
+3. **Claim by QR.** The seller scans the pallet QR (`/scan/{id}`, the same QR staff use). The main app's `ScanPage` forwards `agent` / `agent_seller` to `/m/scan/{id}`; a logged-out seller goes to the main login with `?next=/scan/{id}`, and after login `LoginPage` sends an external role to `/m/scan/{id}` (any other `next` still means `/m/`); the market login also keeps `?next=/m/scan/{id}`. `/m/scan/{id}` calls `POST open/`: an unassigned lot becomes his (not after the SalesReport approval: 400 «Отчёт по машине утверждён — …»), his own lot opens, another seller's lot answers 403 «Машина назначена другому продавцу.»; a seller of another agent gets 404. The agent can also assign or clear the seller (`seller_id`, an active seller of his own customer only: «Такого продавца у агента нет.»).
 4. **Auto close / reopen.** `refresh_closed` runs after every sale / spoilage create or delete and after a receipt PATCH: `left = boxes_received − sold − spoiled`; `left <= 0` sets `closed_at`, freeing boxes (a delete, or a higher `boxes_received`) clears it. Raising `boxes_received` is the only way to reopen an undercounted truck, so the **agent controls stay on a closed lot**.
 5. **Receipt rules.** `boxes_received ≥ 1` («Не меньше 1.») and not below what is already used («Уже продано или списано: N ящиков. Меньше поставить нельзя.»); `tare_g` 0..20000 («От 0 до 20000 г.»); `default_price_kg ≥ 0`.
 
@@ -113,7 +113,7 @@ Only the lot's seller records entries; the agent gets 403 «Продажи за�
 
 | Rule | Message (field) |
 |---|---|
-| Approved SalesReport on the shipment | «Отчёт по машине утверждён — изменить продажи нельзя.» |
+| Approved SalesReport on the shipment | «Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.» |
 | Truck still `yola_chykdy` / `serhet_gechdi` / `dest_entry` | «Машина ещё в пути — продавать можно после таможни назначения.» |
 | `needs_receipt` | «Пусть агент укажет, сколько ящиков пришло.» |
 | `closed_at` set or `left <= 0` | «Машина закрыта. Ящиков не осталось.» |
@@ -130,14 +130,14 @@ Only the lot's seller records entries; the agent gets 403 «Продажи за�
 - **Units.** A whole-truck sale takes everything left (`qty = 1`, `boxes = left`); a pallet sale takes `qty × boxes_per_pallet` boxes.
 - **Weight minus tare.** `net_kg = gross_kg − boxes × tare_g / 1000` (to 0.01): the scale weight includes the empty boxes.
 - **Total.** `calc_total = net_kg × price_kg`. A manual `total > 0` overrides `total` while `calc_total` stays (the lot screen shows the formula difference).
-- **Debt sale** (`paid_on_spot = false`): `buyer_id` required; the phone get-or-creates the buyer first (`POST /market/buyers/`). A paid sale may still carry a buyer. The lot's `debt_total` is just the sum of unpaid sales until Part C replaces it.
+- **Debt sale** (`paid_on_spot = false`): `buyer_id` required; the phone get-or-creates the buyer first (`POST /market/buyers/`). A paid sale may still carry a buyer. The lot's `debt_total` is what the debt sales still owe after the Part C payments (see «Part C»).
 - **Undo.** The author-seller (while he is still the lot's seller) or the agent deletes an entry; anyone else gets 403 «Удалить запись могут её автор или агент.». The 7-second «Отменить» toast on the phone is a DELETE.
 
 ### Spoilage and expenses
 
 - **Spoilage** (`boxes ≥ 0`, optional `gross_kg`): seller only, same approved-report / on-the-road / receipt / closed checks as a sale. «Укажите ящики или вес.» when both are empty; boxes above `left` → «В машине осталось только N ящиков» (`boxes`); a weight below the tare → «Вес меньше, чем весят пустые ящики…» (`gross_kg`). Weight alone (0 boxes) is allowed and leaves `left` unchanged. An empty weight is sent as `null`, never `0`.
-- **Expenses** (one sheet = several rows, seller only): allowed on the «ждёт приёмки» card, while the truck is on the road, **on closed lots**, and **after the SalesReport is approved** (only sales and spoilage freeze). Messages: «Добавьте хотя бы один расход.», «Такой статьи расходов нет.» (`category_id`; also an inactive category, as in the reference list), «Напишите сумму.» (`amount ≤ 0`), «Напишите, на что потрачено.» (`label`, required for `OTHER`). Every row is checked before any is saved; rows are created one by one (MSSQL Decimal batch rule). Labels come from `GET /market/expense-categories/` (the market's own, e.g. `INTERES` shows as «Комиссия»).
-- Deleting a sale or spoilage entry after an approved report → 400 «Отчёт по машине утверждён…»; expense deletes are not frozen. Not built: «a delete sets `SalesReport.journal_open`» (Part E; the field does not exist yet).
+- **Expenses** (one sheet = several rows, seller only): allowed on the «ждёт приёмки» card, while the truck is on the road, **on closed lots**, and **after the SalesReport is approved** (this changed in Part C: the freeze now covers expenses and the receipt too, see «Part C»). Messages: «Добавьте хотя бы один расход.», «Такой статьи расходов нет.» (`category_id`; also an inactive category, as in the reference list), «Напишите сумму.» (`amount ≤ 0`), «Напишите, на что потрачено.» (`label`, required for `OTHER`). Every row is checked before any is saved; rows are created one by one (MSSQL Decimal batch rule). Labels come from `GET /market/expense-categories/` (the market's own, e.g. `INTERES` shows as «Комиссия»).
+- Deleting a sale, spoilage or expense entry after an approved report → 400 «Отчёт по машине утверждён…» (expenses since Part C). Not built: «a delete sets `SalesReport.journal_open`» (Part E; the field does not exist yet).
 
 ### Status driving (`services/status.py::drive_first_sale`)
 
@@ -151,7 +151,7 @@ Then a plain `Shipment.save()`; the status itself is never set here (AD-1 is ret
 
 - **Closed season skips status driving** (`assert_season_open`): the sale is saved, the shipment is left alone.
 - **No sale or spoilage before destination customs** (`yola_chykdy` / `serhet_gechdi` / `dest_entry`): a sale there would later make the status jump steps. Opening the lot, receipt, seller assignment and expenses stay allowed; the rep marks destination customs, then the seller can sell.
-- **An approved SalesReport freezes sales and spoilage** (create and delete), not expenses.
+- **An approved SalesReport freezes sales, spoilage, expenses and the receipt** (create and delete; since Part C — Part B froze only sales and spoilage).
 
 ### Roles on `market_lot`
 
@@ -186,10 +186,63 @@ The grant is only the gate (`DynamicResourcePermission`, resource `market_lot`);
 - Rebuild the **frontend image** (new `/m/` screens, the `ScanPage` / `LoginPage` forwards, the `apple-touch-icon` link in `index.html`).
 - `seed_permissions` after the beta deploy (it only creates missing rows; the `0077` migration already seeds `market_lot` on a real DB).
 
+## Part C — payments and debts
+
+Plan `docs/superpowers/plans/2026-10-10-agent-market-c-payments-debts.md`, branch `feat/agent-market-c`. A debt sale is paid later in parts; the buyer's debt is derived, never stored.
+
+### Data (migration `market/0005_payments`)
+
+- `Payment` (`market_payments`): buyer (PROTECT), `currency`, `amount`, `paid_at` (auto), `created_by`. `PaymentAllocation` (`market_payment_allocations`): payment (CASCADE) → sale (PROTECT) → `amount`.
+- **A sale's due is never stored:** `due = total − Σ allocations` (never negative; 0 for a paid-on-spot sale). Deleting a payment cascades its allocations, so the sales owe again by themselves. `services/dues.py`: `sale_paid`, `sale_due`, `with_allocated`, `debt_sales`.
+- **Lot totals are clamped per sale** (`services/totals.py`): `debt_total = Σ max(0, total − allocated)`, `paid_total = Σ spot totals + Σ min(allocated, total)`, so `debt_total == Σ sale_due` and an over-allocated row can never hide another sale's debt. The sale payload gets `paid_amount` and `due`.
+
+### Rules (`services/payments.py`)
+
+- **Who.** Only the agent and his sellers pay, mark and undo. Staff read the debts; a payment write by staff is 403 (`NOT_MARKET_MEMBER`).
+- **Scope = the payer's visibility.** A seller's payment covers only sales on his own lots; the agent's covers every lot of his customer. A second seller of the same agent does not see the first seller's buyer in «Долги»; the agent sees all.
+- **FIFO.** A payment is spread over the buyer's unpaid sales in scope, oldest `sold_at` first, **one currency at a time** (KZT and RUB are never summed).
+- **Cap.** The recorded amount is at most what the scoped sales owe in that currency; the answer carries the recorded amount. Nothing due → 400 «У покупателя нет долга.»; amount empty or ≤ 0 → 400 `{amount}` «Напишите сумму.».
+- **Locks.** Buyer row first, then every target sale row (plain pk lookup), then the dues are read fresh; each allocation ≤ what its sale owes at that moment. Targets are only the buyer's sales that **still owe** in scope and currency (`debt_sales(...)`): a paid-off history is never locked nor sent as `pk__in` params (MSSQL ~2100 cap); a sale an undo frees meanwhile is simply not covered by this payment. Entry deletes lock Lot → Sale and never a Buyer: no cycle. Allocations are created one by one (MSSQL Decimal batch rule).
+- **«Отметить оплату»** (`POST sales/{id}/mark-paid/`): a payment of one debt sale's whole due. Allowed for the customer's agent or the lot's seller; same customer but neither → 403 «Эту продажу вы не видите.», another customer → 404, a spot sale / no buyer / already paid → 400 «У покупателя нет долга.». Works on closed lots too (debts outlive the truck).
+- **Undo** (`DELETE payments/{id}/`): the payment's author or the agent; another seller of the same agent gets 403 «Отменить оплату могут её автор или агент.», another agent's team 404.
+- **A sale with an allocation can't be deleted:** 400 «По этой продаже уже есть оплата — сначала отмените оплату.» (checked after the permission and the approval freeze).
+- **Debts list payments are scoped:** each payment row's `amount` is the part allocated to sales in the caller's scope (a seller sees the 6500 of an agent's 7500 that went to his sales, the agent sees 7500).
+- **Paid-off buyers stay 30 days:** a buyer × currency whose debt is paid off stays in «Долги» while a payment touching the scope is ≤ 30 days old (`RECENT_PAYMENT_DAYS`): `due` 0, `since` null, `sales` [] (paid sales are not listed), its latest payments. `totals` leaves it out. This keeps the payment's «Удалить» reachable after the 7 s toast; older than 30 days a mistaken payment needs staff help.
+- **Payments and their undo are allowed after the SalesReport is approved:** the report counts sales, not collections, so no `check_report_open` in any payment path.
+- Payment create, mark and undo are audited as `MarketPayment`; POST / DELETE take `Idempotency-Key`.
+
+### Approval freeze, now wider
+
+`check_report_open(lot)` (`services/lots.py`) guards `create_sale`, `create_spoilage`, `create_expenses`, `delete_entry` (every kind) and `update_lot` (receipt and seller PATCH). After the export manager approves the SalesReport all of them answer 400 «Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.». Payments are not frozen. The seller's QR claim of an unassigned lot is refused after approval with the same 400 (the seller is frozen; debts and payments follow `lot.seller`); a seller opening his own lot still gets it.
+
+### Receipt asks for boxes per pallet
+
+While `needs_receipt` the «Приёмка» sheet blanks «Ящиков в паллете» (it used to keep the placeholder 1, so pallet sales took 1 box) and always sends `boxes_per_pallet` with the PATCH; save is blocked while it is empty. The seller card says «Пусть агент укажет, сколько ящиков и паллет пришло.»; the agent sees «Укажите, сколько ящиков пришло и сколько ящиков в паллете».
+
+### Phone screens (`/m/`)
+
+- **«Долги» tab** (route `/debts`; the tab bar now shows for every market user: «Машины» / «Долги», the agent also «Команда»). `DebtsScreen`: «Всего должны» (one amount per currency; «Долгов нет» when `totals` is empty), a card per buyer × currency with the due, «Принять оплату», the unpaid sales oldest first («Вся машина (68 ящиков)», «из 300 000 ₸» when part-paid), «Оплаты» (latest 10 touching the scope, the in-scope amount) each with «Удалить» (confirm sheet). A paid-off card shows «Долг закрыт» instead of the sum, no «Принять оплату», and keeps its payments with «Удалить». Undo / delete use `mutateAsync().catch()`, so a failure toast still shows after leaving `/debts`.
+- **`PaymentSheet`:** amount prefilled with the due; live hint «Это больше долга. Запишу X.» / «Долг будет закрыт полностью.» / «Останется долг: X»; sends `min(typed, due)`; toast «Оплата X, имя» with «Отменить» (undo = DELETE).
+- **Home:** `DebtsTile` («Долги клиентов», one amount per currency, or «Долгов нет») links to `/debts`.
+- **Lot screen:** a debt sale shows «Долг: имя, осталось X» when part-paid and a green «Оплачено» tag when due is 0; «Отметить оплату» on a debt sale with a buyer and due > 0 (agent and seller) with a 7 s «Отменить» toast.
+- «Удалить» is shown on every payment row for both roles (`/market/me/` has no user id); a server 403 shows as a toast.
+
+### Known gaps (Part C)
+
+- `buyer_debts` runs one payments query per buyer × currency group (N+1, fine at bazaar scale; Part D).
+- `PaymentSheet` keeps a debt snapshot that can go stale on refetch (the server caps); a mark-paid 400 does not refetch the lot (stale button until the next refetch).
+- Pallet sales in the debts list show boxes only (`IDebtSale` has no `qty`). Turkmen strings need a native review.
+- The full list: `docs/superpowers/plans/2026-10-08-agent-market-a-followups.md`, «Still open after Part C».
+
+### Deploy of Part C
+
+- `migrate market` (`0005_payments`). Not applied to the shared DB until the branch is merged: beta runs the old code on the same DB.
+- Rebuild the **backend image** (new endpoints, wider freeze) and the **frontend image** (`docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps --build frontend`).
+
 ## Deploy
 
 - The market app is a **second Vite entry served at `/m/`**: rebuild the **frontend image** (nginx `location /m/ { try_files $uri /m.html; }`, `location = /m` → 301 `/m/`, plus no-cache exact locations for `/m/sw.js` and `/m/manifest.webmanifest`).
-- Part A: `migrate core export market`. Part B: see «Deploy of Part B» above.
+- Part A: `migrate core export market`. Part B: see «Deploy of Part B» above. Part C: see «Deploy of Part C».
 - **PWA install needs HTTPS** (beta `https://export.yigithj.com`). `public/m/manifest.webmanifest`, no-cache `sw.js` (registered in prod builds only, caches nothing), PNG icons (192, 512, maskable 512, apple-touch 180).
 
 ## Connections

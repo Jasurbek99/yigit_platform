@@ -7,7 +7,7 @@ from django.db.models import F, QuerySet
 from apps.core.models import User
 from apps.core.models.user import AGENT_ROLE, AGENT_SELLER_ROLE
 from apps.core.services_workflow import create_audit_entry
-from apps.export.models import Shipment
+from apps.export.models import SalesReport, Shipment
 from apps.market.models import Lot
 from apps.market.scoping import customer_ids_for, member_of
 from apps.market.services.access import MarketAccessError
@@ -30,6 +30,7 @@ BELOW_USED = 'Уже продано или списано: {used} ящиков. 
 AT_LEAST_ONE = 'Не меньше 1.'
 BAD_TARE = f'От 0 до {MAX_TARE_G} г.'
 NEGATIVE_PRICE = 'Цена не может быть меньше нуля.'
+REPORT_APPROVED = 'Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.'
 
 
 class MarketRuleError(Exception):
@@ -46,6 +47,18 @@ class MarketRuleError(Exception):
 
 class LotNotFound(Exception):
     """The shipment or lot is not one the caller may open. Market views answer 404."""
+
+
+def check_report_open(lot: Lot) -> None:
+    """Refuse a write on the lot once its shipment's sales report is approved.
+
+    Sales, spoilage, expenses and the agent's receipt / seller edits all freeze.
+
+    Raises:
+        MarketRuleError: the report is approved.
+    """
+    if SalesReport.objects.filter(shipment_id=lot.shipment_id, approved_at__isnull=False).exists():
+        raise MarketRuleError(REPORT_APPROVED)
 
 
 def _customer_shipments(customer_id: int) -> QuerySet[Shipment]:
@@ -120,6 +133,7 @@ def open_lot(user: User, shipment_id: int) -> tuple[Lot, bool]:
     Raises:
         LotNotFound: the shipment is not one `user` may open.
         MarketAccessError: `user` is staff, or the lot belongs to another seller.
+        MarketRuleError: a seller claims an unassigned lot after the sales report approval.
     """
     member = member_of(user)
     if user.role == AGENT_ROLE:
@@ -146,11 +160,16 @@ def open_lot(user: User, shipment_id: int) -> tuple[Lot, bool]:
 
 
 def _claim(seller: User, lot: Lot) -> None:
-    """Give an unassigned lot to `seller`; refuse a lot of another seller."""
+    """Give an unassigned lot to `seller`; refuse a lot of another seller.
+
+    Once the sales report is approved the seller is frozen (debts follow lot.seller):
+    an unassigned lot is not claimed; his own lot still opens.
+    """
     if lot.seller_id == seller.pk:
         return
     if lot.seller_id is not None:
         raise MarketAccessError(OTHER_SELLER)
+    check_report_open(lot)
     lot.seller = seller
     lot.save(update_fields=['seller'])
     create_audit_entry(seller, 'update', 'MarketLot', lot.pk, lot.shipment.shipment_code, 'seller claimed by QR')
@@ -172,6 +191,7 @@ def update_lot(user: User, lot: Lot, data: dict) -> Lot:
         raise MarketAccessError(NOT_LOT_AGENT)
     with transaction.atomic():
         lot = Lot.objects.select_for_update().get(pk=lot.pk)
+        check_report_open(lot)
         values = _checked_values(lot, member.customer_id, data)
         if 'boxes_received' in values or 'boxes_per_pallet' in values:
             # The agent's receipt, even if it repeats the placeholder value.

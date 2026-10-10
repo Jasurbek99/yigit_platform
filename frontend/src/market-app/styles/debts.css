@@ -1,0 +1,27 @@
+/* Debts: the home tile (artifact .debtbtn), «Всего должны» (.duelabel / .bigdue), buyer cards (.clients / .client). */
+
+/* the bottom bar holds 2 tabs (seller) or 3 (agent) */
+.mk-tabbar{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:1fr}
+
+.mk-debtbtn{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:2px 12px;width:100%;min-height:64px;margin:0 0 16px;padding:10px 16px;border-radius:18px;border:2px solid var(--line);background:var(--card);color:inherit;font-weight:800;font-size:19px;text-decoration:none}
+.mk-debtbtn:active{border-color:var(--ink)}
+.mk-debtbtn b{font:900 28px/1.1 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--crate);white-space:nowrap;margin-left:auto}
+.mk-debtbtn em{font-style:normal;font-weight:600;font-size:16px;color:var(--muted);margin-left:auto}
+@media (min-width:760px){.mk-debtbtn{max-width:560px}}
+
+.mk-duelabel{margin:14px 0 0;font-weight:600;color:var(--muted)}
+.mk-bigdue{margin:0;font:900 clamp(38px,12vw,56px)/1.05 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--crate);white-space:nowrap}
+
+.mk-clients{display:grid;gap:12px;margin-top:16px;align-items:start}
+@media (min-width:760px){.mk-clients{grid-template-columns:1fr 1fr}}
+.mk-client{min-width:0;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:14px 16px 6px}
+.mk-client-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px;padding-bottom:10px}
+.mk-client-name{margin:0;font-weight:800;font-size:22px;line-height:1.15;overflow-wrap:anywhere}
+.mk-client-sum{font:900 30px/1.1 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--crate);white-space:nowrap;margin-left:auto}
+.mk-client .mk-payall{min-height:56px;margin:0 0 12px}
+.mk-client .mk-sale:last-child{padding-bottom:10px}
+
+/* «Оплаты»: the buyer's recent payments, each with «Удалить» */
+.mk-payments{margin-top:4px;padding:10px 0 8px;border-top:3px solid var(--ink)}
+.mk-payments-title{margin:0 0 4px;font-size:16px;font-weight:800;color:var(--muted)}
+.mk-payrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;min-height:56px;font-weight:600}

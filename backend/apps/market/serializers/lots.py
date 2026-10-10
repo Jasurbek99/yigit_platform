@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.export.models import Shipment
 from apps.market.models import Buyer, Lot, LotExpense, Sale, Spoilage
+from apps.market.services.dues import sale_due, sale_paid
 from apps.market.services.lots import ON_THE_ROAD_CODES
 from apps.market.services.totals import lot_totals, needs_receipt
 
@@ -71,19 +72,29 @@ class LotSerializer(serializers.ModelSerializer):
 
 
 class SaleSerializer(serializers.ModelSerializer):
-    """One sale off a lot."""
+    """One sale off a lot, with what was paid for it and what it still owes."""
 
     buyer = serializers.SerializerMethodField()
+    paid_amount = serializers.SerializerMethodField()
+    due = serializers.SerializerMethodField()
 
     class Meta:
         model = Sale
         fields = ['id', 'unit', 'qty', 'boxes', 'gross_kg', 'tare_g', 'net_kg', 'price_kg', 'calc_total', 'total',
-                  'paid_on_spot', 'buyer', 'sold_at', 'created_by']
+                  'paid_on_spot', 'buyer', 'paid_amount', 'due', 'sold_at', 'created_by']
         read_only_fields = fields
 
     def get_buyer(self, sale: Sale) -> dict | None:
         """The debt buyer as `{id, name}`, or None."""
         return {'id': sale.buyer_id, 'name': sale.buyer.name} if sale.buyer_id else None
+
+    def get_paid_amount(self, sale: Sale) -> str:
+        """Money received for the sale (dues.sale_paid)."""
+        return str(sale_paid(sale))
+
+    def get_due(self, sale: Sale) -> str:
+        """Money the sale still owes (dues.sale_due)."""
+        return str(sale_due(sale))
 
 
 class SpoilageSerializer(serializers.ModelSerializer):

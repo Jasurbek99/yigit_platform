@@ -11,12 +11,18 @@ from django.db import transaction
 from apps.core.models import User
 from apps.core.models.user import AGENT_ROLE
 from apps.core.services_workflow import create_audit_entry
-from apps.export.models import ExpenseCategory, SalesReport
+from apps.export.models import ExpenseCategory
 from apps.market.expense_codes import MARKET_EXPENSES, OTHER_CODE
 from apps.market.models import Buyer, Lot, LotExpense, Sale, Spoilage
 from apps.market.scoping import customer_ids_for, member_of
 from apps.market.services.access import MarketAccessError
-from apps.market.services.lots import AT_LEAST_ONE, ON_THE_ROAD_CODES, LotNotFound, MarketRuleError
+from apps.market.services.lots import (
+    AT_LEAST_ONE,
+    ON_THE_ROAD_CODES,
+    LotNotFound,
+    MarketRuleError,
+    check_report_open,
+)
 from apps.market.services.status import drive_first_sale
 from apps.market.services.totals import lot_totals, needs_receipt, refresh_closed
 from apps.market.text import boxes_ru
@@ -28,7 +34,6 @@ NOT_LOT_SELLER = 'Продажи записывает продавец этой 
 NOT_ENTRY_OWNER = 'Удалить запись могут её автор или агент.'
 NEEDS_RECEIPT = 'Пусть агент укажет, сколько ящиков пришло.'
 LOT_CLOSED = 'Машина закрыта. Ящиков не осталось.'
-REPORT_APPROVED = 'Отчёт по машине утверждён — изменить продажи нельзя.'
 ON_THE_ROAD = 'Машина ещё в пути — продавать можно после таможни назначения.'
 ONLY_LEFT = 'В машине осталось только {boxes}'
 PALLETS_LEFT = 'Больше нельзя: целых паллет осталось {pallets} ({boxes})'
@@ -43,6 +48,7 @@ NO_EXPENSES = 'Добавьте хотя бы один расход.'
 UNKNOWN_CATEGORY = 'Такой статьи расходов нет.'
 NEED_AMOUNT = 'Напишите сумму.'
 NEED_LABEL = 'Напишите, на что потрачено.'
+SALE_HAS_PAYMENT = 'По этой продаже уже есть оплата — сначала отмените оплату.'
 
 _ENTRY_MODELS = {'sale': Sale, 'spoilage': Spoilage, 'expense': LotExpense}
 _AUDIT_NAMES = {'sale': 'MarketSale', 'spoilage': 'MarketSpoilage', 'expense': 'MarketExpense'}
@@ -80,12 +86,6 @@ def _check_lot_seller(user: User, lot: Lot) -> None:
     """Only the lot's seller records entries (the agent does not sell, spec Q19)."""
     if lot.seller_id is None or lot.seller_id != user.pk:
         raise MarketAccessError(NOT_LOT_SELLER)
-
-
-def _check_report_open(lot: Lot) -> None:
-    """Sales and spoilage freeze once the shipment's sales report is approved."""
-    if SalesReport.objects.filter(shipment_id=lot.shipment_id, approved_at__isnull=False).exists():
-        raise MarketRuleError(REPORT_APPROVED)
 
 
 def _check_past_customs(lot: Lot) -> None:
@@ -162,7 +162,7 @@ def create_sale(user: User, lot_id: int, data: dict) -> Sale:
     with transaction.atomic():
         lot = _locked_lot(user, lot_id)
         _check_lot_seller(user, lot)
-        _check_report_open(lot)
+        check_report_open(lot)
         _check_past_customs(lot)
         left = _check_stock_open(lot)
         qty, boxes = _sale_boxes(lot, data.get('unit') or Sale.UNIT_BOX, data.get('qty'), left)
@@ -206,7 +206,7 @@ def create_spoilage(user: User, lot_id: int, data: dict) -> Spoilage:
     with transaction.atomic():
         lot = _locked_lot(user, lot_id)
         _check_lot_seller(user, lot)
-        _check_report_open(lot)
+        check_report_open(lot)
         _check_past_customs(lot)
         left = _check_stock_open(lot)
         if boxes <= 0 and (gross_kg is None or gross_kg <= ZERO):
@@ -251,17 +251,18 @@ def _checked_expense_rows(rows: list[dict]) -> list[tuple[ExpenseCategory, Decim
 
 
 def create_expenses(user: User, lot_id: int, rows: list[dict]) -> list[LotExpense]:
-    """Record one sheet of selling costs (seller only); allowed on a closed lot and after the report.
+    """Record one sheet of selling costs (seller only); allowed on a closed lot, not after the report is approved.
 
     Each row: `{category_id, amount, label?}`; `label` is required for OTHER.
 
     Raises:
         LotNotFound, MarketAccessError: as create_sale.
-        MarketRuleError: no rows, an unknown or inactive category, amount ≤ 0, OTHER without label.
+        MarketRuleError: the report is approved, no rows, an unknown or inactive category, amount ≤ 0, OTHER without label.
     """
     with transaction.atomic():
         lot = _locked_lot(user, lot_id)
         _check_lot_seller(user, lot)
+        check_report_open(lot)
         checked = _checked_expense_rows(rows)
         expenses = []
         for category, amount, label in checked:  # one by one: no bulk_create on MSSQL Decimal batches
@@ -292,7 +293,8 @@ def delete_entry(user: User, kind: str, entry_id: int, lot_id: int | None = None
     Raises:
         LotNotFound: no such entry on a lot of `user`'s customers.
         MarketAccessError: `user` is neither the author-seller nor the agent.
-        MarketRuleError: a sale / spoilage after the sales report is approved.
+        MarketRuleError: the sales report is approved (any kind), or a sale
+            already has a payment allocated to it.
     """
     model = _ENTRY_MODELS[kind]
     found_lot_id = model.objects.filter(pk=entry_id).values_list('lot_id', flat=True).first()
@@ -300,13 +302,16 @@ def delete_entry(user: User, kind: str, entry_id: int, lot_id: int | None = None
         raise LotNotFound()
     with transaction.atomic():
         lot = _locked_lot(user, found_lot_id)
-        # Read again under the lock: a parallel delete may have removed it.
-        entry = model.objects.filter(pk=entry_id, lot=lot).first()
+        # Read again under the lock: a parallel delete may have removed it. A sale row
+        # is locked too, so a payment can't be allocated to it while it is deleted.
+        entries = model.objects.select_for_update() if kind == 'sale' else model.objects
+        entry = entries.filter(pk=entry_id, lot=lot).first()
         if entry is None:
             raise LotNotFound()
         _check_can_delete(user, lot, entry)
-        if kind != 'expense':
-            _check_report_open(lot)
+        check_report_open(lot)
+        if kind == 'sale' and entry.allocations.exists():
+            raise MarketRuleError(SALE_HAS_PAYMENT)
         entry.delete()
         refresh_closed(lot)
         create_audit_entry(user, 'update', _AUDIT_NAMES[kind], entry_id, lot.shipment.shipment_code, 'deleted')

@@ -363,7 +363,7 @@ External roles `agent` / `agent_seller` may call **only** `/api/v1/auth/` and `/
 ```
 The `/m/` header shows `first_name`, falling back to `username`. Login and logout use `/api/v1/auth/login/` and `/auth/logout/` as everywhere.
 
-### Agent market, part B: lots, sales, spoilage, expenses (2026-10-10)
+### Agent market, part B: lots, sales, spoilage, expenses (2026-10-10; part C payments and debts follow below)
 
 Resource `market_lot` (staff view; agent / agent_seller / admin full flags — the services decide who may do what). Not season-scoped. Part B adds `DELETE` on the three entry routes below. Every POST / DELETE takes an optional `Idempotency-Key` header (no header = no replay; a repeat returns the stored answer; a 400 / 403 frees the key; 409 `{"error": "idempotency_in_progress"}` while the same key still runs — «Предыдущее сохранение ещё идёт» is the phone's own text). A key must match `[A-Za-z0-9-]{8,64}`, else 400 `{"error": "invalid_idempotency_key"}`. `PATCH lots/{id}/` ignores the header (absolute values).
 
@@ -389,13 +389,14 @@ Resource `market_lot` (staff view; agent / agent_seller / admin full flags — t
 { "...lot item...",
   "sales": [ { "id": 7, "unit": "box", "qty": 12, "boxes": 12, "gross_kg": "230.00", "tare_g": 450, "net_kg": "224.60",
                "price_kg": "45.00", "calc_total": "10107.00", "total": "10000.00", "paid_on_spot": false,
-               "buyer": { "id": 3, "name": "Рустам" }, "sold_at": "…", "created_by": 52 } ],  // unit box|pallet|truck; buyer null when paid
+               "buyer": { "id": 3, "name": "Рустам" }, "paid_amount": "4000.00", "due": "6000.00",
+               "sold_at": "…", "created_by": 52 } ],  // unit box|pallet|truck; buyer null when paid; paid_amount / due: see part C
   "spoilage": [ { "id": 2, "boxes": 3, "gross_kg": "40.00", "tare_g": 450, "net_kg": "38.65", "recorded_at": "…", "created_by": 52 } ],  // gross_kg null = boxes only
   "expenses": [ { "id": 5, "category_id": 21, "category_code": "KARA", "label": "", "amount": "5000.00", "recorded_at": "…", "created_by": 52 } ] }
 ```
 `created_by` is a user id (compare with `lot.seller.id`). An expense carries no market label: take it from `expense-categories` by `category_code`; `label` is the free text of `OTHER`.
 
-**`POST /market/lots/open/`** `{ "shipment_id": 480 }` — **201** lot item when created, **200** when it already existed. Agent: any truck of his customer in `yola_chykdy … satyldy`. Seller (QR claim): a truck of his customer; an unassigned lot becomes his. 404 no such truck for him; 403 `{"error": "Машина назначена другому продавцу."}`; 403 `{"error": "Машину открывают агент и его продавцы."}` (staff).
+**`POST /market/lots/open/`** `{ "shipment_id": 480 }` — **201** lot item when created, **200** when it already existed. Agent: any truck of his customer in `yola_chykdy … satyldy`. Seller (QR claim): a truck of his customer; an unassigned lot becomes his — unless the SalesReport is approved: 400 `{"error": "Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя."}` (his own lot still opens). 404 no such truck for him; 403 `{"error": "Машина назначена другому продавцу."}`; 403 `{"error": "Машину открывают агент и его продавцы."}` (staff).
 
 **`PATCH /market/lots/{id}/`** (the lot's agent only, else 403 `{"error": "Машину настраивает только агент."}`) — any of `seller_id` (int | null), `boxes_received`, `boxes_per_pallet`, `tare_g`, `default_price_kg` (string | null). 200 lot item. Sending `boxes_received` or `boxes_per_pallet` clears `needs_receipt`; a change can close or reopen the lot. 400: `{"boxes_received": ["Не меньше 1."]}`, `{"boxes_per_pallet": ["Не меньше 1."]}`, `{"seller_id": ["Такого продавца у агента нет."]}`, `{"tare_g": ["От 0 до 20000 г."]}`, `{"default_price_kg": ["Цена не может быть меньше нуля."]}`; below what is used: `{"error": "Уже продано или списано: N ящиков. Меньше поставить нельзя."}` (no field). `DELETE lots/{id}/` → 403 for view-only staff (permissions run first), else 405.
 
@@ -426,18 +427,51 @@ Resource `market_lot` (staff view; agent / agent_seller / admin full flags — t
 **Errors.** 400 with a field: `{ "<field>": ["Русское сообщение."] }` (`qty`, `gross_kg`, `price_kg`, `buyer_id`, `boxes`, `category_id`, `amount`, `label`). 400 without a field: `{ "error": "…" }`:
 - «Пусть агент укажет, сколько ящиков пришло.» (`needs_receipt`; expenses are allowed), «Машина закрыта. Ящиков не осталось.», «Укажите ящики или вес.», «Добавьте хотя бы один расход.»
 - «Машина ещё в пути — продавать можно после таможни назначения.» — sale / spoilage while the truck is `yola_chykdy` / `serhet_gechdi` / `dest_entry`.
-- «Отчёт по машине утверждён — изменить продажи нельзя.» — sale / spoilage create **and delete** after the SalesReport is approved (expenses are not frozen).
+- «Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.» — after the SalesReport is approved, sale / spoilage / expense **create and delete** and `PATCH lots/{id}/` (receipt, seller) answer 400 with this text (part C widened the freeze; part B froze sales and spoilage only). Payments are not frozen.
 - Stock (field `qty` for sales, `boxes` for spoilage): «В машине осталось только N ящиков», «Больше нельзя: целых паллет осталось N (M ящиков)», «На целую паллету не хватает. Осталось N ящиков.»
 - Weight / price / buyer: «Напишите вес с весов.», «Вес меньше, чем весят пустые ящики (N ящиков по T г).», «Напишите цену за 1 кг.», «Укажите покупателя.», «Покупатель не найден.»
 - Expenses: «Такой статьи расходов нет.» (also an inactive category), «Напишите сумму.», «Напишите, на что потрачено.» (no row index).
 
 Two phones selling the last boxes at once: the second gets the «Машина закрыта…» 400, never a 500.
 
+**Totals semantics (part C).** `debt_total` = Σ over the lot's debt sales of `max(0, total − allocated payments)` and `paid_total` = paid-on-spot totals + Σ `min(allocated, total)`; both are clamped per sale, so `debt_total` equals Σ of the sales' `due`. A debt sale's payments move `debt_total` into `paid_total`; undoing a payment moves it back.
+
 **`needs_receipt`:** true while the lot opened without a shipment box count (placeholder `boxes_received: 1`) or pallet count (placeholder `boxes_per_pallet: 1`) and the agent has not sent `boxes_received` or `boxes_per_pallet` yet. It is a stored flag (`receipt_confirmed`), so expenses and later `box_count` edits do not change it. While true, sales and spoilage answer 400.
 
 **`on_the_road`:** true while the shipment is `yola_chykdy` / `serhet_gechdi` / `dest_entry` (not past destination customs). Sales and spoilage answer 400 «Машина ещё в пути…» then; opening, the receipt, the seller and expenses stay allowed. The phone shows the seller a card instead of the sell form.
 
 **First sale drives the shipment** (no response field; visible on the Sheet): fills `arrived_at` (only at `barysh_gumrugi` / `transshipment`), `sale_started_at` and `city` (from the first seller's bazaar) when empty, so the shipment reaches `satylyar` («Продаётся»). It never fails the sale and is skipped in a closed season.
+
+### Agent market, part C: payments and debts (2026-10-10)
+
+Same resource gate as part B (`market_lot`) and the same `Idempotency-Key` rules on POST / DELETE. Money is a **string** with 2 places; times are the server-TZ DRF format of `sale.sold_at`. Only the agent and his sellers write; staff may `GET` and get 403 on writes. Rules (FIFO, cap, scope, undo) are in `docs/obsidian/processes/agent-market.md` «Part C».
+
+**Sale `due` / `paid_amount`** (in `GET /market/lots/{id}/` sales and in every `entry` of a sale write): `paid_amount` = total for a paid-on-spot sale, else Σ allocated payments; `due` = `"0.00"` for a paid-on-spot sale, else `total − allocated` (never negative). Never stored; deleting a payment gives the debt back.
+
+**`GET /market/debts/`** → 200, over the caller's scope (a seller: his lots; the agent: every lot of his customer; staff: their customers):
+```json
+{ "totals": { "KZT": "6500.00", "RUB": "300.00" },   // currencies with no debt are left out; {} when nobody owes
+  "buyers": [ { "buyer": { "id": 7, "name": "Бакыт" }, "currency": "KZT", "due": "6500.00",
+                "since": "…",                         // sold_at of the oldest unpaid sale; null for a paid-off group
+                "sales": [ { "id": 220, "lot_id": 206, "shipment_code": "MK-1", "sold_at": "…", "unit": "box",
+                             "boxes": 10, "net_kg": "100.00", "total": "4500.00", "due": "4500.00" } ],   // oldest first
+                "payments": [ { "id": 35, "amount": "5000.00", "paid_at": "…",   // amount = the part allocated to sales in the caller's scope
+                                "created_by": { "id": 3, "name": "mk_s1" } } ] } ] }   // latest 10 touching the scope, newest first
+```
+One group per buyer × currency, sorted by currency then `due` descending; only sales with `due > 0`. A payment's `amount` here is scoped: a seller sees what went to his sales, not the agent's whole sum. A group whose debt is paid off stays while a payment touching the scope is ≤ 30 days old: `"due": "0.00"`, `"since": null`, `"sales": []`, its latest payments (so it can still be undone); `totals` leaves it out.
+
+**`POST /market/payments/`** `{ "buyer_id": 7, "currency": "KZT", "amount": "5000.00" }` → **201**
+```json
+{ "payment": { "id": 35, "buyer": { "id": 7, "name": "Бакыт" }, "currency": "KZT", "amount": "5000.00", "paid_at": "…" },
+  "debts_total": { "KZT": "1500.00" } }               // debts totals of the caller after the payment
+```
+`payment.amount` is the **recorded** amount: capped at what the caller's scope owes in that currency, spread over the buyer's unpaid sales oldest first. Errors: 400 `{"amount": ["Напишите сумму."]}` (missing or ≤ 0); 400 `{"error": "У покупателя нет долга."}`; 403 (staff; `{"error": "Это делают агент и его продавцы."}` or DRF's generic 403 for a view-only role); 404 a buyer of another customer.
+
+**`POST /market/sales/{id}/mark-paid/`** (no body) → **201** `{ "payment": <payment as above>, "lot": <lot item> }` (a payment of the sale's whole due; `lot.totals` is already updated). Errors: 400 `{"error": "У покупателя нет долга."}` (paid-on-spot, no buyer or already paid); 403 `{"error": "Эту продажу вы не видите."}` (same customer, but neither the agent nor the lot's seller); 404 another customer's sale.
+
+**`DELETE /market/payments/{id}/`** → **200** `{ "deleted": 35 }` (no lot payload: refetch the debts and the lot). Its allocations go with it, so the sales owe again. Errors: 403 `{"error": "Отменить оплату могут её автор или агент."}` (a seller who is not the author); 404 another customer's payment. Allowed after the SalesReport is approved.
+
+**Sale delete (part C).** `DELETE /market/lots/{id}/sales/{entry_id}/` on a sale that has an allocation → 400 `{"error": "По этой продаже уже есть оплата — сначала отмените оплату."}`; undo the payment first.
 
 ### Auth: `POST /api/v1/auth/login/`
 ```json

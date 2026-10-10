@@ -53,7 +53,7 @@ class LotViewSet(_LotResource, LotEntriesMixin, mixins.ListModelMixin, mixins.Re
         if state in ('open', 'closed'):
             qs = qs.filter(closed_at__isnull=state == 'open')
         if self.action == 'retrieve':
-            qs = qs.prefetch_related('sales__buyer', 'spoilage', 'expenses__category')
+            qs = qs.prefetch_related('sales__buyer', 'sales__allocations', 'spoilage', 'expenses__category')
         return qs
 
     def get_serializer_class(self):

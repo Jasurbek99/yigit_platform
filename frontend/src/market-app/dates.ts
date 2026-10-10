@@ -24,3 +24,8 @@ export function dayLong(iso: string): string {
   const text = new Date(iso).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long' });
   return dayKey(iso) === new Date().toDateString() ? i18n.t('market.lot.today', { date: text }) : text;
 }
+
+/** "14:35" today, "7 окт. 14:35" on other days (artifact `timeText`). */
+export function whenText(iso: string): string {
+  return dayKey(iso) === new Date().toDateString() ? hm(iso) : `${dayShort(iso)} ${hm(iso)}`;
+}

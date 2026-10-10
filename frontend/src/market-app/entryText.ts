@@ -2,7 +2,7 @@
 import i18n from '@/i18n';
 import { boxes, kg, money } from './format';
 import type { LotEntry } from './lotEntries';
-import type { ISale } from './types';
+import type { IDebtSale, ISale } from './types';
 
 /** «12 ящиков, 80,5 кг» / «2 паллеты (100 ящиков), …» / «Вся машина (68 ящиков), …». */
 export function saleWhat(sale: ISale): string {
@@ -11,6 +11,13 @@ export function saleWhat(sale: ISale): string {
     what = i18n.t('market.lot.sale_pallets', { pallets: i18n.t('market.fmt.pallets', { count: sale.qty }), boxes: what });
   }
   if (sale.unit === 'truck') what = i18n.t('market.lot.whole_truck', { boxes: what });
+  return Number(sale.net_kg) > 0 ? `${what}, ${i18n.t('market.lot.kg_value', { v: kg(sale.net_kg) })}` : what;
+}
+
+/** A sale in the debts list: «20 ящиков, 130 кг» / «Вся машина (68 ящиков)»; no pallet count (not sent). */
+export function debtSaleWhat(sale: IDebtSale): string {
+  const count = boxes(sale.boxes);
+  const what = sale.unit === 'truck' ? i18n.t('market.lot.whole_truck', { boxes: count }) : count;
   return Number(sale.net_kg) > 0 ? `${what}, ${i18n.t('market.lot.kg_value', { v: kg(sale.net_kg) })}` : what;
 }
 

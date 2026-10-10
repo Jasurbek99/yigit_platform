@@ -60,8 +60,16 @@ describe('Shell', () => {
     expect(screen.getByText('Ерлан')).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledTimes(1);
     expect(screen.getByText('home')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Команда' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Машины', 'Долги', 'Команда']);
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('gives the seller the trucks and the debts tabs', async () => {
+    mockMe('agent_seller');
+    renderShell();
+    expect(await screen.findByText('home')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Долги' })).toHaveAttribute('href', '/debts');
+    expect(screen.getAllByRole('link').map((a) => a.textContent)).toEqual(['Машины', 'Долги']);
   });
 
   it('sends staff to the main app', async () => {

@@ -20,7 +20,7 @@ interface INavLinkState {
 
 const tabClass = ({ isActive }: INavLinkState): string => (isActive ? 'mk-tab mk-tab--on' : 'mk-tab');
 
-/** Header + (agent) bottom bar around every screen except login. A 401 is redirected by the api client. */
+/** Header + bottom bar around every screen except login. A 401 is redirected by the api client. */
 export default function Shell(): ReactElement {
   const { t } = useTranslation();
   const me = useMarketMe();
@@ -59,12 +59,11 @@ export default function Shell(): ReactElement {
         <Outlet />
       </div>
       <ToastHost />
-      {me.data.role === AGENT_ROLE && (
-        <nav className="mk-tabbar">
-          <NavLink to="/" end className={tabClass}>{t('market.shell.nav_lots')}</NavLink>
-          <NavLink to="/team" className={tabClass}>{t('market.shell.nav_team')}</NavLink>
-        </nav>
-      )}
+      <nav className="mk-tabbar">
+        <NavLink to="/" end className={tabClass}>{t('market.shell.nav_lots')}</NavLink>
+        <NavLink to="/debts" className={tabClass}>{t('market.shell.nav_debts')}</NavLink>
+        {me.data.role === AGENT_ROLE && <NavLink to="/team" className={tabClass}>{t('market.shell.nav_team')}</NavLink>}
+      </nav>
     </>
   );
 }

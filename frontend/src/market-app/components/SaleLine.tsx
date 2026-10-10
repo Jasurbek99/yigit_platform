@@ -5,6 +5,7 @@ import { saleWhat } from '../entryText';
 import { money, signedMoney } from '../format';
 import { saleDiff } from '../lotEntries';
 import type { ISale } from '../types';
+import { DebtTag } from './DebtTag';
 
 interface ISaleLineProps {
   sale: ISale;
@@ -25,9 +26,7 @@ export function SaleLine({ sale, currency, actions }: ISaleLineProps): ReactElem
     Number(sale.net_kg) > 0 ? t('market.lot.for_kg', { price }) : t('market.lot.for_box', { price }),
     diff !== 0 ? t('market.lot.row_diff', { calc: money(sale.calc_total, currency), off: signedMoney(diff, currency) }) : '',
   ].filter(Boolean).join(', ');
-  const debt = sale.paid_on_spot ? null : (
-    <span className="mk-tag">{sale.buyer ? t('market.lot.debt_buyer', { name: sale.buyer.name }) : t('market.lot.debt_tag')}</span>
-  );
+  const debt = sale.paid_on_spot ? null : <DebtTag sale={sale} currency={currency} />;
 
   return (
     <div className="mk-sale">

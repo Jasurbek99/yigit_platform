@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import i18n from '@/i18n';
 import api from '@/services/api';
 import HomeScreen from './HomeScreen';
-import { lotFixture, oct, page } from '../testFixtures';
+import { debtsFixture, lotFixture, oct, page } from '../testFixtures';
 
 vi.mock('@/services/api', () => ({
   default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -25,6 +25,7 @@ function mockApi(role: string): void {
   vi.mocked(api.get).mockImplementation((url: string, config?: { params?: { state?: string } }) => {
     if (url === '/market/me/') return Promise.resolve({ data: { role, username: 'u', first_name: 'Нурлан', customer: null, bazaar: null } });
     if (url === '/market/shipments/') return Promise.resolve({ data: shipments });
+    if (url === '/market/debts/') return Promise.resolve({ data: debtsFixture() });
     return Promise.resolve(page(config?.params?.state === 'closed' ? [closedLot] : [lotFixture()]));
   });
 }
@@ -90,16 +91,29 @@ describe('HomeScreen', () => {
 
   it('shows the empty state when there is nothing to sell', async () => {
     vi.mocked(api.get).mockImplementation((url: string) => Promise.resolve(
-      url === '/market/me/' ? { data: { role: 'agent_seller', username: 'u', first_name: '', customer: null, bazaar: null } } : page([]),
+      url === '/market/me/' ? { data: { role: 'agent_seller', username: 'u', first_name: '', customer: null, bazaar: null } }
+        : url === '/market/debts/' ? { data: { totals: {}, buyers: [] } } : page([]),
     ));
     renderHome();
     expect(await screen.findByText('Машин пока нет')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Долги клиентов Долгов нет' })).toHaveAttribute('href', '/debts');
+  });
+
+  it('puts the debts tile, with a sum per currency, above the open lots', async () => {
+    mockApi('agent_seller');
+    renderHome();
+    const tile = await screen.findByRole('link', { name: /^Долги клиентов/ });
+    expect(tile).toHaveAttribute('href', '/debts');
+    expect(tile).toHaveTextContent(/1\s250\s000\s₸ \+ 40\s000\s₽/);
+    const card = await screen.findByRole('link', { name: /26-0101/ });
+    expect(tile.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   function mockAgentNoLots(shipmentsAnswer: () => Promise<unknown>): void {
     vi.mocked(api.get).mockImplementation((url: string) => {
       if (url === '/market/me/') return Promise.resolve({ data: { role: 'agent', username: 'u', first_name: '', customer: null, bazaar: null } });
       if (url === '/market/shipments/') return shipmentsAnswer();
+      if (url === '/market/debts/') return Promise.resolve({ data: { totals: {}, buyers: [] } });
       return Promise.resolve(page([]));
     });
   }

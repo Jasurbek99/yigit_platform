@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from apps.export.models import AuditLog, ExpenseCategory, SalesReport
 from apps.market.models import Buyer, Lot, LotExpense, Sale, Spoilage
+from apps.market.services.lots import REPORT_APPROVED
 from apps.market.tests.factories import make_shipment, make_world
 from apps.market.text import boxes_ru, plural_ru
 
@@ -211,14 +212,14 @@ class ApprovedReportTests(_LotCase):
     def test_approved_report_freezes_sales(self):
         sale_id = self.sell().json()['entry']['id']
         SalesReport.objects.create(shipment=self.w.shipment, created_by=self.w.rep, approved_at=timezone.now())
-        message = 'Отчёт по машине утверждён — изменить продажи нельзя.'
+        message = REPORT_APPROVED
         self.assertEqual(self.sell().json()['error'], message)
         self.assertEqual(_as(self.w.seller).delete(self.sales_url(sale_id)).json()['error'], message)
         spoil = _as(self.w.seller).post(f'/api/v1/market/lots/{self.lot.pk}/spoilage/', {'boxes': 1}, format='json')
         self.assertEqual(spoil.json()['error'], message)
         expense = _as(self.w.seller).post(f'/api/v1/market/lots/{self.lot.pk}/expenses/', {'rows': [
             {'category_id': ExpenseCategory.objects.get(code='KARA').pk, 'amount': '500'}]}, format='json')
-        self.assertEqual(expense.status_code, 201, expense.content)
+        self.assertEqual(expense.json()['error'], message)
 
     def test_unapproved_report_does_not_freeze(self):
         SalesReport.objects.create(shipment=self.w.shipment, created_by=self.w.rep)
