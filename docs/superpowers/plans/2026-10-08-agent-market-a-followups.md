@@ -25,6 +25,11 @@ From the Part B review ledger; the ones that matter:
 - **`.mk-loading` has `min-height: 60vh`**, so the in-transit loading line under the open lots is a tall block; add a compact variant.
 - Smaller: `lots_for` does not exclude soft-deleted shipments (`open_lot` does); `ON_THE_ROAD_CODES` (entries) duplicates `VISIBLE_STATUS_CODES` (lots); a debt sale always POSTs `/market/buyers/` first; net × price can overflow `Decimal(12,2)` (500); the `/scan/…` forward accepts any `/scan/…` path, tighten to `/^\/scan\/\d+$/`.
 
+## Open after the Part B final review (2026-10-10)
+- **Receipt sheet keeps «Шт. в паллете» = 1** when the shipment had no pallet count: the agent can confirm the receipt without fixing it, and pallet sales then take 1 box. Fix first in Part C: blank the per-pallet field while `needs_receipt`; the seller card should say «…сколько ящиков и паллет пришло».
+- **User decision before Part E:** after the SalesReport is approved, should expenses and the agent's receipt edits still be allowed? Today both are (plan), spec §7 says the journal freezes.
+- **Lots list N+1:** `get_totals` runs 3 aggregates per lot — annotate in Part D.
+
 ## Later / user decisions
 - ~~PWA icons are the platform's blue «Y» while `theme_color` is tomato red — the user picks a market icon.~~ Done 2026-10-09: Yigit logo, green theme; main site has the iPhone icon too.
 - ~~Turkmen strings added in Part A need a native review.~~ Listed once under «Still open after Part B».
