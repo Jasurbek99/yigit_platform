@@ -1,7 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { hm } from '../dates';
-import { boxes, kg, money, signedMoney } from '../format';
+import { saleWhat } from '../entryText';
+import { money, signedMoney } from '../format';
 import { saleDiff } from '../lotEntries';
 import type { ISale } from '../types';
 
@@ -15,10 +16,7 @@ interface ISaleLineProps {
 /** A sale row (artifact `saleRow` / `saleText`): «12 ящиков, 80,5 кг», «14:35, 45 ₸ за 1 кг», total, debt tag. */
 export function SaleLine({ sale, currency, actions }: ISaleLineProps): ReactElement {
   const { t } = useTranslation();
-  let what = boxes(sale.boxes);
-  if (sale.unit === 'pallet') what = t('market.lot.sale_pallets', { pallets: t('market.fmt.pallets', { count: sale.qty }), boxes: what });
-  if (sale.unit === 'truck') what = t('market.lot.whole_truck', { boxes: what });
-  if (Number(sale.net_kg) > 0) what = `${what}, ${t('market.lot.kg_value', { v: kg(sale.net_kg) })}`;
+  const what = saleWhat(sale);
 
   const price = money(sale.price_kg, currency);
   const diff = saleDiff(sale);

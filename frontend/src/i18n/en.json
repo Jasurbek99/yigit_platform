@@ -4447,7 +4447,8 @@
       "debt_tag": "Debt",
       "debt_buyer": "Debt: {{name}}",
       "spoiled_row": "Spoiled: {{v}}",
-      "expense_row": "Cost: {{name}}"
+      "expense_row": "Cost: {{name}}",
+      "undo_error": "Could not undo. Delete the entry from the list."
     },
     "sell": {
       "what": "What are you selling?",
@@ -4487,6 +4488,36 @@
       "closed": "Truck closed. No boxes left.",
       "needs_receipt": "Ask the agent to enter how many boxes arrived.",
       "in_progress": "The previous save is still in progress — wait a second."
+    },
+    "spoil": {
+      "button": "Spoiled",
+      "title": "Spoiled",
+      "how": "How many boxes spoiled?",
+      "only_weight": "Weight only. The boxes stay on the truck.",
+      "weight_optional": "The weight can be left empty.",
+      "save": "Write off",
+      "saved": "Written off: {{v}}",
+      "saved_closed": "Written off: {{v}}. Truck closed."
+    },
+    "costs": {
+      "button": "Truck expenses",
+      "title": "Truck expenses",
+      "other": "Other expense",
+      "sum": "Amount",
+      "total": "Total expenses",
+      "save": "Save expenses",
+      "need_any": "Enter at least one amount.",
+      "need_name": "Enter the name of the expense.",
+      "saved_single": "Expense: {{name}}, {{total}}",
+      "saved_batch_one": "Expenses: {{count}} entry, {{total}}",
+      "saved_batch_other": "Expenses: {{count}} entries, {{total}}"
+    },
+    "del": {
+      "button": "Delete",
+      "sale_q": "Delete this sale?",
+      "entry_q": "Delete this entry?",
+      "yes": "Delete",
+      "error": "Could not delete. Please try again."
     }
   }
 }

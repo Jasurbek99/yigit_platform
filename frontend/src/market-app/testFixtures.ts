@@ -1,5 +1,5 @@
 // Test data shared by the market screen tests (not imported by app code).
-import type { ILot, ILotDetail, ISale } from './types';
+import type { IExpense, ILot, ILotDetail, ISale, ISpoilage } from './types';
 
 /** An ISO time on a local calendar day of October 2026, so day grouping works in any TZ. */
 export function oct(day: number, hour: number, minute = 0): string {
@@ -10,6 +10,17 @@ export function saleFixture(over: Partial<ISale>): ISale {
   return {
     id: 1, unit: 'box', qty: 12, boxes: 12, gross_kg: '86.00', tare_g: 450, net_kg: '80.50', price_kg: '45.00',
     calc_total: '3622.50', total: '3622.50', paid_on_spot: true, buyer: null, sold_at: oct(8, 14, 35), created_by: 3,
+    ...over,
+  };
+}
+
+export function spoilageFixture(over: Partial<ISpoilage>): ISpoilage {
+  return { id: 1, boxes: 3, gross_kg: '31.35', tare_g: 450, net_kg: '30.00', recorded_at: oct(8, 16), created_by: 7, ...over };
+}
+
+export function expenseFixture(over: Partial<IExpense>): IExpense {
+  return {
+    id: 1, category_id: 3, category_code: 'INTERES', label: '', amount: '1000.00', recorded_at: oct(8, 15), created_by: 3,
     ...over,
   };
 }
@@ -42,9 +53,7 @@ export function lotDetailFixture(): ILotDetail {
       }),
     ],
     spoilage: [],
-    expenses: [
-      { id: 1, category_id: 3, category_code: 'INTERES', label: '', amount: '1000.00', recorded_at: oct(8, 15), created_by: 3 },
-    ],
+    expenses: [expenseFixture({})],
   };
 }
 

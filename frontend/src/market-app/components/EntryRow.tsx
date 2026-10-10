@@ -1,7 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { hm } from '../dates';
-import { boxes, kg, money } from '../format';
+import { spoiledAmount } from '../entryText';
+import { money } from '../format';
 import type { LotEntry } from '../lotEntries';
 import { SaleLine } from './SaleLine';
 
@@ -10,7 +11,7 @@ interface IEntryRowProps {
   currency: string;
   /** Expense label by category code, for rows saved without their own label. */
   categoryLabel: (code: string) => string;
-  /** Buttons for the row's foot (delete, mark paid) — Tasks 8 and C. */
+  /** Buttons for the row's foot (delete, mark paid), end-aligned after a debt tag. */
   actions?: ReactNode;
 }
 
@@ -31,9 +32,7 @@ export function EntryRow({ entry, currency, categoryLabel, actions }: IEntryRowP
     );
   }
   if (entry.kind === 'spoilage') {
-    const s = entry.item;
-    const amount = [s.boxes > 0 ? boxes(s.boxes) : '', Number(s.net_kg) > 0 ? t('market.lot.kg_value', { v: kg(s.net_kg) }) : '']
-      .filter(Boolean).join(', ');
+    const amount = spoiledAmount(entry.item.boxes, entry.item.net_kg);
     return (
       <div className="mk-sale mk-sale--bad">
         <span className="mk-sale-what">{t('market.lot.spoiled_row', { v: amount })}</span>

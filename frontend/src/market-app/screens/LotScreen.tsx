@@ -1,12 +1,12 @@
 import type { ReactElement } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { EntryList } from '../components/EntryList';
 import { LeftLine } from '../components/LeftLine';
 import { LotStats } from '../components/LotStats';
 import { ProductTag, isOtherProduct } from '../components/ProductTag';
 import { TruckRig } from '../components/TruckRig';
 import { useLot } from '../hooks/useLot';
+import { LotEntries } from './lot/LotEntries';
 import { LotFormSlot } from './lot/LotFormSlot';
 
 /** `/lots/:id` — one truck on the bazaar: what is left, the stats and every entry (study §3.4). */
@@ -40,7 +40,7 @@ export default function LotScreen(): ReactElement {
         <section className="mk-lot-form" data-slot="lot-form"><LotFormSlot lot={lot.data} /></section>
         <div>
           <LotStats lot={lot.data} />
-          <EntryList lot={lot.data} />
+          <LotEntries lot={lot.data} />
         </div>
       </div>
     </>

@@ -8,16 +8,28 @@ import api from '@/services/api';
 import LotScreen from '../LotScreen';
 import { ToastHost } from '../../components/ToastHost';
 import { lotDetailFixture, lotFixture, saleFixture } from '../../testFixtures';
-import type { ILot, ISale } from '../../types';
+import type { IExpenseCategory, ILot, ILotDetail, ISale } from '../../types';
 
 const ME = { role: 'agent_seller', username: 'aidos', first_name: 'Айдос', customer: null, bazaar: null };
 
-/** Reset the mocked api (vi.mock it in the test file) and answer GETs as the lot's seller. */
-export function mockSellerApi(): void {
+/** `/market/expense-categories/`: a few market costs, «Другое» (OTHER) last. */
+export const CATEGORIES: IExpenseCategory[] = [
+  { id: 1, code: 'KARA', label: 'Кара' }, { id: 3, code: 'INTERES', label: 'Комиссия' },
+  { id: 5, code: 'PARKOVKA', label: 'Парковка' }, { id: 9, code: 'OTHER', label: 'Другое' },
+];
+
+/** Reset the mocked api (vi.mock it in the test file) and answer GETs as `role` looking at `detail`. */
+export function mockLotApi(role: string, detail: ILotDetail = lotDetailFixture()): void {
   [api.get, api.post, api.delete].forEach((fn) => vi.mocked(fn).mockReset());
   vi.mocked(api.get).mockImplementation((url: string) => Promise.resolve({
-    data: url === '/market/me/' ? ME : url.includes('/lots/') ? lotDetailFixture() : [],
+    data: url === '/market/me/' ? { ...ME, role } : url === '/market/expense-categories/' ? CATEGORIES
+      : url.includes('/lots/') ? detail : [],
   }));
+}
+
+/** mockLotApi as the lot's seller (takes no arguments, so it can be passed to beforeEach). */
+export function mockSellerApi(): void {
+  mockLotApi('agent_seller');
 }
 
 /** `/lots/5` with the toast host, as the seller sees it. */
