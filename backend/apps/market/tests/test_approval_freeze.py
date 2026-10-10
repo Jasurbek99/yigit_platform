@@ -2,7 +2,7 @@
 from django.utils import timezone
 
 from apps.export.models import ExpenseCategory, SalesReport
-from apps.market.models import LotExpense
+from apps.market.models import Lot, LotExpense
 from apps.market.services.lots import REPORT_APPROVED
 from apps.market.tests.test_entries_api import _as, _LotCase
 
@@ -65,3 +65,28 @@ class ApprovalFreezeTests(_LotCase):
         self.assertEqual(self.sell().json(), {'error': REPORT_APPROVED})
         spoil = _as(self.w.seller).post(f'{self.lot_url()}spoilage/', {'boxes': 1}, format='json')
         self.assertEqual(spoil.json(), {'error': REPORT_APPROVED})
+
+
+class ClaimAfterApprovalTests(_LotCase):
+    """The seller is frozen once the report is approved: a QR scan no longer claims the lot."""
+
+    def open_url(self):
+        return '/api/v1/market/lots/open/'
+
+    def approve(self):
+        SalesReport.objects.create(shipment=self.w.shipment, created_by=self.w.rep, approved_at=timezone.now())
+
+    def test_unassigned_lot_not_claimed(self):
+        Lot.objects.filter(pk=self.lot.pk).update(seller=None)
+        self.approve()
+        resp = _as(self.w.seller2).post(self.open_url(), {'shipment_id': self.w.shipment.pk}, format='json')
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertEqual(resp.json(), {'error': REPORT_APPROVED})
+        self.lot.refresh_from_db()
+        self.assertIsNone(self.lot.seller_id)
+
+    def test_own_lot_still_opens(self):
+        self.approve()
+        resp = _as(self.w.seller).post(self.open_url(), {'shipment_id': self.w.shipment.pk}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertEqual(resp.json()['seller']['id'], self.w.seller.pk)

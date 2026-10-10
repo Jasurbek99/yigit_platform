@@ -133,6 +133,7 @@ def open_lot(user: User, shipment_id: int) -> tuple[Lot, bool]:
     Raises:
         LotNotFound: the shipment is not one `user` may open.
         MarketAccessError: `user` is staff, or the lot belongs to another seller.
+        MarketRuleError: a seller claims an unassigned lot after the sales report approval.
     """
     member = member_of(user)
     if user.role == AGENT_ROLE:
@@ -159,11 +160,16 @@ def open_lot(user: User, shipment_id: int) -> tuple[Lot, bool]:
 
 
 def _claim(seller: User, lot: Lot) -> None:
-    """Give an unassigned lot to `seller`; refuse a lot of another seller."""
+    """Give an unassigned lot to `seller`; refuse a lot of another seller.
+
+    Once the sales report is approved the seller is frozen (debts follow lot.seller):
+    an unassigned lot is not claimed; his own lot still opens.
+    """
     if lot.seller_id == seller.pk:
         return
     if lot.seller_id is not None:
         raise MarketAccessError(OTHER_SELLER)
+    check_report_open(lot)
     lot.seller = seller
     lot.save(update_fields=['seller'])
     create_audit_entry(seller, 'update', 'MarketLot', lot.pk, lot.shipment.shipment_code, 'seller claimed by QR')
