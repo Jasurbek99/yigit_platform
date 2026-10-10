@@ -9,10 +9,12 @@ Buyer, so there is no cycle. Payments stay allowed after the sales report is
 approved (no check_report_open here).
 """
 from collections import OrderedDict
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import DecimalField, OuterRef, QuerySet, Subquery, Sum
+from django.utils import timezone
 
 from apps.core.models import User
 from apps.core.models.user import AGENT_ROLE, EXTERNAL_ROLES
@@ -26,6 +28,9 @@ from apps.market.services.lots import LotNotFound, MarketRuleError, lots_for
 CENT = Decimal('0.01')
 ZERO = Decimal('0')
 LATEST_PAYMENTS = 10
+# A paid-off buyer stays in the debts list this long after a payment, so it can be undone.
+RECENT_PAYMENT_DAYS = 30
+_MONEY_FIELD = DecimalField(max_digits=12, decimal_places=2)
 
 NOTHING_DUE = 'У покупателя нет долга.'
 NEED_PAY_AMOUNT = 'Напишите сумму.'
@@ -105,7 +110,10 @@ def create_payment(user: User, buyer_id: int, currency: str, amount: Decimal | N
         raise LotNotFound()
     with transaction.atomic():
         buyer = Buyer.objects.select_for_update().get(pk=buyer_id)
-        candidates = list(debt_scope(user).filter(buyer=buyer, lot__currency=currency, paid_on_spot=False)
+        # Only sales that still owe: a paid-off history is never locked nor sent as pk__in params
+        # (MSSQL caps a query at ~2100). Dues are re-read under the locks, so a sale an undo frees
+        # meanwhile is just not covered — never over-allocated.
+        candidates = list(debt_sales(debt_scope(user).filter(buyer=buyer, lot__currency=currency))
                           .order_by().values_list('pk', flat=True))
         dues = _locked_dues(_lock_sales(candidates))
         total_due = sum((due for _, due in dues), ZERO)
@@ -164,13 +172,32 @@ def delete_payment(user: User, payment_id: int) -> None:
 
 
 def _latest_payments(scope: QuerySet[Sale], buyer_id: int, currency: str) -> list[dict]:
-    """The buyer's latest payments in `currency` that touch a sale of `scope`."""
-    touching = PaymentAllocation.objects.filter(sale__in=scope.order_by()).values('payment_id')
-    payments = (Payment.objects.filter(buyer_id=buyer_id, currency=currency, pk__in=touching)
+    """The buyer's latest payments in `currency` that touch a sale of `scope`.
+
+    `amount` is the part of the payment allocated to sales of `scope`: a seller sees what
+    went to his sales, not the whole sum an agent spread over several sellers.
+    """
+    in_scope = (PaymentAllocation.objects.filter(payment=OuterRef('pk'), sale__in=scope.order_by())
+                .order_by().values('payment').annotate(s=Sum('amount')).values('s'))
+    payments = (Payment.objects.filter(buyer_id=buyer_id, currency=currency, pk__in=_touching(scope))
+                .annotate(scoped=Subquery(in_scope, output_field=_MONEY_FIELD))
                 .select_related('created_by')[:LATEST_PAYMENTS])
-    return [{'id': p.pk, 'amount': p.amount, 'paid_at': p.paid_at,
+    return [{'id': p.pk, 'amount': p.scoped, 'paid_at': p.paid_at,
              'created_by': {'id': p.created_by_id, 'name': p.created_by.first_name or p.created_by.username}}
             for p in payments]
+
+
+def _touching(scope: QuerySet[Sale]) -> QuerySet:
+    """Payment ids with an allocation to a sale of `scope` (a subquery)."""
+    return PaymentAllocation.objects.filter(sale__in=scope.order_by()).values('payment_id')
+
+
+def _recently_paid(scope: QuerySet[Sale]) -> list[tuple[int, str, str]]:
+    """`(buyer_id, buyer_name, currency)` with a payment touching `scope` in the last RECENT_PAYMENT_DAYS."""
+    since = timezone.now() - timedelta(days=RECENT_PAYMENT_DAYS)
+    # .order_by(): Meta.ordering would add paid_at to the SELECT and break the DISTINCT.
+    return list(Payment.objects.filter(pk__in=_touching(scope), paid_at__gte=since).order_by()
+                .values_list('buyer_id', 'buyer__name', 'currency').distinct())
 
 
 def buyer_debts(user: User) -> list[dict]:
@@ -178,7 +205,10 @@ def buyer_debts(user: User) -> list[dict]:
 
     Group: `{buyer: {id, name}, currency, due, since, sales: [...] (oldest first),
     payments: [...] (latest 10 touching the scope)}`; groups sorted by currency,
-    then due descending. Money is Decimal, times are datetimes (the serializer formats them).
+    then due descending. A group whose debt is paid off stays while it has a payment
+    touching the scope in the last 30 days (so a mistaken payment can still be undone):
+    `due` 0, `since` None, `sales` [] (paid sales are not listed). Money is Decimal,
+    times are datetimes (the serializer formats them).
     """
     scope = debt_scope(user)
     # Plain values: MSSQL groups the allocation Sum by every selected column.
@@ -200,6 +230,9 @@ def buyer_debts(user: User) -> list[dict]:
                                'shipment_code': row['lot__shipment__shipment_code'], 'sold_at': row['sold_at'],
                                'unit': row['unit'], 'boxes': row['boxes'], 'net_kg': row['net_kg'],
                                'total': row['total'], 'due': due})
+    for buyer_id, buyer_name, currency in _recently_paid(scope):
+        groups.setdefault((buyer_id, currency), {'buyer': {'id': buyer_id, 'name': buyer_name},
+                                                 'currency': currency, 'due': ZERO, 'since': None, 'sales': []})
     for (buyer_id, currency), group in groups.items():
         group['payments'] = _latest_payments(scope, buyer_id, currency)
     return sorted(groups.values(), key=lambda g: (g['currency'], -g['due']))

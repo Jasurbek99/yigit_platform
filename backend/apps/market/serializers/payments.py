@@ -53,7 +53,10 @@ class DebtSaleSerializer(serializers.Serializer):
 
 
 class DebtPaymentSerializer(serializers.Serializer):
-    """One of the buyer's latest payments: `{id, amount, paid_at, created_by: {id, name}}`."""
+    """One of the buyer's latest payments: `{id, amount, paid_at, created_by: {id, name}}`.
+
+    `amount` is the part allocated to sales in the caller's scope.
+    """
 
     id = serializers.IntegerField()
     amount = serializers.DecimalField(**MONEY)
@@ -62,11 +65,14 @@ class DebtPaymentSerializer(serializers.Serializer):
 
 
 class BuyerDebtSerializer(serializers.Serializer):
-    """A group of services.payments.buyer_debts(): one buyer in one currency."""
+    """A group of services.payments.buyer_debts(): one buyer in one currency.
+
+    A paid-off group (kept 30 days after a payment) has `due` 0, `since` null and no sales.
+    """
 
     buyer = _RefSerializer()
     currency = serializers.CharField()
     due = serializers.DecimalField(**MONEY)
-    since = serializers.DateTimeField()
+    since = serializers.DateTimeField(allow_null=True)
     sales = DebtSaleSerializer(many=True)
     payments = DebtPaymentSerializer(many=True)
