@@ -48,6 +48,7 @@ NO_EXPENSES = 'Добавьте хотя бы один расход.'
 UNKNOWN_CATEGORY = 'Такой статьи расходов нет.'
 NEED_AMOUNT = 'Напишите сумму.'
 NEED_LABEL = 'Напишите, на что потрачено.'
+SALE_HAS_PAYMENT = 'По этой продаже уже есть оплата — сначала отмените оплату.'
 
 _ENTRY_MODELS = {'sale': Sale, 'spoilage': Spoilage, 'expense': LotExpense}
 _AUDIT_NAMES = {'sale': 'MarketSale', 'spoilage': 'MarketSpoilage', 'expense': 'MarketExpense'}
@@ -292,7 +293,8 @@ def delete_entry(user: User, kind: str, entry_id: int, lot_id: int | None = None
     Raises:
         LotNotFound: no such entry on a lot of `user`'s customers.
         MarketAccessError: `user` is neither the author-seller nor the agent.
-        MarketRuleError: the sales report is approved (any kind).
+        MarketRuleError: the sales report is approved (any kind), or a sale
+            already has a payment allocated to it.
     """
     model = _ENTRY_MODELS[kind]
     found_lot_id = model.objects.filter(pk=entry_id).values_list('lot_id', flat=True).first()
@@ -300,12 +302,16 @@ def delete_entry(user: User, kind: str, entry_id: int, lot_id: int | None = None
         raise LotNotFound()
     with transaction.atomic():
         lot = _locked_lot(user, found_lot_id)
-        # Read again under the lock: a parallel delete may have removed it.
-        entry = model.objects.filter(pk=entry_id, lot=lot).first()
+        # Read again under the lock: a parallel delete may have removed it. A sale row
+        # is locked too, so a payment can't be allocated to it while it is deleted.
+        entries = model.objects.select_for_update() if kind == 'sale' else model.objects
+        entry = entries.filter(pk=entry_id, lot=lot).first()
         if entry is None:
             raise LotNotFound()
         _check_can_delete(user, lot, entry)
         check_report_open(lot)
+        if kind == 'sale' and entry.allocations.exists():
+            raise MarketRuleError(SALE_HAS_PAYMENT)
         entry.delete()
         refresh_closed(lot)
         create_audit_entry(user, 'update', _AUDIT_NAMES[kind], entry_id, lot.shipment.shipment_code, 'deleted')

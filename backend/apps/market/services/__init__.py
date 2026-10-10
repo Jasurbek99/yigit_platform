@@ -5,6 +5,7 @@ from apps.market.services.access import (
     own_market_customer,
     own_team_customer,
 )
+from apps.market.services.dues import debt_sales, sale_due, sale_paid
 from apps.market.services.entries import create_expenses, create_sale, create_spoilage, delete_entry, net_weight
 from apps.market.services.lots import (
     VISIBLE_STATUS_CODES,
@@ -24,7 +25,7 @@ from apps.market.services.totals import lot_totals, needs_receipt, refresh_close
 __all__ = [
     'VISIBLE_STATUS_CODES', 'LotNotFound', 'MarketAccessError', 'MarketRuleError', 'available_shipments',
     'build_me_payload', 'check_customer_in_scope', 'check_report_open', 'create_expenses', 'create_sale',
-    'create_spoilage', 'delete_entry', 'get_or_create_buyer', 'lot_totals', 'lots_for',
+    'create_spoilage', 'debt_sales', 'delete_entry', 'get_or_create_buyer', 'lot_totals', 'lots_for',
     'market_expense_categories', 'needs_receipt', 'net_weight', 'open_lot', 'own_market_customer', 'own_team_customer',
-    'refresh_closed', 'search_buyers', 'update_lot', 'visible_shipments',
+    'refresh_closed', 'sale_due', 'sale_paid', 'search_buyers', 'update_lot', 'visible_shipments',
 ]
