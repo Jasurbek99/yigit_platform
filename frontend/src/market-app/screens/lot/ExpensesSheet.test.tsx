@@ -5,6 +5,7 @@ import i18n from '@/i18n';
 import api from '@/services/api';
 import { hideToast } from '../../components/toastStore';
 import { expenseFixture, lotDetailFixture, lotFixture, oct } from '../../testFixtures';
+import type { ILot } from '../../types';
 import { mockLotApi, mockSellerApi, renderLot } from './sellTestKit';
 
 vi.mock('@/services/api', () => ({
@@ -68,6 +69,30 @@ describe('ExpensesSheet', () => {
     [11, 12, 13].forEach((id) => {
       expect(api.delete).toHaveBeenCalledWith(`/market/lots/5/expenses/${id}/`, expect.anything());
     });
+  });
+
+  it('undoes a batch one delete at a time, so a late answer never leaves stale totals', async () => {
+    const totals = (cost: string): ILot => lotFixture({ totals: { ...lotFixture().totals, expenses_total: cost } });
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: { entries: [expenseFixture({ id: 11 }), expenseFixture({ id: 12 })], lot: totals('3000.00') },
+    });
+    // The first answer is slow and carries the totals of a half-done undo.
+    vi.mocked(api.delete)
+      .mockImplementationOnce(() => new Promise((ok) => { setTimeout(() => ok({ data: { lot: totals('2000.00') } }), 30); }))
+      .mockResolvedValueOnce({ data: { lot: totals('1000.00') } });
+    const user = userEvent.setup();
+    renderLot();
+    await user.click(await screen.findByRole('button', { name: 'Расходы по машине' }));
+    const sheet = within(screen.getByRole('dialog'));
+    await user.type(await sheet.findByLabelText('Кара'), '1000');
+    await user.type(sheet.getByLabelText('Комиссия'), '1000');
+    await user.click(sheet.getByRole('button', { name: 'Сохранить расходы' }));
+    await user.click(await screen.findByRole('button', { name: 'Отменить' }));
+    await waitFor(() => expect(api.delete).toHaveBeenCalledTimes(2));
+    await act(() => new Promise((ok) => { setTimeout(ok, 60); }));
+    // «Расходы −1 000 ₸» from the last answer, beside the fixture's own −1 000 ₸ expense row.
+    expect(screen.getAllByText(/^−1\s000\s₸$/)).toHaveLength(2);
+    expect(screen.queryByText(/^−2\s000\s₸$/)).not.toBeInTheDocument();
   });
 
   it('still offers «Расходы по машине» to the seller of a closed truck', async () => {

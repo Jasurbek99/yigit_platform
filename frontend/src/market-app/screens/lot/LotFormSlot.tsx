@@ -40,14 +40,26 @@ export function LotFormSlot({ lot }: ILotFormSlotProps): ReactElement {
   const openCosts = (): void => setSheet('costs');
   const close = (): void => setSheet(null);
 
-  /** Delete what a toast's «Отменить» names (an expenses batch is several entries); one toast if any fails. */
-  const undo = (...entries: IDeleteEntryInput[]): void => {
-    void Promise.allSettled(entries.map((e) => deleteEntry.mutateAsync(e))).then((results) => {
-      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
-      if (!failed) return;
-      const fallback = entries[0]?.kind === 'sale' ? 'market.sell.undo_error' : 'market.lot.undo_error';
-      showToast({ text: readableError(failed.reason) ?? t(fallback) });
-    });
+  /**
+   * Delete what a toast's «Отменить» names (an expenses batch is several entries), one at a time:
+   * each answer's lot totals overwrite the cached detail, so a late answer from a parallel delete
+   * would leave stale totals. One toast if any delete fails.
+   */
+  const undo = async (...entries: IDeleteEntryInput[]): Promise<void> => {
+    let failure: unknown = null;
+    for (const e of entries) {
+      try {
+        await deleteEntry.mutateAsync(e);
+      } catch (err) {
+        failure ??= err;
+      }
+    }
+    if (failure === null) return;
+    const fallback = entries[0]?.kind === 'sale' ? 'market.sell.undo_error' : 'market.lot.undo_error';
+    showToast({ text: readableError(failure) ?? t(fallback) });
+  };
+  const undoNow = (...entries: IDeleteEntryInput[]): void => {
+    void undo(...entries);
   };
 
   let body: ReactElement | null = null;
@@ -57,15 +69,15 @@ export function LotFormSlot({ lot }: ILotFormSlotProps): ReactElement {
     // The box count is still a placeholder: no sale or write-off until the agent enters the receipt (Task 9).
     body = <SlotCard text={t('market.sell.needs_receipt')} onCosts={openCosts} />;
   } else if (isSeller) {
-    body = <SellForm lot={lot} onUndo={undo}
+    body = <SellForm lot={lot} onUndo={undoNow}
       extraUnits={<ExtraUnits onSpoil={() => setSheet('spoil')} onCosts={openCosts} />} />;
   }
 
   return (
     <>
       {body}
-      {sheet === 'spoil' && <SpoilageSheet lot={lot} save={createSpoilage.mutateAsync} onUndo={undo} onClose={close} />}
-      {sheet === 'costs' && <ExpensesSheet lot={lot} save={createExpenses.mutateAsync} onUndo={undo} onClose={close} />}
+      {sheet === 'spoil' && <SpoilageSheet lot={lot} save={createSpoilage.mutateAsync} onUndo={undoNow} onClose={close} />}
+      {sheet === 'costs' && <ExpensesSheet lot={lot} save={createExpenses.mutateAsync} onUndo={undoNow} onClose={close} />}
     </>
   );
 }
