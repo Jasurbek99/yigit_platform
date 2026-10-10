@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Alert, Button, Card, Modal, Result, Space, Spin, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useShipmentScan, useRecordShipmentScan } from '@/hooks/useShipmentScan';
+import { useAuth } from '@/hooks/useAuth';
+import { EXTERNAL_ROLES } from '@/constants/roles';
 
 const { Title, Text } = Typography;
 
@@ -21,9 +23,17 @@ const { Title, Text } = Typography;
 export default function ScanPage() {
   const { id } = useParams<{ id: string }>();
   const { t, i18n } = useTranslation();
-  const { data, isLoading, isError, error } = useShipmentScan(id);
+  // An agent's seller scans the same pallet QR: his claim lives in the market app,
+  // and the export scan API is not his — never call it for him.
+  const { user } = useAuth();
+  const external = Boolean(user && EXTERNAL_ROLES.includes(user.role));
+  const { data, isLoading, isError, error } = useShipmentScan(user && !external ? id : undefined);
   const record = useRecordShipmentScan(id);
   const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (external && id) window.location.replace(`/m/scan/${id}`);
+  }, [external, id]);
 
   function fieldLabel(field: string): string {
     // Reuse the Sheet's own labels — all seven scan fields are already
@@ -32,7 +42,7 @@ export default function ScanPage() {
     return t(`shipment_edit_drawer.field.${field}`, { defaultValue: field });
   }
 
-  if (isLoading) {
+  if (isLoading || !user || external) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 64 }}>
         <Spin size="large" />

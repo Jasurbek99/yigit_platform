@@ -32,7 +32,8 @@ export default function LoginPage() {
         description: t('login.toast_success_desc', { role: t(`roles.${data.role}`) }),
       });
       if (EXTERNAL_ROLES.includes(data.role)) {
-        window.location.replace('/m/');
+        // A seller logged out when scanning a pallet QR lands on the market claim — no second scan.
+        window.location.replace(next?.startsWith('/scan/') ? `/m${next}` : '/m/');
         return;
       }
       navigate(next ?? (data.role === 'boss' ? '/boss/dashboard' : '/'));

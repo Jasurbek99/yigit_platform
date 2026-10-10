@@ -1,0 +1,75 @@
+/* Lot screen: the sell form (artifact .sell / .units / .step / .field / .pay / .save) and the closed card. */
+.mk-sell{min-width:0;background:var(--card);border:2px solid var(--line);border-radius:20px;padding:14px;container-type:inline-size}
+.mk-sell svg{display:block;width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.mk-pair{display:grid;grid-template-columns:minmax(0,1fr);gap:0 14px}
+.mk-pair > *{min-width:0}
+
+/* «Что продаёте?» */
+.mk-units{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mk-unit{min-width:0;min-height:64px;padding:8px 12px;border:2px solid var(--line);border-radius:16px;background:var(--bg);display:flex;align-items:center;gap:10px;font-weight:800;line-height:1.1;text-align:left;overflow-wrap:anywhere}
+.mk-unit svg{flex:none;font-size:28px;stroke-width:2}
+.mk-unit[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+/* − N + */
+.mk-step{display:grid;grid-template-columns:76px minmax(0,1fr) 76px;gap:8px}
+.mk-step button{height:76px;border-radius:16px;border:2px solid var(--ink);background:var(--card);display:flex;align-items:center;justify-content:center}
+.mk-step button svg{font-size:34px;stroke-width:3.2}
+.mk-step button:active{background:var(--ink);color:var(--bg)}
+.mk-step input{min-width:0;height:76px;width:100%;text-align:center;font-size:52px;border:2px solid var(--line);border-radius:16px;background:var(--bg);padding:0 4px}
+.mk-step input[aria-invalid="true"]{border-color:var(--tomato)}
+.mk-allbox{margin:0;border:2px solid var(--line);border-radius:16px;background:var(--bg);padding:16px;font-weight:800;font-size:20px;text-align:center}
+.mk-hint{margin:8px 0 0;font-weight:600;color:var(--muted)}
+.mk-hint--warn{color:var(--crate)}
+
+/* number fields: weight, price, total */
+.mk-field--num{font-size:34px;min-width:0}
+
+/* paid / on debt */
+.mk-pay{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+.mk-pay button{min-height:60px;border-radius:16px;border:2px solid var(--line);background:var(--bg);font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;padding:6px}
+.mk-pay button svg{font-size:20px;stroke-width:3}
+.mk-pay-paid[aria-pressed="true"]{background:var(--vine-soft);border-color:var(--vine);color:var(--vine)}
+.mk-pay-due[aria-pressed="true"]{background:var(--crate-soft);border-color:var(--crate);color:var(--crate)}
+
+.mk-sell .mk-save{margin-top:20px;min-height:70px;border-radius:18px;font-size:23px}
+
+.mk-closed{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:18px}
+.mk-closed p{margin:0;font-weight:800;font-size:20px}
+.mk-closed .mk-btn{margin-top:14px}
+
+/* «Испорчено» / «Расходы по машине» after the units, and the amber «Списать» */
+.mk-unit--bad{color:var(--crate)}
+.mk-unit--cost{grid-column:1 / -1;min-height:56px;color:var(--tomato);background:var(--card)}
+.mk-btn--crate{min-height:62px;border-color:var(--crate);background:var(--crate);color:var(--bg);font-size:21px}
+
+/* sheets: the line under the title, icons, the row delete button, the expenses rows and total */
+.mk-sheet-text{margin:0 0 6px;color:var(--muted)}
+.mk-sheet svg,.mk-small svg{display:block;width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.mk-small svg{font-size:18px}
+.mk-small--end{margin-left:auto}
+.mk-costrows{margin-top:8px}
+.mk-costrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,44%);gap:10px;align-items:center;padding:5px 0}
+.mk-costrow label{font-weight:800;font-size:19px;overflow-wrap:anywhere}
+.mk-costrow .mk-field{min-width:0;height:56px;padding:0 12px;font-size:18px}
+.mk-costrow .mk-costrow-amount{font-size:26px;text-align:right}
+.mk-costtotal{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px;margin-top:10px;padding-top:12px;border-top:3px solid var(--ink);font-weight:800}
+.mk-costtotal b{font:900 34px/1.1 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--tomato);white-space:nowrap;margin-left:auto}
+
+/* the agent's controls: the amber receipt banner, «Приёмка», «Продавец: …» (under the closed card too) */
+.mk-agent{display:grid;gap:10px}
+.mk-closed + .mk-agent{margin-top:14px}
+.mk-banner{margin:0;padding:14px 16px;border:2px solid var(--crate);border-radius:16px;background:var(--crate-soft);color:var(--crate);font-weight:800;font-size:19px}
+/* a sheet's checkbox row («Базар работает»): the whole label is the 56 px target */
+.mk-check{display:flex;align-items:center;gap:12px;min-height:56px;margin-top:14px;font-weight:800;cursor:pointer}
+.mk-check input{flex:none;width:28px;height:28px;margin:0}
+
+/* iPad: the form has room, so fields sit side by side and the whole form fits on one screen */
+@container (min-width:520px){
+  .mk-pair{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .mk-units{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .mk-unit{flex-direction:column;justify-content:center;gap:4px;min-height:78px;padding:8px 6px;text-align:center}
+  .mk-unit--cost{flex-direction:row;min-height:56px;padding:8px 12px}
+  .mk-step{grid-template-columns:62px minmax(0,1fr) 62px}
+  .mk-step button,.mk-step input{height:64px}
+  .mk-step input{font-size:40px}
+}

@@ -1,14 +1,27 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from apps.market.views import AgentLoginViewSet, BazaarViewSet, MarketMeView, SellerViewSet
+from apps.market.views import (
+    AgentLoginViewSet,
+    AvailableShipmentsView,
+    BazaarViewSet,
+    BuyerListView,
+    ExpenseCategoryListView,
+    LotViewSet,
+    MarketMeView,
+    SellerViewSet,
+)
 
 router = DefaultRouter()
 router.register('agents', AgentLoginViewSet, basename='market-agents')
 router.register('team/bazaars', BazaarViewSet, basename='market-bazaars')
 router.register('team/sellers', SellerViewSet, basename='market-sellers')
+router.register('lots', LotViewSet, basename='market-lots')
 
 urlpatterns = [
     path('me/', MarketMeView.as_view(), name='market-me'),
+    path('shipments/', AvailableShipmentsView.as_view(), name='market-shipments'),
+    path('expense-categories/', ExpenseCategoryListView.as_view(), name='market-expense-categories'),
+    path('buyers/', BuyerListView.as_view(), name='market-buyers'),
     *router.urls,
 ]

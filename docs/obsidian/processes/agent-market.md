@@ -1,12 +1,12 @@
 ---
-title: Agent Market (Part A — foundation)
+title: Agent Market (Parts A–B)
 tags: [process, backend, frontend, market, agent, pwa]
 related: [[../roles/agent]], [[../roles/agent-seller]], [[permissions-system]], [[authentication]]
 ---
 
-# Agent Market (Part A — foundation)
+# Agent Market (Parts A–B)
 
-Bazaar sales for outside agents (customers) and their sellers. Spec: `docs/superpowers/specs/2026-10-08-agent-market-sales-design.md`. Plan: `docs/superpowers/plans/2026-10-08-agent-market-a-foundation.md`. Branch `feat/agent-market`.
+Bazaar sales for outside agents (customers) and their sellers. Spec: `docs/superpowers/specs/2026-10-08-agent-market-sales-design.md`. Plans: `docs/superpowers/plans/2026-10-08-agent-market-a-foundation.md` (Part A, branch `feat/agent-market`) and `docs/superpowers/plans/2026-10-09-agent-market-b-lots-sales.md` (Part B, branch `feat/agent-market-b`).
 
 ## What Part A does
 
@@ -15,7 +15,9 @@ Bazaar sales for outside agents (customers) and their sellers. Spec: `docs/super
 - Our staff create **agent logins** on the desktop page `/market/agents`.
 - A separate phone app at `/m/` (second Vite entry `m.html`, `src/market-app/`): own login `/m/login`, Russian by default, no antd, installable as a PWA. Screens: home (placeholder «Машин пока нет») and «Команда» (agent only: bazaars + seller logins).
 
-**Not built yet (Parts B–E):** lots, sales, spoilage, expenses, QR claim, debts/payments, panels/analytics/Excel, SalesReport build.
+Part B (lots, sales, spoilage, expenses, status driving, QR claim, phone screens) is described under «Part B» below.
+
+**Not built yet (Parts C–E):** payments / FIFO allocation / debts screen (C); agent panel, our analytics, Excel (D); «Отчёт готов», SalesReport build, `journal_open` (E).
 
 ## The fence
 
@@ -72,12 +74,122 @@ Shapes are in the `api-contract` skill.
 - **Market responses are Russian.** `LANGUAGE_CODE` is `tk` and there is no `LocaleMiddleware`, so every market view inherits `RussianMixin` (`apps/market/views/base.py`, `translation.override('ru')` around `dispatch`, Http404 → DRF `NotFound`). Our own messages are written in Russian in code (no `locale/` catalog).
 - **A password change does not end the old phone session**: the access token lives up to 8 h. To cut access at once, disable the login (both «Сменить пароль» sheets say so).
 - Staff rosters skip `EXTERNAL_ROLES`: @mention autocomplete (users and roles), team KPI and the worklog team list; frontend role pickers use `STAFF_ROLE_CHOICES`.
-- Every reference list an agent's phone needs (expense categories, cities, product types) must be served under `/api/v1/market/` from Part B on — they are behind the fence today.
+- Every reference list an agent's phone needs (expense categories, buyers, the agent's trucks) is served under `/api/v1/market/` (Part B) — everything else stays behind the fence.
+
+## Part B — lots, sales, spoilage, expenses
+
+Spec: `docs/superpowers/specs/2026-10-08-agent-market-sales-design.md`. Code: `backend/apps/market/` (`models/lots.py`, `services/{lots,entries,status,totals,reference}.py`, `serializers/{lots,entries}.py`, `views/{lots,entries}.py`), phone UI `frontend/src/market-app/`. Endpoint shapes: `api-contract` skill, «Agent market: Part B».
+
+### Data (migrations `market/0002`–`0004`, `core/0077`)
+
+- `Lot` — one per shipment (`shipment` 1:1, related name `market_lot`): `seller` (nullable User), `boxes_received`, `boxes_per_pallet`, `tare_g` (default 450), `default_price_kg`, `currency`, `opened_at` / `opened_by`, `closed_at`, `receipt_confirmed`.
+- `Buyer` — per customer (agent), name unique per customer, case-insensitive. Used by debt sales.
+- `Sale` (`unit` box / pallet / truck, `qty`, `boxes`, `gross_kg`, `tare_g`, `net_kg`, `price_kg`, `calc_total`, `total`, `paid_on_spot`, `buyer`), `Spoilage` (`boxes`, `gross_kg`, `tare_g`, `net_kg`), `LotExpense` (`category`, `label`, `amount`). The tare is copied onto each entry, so a later tare change does not rewrite history.
+- `market/0003_market_expense_categories` get-or-creates four `ExpenseCategory` rows (`KARA`, `PLYONKA`, `ZAEZD`, `PARKOVKA`). Its reverse deletes them: roll back **only before use** (ProtectedError once an expense uses one).
+- `market/0004_lot_receipt_confirmed` adds `Lot.receipt_confirmed`. No DB-level DEFAULT: the market lot tables are new in Part B and beta runs Part A code that never inserts into them.
+- `core/0077_market_lot_resource` seeds the `market_lot` grants (frozen snapshot, test DBs skipped, reversible).
+
+### Which trucks, which lots
+
+- Trucks an agent may open: his customer's live shipments in `yola_chykdy`, `serhet_gechdi`, `dest_entry`, `barysh_gumrugi`, `transshipment`, `bardy`, `satylyar`, `satyldy` (`VISIBLE_STATUS_CODES`). Drafts and earlier statuses are invisible (404).
+- **The lots lists are not season-scoped.** A lot is sold off whatever the season; a closed season does not hide it.
+- `lots_for(user)`: a seller sees only the lots assigned to him; an agent every lot of his customer; staff the lots of the customers `customer_ids_for` gives them.
+
+### Lot lifecycle
+
+1. **Open.** The agent opens a truck from «В пути и прибывшие» (`POST /market/lots/open/`, 201 created / 200 already open). Defaults come from the shipment: `boxes_received = box_count`, `boxes_per_pallet = box_count // pallet_count` (at least 1; 1 without a pallet count), currency from the destination country (else `KZT`).
+2. **Receipt.** A shipment with no box count opens with a placeholder of 1 box, one with no pallet count with 1 box per pallet; either way `receipt_confirmed = false`, so `needs_receipt = true`. The agent sets the real values in «Приёмка» (`PATCH`); any PATCH that sends `boxes_received` or `boxes_per_pallet` sets `receipt_confirmed = true`, even when it repeats the placeholder. `needs_receipt` is a **stored flag**: expenses and later `shipment.box_count` edits do not change it. While it is true the seller sees the card «Пусть агент укажет, сколько ящиков пришло.» instead of the sell form, and the server refuses sales and spoilage with that message.
+3. **Claim by QR.** The seller scans the pallet QR (`/scan/{id}`, the same QR staff use). The main app's `ScanPage` forwards `agent` / `agent_seller` to `/m/scan/{id}`; a logged-out seller goes to the main login with `?next=/scan/{id}`, and after login `LoginPage` sends an external role to `/m/scan/{id}` (any other `next` still means `/m/`); the market login also keeps `?next=/m/scan/{id}`. `/m/scan/{id}` calls `POST open/`: an unassigned lot becomes his, his own lot opens, another seller's lot answers 403 «Машина назначена другому продавцу.»; a seller of another agent gets 404. The agent can also assign or clear the seller (`seller_id`, an active seller of his own customer only: «Такого продавца у агента нет.»).
+4. **Auto close / reopen.** `refresh_closed` runs after every sale / spoilage create or delete and after a receipt PATCH: `left = boxes_received − sold − spoiled`; `left <= 0` sets `closed_at`, freeing boxes (a delete, or a higher `boxes_received`) clears it. Raising `boxes_received` is the only way to reopen an undercounted truck, so the **agent controls stay on a closed lot**.
+5. **Receipt rules.** `boxes_received ≥ 1` («Не меньше 1.») and not below what is already used («Уже продано или списано: N ящиков. Меньше поставить нельзя.»); `tare_g` 0..20000 («От 0 до 20000 г.»); `default_price_kg ≥ 0`.
+
+### Stock lock
+
+Every sale / spoilage / expense create and every delete runs in `transaction.atomic()`: scope check, **row lock on the lot** (`select_for_update`, plain pk lookup, no joins), then `left` is read **after** the lock. Two phones selling the last boxes at once: the second waits, reads `left = 0` and gets «Машина закрыта. Ящиков не осталось.» (400), never a 500. Lock order is Shipment → Lot (`open_lot` takes both, everything else only the Lot), so a QR claim cannot overwrite a seller the agent set meanwhile. Test: `tests/test_stock_race.py` (two threads on MSSQL; without the lock one of them dies as the deadlock victim, error 1205).
+
+### Sale rules (`services/entries.py::create_sale`)
+
+Only the lot's seller records entries; the agent gets 403 «Продажи записывает продавец этой машины.» (spec Q19). Check order: seller → approved report → on the road → needs_receipt → closed → stock → weight → price → buyer.
+
+| Rule | Message (field) |
+|---|---|
+| Approved SalesReport on the shipment | «Отчёт по машине утверждён — изменить продажи нельзя.» |
+| Truck still `yola_chykdy` / `serhet_gechdi` / `dest_entry` | «Машина ещё в пути — продавать можно после таможни назначения.» |
+| `needs_receipt` | «Пусть агент укажет, сколько ящиков пришло.» |
+| `closed_at` set or `left <= 0` | «Машина закрыта. Ящиков не осталось.» |
+| box / pallet `qty < 1` | «Не меньше 1.» (`qty`) |
+| More boxes than left | «В машине осталось только N ящиков» (`qty`) |
+| More pallets than whole pallets left | «Больше нельзя: целых паллет осталось N (M ящиков)» (`qty`) |
+| Pallet sale with less than one whole pallet left | «На целую паллету не хватает. Осталось N ящиков.» (`qty`) |
+| No / zero scale weight | «Напишите вес с весов.» (`gross_kg`) |
+| Net weight ≤ 0 | «Вес меньше, чем весят пустые ящики (N ящиков по T г).» (`gross_kg`) |
+| No / zero price | «Напишите цену за 1 кг.» (`price_kg`) |
+| Debt sale without a buyer | «Укажите покупателя.» (`buyer_id`) |
+| Buyer is not the customer's | «Покупатель не найден.» (`buyer_id`) |
+
+- **Units.** A whole-truck sale takes everything left (`qty = 1`, `boxes = left`); a pallet sale takes `qty × boxes_per_pallet` boxes.
+- **Weight minus tare.** `net_kg = gross_kg − boxes × tare_g / 1000` (to 0.01): the scale weight includes the empty boxes.
+- **Total.** `calc_total = net_kg × price_kg`. A manual `total > 0` overrides `total` while `calc_total` stays (the lot screen shows the formula difference).
+- **Debt sale** (`paid_on_spot = false`): `buyer_id` required; the phone get-or-creates the buyer first (`POST /market/buyers/`). A paid sale may still carry a buyer. The lot's `debt_total` is just the sum of unpaid sales until Part C replaces it.
+- **Undo.** The author-seller (while he is still the lot's seller) or the agent deletes an entry; anyone else gets 403 «Удалить запись могут её автор или агент.». The 7-second «Отменить» toast on the phone is a DELETE.
+
+### Spoilage and expenses
+
+- **Spoilage** (`boxes ≥ 0`, optional `gross_kg`): seller only, same approved-report / on-the-road / receipt / closed checks as a sale. «Укажите ящики или вес.» when both are empty; boxes above `left` → «В машине осталось только N ящиков» (`boxes`); a weight below the tare → «Вес меньше, чем весят пустые ящики…» (`gross_kg`). Weight alone (0 boxes) is allowed and leaves `left` unchanged. An empty weight is sent as `null`, never `0`.
+- **Expenses** (one sheet = several rows, seller only): allowed on the «ждёт приёмки» card, while the truck is on the road, **on closed lots**, and **after the SalesReport is approved** (only sales and spoilage freeze). Messages: «Добавьте хотя бы один расход.», «Такой статьи расходов нет.» (`category_id`; also an inactive category, as in the reference list), «Напишите сумму.» (`amount ≤ 0`), «Напишите, на что потрачено.» (`label`, required for `OTHER`). Every row is checked before any is saved; rows are created one by one (MSSQL Decimal batch rule). Labels come from `GET /market/expense-categories/` (the market's own, e.g. `INTERES` shows as «Комиссия»).
+- Deleting a sale or spoilage entry after an approved report → 400 «Отчёт по машине утверждён…»; expense deletes are not frozen. Not built: «a delete sets `SalesReport.journal_open`» (Part E; the field does not exist yet).
+
+### Status driving (`services/status.py::drive_first_sale`)
+
+The lot's first sale schedules `drive_first_sale` with `transaction.on_commit`, so the sale is already saved: **any failure is logged and swallowed, a sale is never lost.** It fills only fields that are still empty:
+
+- `arrived_at` — only while the truck is at `barysh_gumrugi` or `transshipment`.
+- `sale_started_at` — always.
+- `city` — from the **bazaar of the seller who recorded the first sale** (`Lot` has no bazaar field), when that bazaar has a city.
+
+Then a plain `Shipment.save()`; the status itself is never set here (AD-1 is retired, ADR-010 2026-05 amendment): auto-advance moves it through `transition_to()`. With `arrived_at`, `sale_started_at` and a city present, `barysh_gumrugi` → `bardy` → **`satylyar`** in one save, and the Sheet shows «Продаётся». **With no city anywhere** (neither on the shipment nor on the bazaar) the truck stays at `bardy` until the operator fills the city. The filled fields are audited. A re-run changes nothing (a new first sale after all sales were deleted is harmless).
+
+- **Closed season skips status driving** (`assert_season_open`): the sale is saved, the shipment is left alone.
+- **No sale or spoilage before destination customs** (`yola_chykdy` / `serhet_gechdi` / `dest_entry`): a sale there would later make the status jump steps. Opening the lot, receipt, seller assignment and expenses stay allowed; the rep marks destination customs, then the seller can sell.
+- **An approved SalesReport freezes sales and spoilage** (create and delete), not expenses.
+
+### Roles on `market_lot`
+
+| Role | Grant | What it does |
+|------|-------|----------------|
+| `agent` | VCRUD | all lots of his customer; opens trucks; receipt / seller PATCH (also on closed lots); deletes any entry; **cannot** sell, write off or add expenses (403) |
+| `agent_seller` | VCRUD | only lots assigned to him; opens by QR (claims an unassigned lot); sells, writes off, adds expenses; deletes his own entries; `/market/shipments/` → 403 |
+| `sales_rep`, `director`, `export_manager`, `document_team`, `boss` | VIEW | read the lots of the customers `customer_ids_for` gives them; `POST open/` → 403 «Машину открывают агент и его продавцы.» |
+| `admin` | VCRUD | the grant opens the gate; the services still refuse everything that is not an agent / seller action |
+
+The grant is only the gate (`DynamicResourcePermission`, resource `market_lot`); who may do what on a lot is decided in the services. Boss gets VIEW (spec §3, an exception to his usual full CRUD) plus the `'*'` field row. See [[permissions-system#External roles and the fence (agent market, 2026-10)]].
+
+### Phone screens (`/m/`)
+
+- **Home** — «Открытые машины» (`LotCard`: seller name for the agent, truck rig, left line, paid / debt / costs / spoiled), agent only «В пути и прибывшие» («Открыть»), «Закрытые машины». Empty state «Машин пока нет».
+- **Lot screen** `/lots/:id` — left column (slot `lot-form`): seller → `SellForm` (unit box / pallet / truck, qty stepper, weight with tare hint, price + total, paid / debt toggle, buyer on debt, «Испорчено» and «Расходы по машине» sheets), or the «Машина ещё в пути — продавать можно после таможни назначения.» card while the lot's `on_the_road` is true (`yola_chykdy` / `serhet_gechdi` / `dest_entry`, checked before the receipt), or the «ждёт приёмки» card, or the «Машина закрыта» card — every card keeps «Расходы по машине»; agent → «Приёмка» and «Продавец». Right column: stats and the entry list grouped by day with day totals; each row has «Удалить».
+- **`/m/scan/:id`** — the QR claim (lifecycle step 3).
+- **Team** (agent) — «Изменить» on a bazaar (name, `is_active`), «Базар» on a seller (move to another active bazaar).
+- **Shared** — `Sheet` moves focus in, traps Tab, keeps one scroll lock for stacked sheets, only the top sheet takes Escape; 7 s «Отменить» toasts; login errors in Russian («Неверный логин или пароль», «Нет связи…»); numbers use a no-break space and decimal comma, dates are `ru-RU` in every language.
+- **Idempotency.** Every create sends an `Idempotency-Key`; the sell form disables save until the post-success re-render (700 ms cooldown). A 400 / 403 frees the key; a retry after a lost answer replays the original sale. Core `@idempotent` records a *raised* exception as a replayed 500, so market views wrap the method in `answers_errors`, which turns market exceptions into their 400 / 403 / 404 before the decorator sees them. Core views outside the market still have the old behaviour. A 5xx on a sale / write-off / expenses save may have come after the commit: the hook refetches the lot detail and the form says «Проверьте список — продажа могла сохраниться.» («…запись могла сохраниться.» in the two sheets); the key is kept.
+
+### Known gaps (Part B)
+
+- After a server 500 on a sale the form keeps its key, so later saves replay the stored 500 until the page is reloaded (core `@idempotent`); the refetched list shows whether it was saved. A 5xx from the debt-buyer create before the sale shows the same «Проверьте список…» text.
+- The lots list reads page 1 only (`page_size=200`). `ScanPage.tsx` is over 150 lines. Turkmen strings need a native review.
+- Net × price can overflow `Decimal(12,2)` for absurd values (500). `lots_for` does not exclude soft-deleted shipments (`open_lot` does).
+- The full list: `docs/superpowers/plans/2026-10-08-agent-market-a-followups.md`, «Still open after Part B».
+
+### Deploy of Part B
+
+- `migrate core market` (core `0077`, market `0002` / `0003` / `0004`). Not applied to the shared DB until the branch is merged: beta runs the old code on the same DB.
+- Rebuild the **frontend image** (new `/m/` screens, the `ScanPage` / `LoginPage` forwards, the `apple-touch-icon` link in `index.html`).
+- `seed_permissions` after the beta deploy (it only creates missing rows; the `0077` migration already seeds `market_lot` on a real DB).
 
 ## Deploy
 
 - The market app is a **second Vite entry served at `/m/`**: rebuild the **frontend image** (nginx `location /m/ { try_files $uri /m.html; }`, `location = /m` → 301 `/m/`, plus no-cache exact locations for `/m/sw.js` and `/m/manifest.webmanifest`).
-- `migrate core export market`.
+- Part A: `migrate core export market`. Part B: see «Deploy of Part B» above.
 - **PWA install needs HTTPS** (beta `https://export.yigithj.com`). `public/m/manifest.webmanifest`, no-cache `sw.js` (registered in prod builds only, caches nothing), PNG icons (192, 512, maskable 512, apple-touch 180).
 
 ## Connections

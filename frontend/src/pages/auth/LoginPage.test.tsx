@@ -162,8 +162,9 @@ describe('LoginPage', () => {
     });
   });
 
+  // A seller logged out when scanning a pallet QR lands on the market claim, no second scan.
   it.each(['agent', 'agent_seller'])(
-    'sends %s to the /m/ market app with a full page load',
+    'sends %s with ?next=/scan/{id} to the /m/ QR claim with a full page load',
     async (role) => {
       const replace = vi.fn();
       vi.stubGlobal('location', { ...window.location, replace });
@@ -173,6 +174,30 @@ describe('LoginPage', () => {
         });
         const user = userEvent.setup();
         renderLogin(`/login?next=${encodeURIComponent('/scan/719')}`);
+        await user.type(screen.getByPlaceholderText('Username'), 'ag');
+        await user.type(screen.getByPlaceholderText('Password'), 'secret');
+        await user.click(screen.getByRole('button', { name: 'Sign In' }));
+        await waitFor(() => {
+          expect(replace).toHaveBeenCalledWith('/m/scan/719');
+        });
+        expect(mockNavigate).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
+  it.each(['/shipments', null])(
+    'sends an agent with next=%s to the /m/ market home',
+    async (next) => {
+      const replace = vi.fn();
+      vi.stubGlobal('location', { ...window.location, replace });
+      try {
+        vi.mocked(api.post).mockResolvedValueOnce({
+          data: { id: 4, username: 'ag', role: 'agent', first_name: 'Ag', last_name: '', email: '' },
+        });
+        const user = userEvent.setup();
+        renderLogin(next ? `/login?next=${encodeURIComponent(next)}` : '/login');
         await user.type(screen.getByPlaceholderText('Username'), 'ag');
         await user.type(screen.getByPlaceholderText('Password'), 'secret');
         await user.click(screen.getByRole('button', { name: 'Sign In' }));

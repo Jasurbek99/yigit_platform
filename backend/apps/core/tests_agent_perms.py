@@ -91,3 +91,35 @@ class AgentPermissionSeedTests(TestCase):
                 expected = {'market.agents'} if code in mig.AGENTS_PAGE_ROLES else set()
             with self.subTest(role=code):
                 self.assertEqual(_visible(code) & MARKET_PAGES, expected)
+
+
+def _lot_migration():
+    return importlib.import_module('apps.core.migrations.0077_market_lot_resource')
+
+
+class MarketLotPermissionTests(TestCase):
+    """market_lot: the agent team writes (fine rules in market services), our staff read."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command('seed_permissions', verbosity=0)
+
+    def test_registry_has_market_lot(self):
+        self.assertIn('market_lot', RESOURCE_REGISTRY)
+
+    def test_market_lot_grants(self):
+        for role in ('agent', 'agent_seller', 'admin'):
+            with self.subTest(role=role):
+                self.assertEqual(_flags(role, 'market_lot'), (True, True, True, True))
+        for role in ('boss', 'director', 'export_manager', 'document_team', 'sales_rep'):
+            with self.subTest(role=role):
+                self.assertEqual(_flags(role, 'market_lot'), (True, False, False, False))
+
+    def test_boss_has_field_row_for_market_lot(self):
+        self.assertTrue(RoleFieldPermission.objects.filter(role='boss', resource_code='market_lot', field_name='*').exists())
+
+    def test_migration_grants_match_seed(self):
+        # A fresh seed_permissions DB and a migrated DB (core/0077) must agree, role for role.
+        seeded = {r.role: (r.can_view, r.can_create, r.can_edit, r.can_delete)
+                  for r in RoleResourcePermission.objects.filter(resource_code='market_lot')}
+        self.assertEqual(_lot_migration().GRANTS, seeded)

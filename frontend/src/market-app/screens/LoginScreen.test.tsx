@@ -80,6 +80,35 @@ describe('LoginScreen', () => {
     }
   });
 
+  it('says the login or password is wrong on a 400 too', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 400, data: { error: 'Invalid credentials' } } });
+    renderLogin();
+    await submit();
+    expect(await screen.findByText('Неверный логин или пароль')).toBeInTheDocument();
+  });
+
+  it('says there is no connection when the request never got an answer', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce(new Error('Network Error'));
+    renderLogin();
+    await submit();
+    expect(await screen.findByText('Нет связи. Проверьте интернет.')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('shows the generic error on a server failure', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 500, data: {} } });
+    renderLogin();
+    await submit();
+    expect(await screen.findByText('Не удалось войти. Попробуйте ещё раз.')).toBeInTheDocument();
+  });
+
+  it('returns to the QR claim from ?next=/m/scan/5', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { role: 'agent_seller' } });
+    renderLogin(`/login?next=${encodeURIComponent('/m/scan/5')}`);
+    await submit();
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/scan/5', { replace: true }));
+  });
+
   it('shows an error and stays on bad credentials', async () => {
     vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 401, data: { error: 'Invalid credentials' } } });
     renderLogin();

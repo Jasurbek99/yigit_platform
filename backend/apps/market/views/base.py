@@ -1,9 +1,11 @@
+import functools
+
 from django.http import Http404
 from django.utils import translation
-from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from apps.core.services_workflow import create_audit_entry
-from apps.market.services import MarketAccessError
+from apps.market.services import LotNotFound, MarketAccessError, MarketRuleError
 
 
 class RussianMixin:
@@ -19,13 +21,38 @@ class RussianMixin:
             return super().dispatch(request, *args, **kwargs)
 
     def handle_exception(self, exc):
-        """Translate a bare 404; answer a market rule refusal with 403 and its message."""
+        """Map the market service exceptions onto HTTP answers.
+
+        Http404 / LotNotFound → 404 (translated); MarketAccessError → 403 with its
+        message; MarketRuleError → 400 as `{field: [message]}` when it names a
+        field, else `{"error": message}` (the platform handler flattens `detail`).
+        """
         # get_object_or_404 raises Http404 with an untranslated "No <Model> matches…".
-        if isinstance(exc, Http404):
+        if isinstance(exc, (Http404, LotNotFound)):
             exc = NotFound()
         elif isinstance(exc, MarketAccessError):
             exc = PermissionDenied(str(exc))
+        elif isinstance(exc, MarketRuleError):
+            exc = ValidationError({exc.field: [exc.message]} if exc.field else {'detail': exc.message})
         return super().handle_exception(exc)
+
+
+def answers_errors(view_method):
+    """Turn an exception raised by `view_method` into its error response.
+
+    Put it under `@idempotent`: that decorator records a raised exception as a
+    500 and replays it for every retry of the key, while a returned 400 / 403
+    frees the key. Exceptions the view cannot answer still propagate.
+    """
+
+    @functools.wraps(view_method)
+    def wrapper(self, request, *args, **kwargs):
+        try:
+            return view_method(self, request, *args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 — handle_exception re-raises what it cannot answer
+            return self.handle_exception(exc)
+
+    return wrapper
 
 
 class LoginAuditMixin:

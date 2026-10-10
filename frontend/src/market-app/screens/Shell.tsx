@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/services/api';
 import { AGENT_ROLE, EXTERNAL_ROLES } from '@/constants/roles';
 import { useMarketMe } from '../hooks/useMarketMe';
+import { ToastHost } from '../components/ToastHost';
 
 async function logout(): Promise<void> {
   try {
@@ -57,6 +58,7 @@ export default function Shell(): ReactElement {
         </header>
         <Outlet />
       </div>
+      <ToastHost />
       {me.data.role === AGENT_ROLE && (
         <nav className="mk-tabbar">
           <NavLink to="/" end className={tabClass}>{t('market.shell.nav_lots')}</NavLink>

@@ -205,6 +205,7 @@ RESOURCE_REGISTRY: dict[str, str] = OrderedDict([
     # Agent market. All-or-nothing, absent from RESOURCE_FIELDS.
     ('market_agent',          'Market: agent logins'),
     ('market_team',           'Market: agent bazaars and seller logins'),
+    ('market_lot',            'Market: lots, sales, spoilage, expenses'),
 ])
 
 # ── Editable fields per resource ─────────────────────────────────────────

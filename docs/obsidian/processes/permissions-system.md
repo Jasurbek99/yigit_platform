@@ -427,6 +427,16 @@ A page shows up on the head's Staff Page Access screen only once the head's own 
 
 New codes (seeded by `seed_permissions` + data migration `core/0076`): pages `market.home`, `market.team` (phone shell for the external roles; subtracted from boss / director / export_manager / document_team, admin keeps every page) and `market.agents` (desktop agent-logins page: admin, boss, director, export_manager, document_team, `sales_rep`); resources `market_agent` (sales_rep view / create / edit; boss / director / export_manager / document_team view — boss read-only here per spec §3, an exception to his usual full CRUD; admin full) and `market_team` (agent full CRUD; admin full; other staff view; `agent_seller` an explicit all-denied row, because the matrix save rejects a matrix missing a role). `agent` / `agent_seller` are also excluded from the Fleet Map and Tır Takip every-role loops. Agent logins are created only through `/api/v1/market/agents/` (they need an `AgentMember` row), not the Users page. Details: [[agent-market]].
 
+**`market_lot` (Part B, 2026-10-10; seeded by `seed_permissions` + data migration `core/0077_market_lot_resource`)** — gates `/api/v1/market/lots/`, `shipments/`, `expense-categories/` and `buyers/`:
+
+| Role | Flags |
+|------|-------|
+| `agent`, `agent_seller`, `admin` | view / create / edit / delete |
+| `boss`, `director`, `export_manager`, `document_team`, `sales_rep` | view only (boss too: spec §3, an exception to his usual full CRUD; boss also gets the `'*'` field row, so `tests_boss_access` lists `market_lot` in `_MARKET_READ_ONLY`) |
+| everyone else | no row |
+
+The flags are only the gate. Who may open a lot, set the receipt, sell, write off, add expenses or delete an entry is decided in `apps/market/services/` (agent: open / receipt / seller / delete any entry; `agent_seller`: his own lots only, sells, spoilage, expenses, deletes his own entries; staff: read; `admin`: reads, no entry writes). `core/0077` holds a frozen copy of the grants and `MarketLotPermissionTests` asserts it equals the seeder. After the beta deploy run `seed_permissions`. See [[agent-market#Roles on `market_lot`]].
+
 ### Browsing closed seasons (AD-16)
 
 `closed_season` is a resource with only `can_view` ever seeded — create/edit/delete are meaningless for it (closed seasons are read-only). It answers one question: **may this role select a closed season in the header switcher and read it?** It is intentionally a separate resource from `season` (which governs the season CRUD/close/open admin page), because `RoleResourcePermission`'s fixed action vocabulary (`can_view`/`can_create`/`can_edit`/`can_delete`) has no room for a custom "view only when closed" action on an existing resource without a schema change.

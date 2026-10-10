@@ -5,6 +5,8 @@ import LoginScreen from './screens/LoginScreen';
 import Shell from './screens/Shell';
 import HomeScreen from './screens/HomeScreen';
 import TeamScreen from './screens/TeamScreen';
+import LotScreen from './screens/LotScreen';
+import ScanClaimScreen from './screens/ScanClaimScreen';
 import { useMarketMe } from './hooks/useMarketMe';
 
 /** The team screen is the agent's; a seller (or anyone else) goes back to the lots. */
@@ -20,6 +22,9 @@ export default function App(): ReactElement {
       <Route element={<Shell />}>
         <Route index element={<HomeScreen />} />
         <Route path="team" element={<AgentOnlyTeam />} />
+        <Route path="lots/:id" element={<LotScreen />} />
+        {/* Pallet QR in the market app; inside Shell, so the claim waits for the login check. */}
+        <Route path="scan/:id" element={<ScanClaimScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
