@@ -1,6 +1,6 @@
 // Request bodies and write answers of the /market/ lots API (backend/apps/market/serializers/entries.py,
 // views/entries.py). Re-exported from ./types — import from there.
-import type { IExpense, ILot, SaleUnit } from './types';
+import type { IExpense, ILot, IMarketPerson, SaleUnit } from './types';
 
 /** PATCH /market/lots/{id}/ (agent). */
 export interface ILotUpdateInput {
@@ -54,4 +54,26 @@ export interface IExpensesWrite {
 /** DELETE entry answer. */
 export interface ILotWrite {
   lot: ILot;
+}
+
+/** POST /market/payments/ — `amount` is capped at the buyer's due by the server. */
+export interface IPaymentInput {
+  buyer_id: number;
+  currency: string;
+  amount: string;
+}
+
+/** A recorded payment. */
+export interface IPayment {
+  id: number;
+  buyer: IMarketPerson;
+  currency: string;
+  amount: string;
+  paid_at: string;
+}
+
+/** POST /market/payments/ answer: the payment and the caller's debts per currency after it. */
+export interface IPaymentWrite {
+  payment: IPayment;
+  debts_total: Record<string, string>;
 }

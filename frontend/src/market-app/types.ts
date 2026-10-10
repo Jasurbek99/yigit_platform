@@ -130,5 +130,7 @@ export interface IBuyer {
 }
 
 export type {
-  IBuyerInput, IEntryWrite, IExpenseRowInput, IExpensesWrite, ILotUpdateInput, ILotWrite, ISaleInput, ISpoilageInput,
+  IBuyerInput, IEntryWrite, IExpenseRowInput, IExpensesWrite, ILotUpdateInput, ILotWrite, IPayment, IPaymentInput,
+  IPaymentWrite, ISaleInput, ISpoilageInput,
 } from './writeTypes';
+export type { IBuyerDebt, IDebtPayment, IDebtSale, IDebts } from './debtTypes';

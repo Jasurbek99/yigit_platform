@@ -1,5 +1,5 @@
 // Test data shared by the market screen tests (not imported by app code).
-import type { IExpense, ILot, ILotDetail, ISale, ISpoilage } from './types';
+import type { IDebts, IExpense, ILot, ILotDetail, ISale, ISpoilage } from './types';
 
 /** An ISO time on a local calendar day of October 2026, so day grouping works in any TZ. */
 export function oct(day: number, hour: number, minute = 0): string {
@@ -59,4 +59,26 @@ export function lotDetailFixture(): ILotDetail {
 
 export function page<T>(results: T[]): { data: { count: number; next: null; previous: null; results: T[] } } {
   return { data: { count: results.length, next: null, previous: null, results } };
+}
+
+/** Рустам owes 1 250 000 ₸ over two sales (the older one part-paid), Бакыт 40 000 ₽ for a whole truck. */
+export function debtsFixture(): IDebts {
+  return {
+    totals: { KZT: '1250000.00', RUB: '40000.00' },
+    buyers: [
+      {
+        buyer: { id: 4, name: 'Рустам' }, currency: 'KZT', due: '1250000.00', since: oct(7, 10),
+        sales: [
+          { id: 2, lot_id: 5, shipment_code: '26-0101', sold_at: oct(7, 10), unit: 'box', boxes: 20, net_kg: '130.00', total: '300000.00', due: '250000.00' },
+          { id: 8, lot_id: 6, shipment_code: '26-0099', sold_at: oct(8, 14, 35), unit: 'box', boxes: 40, net_kg: '260.50', total: '1000000.00', due: '1000000.00' },
+        ],
+        payments: [{ id: 35, amount: '50000.00', paid_at: oct(8, 12), created_by: { id: 7, name: 'Айдос' } }],
+      },
+      {
+        buyer: { id: 9, name: 'Бакыт' }, currency: 'RUB', due: '40000.00', since: oct(6, 9),
+        sales: [{ id: 12, lot_id: 14, shipment_code: '26-0077', sold_at: oct(6, 9), unit: 'truck', boxes: 68, net_kg: '0.00', total: '40000.00', due: '40000.00' }],
+        payments: [],
+      },
+    ],
+  };
 }

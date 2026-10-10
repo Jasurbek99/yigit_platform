@@ -4353,7 +4353,8 @@
       "loading": "Loading…",
       "load_error": "Could not load. Check the internet and reload the page.",
       "empty_title": "No trucks yet",
-      "empty_text": "Trucks appear here once they are sent to your bazaar."
+      "empty_text": "Trucks appear here once they are sent to your bazaar.",
+      "nav_debts": "Debts"
     },
     "login": {
       "title": "Sales",
@@ -4541,6 +4542,32 @@
       "seller_title": "Who sells this truck?",
       "seller_label": "Seller",
       "no_seller": "No seller"
+    },
+    "debts": {
+      "title": "Customer debts",
+      "total": "Owed in total",
+      "none": "No debts",
+      "empty_text": "Nobody owes anything. When you sell on credit, the customer appears here.",
+      "pay": "Take a payment",
+      "payments": "Payments",
+      "of_total": "of {{v}}",
+      "payment_row": "{{sum}}, {{date}}",
+      "delete_q": "Delete this payment?",
+      "delete_text": "Payment {{sum}}, {{date}}, {{name}}",
+      "delete_error": "Could not delete the payment. Try again."
+    },
+    "pay": {
+      "title": "Payment: {{name}}",
+      "owes": "Owes: {{v}}",
+      "how_much": "How much did they pay?",
+      "need": "Enter an amount.",
+      "full": "The debt will be paid off.",
+      "left": "Still owed: {{v}}",
+      "over": "That is more than the debt. I will record {{v}}.",
+      "save": "Save payment",
+      "saved": "Payment {{v}}, {{name}}",
+      "maybe_saved": "Check the debts — the payment may have been saved.",
+      "undo_error": "Could not undo the payment. Delete it from the payments list."
     }
   }
 }
