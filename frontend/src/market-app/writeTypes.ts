@@ -77,3 +77,9 @@ export interface IPaymentWrite {
   payment: IPayment;
   debts_total: Record<string, string>;
 }
+
+/** POST /market/sales/{id}/mark-paid/ answer: the payment of the sale's whole due and the lot after it. */
+export interface IMarkPaidWrite {
+  payment: IPayment;
+  lot: ILot;
+}

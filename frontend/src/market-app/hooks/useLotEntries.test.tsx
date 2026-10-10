@@ -25,7 +25,7 @@ const LOT: ILot = {
 const SALE: ISale = {
   id: 11, unit: 'box', qty: 10, boxes: 10, gross_kg: '104.50', tare_g: 450, net_kg: '100.00', price_kg: '45.00',
   calc_total: '4500.00', total: '4500.00', paid_on_spot: true, buyer: null, sold_at: '2026-10-09T09:00:00+05:00',
-  created_by: 3,
+  paid_amount: '4500.00', due: '0.00', created_by: 3,
 };
 
 function setup(): { client: QueryClient; wrapper: (p: { children: ReactNode }) => ReactElement } {

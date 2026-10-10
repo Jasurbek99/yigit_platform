@@ -9,7 +9,8 @@ export function oct(day: number, hour: number, minute = 0): string {
 export function saleFixture(over: Partial<ISale>): ISale {
   return {
     id: 1, unit: 'box', qty: 12, boxes: 12, gross_kg: '86.00', tare_g: 450, net_kg: '80.50', price_kg: '45.00',
-    calc_total: '3622.50', total: '3622.50', paid_on_spot: true, buyer: null, sold_at: oct(8, 14, 35), created_by: 3,
+    calc_total: '3622.50', total: '3622.50', paid_on_spot: true, buyer: null, paid_amount: '3622.50', due: '0.00',
+    sold_at: oct(8, 14, 35), created_by: 3,
     ...over,
   };
 }
@@ -49,7 +50,8 @@ export function lotDetailFixture(): ILotDetail {
       saleFixture({}),
       saleFixture({
         id: 2, qty: 20, boxes: 20, gross_kg: '139.00', net_kg: '130.00', price_kg: '40.00', calc_total: '5200.00',
-        total: '5000.00', paid_on_spot: false, buyer: { id: 4, name: 'Рустам' }, sold_at: oct(7, 10),
+        total: '5000.00', paid_on_spot: false, buyer: { id: 4, name: 'Рустам' }, paid_amount: '0.00', due: '5000.00',
+        sold_at: oct(7, 10),
       }),
     ],
     spoilage: [],

@@ -74,6 +74,10 @@ export interface ISale {
   total: string;
   paid_on_spot: boolean;
   buyer: IMarketPerson | null;
+  /** Money received: the total when paid on the spot, else the payments allocated to it. */
+  paid_amount: string;
+  /** Money still owed (0 when paid on the spot); derived on the server. */
+  due: string;
   sold_at: string;
   created_by: number;
 }
@@ -131,6 +135,6 @@ export interface IBuyer {
 
 export type {
   IBuyerInput, IEntryWrite, IExpenseRowInput, IExpensesWrite, ILotUpdateInput, ILotWrite, IPayment, IPaymentInput,
-  IPaymentWrite, ISaleInput, ISpoilageInput,
+  IMarkPaidWrite, IPaymentWrite, ISaleInput, ISpoilageInput,
 } from './writeTypes';
 export type { IBuyerDebt, IDebtPayment, IDebtSale, IDebts } from './debtTypes';

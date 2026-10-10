@@ -47,6 +47,7 @@
 .mk-sheet svg,.mk-small svg{display:block;width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .mk-small svg{font-size:18px}
 .mk-small--end{margin-left:auto}
+.mk-tag--ok{background:var(--vine-soft);color:var(--vine)}
 .mk-costrows{margin-top:8px}
 .mk-costrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,44%);gap:10px;align-items:center;padding:5px 0}
 .mk-costrow label{font-weight:800;font-size:19px;overflow-wrap:anywhere}

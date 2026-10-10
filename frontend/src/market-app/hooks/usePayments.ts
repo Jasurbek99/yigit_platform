@@ -2,8 +2,9 @@ import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/r
 import api from '@/services/api';
 import { IDEMPOTENCY_HEADER } from '@/hooks/useIdempotencyKey';
 import { httpStatus } from '@/utils/drfErrors';
-import type { IPaymentInput, IPaymentWrite } from '../types';
-import { refetchAfterPayment } from './debtKeys';
+import type { IMarkPaidWrite, IPaymentInput, IPaymentWrite } from '../types';
+import { DEBTS_KEY, refetchAfterPayment } from './debtKeys';
+import { applyLot } from './lotKeys';
 import { useTargetKey } from './useTargetKey';
 
 /**
@@ -42,6 +43,34 @@ export function useDeletePayment(): UseMutationResult<unknown, unknown, number> 
     onSuccess: () => {
       idem.reset();
       refetchAfterPayment(queryClient);
+    },
+    onError: (err) => {
+      if ((httpStatus(err) ?? 0) >= 500) refetchAfterPayment(queryClient);
+    },
+  });
+}
+
+/**
+ * POST /market/sales/{id}/mark-paid/ → `{payment, lot}`: the sale is paid in full. The lot answer is
+ * written into the cached detail and that sale owes nothing; only the debts are refetched (refetching
+ * the lot now could bring back an answer older than this one). The key follows the sale and is reset
+ * on success, so marking it again after an undo is a new payment, not a replay of the deleted one.
+ */
+export function useMarkPaid(): UseMutationResult<IMarkPaidWrite, unknown, number> {
+  const queryClient = useQueryClient();
+  const idem = useTargetKey();
+  return useMutation({
+    mutationFn: async (saleId: number) => (
+      await api.post<IMarkPaidWrite>(`/market/sales/${saleId}/mark-paid/`, undefined, {
+        headers: { [IDEMPOTENCY_HEADER]: idem.keyFor(String(saleId)) },
+      })
+    ).data,
+    onSuccess: ({ lot }, saleId) => {
+      idem.reset();
+      applyLot(queryClient, lot, (d) => ({
+        sales: d.sales.map((s) => (s.id === saleId ? { ...s, due: '0.00', paid_amount: s.total } : s)),
+      }));
+      void queryClient.invalidateQueries({ queryKey: DEBTS_KEY });
     },
     onError: (err) => {
       if ((httpStatus(err) ?? 0) >= 500) refetchAfterPayment(queryClient);
