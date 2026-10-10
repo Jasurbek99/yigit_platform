@@ -61,12 +61,12 @@ describe('deleting a lot entry', () => {
   it('puts a refused delete into a toast', async () => {
     mockLotApi('agent');
     vi.mocked(api.delete).mockRejectedValueOnce({
-      response: { status: 400, data: { detail: 'Отчёт по машине утверждён — изменить продажи нельзя.' } },
+      response: { status: 400, data: { detail: 'Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.' } },
     });
     const user = userEvent.setup();
     renderLot();
     await user.click((await screen.findAllByRole('button', { name: 'Удалить' }))[1]);
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Удалить' }));
-    expect(await screen.findByText('Отчёт по машине утверждён — изменить продажи нельзя.')).toBeInTheDocument();
+    expect(await screen.findByText('Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.')).toBeInTheDocument();
   });
 });

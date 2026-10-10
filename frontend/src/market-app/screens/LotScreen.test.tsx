@@ -96,7 +96,7 @@ describe('LotScreen', () => {
     expect(slot).toContainElement(receipt);
     expect(slot).toContainElement(screen.getByRole('button', { name: 'Продавец: Айдос' }));
     expect(screen.queryByText('Что продаёте?')).not.toBeInTheDocument();
-    expect(screen.queryByText('Укажите, сколько ящиков пришло')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Укажите, сколько ящиков пришло/)).not.toBeInTheDocument();
   });
 
   it('shows «Машина закрыта» instead of the form on a closed lot', async () => {

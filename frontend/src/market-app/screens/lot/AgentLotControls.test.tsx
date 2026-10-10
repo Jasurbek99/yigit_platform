@@ -46,7 +46,7 @@ describe('agent controls on the lot', () => {
     });
     const user = userEvent.setup();
     renderLot();
-    const prompt = 'Укажите, сколько ящиков и сколько ящиков в паллете пришло';
+    const prompt = 'Укажите, сколько ящиков пришло и сколько ящиков в паллете';
     expect(await screen.findByText(prompt)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Приёмка' }));
