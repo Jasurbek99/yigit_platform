@@ -14,7 +14,7 @@ export interface IDebtSale {
   due: string;
 }
 
-/** One of the buyer's latest payments, newest first. */
+/** One of the buyer's latest payments, newest first; `amount` is the part that went to the caller's sales. */
 export interface IDebtPayment {
   id: number;
   amount: string;
@@ -22,12 +22,15 @@ export interface IDebtPayment {
   created_by: IMarketPerson;
 }
 
-/** What one buyer owes in one currency: sales oldest first, the latest 10 payments. */
+/**
+ * What one buyer owes in one currency: sales oldest first, the latest 10 payments.
+ * Paid off by a payment in the last 30 days: `due` '0.00', `since` null, no sales (kept for the undo).
+ */
 export interface IBuyerDebt {
   buyer: IMarketPerson;
   currency: string;
   due: string;
-  since: string;
+  since: string | null;
   sales: IDebtSale[];
   payments: IDebtPayment[];
 }

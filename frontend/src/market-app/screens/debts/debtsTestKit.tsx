@@ -19,9 +19,13 @@ export function mockDebtsApi(role = 'agent', debts: IDebts = debtsFixture()): vo
   }));
 }
 
+/** A query client without retries for the debts tests. */
+export function debtsClient(): QueryClient {
+  return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+}
+
 /** `/debts` with the toast host. */
-export function renderDebts(): RenderResult {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+export function renderDebts(client: QueryClient = debtsClient()): RenderResult {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/debts']}>

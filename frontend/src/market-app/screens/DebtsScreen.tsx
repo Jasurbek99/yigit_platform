@@ -29,8 +29,11 @@ export default function DebtsScreen(): ReactElement {
   const [sheet, setSheet] = useState<OpenSheet>(null);
   const handleClose = (): void => setSheet(null);
 
+  // mutateAsync, not per-call callbacks: its promise settles even after the screen is left.
   const removePayment = (id: number, fallbackKey: string): void => {
-    deletePayment.mutate(id, { onError: (err) => showToast({ text: readableError(err) ?? t(fallbackKey) }) });
+    deletePayment.mutateAsync(id).catch((err: unknown) => {
+      showToast({ text: readableError(err) ?? t(fallbackKey) });
+    });
   };
 
   if (debts.isLoading) {
@@ -38,11 +41,12 @@ export default function DebtsScreen(): ReactElement {
   }
   if (!debts.data) return <p className="mk-err" role="alert">{t('market.shell.load_error')}</p>;
   const { totals, buyers } = debts.data;
+  const owing = Object.entries(totals);
 
   return (
     <>
       <h1 className="mk-title">{t('market.debts.title')}</h1>
-      {buyers.length === 0 ? (
+      {owing.length === 0 ? (
         <div className="mk-empty">
           <h2 className="mk-empty-title">{t('market.debts.none')}</h2>
           <p className="mk-empty-text">{t('market.debts.empty_text')}</p>
@@ -50,17 +54,19 @@ export default function DebtsScreen(): ReactElement {
       ) : (
         <>
           <p className="mk-duelabel">{t('market.debts.total')}</p>
-          {Object.entries(totals).map(([currency, due]) => (
+          {owing.map(([currency, due]) => (
             <p key={currency} className="mk-bigdue">{money(due, currency)}</p>
           ))}
-          <div className="mk-clients">
-            {buyers.map((debt) => (
-              <BuyerDebtCard key={`${debt.buyer.id}-${debt.currency}`} debt={debt}
-                onPay={() => setSheet({ kind: 'pay', debt })}
-                onDeletePayment={(payment) => setSheet({ kind: 'delete', debt, payment })} />
-            ))}
-          </div>
         </>
+      )}
+      {buyers.length > 0 && (
+        <div className="mk-clients">
+          {buyers.map((debt) => (
+            <BuyerDebtCard key={`${debt.buyer.id}-${debt.currency}`} debt={debt}
+              onPay={() => setSheet({ kind: 'pay', debt })}
+              onDeletePayment={(payment) => setSheet({ kind: 'delete', debt, payment })} />
+          ))}
+        </div>
       )}
       {sheet?.kind === 'pay' && (
         <PaymentSheet debt={sheet.debt} save={createPayment.mutateAsync}

@@ -4563,7 +4563,8 @@
       "payment_row": "{{sum}}, {{date}}",
       "delete_q": "Bu tölegi pozmalymy?",
       "delete_text": "Töleg {{sum}}, {{date}}, {{name}}",
-      "delete_error": "Tölegi pozup bolmady. Täzeden synanyşyň."
+      "delete_error": "Tölegi pozup bolmady. Täzeden synanyşyň.",
+      "closed": "Bergi ýapyldy"
     },
     "pay": {
       "title": "Töleg: {{name}}",

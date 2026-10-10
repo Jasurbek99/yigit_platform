@@ -4560,7 +4560,8 @@
       "payment_row": "{{sum}}, {{date}}",
       "delete_q": "Delete this payment?",
       "delete_text": "Payment {{sum}}, {{date}}, {{name}}",
-      "delete_error": "Could not delete the payment. Try again."
+      "delete_error": "Could not delete the payment. Try again.",
+      "closed": "Debt paid off"
     },
     "pay": {
       "title": "Payment: {{name}}",

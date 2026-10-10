@@ -12,17 +12,23 @@ interface IBuyerDebtCardProps {
   readonly onDeletePayment: (payment: IDebtPayment) => void;
 }
 
-/** A buyer's card (artifact `.client`): name and due, «Принять оплату», unpaid sales oldest first, recent payments. */
+/**
+ * A buyer's card (artifact `.client`): name and due, «Принять оплату», unpaid sales oldest first, recent payments.
+ * A paid-off card (due 0, kept 30 days after a payment) says «Долг закрыт» and only lists its payments.
+ */
 export function BuyerDebtCard({ debt, onPay, onDeletePayment }: IBuyerDebtCardProps): ReactElement {
   const { t } = useTranslation();
   const { currency } = debt;
+  const closed = Number(debt.due) === 0;
   return (
     <section className="mk-client">
       <div className="mk-client-top">
         <h2 className="mk-client-name">{debt.buyer.name}</h2>
-        <span className="mk-client-sum">{money(debt.due, currency)}</span>
+        <span className="mk-client-sum">{closed ? t('market.debts.closed') : money(debt.due, currency)}</span>
       </div>
-      <button type="button" className="mk-btn mk-payall" onClick={onPay}>{t('market.debts.pay')}</button>
+      {!closed && (
+        <button type="button" className="mk-btn mk-payall" onClick={onPay}>{t('market.debts.pay')}</button>
+      )}
       {debt.sales.map((sale) => {
         const partPaid = Number(sale.due) < Number(sale.total);
         const sub = [sale.shipment_code, whenText(sale.sold_at)];
