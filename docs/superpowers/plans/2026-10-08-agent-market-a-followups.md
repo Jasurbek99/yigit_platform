@@ -26,8 +26,8 @@ From the Part B review ledger; the ones that matter:
 - Smaller: `lots_for` does not exclude soft-deleted shipments (`open_lot` does); `ON_THE_ROAD_CODES` (entries) duplicates `VISIBLE_STATUS_CODES` (lots); a debt sale always POSTs `/market/buyers/` first; net × price can overflow `Decimal(12,2)` (500); the `/scan/…` forward accepts any `/scan/…` path, tighten to `/^\/scan\/\d+$/`.
 
 ## Later / user decisions
-- PWA icons are the platform's blue «Y» while `theme_color` is tomato red — the user picks a market icon.
-- Turkmen strings added in Part A need a native review.
+- ~~PWA icons are the platform's blue «Y» while `theme_color` is tomato red — the user picks a market icon.~~ Done 2026-10-09: Yigit logo, green theme; main site has the iPhone icon too.
+- ~~Turkmen strings added in Part A need a native review.~~ Listed once under «Still open after Part B».
 - Root `CLAUDE.md` dependency line should read `core ← greenhouse ← export ← market ← contracts ← finance` (left to the user — instructions file).
 - Password reset does not end an existing session (8 h access token); only «Отключить» is immediate. Token versioning if needed.
 - `/market/agents` page reads only the first 50 logins; the customer select lists all customers for a sales rep (backend 403s foreign ones).
