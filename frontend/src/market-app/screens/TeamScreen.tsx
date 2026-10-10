@@ -71,7 +71,7 @@ export default function TeamScreen(): ReactElement {
                   {t('market.team.change_password')}
                 </button>
                 <button type="button" className="mk-small" onClick={() => setSheet({ kind: 'move', seller: s })}>
-                  {t('market.team.move')}
+                  {t('market.team.bazaar')}
                 </button>
                 <button
                   type="button"

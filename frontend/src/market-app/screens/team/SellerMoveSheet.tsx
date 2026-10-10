@@ -13,7 +13,7 @@ interface ISellerMoveSheetProps {
   readonly onClose: () => void;
 }
 
-/** «Сменить базар»: move one seller to another of the agent's active bazaars. */
+/** Seller card «Базар» → «Перевести на другой базар»: move one seller to another of the agent's active bazaars. */
 export function SellerMoveSheet({ seller, onClose }: ISellerMoveSheetProps): ReactElement {
   const { t } = useTranslation();
   const bazaars = (useBazaars().data ?? []).filter((b) => b.is_active);

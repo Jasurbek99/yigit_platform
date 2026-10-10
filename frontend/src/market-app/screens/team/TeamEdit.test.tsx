@@ -92,8 +92,8 @@ describe('team edits', () => {
     const user = userEvent.setup();
     renderTeam();
     await screen.findByText('Айдос, Зелёный');
-    await user.click(screen.getByRole('button', { name: 'Сменить базар' }));
-    const dialog = screen.getByRole('dialog');
+    await user.click(screen.getByRole('button', { name: 'Базар' }));
+    const dialog = screen.getByRole('dialog', { name: 'Перевести на другой базар' });
     const select = within(dialog).getByLabelText('Базар');
     expect(select).toHaveValue('1');
     expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Зелёный', 'Алтын Орда']);
