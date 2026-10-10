@@ -30,7 +30,7 @@ BELOW_USED = 'Уже продано или списано: {used} ящиков. 
 AT_LEAST_ONE = 'Не меньше 1.'
 BAD_TARE = f'От 0 до {MAX_TARE_G} г.'
 NEGATIVE_PRICE = 'Цена не может быть меньше нуля.'
-REPORT_APPROVED = 'Отчёт по машине утверждён — изменить продажи нельзя.'
+REPORT_APPROVED = 'Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.'
 
 
 class MarketRuleError(Exception):
