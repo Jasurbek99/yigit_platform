@@ -27,7 +27,7 @@ From the Part B review ledger; the ones that matter:
 
 ## Open after the Part B final review (2026-10-10)
 - **Receipt sheet keeps «Шт. в паллете» = 1** when the shipment had no pallet count: the agent can confirm the receipt without fixing it, and pallet sales then take 1 box. Fix first in Part C: blank the per-pallet field while `needs_receipt`; the seller card should say «…сколько ящиков и паллет пришло».
-- **User decision before Part E:** after the SalesReport is approved, should expenses and the agent's receipt edits still be allowed? Today both are (plan), spec §7 says the journal freezes.
+- **Decided 2026-10-10 (user):** before the export manager approves the SalesReport, expenses and receipt edits are allowed; after approval, no. To implement in Part C: `create_expenses` / expense delete and `update_lot` refuse when the report is approved (same check and message as sales).
 - **Lots list N+1:** `get_totals` runs 3 aggregates per lot — annotate in Part D.
 
 ## Later / user decisions

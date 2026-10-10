@@ -240,7 +240,7 @@ operator-entered; `transition_to()` no longer stamps any of them.
 - pallet: `boxes = qty × boxes_per_pallet`, `qty ≤ left // boxes_per_pallet`. truck: `boxes = left`.
 - Sale validations: `gross_kg` required; `net_kg > 0`; `price_kg > 0`; `buyer` required for debt.
 - Correction = delete + re-enter (author or agent), plus the 7-second «Отменить» toast which calls delete.
-- No create / delete of sales or spoilage after the lot's `SalesReport` is approved. Payments stay allowed.
+- After the export manager approves the lot's `SalesReport` the journal is frozen: no create / delete of sales, spoilage **or expenses**, and no receipt edits (`boxes_received`, `boxes_per_pallet`, `tare_g`, `default_price_kg`, seller). Before approval all of these stay allowed. Payments of buyer debts stay allowed after approval (user decision 2026-10-10).
 - Market writes are **exempt** from the season-close freeze (`SeasonNotClosed`): a truck may still be selling
   after the season closes (user decision 2026-10-08). List the market endpoints in `tests_season_optout.py`.
   Reads still use `SeasonScopedMixin` with `season_field='shipment__season'`.
