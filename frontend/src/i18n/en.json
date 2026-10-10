@@ -4391,7 +4391,11 @@
       "inactive": "Disabled",
       "required": "Fill in this field",
       "save_error": "Could not save",
-      "password_hint": "The old login on the phone keeps working for up to 8 hours. To cut access right away, press «Disable»."
+      "password_hint": "The old login on the phone keeps working for up to 8 hours. To cut access right away, press «Disable».",
+      "edit": "Edit",
+      "edit_bazaar": "Edit bazaar",
+      "bazaar_active": "Bazaar is open",
+      "move": "Change bazaar"
     },
     "scan": {
       "opening": "Opening the truck…",
@@ -4518,6 +4522,22 @@
       "entry_q": "Delete this entry?",
       "yes": "Delete",
       "error": "Could not delete. Please try again."
+    },
+    "agent": {
+      "needs_receipt": "Enter how many boxes arrived",
+      "receipt": "Receipt",
+      "seller": "Seller: {{name}}",
+      "seller_none": "not assigned",
+      "boxes_received": "How many boxes arrived",
+      "boxes_per_pallet": "Boxes per pallet",
+      "tare_g": "Empty box weight, g",
+      "default_price": "Default price per 1 kg, {{sign}}",
+      "price_hint": "Prefills a sale. Optional.",
+      "required": "Fill in this field",
+      "save_error": "Could not save. Try again.",
+      "seller_title": "Who sells this truck?",
+      "seller_label": "Seller",
+      "no_seller": "No seller"
     }
   }
 }

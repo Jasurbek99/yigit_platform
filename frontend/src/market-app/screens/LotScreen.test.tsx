@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import i18n from '@/i18n';
@@ -88,13 +88,15 @@ describe('LotScreen', () => {
     expect(document.querySelector('[data-slot="lot-form"]')).toContainElement(screen.getByText('Что продаёте?'));
   });
 
-  it('leaves the slot empty for the agent, who does not sell', async () => {
+  it('gives the agent, who does not sell, the receipt and seller buttons instead of the form', async () => {
     me = { ...me, role: 'agent' };
     renderLot();
-    await screen.findByText('Сегодня, 8 октября');
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith('/market/me/'));
+    const receipt = await screen.findByRole('button', { name: 'Приёмка' });
+    const slot = document.querySelector('[data-slot="lot-form"]');
+    expect(slot).toContainElement(receipt);
+    expect(slot).toContainElement(screen.getByRole('button', { name: 'Продавец: Айдос' }));
     expect(screen.queryByText('Что продаёте?')).not.toBeInTheDocument();
-    expect(document.querySelector('[data-slot="lot-form"]')).toBeEmptyDOMElement();
+    expect(screen.queryByText('Укажите, сколько ящиков пришло')).not.toBeInTheDocument();
   });
 
   it('shows «Машина закрыта» instead of the form on a closed lot', async () => {

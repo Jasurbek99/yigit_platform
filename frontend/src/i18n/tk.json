@@ -4394,7 +4394,11 @@
       "inactive": "Öçürilen",
       "required": "Bu meýdany dolduryň",
       "save_error": "Ýatda saklamak başa barmady",
-      "password_hint": "Telefondaky köne giriş 8 sagada çenli işlemegini dowam etdirer. Girişi derrew ýapmak üçin «Öçürmek» düwmesine basyň."
+      "password_hint": "Telefondaky köne giriş 8 sagada çenli işlemegini dowam etdirer. Girişi derrew ýapmak üçin «Öçürmek» düwmesine basyň.",
+      "edit": "Üýtgetmek",
+      "edit_bazaar": "Bazary üýtgetmek",
+      "bazaar_active": "Bazar işleýär",
+      "move": "Bazaryny çalyşmak"
     },
     "scan": {
       "opening": "Maşyn açylýar…",
@@ -4521,6 +4525,22 @@
       "entry_q": "Bu ýazgyny pozmalymy?",
       "yes": "Poz",
       "error": "Pozup bolmady. Ýene synanyşyň."
+    },
+    "agent": {
+      "needs_receipt": "Näçe gap gelendigini görkeziň",
+      "receipt": "Kabul etmek",
+      "seller": "Satyjy: {{name}}",
+      "seller_none": "bellenmedik",
+      "boxes_received": "Näçe gap geldi",
+      "boxes_per_pallet": "Bir paletde näçe gap",
+      "tare_g": "Boş gabyň agramy, g",
+      "default_price": "1 kg üçin adaty baha, {{sign}}",
+      "price_hint": "Satuwa goýlar. Ýazmasaňyz hem bolýar.",
+      "required": "Bu meýdany dolduryň",
+      "save_error": "Ýatda saklap bolmady. Ýene synanyşyň.",
+      "seller_title": "Bu maşyny kim satýar?",
+      "seller_label": "Satyjy",
+      "no_seller": "Satyjysyz"
     }
   }
 }

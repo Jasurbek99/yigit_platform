@@ -46,7 +46,7 @@ const READABLE_STATUSES: readonly number[] = [400, 403, 404];
 const MACHINE_CODE = /^[a-z_]+$/;
 
 /** The failure's body when it is meant to be read: 400 / 403 / 404 only, machine codes dropped. */
-function readableBody(err: unknown): Record<string, string[]> | null {
+export function readableBody(err: unknown): Record<string, string[]> | null {
   const status = httpStatus(err);
   if (status === undefined || !READABLE_STATUSES.includes(status)) return null;
   const fields = drfFieldErrors(err);

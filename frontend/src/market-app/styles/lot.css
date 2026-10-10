@@ -55,6 +55,14 @@
 .mk-costtotal{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 12px;margin-top:10px;padding-top:12px;border-top:3px solid var(--ink);font-weight:800}
 .mk-costtotal b{font:900 34px/1.1 "Sofia Sans Condensed","Arial Narrow",system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--tomato);white-space:nowrap;margin-left:auto}
 
+/* the agent's controls: the amber receipt banner, «Приёмка», «Продавец: …» (under the closed card too) */
+.mk-agent{display:grid;gap:10px}
+.mk-closed + .mk-agent{margin-top:14px}
+.mk-banner{margin:0;padding:14px 16px;border:2px solid var(--crate);border-radius:16px;background:var(--crate-soft);color:var(--crate);font-weight:800;font-size:19px}
+/* a sheet's checkbox row («Базар работает»): the whole label is the 56 px target */
+.mk-check{display:flex;align-items:center;gap:12px;min-height:56px;margin-top:14px;font-weight:800;cursor:pointer}
+.mk-check input{flex:none;width:28px;height:28px;margin:0}
+
 /* iPad: the form has room, so fields sit side by side and the whole form fits on one screen */
 @container (min-width:520px){
   .mk-pair{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}

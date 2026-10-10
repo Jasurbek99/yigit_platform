@@ -36,7 +36,7 @@ export default function LotScreen(): ReactElement {
         other={isOtherProduct(shipment.product)} />
       <LeftLine left={totals.left} total={lot.data.boxes_received} />
       <div className="mk-cols">
-        {/* Left column: the sell form or the «closed» card; Task 9's agent controls go here too. */}
+        {/* Left column: the sell form or the «closed» card; the agent's receipt and seller controls. */}
         <section className="mk-lot-form" data-slot="lot-form"><LotFormSlot lot={lot.data} /></section>
         <div>
           <LotStats lot={lot.data} />
