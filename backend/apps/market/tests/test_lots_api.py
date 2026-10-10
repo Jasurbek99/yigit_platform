@@ -220,6 +220,11 @@ class LotListAndPatchTests(TestCase):
         rows = {r['id']: r['on_the_road'] for r in _as(self.w.seller).get('/api/v1/market/lots/').json()['results']}
         self.assertEqual(rows, {self.lot.pk: False, lot.pk: True})
 
+    def test_delete_lot_view_only_403_then_405(self):
+        # Permissions run before the method lookup: view-only staff are refused first.
+        self.assertEqual(_as(self.w.rep).delete(f'/api/v1/market/lots/{self.lot.pk}/').status_code, 403)
+        self.assertEqual(_as(self.w.agent).delete(f'/api/v1/market/lots/{self.lot.pk}/').status_code, 405)
+
     def test_lists_are_not_season_scoped(self):
         # Season.is_closed is a property: closed = closed_at set (and inactive, as close_season() writes).
         self.w.season.closed_at = timezone.now()
