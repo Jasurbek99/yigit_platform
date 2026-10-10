@@ -365,7 +365,7 @@ The `/m/` header shows `first_name`, falling back to `username`. Login and logou
 
 ### Agent market, part B: lots, sales, spoilage, expenses (2026-10-10)
 
-Resource `market_lot` (staff view; agent / agent_seller / admin full flags — the services decide who may do what). Not season-scoped. Part B adds `DELETE` on the three entry routes below. Every POST / DELETE takes an `Idempotency-Key` header (a repeat returns the stored answer; a 400 / 403 frees the key; 409 «Предыдущее сохранение ещё идёт» while the same key still runs). `PATCH lots/{id}/` ignores the header (absolute values).
+Resource `market_lot` (staff view; agent / agent_seller / admin full flags — the services decide who may do what). Not season-scoped. Part B adds `DELETE` on the three entry routes below. Every POST / DELETE takes an optional `Idempotency-Key` header (no header = no replay; a repeat returns the stored answer; a 400 / 403 frees the key; 409 `{"error": "idempotency_in_progress"}` while the same key still runs — «Предыдущее сохранение ещё идёт» is the phone's own text). A key must match `[A-Za-z0-9-]{8,64}`, else 400 `{"error": "invalid_idempotency_key"}`. `PATCH lots/{id}/` ignores the header (absolute values).
 
 **Lot item** (`GET /market/lots/` rows, `PATCH` and `open` answers, the `lot` of every entry write). Money / kg are **strings**, box counts are ints:
 ```json
@@ -375,7 +375,7 @@ Resource `market_lot` (staff view; agent / agent_seller / admin full flags — t
   "seller": { "id": 52, "name": "Murat" },                              // null while unassigned
   "boxes_received": 1800, "boxes_per_pallet": 60, "tare_g": 450, "default_price_kg": "45.50",  // price may be null
   "currency": "KZT", "opened_at": "2026-10-08T09:14:00Z", "closed_at": null,
-  "needs_receipt": false,
+  "needs_receipt": false, "on_the_road": false,
   "totals": { "sold_boxes": 300, "sold_kg": "5120.40", "spoiled_boxes": 6, "spoiled_kg": "80.00",
               "used": 306, "left": 1494, "sales_total": "232000.00", "paid_total": "200000.00",
               "debt_total": "32000.00", "expenses_total": "15000.00", "after_expenses": "217000.00",
@@ -397,7 +397,7 @@ Resource `market_lot` (staff view; agent / agent_seller / admin full flags — t
 
 **`POST /market/lots/open/`** `{ "shipment_id": 480 }` — **201** lot item when created, **200** when it already existed. Agent: any truck of his customer in `yola_chykdy … satyldy`. Seller (QR claim): a truck of his customer; an unassigned lot becomes his. 404 no such truck for him; 403 `{"error": "Машина назначена другому продавцу."}`; 403 `{"error": "Машину открывают агент и его продавцы."}` (staff).
 
-**`PATCH /market/lots/{id}/`** (the lot's agent only, else 403 `{"error": "Машину настраивает только агент."}`) — any of `seller_id` (int | null), `boxes_received`, `boxes_per_pallet`, `tare_g`, `default_price_kg` (string | null). 200 lot item. Sending `boxes_received` clears `needs_receipt`; a change can close or reopen the lot. 400: `{"boxes_received": ["Не меньше 1."]}`, `{"seller_id": ["Такого продавца у агента нет."]}`, `{"tare_g": ["От 0 до 20000 г."]}`, `{"default_price_kg": ["Цена не может быть меньше нуля."]}`; below what is used: `{"error": "Уже продано или списано: N ящиков. Меньше поставить нельзя."}` (no field). `DELETE lots/{id}/` → 405.
+**`PATCH /market/lots/{id}/`** (the lot's agent only, else 403 `{"error": "Машину настраивает только агент."}`) — any of `seller_id` (int | null), `boxes_received`, `boxes_per_pallet`, `tare_g`, `default_price_kg` (string | null). 200 lot item. Sending `boxes_received` or `boxes_per_pallet` clears `needs_receipt`; a change can close or reopen the lot. 400: `{"boxes_received": ["Не меньше 1."]}`, `{"boxes_per_pallet": ["Не меньше 1."]}`, `{"seller_id": ["Такого продавца у агента нет."]}`, `{"tare_g": ["От 0 до 20000 г."]}`, `{"default_price_kg": ["Цена не может быть меньше нуля."]}`; below what is used: `{"error": "Уже продано или списано: N ящиков. Меньше поставить нельзя."}` (no field). `DELETE lots/{id}/` → 403 for view-only staff (permissions run first), else 405.
 
 **`GET /market/shipments/`** (agent only; a seller gets 403 `{"error": "Машины видит только агент."}`) — plain array, arrived first, then in transit:
 ```json
@@ -429,11 +429,13 @@ Resource `market_lot` (staff view; agent / agent_seller / admin full flags — t
 - «Отчёт по машине утверждён — изменить продажи нельзя.» — sale / spoilage create **and delete** after the SalesReport is approved (expenses are not frozen).
 - Stock (field `qty` for sales, `boxes` for spoilage): «В машине осталось только N ящиков», «Больше нельзя: целых паллет осталось N (M ящиков)», «На целую паллету не хватает. Осталось N ящиков.»
 - Weight / price / buyer: «Напишите вес с весов.», «Вес меньше, чем весят пустые ящики (N ящиков по T г).», «Напишите цену за 1 кг.», «Укажите покупателя.», «Покупатель не найден.»
-- Expenses: «Такой статьи расходов нет.», «Напишите сумму.», «Напишите, на что потрачено.» (no row index).
+- Expenses: «Такой статьи расходов нет.» (also an inactive category), «Напишите сумму.», «Напишите, на что потрачено.» (no row index).
 
 Two phones selling the last boxes at once: the second gets the «Машина закрыта…» 400, never a 500.
 
-**`needs_receipt`:** true while the lot opened without a shipment box count (placeholder `boxes_received: 1`) and the agent has not sent `boxes_received` yet. It is a stored flag (`receipt_confirmed`), so expenses and later `box_count` edits do not change it. While true, sales and spoilage answer 400.
+**`needs_receipt`:** true while the lot opened without a shipment box count (placeholder `boxes_received: 1`) or pallet count (placeholder `boxes_per_pallet: 1`) and the agent has not sent `boxes_received` or `boxes_per_pallet` yet. It is a stored flag (`receipt_confirmed`), so expenses and later `box_count` edits do not change it. While true, sales and spoilage answer 400.
+
+**`on_the_road`:** true while the shipment is `yola_chykdy` / `serhet_gechdi` / `dest_entry` (not past destination customs). Sales and spoilage answer 400 «Машина ещё в пути…» then; opening, the receipt, the seller and expenses stay allowed. The phone shows the seller a card instead of the sell form.
 
 **First sale drives the shipment** (no response field; visible on the Sheet): fills `arrived_at` (only at `barysh_gumrugi` / `transshipment`), `sale_started_at` and `city` (from the first seller's bazaar) when empty, so the shipment reaches `satylyar` («Продаётся»). It never fails the sale and is skipped in a closed season.
 
