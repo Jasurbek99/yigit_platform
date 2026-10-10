@@ -60,6 +60,16 @@ class LotTotalsTests(_DebtCase):
         self.assertEqual((totals['sales_total'], totals['paid_total'], totals['debt_total']),
                          (Decimal('9000.00'), Decimal('6000.00'), Decimal('3000.00')))
 
+    def test_over_allocated_sale_does_not_hide_another_debt(self):
+        other = self.sell(paid_on_spot=False, buyer_id=self.buyer.pk)
+        other_sale = Sale.objects.get(pk=other.json()['entry']['id'])
+        self.allocate('6000')  # more than the debt sale's 4500
+        totals = lot_totals(self.lot)
+        self.assertEqual(totals['debt_total'], Decimal('4500.00'))
+        self.assertEqual(totals['debt_total'], sum((sale_due(s) for s in self.lot.sales.all()), Decimal('0')))
+        self.assertEqual(sale_due(other_sale), Decimal('4500.00'))
+        self.assertEqual(totals['paid_total'], Decimal('9000.00'))  # 4500 spot + the debt sale capped at 4500
+
     def test_detail_payload(self):
         self.allocate('1000', '500')
         body = _as(self.w.agent).get(f'/api/v1/market/lots/{self.lot.pk}/').json()

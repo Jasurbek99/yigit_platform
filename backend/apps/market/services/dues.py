@@ -33,9 +33,14 @@ def sale_due(sale: Sale) -> Decimal:
     return max(ZERO, sale.total - _allocated(sale)).quantize(CENT)
 
 
-def debt_sales(qs: QuerySet) -> QuerySet:
-    """The debt sales of `qs` that still owe something, annotated with `allocated`."""
+def with_allocated(qs: QuerySet) -> QuerySet:
+    """The debt sales of `qs`, each annotated with `allocated` = Σ its allocations (0 when none)."""
     return qs.filter(paid_on_spot=False).annotate(
         allocated=Coalesce(Sum('allocations__amount'), Value(Decimal('0.00'), output_field=_MONEY_FIELD),
                            output_field=_MONEY_FIELD),
-    ).filter(total__gt=F('allocated'))
+    )
+
+
+def debt_sales(qs: QuerySet) -> QuerySet:
+    """The debt sales of `qs` that still owe something, annotated with `allocated`."""
+    return with_allocated(qs).filter(total__gt=F('allocated'))
