@@ -33,12 +33,12 @@ From the Part B review ledger; the ones that matter:
 ## Still open after Part C (2026-10-10)
 From the Part C review ledger; the ones that matter:
 - **Debts list N+1:** `buyer_debts` runs one payments query per buyer × currency group (10 rows each). Replace with one `ROW_NUMBER`-partitioned query (strip `Meta.ordering` before `Subquery`) in Part D.
-- **A seller sees the full amount of an agent's payment** that partly went to another seller's sales; show the in-scope allocated amount instead.
-- **Undo / delete error toast is lost after leaving `/debts`:** TanStack v5 skips per-call `onError` once the component unmounts. Move it to hook-level `onError` (the lot screen's «Отменить» for mark-paid already uses `mutateAsync`).
+- ~~**A seller sees the full amount of an agent's payment** that partly went to another seller's sales.~~ Fixed in the final fix wave: the debts list shows the in-scope allocated amount.
+- ~~**Undo / delete error toast is lost after leaving `/debts`.**~~ Fixed: `mutateAsync().catch()`, with a test.
 - **`PaymentSheet` debt snapshot can go stale** when the debts list refetches while the sheet is open (the server caps the amount, so no money harm).
 - **A mark-paid 400 does not refetch the lot** (the «Отметить оплату» button stays until the next refetch).
-- **Turkmen strings of Parts A–C need a native review** (Part C added `market.debts.*`, `market.pay.*`, `market.lot.*` and the receipt texts). The agent receipt wording «Укажите, сколько ящиков и сколько ящиков в паллете пришло» is clumsy; better «Укажите, сколько ящиков пришло и сколько ящиков в паллете».
-- Smaller: the seller QR claim still assigns an unassigned lot after approval; pallet sales in the debts list show boxes only (`IDebtSale` has no `qty`); `canMarkPaid` type predicate narrows wrongly in the false branch (return `boolean`); no test that undo restores the row, none for the `DebtsScreen` error state; `ConfirmDeleteSheet` `kind` is optional now; `.mk-tabbar` override in `debts.css` belongs in `base.css`; focus via `getElementById` (use a ref); candidate sales are read without a Lot lock against a concurrent seller reassignment (no money harm); `views/payments.py` imports private `_lot_payload` / `_LotResource`.
+- **Turkmen strings of Parts A–C need a native review** (Part C added `market.debts.*`, `market.pay.*`, `market.lot.*` and the receipt texts). The agent receipt wording is now «Укажите, сколько ящиков пришло и сколько ящиков в паллете».
+- Smaller: pallet sales in the debts list show boxes only (`IDebtSale` has no `qty`); `canMarkPaid` type predicate narrows wrongly in the false branch (return `boolean`); no test that undo restores the row, `ConfirmDeleteSheet` `kind` is optional now; `.mk-tabbar` override in `debts.css` belongs in `base.css`; focus via `getElementById` (use a ref); candidate sales are read without a Lot lock against a concurrent seller reassignment (no money harm); `views/payments.py` imports private `_lot_payload` / `_LotResource`.
 
 ## Later / user decisions
 - ~~PWA icons are the platform's blue «Y» while `theme_color` is tomato red — the user picks a market icon.~~ Done 2026-10-09: Yigit logo, green theme; main site has the iPhone icon too.

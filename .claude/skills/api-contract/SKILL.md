@@ -396,7 +396,7 @@ Resource `market_lot` (staff view; agent / agent_seller / admin full flags — t
 ```
 `created_by` is a user id (compare with `lot.seller.id`). An expense carries no market label: take it from `expense-categories` by `category_code`; `label` is the free text of `OTHER`.
 
-**`POST /market/lots/open/`** `{ "shipment_id": 480 }` — **201** lot item when created, **200** when it already existed. Agent: any truck of his customer in `yola_chykdy … satyldy`. Seller (QR claim): a truck of his customer; an unassigned lot becomes his. 404 no such truck for him; 403 `{"error": "Машина назначена другому продавцу."}`; 403 `{"error": "Машину открывают агент и его продавцы."}` (staff).
+**`POST /market/lots/open/`** `{ "shipment_id": 480 }` — **201** lot item when created, **200** when it already existed. Agent: any truck of his customer in `yola_chykdy … satyldy`. Seller (QR claim): a truck of his customer; an unassigned lot becomes his — unless the SalesReport is approved: 400 `{"error": "Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя."}` (his own lot still opens). 404 no such truck for him; 403 `{"error": "Машина назначена другому продавцу."}`; 403 `{"error": "Машину открывают агент и его продавцы."}` (staff).
 
 **`PATCH /market/lots/{id}/`** (the lot's agent only, else 403 `{"error": "Машину настраивает только агент."}`) — any of `seller_id` (int | null), `boxes_received`, `boxes_per_pallet`, `tare_g`, `default_price_kg` (string | null). 200 lot item. Sending `boxes_received` or `boxes_per_pallet` clears `needs_receipt`; a change can close or reopen the lot. 400: `{"boxes_received": ["Не меньше 1."]}`, `{"boxes_per_pallet": ["Не меньше 1."]}`, `{"seller_id": ["Такого продавца у агента нет."]}`, `{"tare_g": ["От 0 до 20000 г."]}`, `{"default_price_kg": ["Цена не может быть меньше нуля."]}`; below what is used: `{"error": "Уже продано или списано: N ящиков. Меньше поставить нельзя."}` (no field). `DELETE lots/{id}/` → 403 for view-only staff (permissions run first), else 405.
 
@@ -452,13 +452,13 @@ Same resource gate as part B (`market_lot`) and the same `Idempotency-Key` rules
 ```json
 { "totals": { "KZT": "6500.00", "RUB": "300.00" },   // currencies with no debt are left out; {} when nobody owes
   "buyers": [ { "buyer": { "id": 7, "name": "Бакыт" }, "currency": "KZT", "due": "6500.00",
-                "since": "…",                         // sold_at of the oldest unpaid sale
+                "since": "…",                         // sold_at of the oldest unpaid sale; null for a paid-off group
                 "sales": [ { "id": 220, "lot_id": 206, "shipment_code": "MK-1", "sold_at": "…", "unit": "box",
                              "boxes": 10, "net_kg": "100.00", "total": "4500.00", "due": "4500.00" } ],   // oldest first
-                "payments": [ { "id": 35, "amount": "5000.00", "paid_at": "…",
+                "payments": [ { "id": 35, "amount": "5000.00", "paid_at": "…",   // amount = the part allocated to sales in the caller's scope
                                 "created_by": { "id": 3, "name": "mk_s1" } } ] } ] }   // latest 10 touching the scope, newest first
 ```
-One group per buyer × currency, sorted by currency then `due` descending; only sales with `due > 0`.
+One group per buyer × currency, sorted by currency then `due` descending; only sales with `due > 0`. A payment's `amount` here is scoped: a seller sees what went to his sales, not the agent's whole sum. A group whose debt is paid off stays while a payment touching the scope is ≤ 30 days old: `"due": "0.00"`, `"since": null`, `"sales": []`, its latest payments (so it can still be undone); `totals` leaves it out.
 
 **`POST /market/payments/`** `{ "buyer_id": 7, "currency": "KZT", "amount": "5000.00" }` → **201**
 ```json
