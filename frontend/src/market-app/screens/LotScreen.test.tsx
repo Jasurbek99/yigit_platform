@@ -109,7 +109,7 @@ describe('LotScreen', () => {
   it('shows «Пусть агент укажет…» instead of the form while the receipt is missing', async () => {
     detail = () => ({ ...lotDetailFixture(), needs_receipt: true });
     renderLot();
-    expect(await screen.findByText('Пусть агент укажет, сколько ящиков пришло.')).toBeInTheDocument();
+    expect(await screen.findByText('Пусть агент укажет, сколько ящиков и паллет пришло.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
   });
 
@@ -117,7 +117,7 @@ describe('LotScreen', () => {
     detail = () => ({ ...lotDetailFixture(), on_the_road: true, needs_receipt: true });
     renderLot();
     expect(await screen.findByText('Машина ещё в пути — продавать можно после таможни назначения.')).toBeInTheDocument();
-    expect(screen.queryByText('Пусть агент укажет, сколько ящиков пришло.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Пусть агент укажет, сколько ящиков и паллет пришло.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Испорчено' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Расходы по машине' })).toBeInTheDocument();

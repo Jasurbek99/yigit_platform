@@ -4494,7 +4494,7 @@
       "save_error": "Ýatda saklap bolmady. Interneti barlaň we ýene basyň.",
       "undo_error": "Satuwy yzyna alyp bolmady. Ony sanawdan pozuň.",
       "closed": "Maşyn ýapyldy. Gap galmady.",
-      "needs_receipt": "Agent näçe gap gelendigini görkezsin.",
+      "needs_receipt": "Agent näçe gap we näçe paleta gelendigini görkezsin.",
       "in_progress": "Öňki ýatda saklamak entek dowam edýär — bir sekunt garaşyň.",
       "maybe_saved": "Sanawy barlaň — satuw ýatda saklanan bolmagy mümkin.",
       "on_the_road": "Maşyn entek ýolda — barjak ýeriniň gümrüginden soň satyp bolýar."
@@ -4530,7 +4530,7 @@
       "error": "Pozup bolmady. Ýene synanyşyň."
     },
     "agent": {
-      "needs_receipt": "Näçe gap gelendigini görkeziň",
+      "needs_receipt": "Näçe gap gelendigini we bir paletde näçe gap bardygyny görkeziň",
       "receipt": "Kabul etmek",
       "seller": "Satyjy: {{name}}",
       "seller_none": "bellenmedik",

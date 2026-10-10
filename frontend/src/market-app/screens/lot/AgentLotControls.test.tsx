@@ -39,20 +39,26 @@ describe('agent controls on the lot', () => {
 
   beforeEach(() => mockAgentApi(lotDetailFixture()));
 
-  it('asks for the receipt and PATCHes the count and the changed tare once on a double press', async () => {
+  it('asks for the receipt and PATCHes the counts and the changed tare once on a double press', async () => {
     mockAgentApi(pendingLot());
     vi.mocked(api.patch).mockResolvedValueOnce({
       data: lotFixture({ boxes_received: 120, tare_g: 500, needs_receipt: false }),
     });
     const user = userEvent.setup();
     renderLot();
-    expect(await screen.findByText('Укажите, сколько ящиков пришло')).toBeInTheDocument();
+    const prompt = 'Укажите, сколько ящиков и сколько ящиков в паллете пришло';
+    expect(await screen.findByText(prompt)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Приёмка' }));
     const dialog = screen.getByRole('dialog');
     const boxes = within(dialog).getByLabelText('Сколько ящиков пришло');
     expect(boxes).toHaveValue('');
     await user.type(boxes, '12a0');
+    const pallet = within(dialog).getByLabelText('Ящиков на одной паллете');
+    expect(pallet).toHaveValue('');
+    await user.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    expect(api.patch).not.toHaveBeenCalled();
+    await user.type(pallet, '60');
     const tare = within(dialog).getByLabelText('Вес пустого ящика, г');
     await user.clear(tare);
     await user.type(tare, '500');
@@ -63,8 +69,10 @@ describe('agent controls on the lot', () => {
     });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(api.patch).toHaveBeenCalledTimes(1);
-    expect(api.patch).toHaveBeenCalledWith('/market/lots/5/', { boxes_received: 120, tare_g: 500 }, expect.anything());
-    expect(screen.queryByText('Укажите, сколько ящиков пришло')).not.toBeInTheDocument();
+    expect(api.patch).toHaveBeenCalledWith(
+      '/market/lots/5/', { boxes_received: 120, boxes_per_pallet: 60, tare_g: 500 }, expect.anything(),
+    );
+    expect(screen.queryByText(prompt)).not.toBeInTheDocument();
   });
 
   it('shows «Уже продано…» under the boxes field and keeps the sheet open', async () => {

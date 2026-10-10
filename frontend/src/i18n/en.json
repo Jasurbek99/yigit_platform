@@ -4491,7 +4491,7 @@
       "save_error": "Could not save. Check the internet and press again.",
       "undo_error": "Could not undo the sale. Delete it from the list.",
       "closed": "Truck closed. No boxes left.",
-      "needs_receipt": "Ask the agent to enter how many boxes arrived.",
+      "needs_receipt": "Ask the agent to enter how many boxes and pallets arrived.",
       "in_progress": "The previous save is still in progress — wait a second.",
       "maybe_saved": "Check the list — the sale may have been saved.",
       "on_the_road": "The truck is still on the road — selling opens after destination customs."
@@ -4527,7 +4527,7 @@
       "error": "Could not delete. Please try again."
     },
     "agent": {
-      "needs_receipt": "Enter how many boxes arrived",
+      "needs_receipt": "Enter how many boxes arrived and how many boxes are on a pallet",
       "receipt": "Receipt",
       "seller": "Seller: {{name}}",
       "seller_none": "not assigned",

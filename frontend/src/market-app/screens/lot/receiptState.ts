@@ -17,11 +17,11 @@ export type ReceiptField = 'boxes_received' | 'boxes_per_pallet' | 'tare_g' | 'd
 /** One message per field; `_` is the sheet's line. */
 export type ReceiptErrors = Partial<Record<ReceiptField | '_', string>>;
 
-/** The lot's values; the box count is left blank while it is still the placeholder 1. */
+/** The lot's values; the box count and boxes per pallet are blank while they are still placeholders. */
 export function receiptForm(lot: ILot): IReceiptForm {
   return {
     boxes: lot.needs_receipt ? '' : String(lot.boxes_received),
-    perPallet: String(lot.boxes_per_pallet),
+    perPallet: lot.needs_receipt ? '' : String(lot.boxes_per_pallet),
     tare: String(lot.tare_g),
     price: lot.default_price_kg === null ? '' : inputNumber(lot.default_price_kg),
   };
@@ -38,14 +38,15 @@ export function checkReceipt(form: IReceiptForm): ReceiptErrors | null {
 }
 
 /**
- * Only what changed. The box count goes whenever the receipt is pending, even unchanged:
- * the server confirms the receipt only when the key is sent. Call after checkReceipt.
+ * Only what changed. The box count and boxes per pallet go whenever the receipt is pending, even
+ * unchanged: the server confirms the receipt only when the key is sent. Call after checkReceipt.
  */
 export function receiptBody(form: IReceiptForm, lot: ILot): ILotUpdateInput {
   const body: ILotUpdateInput = {};
   const boxes = Number(form.boxes);
+  const perPallet = Number(form.perPallet);
   if (lot.needs_receipt || boxes !== lot.boxes_received) body.boxes_received = boxes;
-  if (Number(form.perPallet) !== lot.boxes_per_pallet) body.boxes_per_pallet = Number(form.perPallet);
+  if (lot.needs_receipt || perPallet !== lot.boxes_per_pallet) body.boxes_per_pallet = perPallet;
   if (Number(form.tare) !== lot.tare_g) body.tare_g = Number(form.tare);
   const price = apiDecimal(form.price);
   if (price !== lot.default_price_kg) body.default_price_kg = price;
