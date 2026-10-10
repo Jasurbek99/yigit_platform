@@ -12,6 +12,15 @@ const lotUrl = (lotId: number): string => `/market/lots/${lotId}/`;
 /** URL segment of each entry kind (also the name of its list in ILotDetail). */
 const SEGMENT: Record<EntryKind, string> = { sale: 'sales', spoilage: 'spoilage', expense: 'expenses' };
 
+/**
+ * `added` on top of `list`, without copies: after a 5xx the refetch may already hold the entry,
+ * and the retry under the same key replays it.
+ */
+function prepend<T extends { id: number }>(added: T[], list: T[]): T[] {
+  const ids = new Set(added.map((e) => e.id));
+  return [...added, ...list.filter((e) => !ids.has(e.id))];
+}
+
 /** POST …/sales/ → `{entry, lot}`; the sale goes to the top of the cached detail. */
 export function useCreateSale(lotId: number): UseMutationResult<IEntryWrite<ISale>, unknown, ISaleInput> {
   const queryClient = useQueryClient();
@@ -24,7 +33,7 @@ export function useCreateSale(lotId: number): UseMutationResult<IEntryWrite<ISal
     ).data,
     onSuccess: ({ entry, lot }) => {
       idem.reset();
-      applyLot(queryClient, lot, (d) => ({ sales: [entry, ...d.sales] }));
+      applyLot(queryClient, lot, (d) => ({ sales: prepend([entry], d.sales) }));
     },
     // The key is kept: a retry of a save that did go through replays it.
     onError: (err) => refetchAfterServerError(queryClient, lotId, err),
@@ -43,7 +52,7 @@ export function useCreateSpoilage(lotId: number): UseMutationResult<IEntryWrite<
     ).data,
     onSuccess: ({ entry, lot }) => {
       idem.reset();
-      applyLot(queryClient, lot, (d) => ({ spoilage: [entry, ...d.spoilage] }));
+      applyLot(queryClient, lot, (d) => ({ spoilage: prepend([entry], d.spoilage) }));
     },
     // The key is kept: a retry of a save that did go through replays it.
     onError: (err) => refetchAfterServerError(queryClient, lotId, err),
@@ -62,7 +71,7 @@ export function useCreateExpenses(lotId: number): UseMutationResult<IExpensesWri
     ).data,
     onSuccess: ({ entries, lot }) => {
       idem.reset();
-      applyLot(queryClient, lot, (d) => ({ expenses: [...entries, ...d.expenses] }));
+      applyLot(queryClient, lot, (d) => ({ expenses: prepend(entries, d.expenses) }));
     },
     // The key is kept: a retry of a save that did go through replays it.
     onError: (err) => refetchAfterServerError(queryClient, lotId, err),

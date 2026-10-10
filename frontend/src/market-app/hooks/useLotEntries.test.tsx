@@ -119,4 +119,18 @@ describe('lot entry mutations', () => {
     const keys = vi.mocked(api.post).mock.calls.map((c) => c[2]?.headers?.['Idempotency-Key']);
     expect(new Set(keys).size).toBe(1);
   });
+
+  it('a replayed sale already in the refetched detail is listed once', async () => {
+    vi.mocked(api.post)
+      .mockRejectedValueOnce({ response: { status: 504, data: {} } })
+      .mockResolvedValueOnce({ data: { entry: SALE, lot: sold } });
+    const { client, wrapper } = setup();
+    const { result } = renderHook(() => useCreateSale(7), { wrapper });
+    const body: ISaleInput = { unit: 'box', qty: 10, gross_kg: '104.50', price_kg: '45.00', paid_on_spot: true };
+    await act(() => result.current.mutateAsync(body).catch((e: unknown) => e));
+    // The refetch after the 504 brings the sale that did commit.
+    client.setQueryData<ILotDetail>(lotKey(7), (d) => (d ? { ...d, sales: [SALE] } : d));
+    await act(() => result.current.mutateAsync(body));
+    expect(client.getQueryData<ILotDetail>(lotKey(7))?.sales.map((s) => s.id)).toEqual([11]);
+  });
 });
