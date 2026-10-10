@@ -113,7 +113,7 @@ Only the lot's seller records entries; the agent gets 403 «Продажи за�
 
 | Rule | Message (field) |
 |---|---|
-| Approved SalesReport on the shipment | «Отчёт по машине утверждён — изменить продажи нельзя.» |
+| Approved SalesReport on the shipment | «Отчёт по машине утверждён — продажи, списания, расходы и приёмку менять нельзя.» |
 | Truck still `yola_chykdy` / `serhet_gechdi` / `dest_entry` | «Машина ещё в пути — продавать можно после таможни назначения.» |
 | `needs_receipt` | «Пусть агент укажет, сколько ящиков пришло.» |
 | `closed_at` set or `left <= 0` | «Машина закрыта. Ящиков не осталось.» |
