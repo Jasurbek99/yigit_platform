@@ -321,7 +321,7 @@ Response item shape:
 
 ### Agent market: `/api/v1/market/` (2026-10-09, part A)
 
-External roles `agent` / `agent_seller` may call **only** `/api/v1/auth/` and `/api/v1/market/`; every other path returns **403** for them (fence in `CookieJWTAuthentication`; the WebSocket closes 4403). Lists are DRF-paginated (`{count, next, previous, results}`). Writes use `POST` / `PATCH` only (no DELETE: rows are deactivated with `is_active`). Field errors come back as 400 `{field: [msgs]}`.
+External roles `agent` / `agent_seller` may call **only** `/api/v1/auth/` and `/api/v1/market/`; every other path returns **403** for them (fence in `CookieJWTAuthentication`; the WebSocket closes 4403). Lists are DRF-paginated (`{count, next, previous, results}`). Logins, bazaars and sellers are written with `POST` / `PATCH` only (no DELETE: rows are deactivated with `is_active`); Part B adds `DELETE` on the lot entry routes only. Field errors come back as 400 `{field: [msgs]}`.
 
 **Agent logins: `GET|POST|PATCH /api/v1/market/agents/`** (resource `market_agent`; staff. A sales_rep sees only the customers he is rep of; admin / boss / director / export_manager / document_team see all. Writes: admin and sales_rep only — boss / director / export_manager / document_team are read-only, POST / PATCH → 403)
 ```json
@@ -362,6 +362,80 @@ External roles `agent` / `agent_seller` may call **only** `/api/v1/auth/` and `/
 // customer is null for a user without an AgentMember; bazaar is null for an agent himself
 ```
 The `/m/` header shows `first_name`, falling back to `username`. Login and logout use `/api/v1/auth/login/` and `/auth/logout/` as everywhere.
+
+### Agent market, part B: lots, sales, spoilage, expenses (2026-10-10)
+
+Resource `market_lot` (staff view; agent / agent_seller / admin full flags — the services decide who may do what). Not season-scoped. Part B adds `DELETE` on the three entry routes below. Every POST / DELETE takes an `Idempotency-Key` header (a repeat returns the stored answer; a 400 / 403 frees the key; 409 «Предыдущее сохранение ещё идёт» while the same key still runs). `PATCH lots/{id}/` ignores the header (absolute values).
+
+**Lot item** (`GET /market/lots/` rows, `PATCH` and `open` answers, the `lot` of every entry write). Money / kg are **strings**, box counts are ints:
+```json
+{ "id": 12,
+  "shipment": { "id": 480, "code": "KZ-0412", "export_code": "10AP116/26", "status_code": "barysh_gumrugi",
+                "product": { "code": "tomato", "name_ru": "Томат" } },   // product, export_code, status_code may be null
+  "seller": { "id": 52, "name": "Murat" },                              // null while unassigned
+  "boxes_received": 1800, "boxes_per_pallet": 60, "tare_g": 450, "default_price_kg": "45.50",  // price may be null
+  "currency": "KZT", "opened_at": "2026-10-08T09:14:00Z", "closed_at": null,
+  "needs_receipt": false,
+  "totals": { "sold_boxes": 300, "sold_kg": "5120.40", "spoiled_boxes": 6, "spoiled_kg": "80.00",
+              "used": 306, "left": 1494, "sales_total": "232000.00", "paid_total": "200000.00",
+              "debt_total": "32000.00", "expenses_total": "15000.00", "after_expenses": "217000.00",
+              "avg_price_kg": "45.31" } }                               // avg_price_kg null until something is sold
+```
+
+**`GET /market/lots/?state=open|closed&page=&page_size=`** — paginated, newest `opened_at` first (the phone reads page 1 with `page_size=200`). Seller: lots assigned to him. Agent: his customer's lots. Staff: the customers in their scope. No `state` = both.
+
+**`GET /market/lots/{id}/`** — the lot item plus `sales`, `spoilage`, `expenses`, newest first:
+```json
+{ "...lot item...",
+  "sales": [ { "id": 7, "unit": "box", "qty": 12, "boxes": 12, "gross_kg": "230.00", "tare_g": 450, "net_kg": "224.60",
+               "price_kg": "45.00", "calc_total": "10107.00", "total": "10000.00", "paid_on_spot": false,
+               "buyer": { "id": 3, "name": "Рустам" }, "sold_at": "…", "created_by": 52 } ],  // unit box|pallet|truck; buyer null when paid
+  "spoilage": [ { "id": 2, "boxes": 3, "gross_kg": "40.00", "tare_g": 450, "net_kg": "38.65", "recorded_at": "…", "created_by": 52 } ],  // gross_kg null = boxes only
+  "expenses": [ { "id": 5, "category_id": 21, "category_code": "KARA", "label": "", "amount": "5000.00", "recorded_at": "…", "created_by": 52 } ] }
+```
+`created_by` is a user id (compare with `lot.seller.id`). An expense carries no market label: take it from `expense-categories` by `category_code`; `label` is the free text of `OTHER`.
+
+**`POST /market/lots/open/`** `{ "shipment_id": 480 }` — **201** lot item when created, **200** when it already existed. Agent: any truck of his customer in `yola_chykdy … satyldy`. Seller (QR claim): a truck of his customer; an unassigned lot becomes his. 404 no such truck for him; 403 `{"error": "Машина назначена другому продавцу."}`; 403 `{"error": "Машину открывают агент и его продавцы."}` (staff).
+
+**`PATCH /market/lots/{id}/`** (the lot's agent only, else 403 `{"error": "Машину настраивает только агент."}`) — any of `seller_id` (int | null), `boxes_received`, `boxes_per_pallet`, `tare_g`, `default_price_kg` (string | null). 200 lot item. Sending `boxes_received` clears `needs_receipt`; a change can close or reopen the lot. 400: `{"boxes_received": ["Не меньше 1."]}`, `{"seller_id": ["Такого продавца у агента нет."]}`, `{"tare_g": ["От 0 до 20000 г."]}`, `{"default_price_kg": ["Цена не может быть меньше нуля."]}`; below what is used: `{"error": "Уже продано или списано: N ящиков. Меньше поставить нельзя."}` (no field). `DELETE lots/{id}/` → 405.
+
+**`GET /market/shipments/`** (agent only; a seller gets 403 `{"error": "Машины видит только агент."}`) — plain array, arrived first, then in transit:
+```json
+[ { "id": 480, "code": "KZ-0412", "export_code": "10AP116/26", "status_code": "dest_entry",
+    "box_count": 1800, "pallet_count": 30, "product": { "code": "tomato", "name_ru": "Томат" }, "lot_id": null } ]
+```
+`lot_id` = the open lot's id, or null (the phone shows «Открыть» for null).
+
+**`GET /market/expense-categories/`** — plain array in market order with the market's own labels: `[ { "id": 21, "code": "KARA", "label": "…" } ]` (`OTHER` needs a name).
+
+**`GET /market/buyers/?q=`** — plain array, up to 20, `name` contains `q`, scoped to the caller's customers: `[ { "id": 3, "name": "Рустам", "phone": "" } ]`. **`POST /market/buyers/`** `{ "name", "phone"? }` (agent and his sellers; staff 403) — get-or-create by name, case-insensitive; **201** created, **200** found; body `{id, name, phone}`.
+
+**Entries** — written by the lot's seller only: the agent and another seller of the same agent get 403 `{"error": "Продажи записывает продавец этой машины."}`; a seller of another agent gets 404. Every write returns the refreshed lot item, so the phone updates totals in one round-trip:
+
+| Call | Body | Answer |
+|---|---|---|
+| `POST /market/lots/{id}/sales/` | `{ unit: "box"\|"pallet"\|"truck", qty, gross_kg, price_kg, total?, paid_on_spot, buyer_id? }` | **201** `{ "entry": <sale>, "lot": <lot item> }` |
+| `POST /market/lots/{id}/spoilage/` | `{ boxes, gross_kg? }` (`gross_kg` null when no weight, never `0`) | **201** `{ "entry": <spoilage>, "lot": … }` |
+| `POST /market/lots/{id}/expenses/` | `{ rows: [ { category_id, amount, label? } ] }` | **201** `{ "entries": [<expense>, …], "lot": … }` (plural: a batch) |
+| `DELETE /market/lots/{id}/sales/{entry_id}/` | — | **200** `{ "lot": … }` |
+| `DELETE /market/lots/{id}/spoilage/{entry_id}/` | — | **200** `{ "lot": … }` |
+| `DELETE /market/lots/{id}/expenses/{entry_id}/` | — | **200** `{ "lot": … }` |
+
+`qty` is ignored for `truck` (the whole rest goes). `total` > 0 overrides `net × price` (`calc_total` stays). `paid_on_spot: false` requires `buyer_id` (a buyer of the same customer). Net = `gross_kg − boxes × tare_g / 1000`. Delete: the entry's author while he is still the lot's seller, or the agent, else 403 `{"error": "Удалить запись могут её автор или агент."}`; an entry not on that lot → 404. A delete frees boxes and reopens a closed lot.
+
+**Errors.** 400 with a field: `{ "<field>": ["Русское сообщение."] }` (`qty`, `gross_kg`, `price_kg`, `buyer_id`, `boxes`, `category_id`, `amount`, `label`). 400 without a field: `{ "error": "…" }`:
+- «Пусть агент укажет, сколько ящиков пришло.» (`needs_receipt`; expenses are allowed), «Машина закрыта. Ящиков не осталось.», «Укажите ящики или вес.», «Добавьте хотя бы один расход.»
+- «Машина ещё в пути — продавать можно после таможни назначения.» — sale / spoilage while the truck is `yola_chykdy` / `serhet_gechdi` / `dest_entry`.
+- «Отчёт по машине утверждён — изменить продажи нельзя.» — sale / spoilage create **and delete** after the SalesReport is approved (expenses are not frozen).
+- Stock (field `qty` for sales, `boxes` for spoilage): «В машине осталось только N ящиков», «Больше нельзя: целых паллет осталось N (M ящиков)», «На целую паллету не хватает. Осталось N ящиков.»
+- Weight / price / buyer: «Напишите вес с весов.», «Вес меньше, чем весят пустые ящики (N ящиков по T г).», «Напишите цену за 1 кг.», «Укажите покупателя.», «Покупатель не найден.»
+- Expenses: «Такой статьи расходов нет.», «Напишите сумму.», «Напишите, на что потрачено.» (no row index).
+
+Two phones selling the last boxes at once: the second gets the «Машина закрыта…» 400, never a 500.
+
+**`needs_receipt`:** true while the lot opened without a shipment box count (placeholder `boxes_received: 1`) and the agent has not sent `boxes_received` yet. It is a stored flag (`receipt_confirmed`), so expenses and later `box_count` edits do not change it. While true, sales and spoilage answer 400.
+
+**First sale drives the shipment** (no response field; visible on the Sheet): fills `arrived_at` (only at `barysh_gumrugi` / `transshipment`), `sale_started_at` and `city` (from the first seller's bazaar) when empty, so the shipment reaches `satylyar` («Продаётся»). It never fails the sale and is skipped in a closed season.
 
 ### Auth: `POST /api/v1/auth/login/`
 ```json
