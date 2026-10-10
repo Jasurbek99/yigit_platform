@@ -5,6 +5,7 @@ from rest_framework import serializers
 
 from apps.export.models import Shipment
 from apps.market.models import Buyer, Lot, LotExpense, Sale, Spoilage
+from apps.market.services.lots import ON_THE_ROAD_CODES
 from apps.market.services.totals import lot_totals, needs_receipt
 
 MONEY = {'max_digits': 12, 'decimal_places': 2}
@@ -38,12 +39,13 @@ class LotSerializer(serializers.ModelSerializer):
     shipment = serializers.SerializerMethodField()
     seller = serializers.SerializerMethodField()
     needs_receipt = serializers.SerializerMethodField()
+    on_the_road = serializers.SerializerMethodField()
     totals = serializers.SerializerMethodField()
 
     class Meta:
         model = Lot
         fields = ['id', 'shipment', 'seller', 'boxes_received', 'boxes_per_pallet', 'tare_g', 'default_price_kg',
-                  'currency', 'opened_at', 'closed_at', 'needs_receipt', 'totals']
+                  'currency', 'opened_at', 'closed_at', 'needs_receipt', 'on_the_road', 'totals']
         read_only_fields = fields
 
     def get_shipment(self, lot: Lot) -> dict:
@@ -57,6 +59,11 @@ class LotSerializer(serializers.ModelSerializer):
     def get_needs_receipt(self, lot: Lot) -> bool:
         """True while the agent must set the real box count (see totals.needs_receipt)."""
         return needs_receipt(lot)
+
+    def get_on_the_road(self, lot: Lot) -> bool:
+        """True while the truck is not past destination customs: no sale or write-off yet."""
+        shipment = lot.shipment
+        return shipment.status_id is not None and shipment.status.code in ON_THE_ROAD_CODES
 
     def get_totals(self, lot: Lot) -> dict:
         """lot_totals() with Decimals as strings."""

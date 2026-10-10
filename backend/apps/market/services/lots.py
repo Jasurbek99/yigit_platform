@@ -13,9 +13,11 @@ from apps.market.scoping import customer_ids_for, member_of
 from apps.market.services.access import MarketAccessError
 from apps.market.services.totals import lot_totals, refresh_closed
 
+# Departed but not past destination customs: the lot opens, nothing is sold or written off yet.
+ON_THE_ROAD_CODES = ('yola_chykdy', 'serhet_gechdi', 'dest_entry')
 # From departure to sold: the trucks an agent sees coming and sells (spec §2).
 VISIBLE_STATUS_CODES = (
-    'yola_chykdy', 'serhet_gechdi', 'dest_entry', 'barysh_gumrugi', 'transshipment', 'bardy', 'satylyar', 'satyldy',
+    *ON_THE_ROAD_CODES, 'barysh_gumrugi', 'transshipment', 'bardy', 'satylyar', 'satyldy',
 )
 MAX_TARE_G = 20000
 
@@ -90,13 +92,20 @@ def lots_for(user: User) -> QuerySet[Lot]:
 
 
 def _new_lot_defaults(shipment: Shipment) -> dict:
-    """Receipt defaults from the shipment; a missing box count opens with 1 box (needs_receipt)."""
+    """Receipt defaults from the shipment.
+
+    A missing box count opens with a placeholder of 1 box, a missing pallet count
+    with 1 box per pallet; either leaves the receipt unconfirmed (needs_receipt)
+    until the agent PATCHes boxes_received or boxes_per_pallet.
+    """
     boxes, pallets = shipment.box_count or 0, shipment.pallet_count or 0
     currency = shipment.country.currency if shipment.country_id else None
+    known = boxes > 0 and pallets > 0
     return {
         'boxes_received': boxes if boxes > 0 else 1,
-        'receipt_confirmed': boxes > 0,
-        'boxes_per_pallet': boxes // pallets if boxes > 0 and pallets > 0 else 1,
+        'receipt_confirmed': known,
+        # More pallets than boxes would give 0 per pallet; a pallet sale divides by it.
+        'boxes_per_pallet': max(1, boxes // pallets) if known else 1,
         'currency': currency or 'KZT',
     }
 
@@ -151,7 +160,8 @@ def update_lot(user: User, lot: Lot, data: dict) -> Lot:
     """The agent sets the lot's seller and receipt (boxes, boxes per pallet, tare, default price).
 
     `data` keys (all optional): seller_id, boxes_received, boxes_per_pallet,
-    tare_g, default_price_kg. Recomputes closed_at and audits the changed keys.
+    tare_g, default_price_kg. Sending boxes_received or boxes_per_pallet
+    confirms the receipt. Recomputes closed_at and audits the changed keys.
 
     Raises:
         MarketAccessError: `user` is not the agent of the lot's customer.
@@ -163,8 +173,8 @@ def update_lot(user: User, lot: Lot, data: dict) -> Lot:
     with transaction.atomic():
         lot = Lot.objects.select_for_update().get(pk=lot.pk)
         values = _checked_values(lot, member.customer_id, data)
-        if 'boxes_received' in values:
-            # The agent's receipt, even if it repeats the placeholder count.
+        if 'boxes_received' in values or 'boxes_per_pallet' in values:
+            # The agent's receipt, even if it repeats the placeholder value.
             values['receipt_confirmed'] = True
         changed = [k for k, v in values.items() if getattr(lot, k) != v]
         for key in changed:

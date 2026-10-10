@@ -48,11 +48,12 @@ def lot_totals(lot: Lot) -> dict:
 
 
 def needs_receipt(lot: Lot) -> bool:
-    """True while the agent still has to say how many boxes came.
+    """True while the agent still has to confirm the receipt.
 
-    The shipment had no box count, so the lot opened with a placeholder of 1
-    box (receipt_confirmed=False); until the agent sets boxes_received, the
-    first sale would close the truck.
+    The shipment had no box or pallet count, so the lot opened with a
+    placeholder of 1 box or 1 box per pallet (receipt_confirmed=False); until
+    the agent sets boxes_received or boxes_per_pallet, a sale would count the
+    truck wrong.
     """
     return not lot.receipt_confirmed
 

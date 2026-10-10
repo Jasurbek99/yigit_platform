@@ -70,6 +70,29 @@ class OpenLotTests(TestCase):
         self.assertFalse(resp.json()['needs_receipt'])
         self.assertTrue(Lot.objects.get(pk=lot_id).receipt_confirmed)
 
+    def _open_with_pallets(self, code, pallets):
+        shipment = make_shipment(self.w, code, 'bardy')
+        shipment.pallet_count = pallets
+        shipment.save(update_fields=['pallet_count'])
+        return _as(self.w.agent).post('/api/v1/market/lots/open/', {'shipment_id': shipment.pk}, format='json').json()
+
+    def test_missing_pallet_count_needs_receipt(self):
+        for code, pallets in (('MK-NP', None), ('MK-ZP', 0)):
+            body = self._open_with_pallets(code, pallets)
+            self.assertEqual((body['boxes_received'], body['boxes_per_pallet'], body['needs_receipt']),
+                             (100, 1, True), pallets)
+
+    def test_boxes_per_pallet_patch_confirms_receipt(self):
+        lot_id = self._open_with_pallets('MK-NP', None)['id']
+        resp = _as(self.w.agent).patch(f'/api/v1/market/lots/{lot_id}/', {'boxes_per_pallet': 1}, format='json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertFalse(resp.json()['needs_receipt'])
+        self.assertTrue(Lot.objects.get(pk=lot_id).receipt_confirmed)
+
+    def test_more_pallets_than_boxes_opens_with_one_per_pallet(self):
+        body = self._open_with_pallets('MK-MP', 200)
+        self.assertEqual((body['boxes_per_pallet'], body['needs_receipt']), (1, False))
+
     def test_claim_refused_after_agent_assigned_seller(self):
         lot_id = _as(self.w.agent).post('/api/v1/market/lots/open/', {'shipment_id': self.w.shipment.pk},
                                         format='json').json()['id']
@@ -187,6 +210,15 @@ class LotListAndPatchTests(TestCase):
         resp = _as(self.w.agent).patch(f'/api/v1/market/lots/{self.lot.pk}/', {'boxes_received': 60}, format='json')
         self.assertEqual(resp.status_code, 200, resp.content)
         self.assertIsNotNone(resp.json()['closed_at'])
+
+    def test_on_the_road_flag(self):
+        self.assertFalse(_as(self.w.seller).get(f'/api/v1/market/lots/{self.lot.pk}/').json()['on_the_road'])
+        road = make_shipment(self.w, 'MK-R', 'dest_entry')
+        lot = Lot.objects.create(shipment=road, seller=self.w.seller, boxes_received=10, boxes_per_pallet=5,
+                                 currency='KZT', opened_by=self.w.agent)
+        self.assertTrue(_as(self.w.seller).get(f'/api/v1/market/lots/{lot.pk}/').json()['on_the_road'])
+        rows = {r['id']: r['on_the_road'] for r in _as(self.w.seller).get('/api/v1/market/lots/').json()['results']}
+        self.assertEqual(rows, {self.lot.pk: False, lot.pk: True})
 
     def test_lists_are_not_season_scoped(self):
         # Season.is_closed is a property: closed = closed_at set (and inactive, as close_season() writes).

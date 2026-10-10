@@ -295,6 +295,14 @@ class ExpenseTests(_LotCase):
                              rows)
         self.assertFalse(LotExpense.objects.exists())
 
+    def test_inactive_category_refused(self):
+        ExpenseCategory.objects.filter(code='KARA').update(is_active=False)
+        resp = _as(self.w.seller).post(self.url(), {'rows': [{'category_id': self.cat('KARA'), 'amount': '5'}]},
+                                       format='json')
+        self.assertEqual(resp.status_code, 400, resp.content)
+        self.assertEqual(resp.json(), {'category_id': ['Такой статьи расходов нет.']})
+        self.assertFalse(LotExpense.objects.exists())
+
     def test_agent_cannot_add_but_deletes(self):
         self.assertEqual(_as(self.w.agent).post(self.url(), {'rows': [
             {'category_id': self.cat('KARA'), 'amount': '5'}]}, format='json').status_code, 403)

@@ -16,7 +16,7 @@ from apps.market.expense_codes import MARKET_EXPENSES, OTHER_CODE
 from apps.market.models import Buyer, Lot, LotExpense, Sale, Spoilage
 from apps.market.scoping import customer_ids_for, member_of
 from apps.market.services.access import MarketAccessError
-from apps.market.services.lots import AT_LEAST_ONE, LotNotFound, MarketRuleError
+from apps.market.services.lots import AT_LEAST_ONE, ON_THE_ROAD_CODES, LotNotFound, MarketRuleError
 from apps.market.services.status import drive_first_sale
 from apps.market.services.totals import lot_totals, needs_receipt, refresh_closed
 from apps.market.text import boxes_ru
@@ -30,7 +30,6 @@ NEEDS_RECEIPT = 'Пусть агент укажет, сколько ящиков
 LOT_CLOSED = 'Машина закрыта. Ящиков не осталось.'
 REPORT_APPROVED = 'Отчёт по машине утверждён — изменить продажи нельзя.'
 ON_THE_ROAD = 'Машина ещё в пути — продавать можно после таможни назначения.'
-ON_THE_ROAD_CODES = ('yola_chykdy', 'serhet_gechdi', 'dest_entry')
 ONLY_LEFT = 'В машине осталось только {boxes}'
 PALLETS_LEFT = 'Больше нельзя: целых паллет осталось {pallets} ({boxes})'
 NO_WHOLE_PALLET = 'На целую паллету не хватает. Осталось {boxes}.'
@@ -228,11 +227,14 @@ def create_spoilage(user: User, lot_id: int, data: dict) -> Spoilage:
 
 
 def _checked_expense_rows(rows: list[dict]) -> list[tuple[ExpenseCategory, Decimal, str]]:
-    """`(category, amount, label)` per row; every row checked before any is saved."""
+    """`(category, amount, label)` per row; every row checked before any is saved.
+
+    Only active market categories count, as in the reference list (services.reference).
+    """
     if not rows:
         raise MarketRuleError(NO_EXPENSES)
     codes = {code for code, _ in MARKET_EXPENSES}
-    categories = {c.pk: c for c in ExpenseCategory.objects.filter(code__in=codes)}
+    categories = {c.pk: c for c in ExpenseCategory.objects.filter(code__in=codes, is_active=True)}
     checked = []
     for row in rows:
         category = categories.get(row.get('category_id'))
@@ -255,7 +257,7 @@ def create_expenses(user: User, lot_id: int, rows: list[dict]) -> list[LotExpens
 
     Raises:
         LotNotFound, MarketAccessError: as create_sale.
-        MarketRuleError: no rows, an unknown category, amount ≤ 0, OTHER without label.
+        MarketRuleError: no rows, an unknown or inactive category, amount ≤ 0, OTHER without label.
     """
     with transaction.atomic():
         lot = _locked_lot(user, lot_id)
