@@ -50,7 +50,7 @@ export function SpoilageSheet({ lot, save, onUndo, onClose }: ISpoilageSheetProp
       onClose();
       return true;
     } catch (err) {
-      setErrors(sellErrors(err));
+      setErrors(sellErrors(err, 'market.lot.maybe_saved'));
       return false;
     }
   });

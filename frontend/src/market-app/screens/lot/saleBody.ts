@@ -63,8 +63,13 @@ export function readableError(err: unknown): string | null {
   return NON_FIELD_KEYS.map((k) => body[k]?.[0]).find(Boolean) ?? null;
 }
 
-/** A failed save → messages per field; a non-field message → `_`; codes, 409, 5xx, no answer → a fixed text. */
-export function sellErrors(err: unknown): SellErrors {
+/**
+ * A failed save → messages per field; a non-field message → `_`; codes, 409, no answer → a fixed text.
+ * A 5xx may have come after the commit, so it says «Проверьте список…» (`maybeSavedKey`) — the hooks
+ * refetch the lot, and the Idempotency-Key is kept, so a retry replays rather than sells twice.
+ */
+export function sellErrors(err: unknown, maybeSavedKey = 'market.sell.maybe_saved'): SellErrors {
+  if ((httpStatus(err) ?? 0) >= 500) return { _: i18n.t(maybeSavedKey) };
   const fallback = i18n.t('market.sell.save_error');
   const body = readableBody(err);
   if (!body) return { _: readableError(err) ?? fallback };

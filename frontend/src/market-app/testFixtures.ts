@@ -32,7 +32,7 @@ export function lotFixture(over: Partial<ILot> = {}): ILot {
     shipment: { id: 9, code: '26-0101', export_code: 'EX-17', status_code: 'satylyar', product: { code: 'tomato', name_ru: 'Помидоры' } },
     seller: { id: 7, name: 'Айдос' },
     boxes_received: 100, boxes_per_pallet: 50, tare_g: 450, default_price_kg: null, currency: 'KZT',
-    opened_at: oct(7, 9), closed_at: null, needs_receipt: false,
+    opened_at: oct(7, 9), closed_at: null, needs_receipt: false, on_the_road: false,
     totals: {
       sold_boxes: 32, sold_kg: '210.50', spoiled_boxes: 0, spoiled_kg: '0.00', used: 32, left: 68,
       sales_total: '8622.50', paid_total: '3622.50', debt_total: '5000.00', expenses_total: '1000.00',

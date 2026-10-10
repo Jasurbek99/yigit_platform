@@ -81,4 +81,14 @@ describe('SpoilageSheet', () => {
     expect(await sheet.findByRole('alert')).toHaveTextContent('Машина ещё в пути');
     expect(sheet.getByRole('button', { name: 'Списать' })).toBeEnabled();
   });
+
+  it('says the write-off may have been saved after a 500', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce({ response: { status: 500, data: { error: 'server_error' } } });
+    const user = userEvent.setup();
+    renderLot();
+    const sheet = await openSheet(user);
+    await user.click(sheet.getByRole('button', { name: 'На один больше' }));
+    await user.click(sheet.getByRole('button', { name: 'Списать' }));
+    expect(await sheet.findByRole('alert')).toHaveTextContent('Проверьте список — запись могла сохраниться.');
+  });
 });

@@ -112,4 +112,14 @@ describe('LotScreen', () => {
     expect(await screen.findByText('Пусть агент укажет, сколько ящиков пришло.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
   });
+
+  it('shows «Машина ещё в пути…» and keeps the costs button while the truck is on the road', async () => {
+    detail = () => ({ ...lotDetailFixture(), on_the_road: true, needs_receipt: true });
+    renderLot();
+    expect(await screen.findByText('Машина ещё в пути — продавать можно после таможни назначения.')).toBeInTheDocument();
+    expect(screen.queryByText('Пусть агент укажет, сколько ящиков пришло.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Сохранить продажу' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Испорчено' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Расходы по машине' })).toBeInTheDocument();
+  });
 });

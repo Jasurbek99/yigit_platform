@@ -54,8 +54,10 @@ export interface ILot {
   opened_at: string;
   /** Set when nothing is left. */
   closed_at: string | null;
-  /** The agent still has to say how many boxes came. */
+  /** The agent still has to confirm the receipt (box count or boxes per pallet). */
   needs_receipt: boolean;
+  /** Not past destination customs yet: no sale or write-off (expenses are fine). */
+  on_the_road: boolean;
   totals: ILotTotals;
 }
 

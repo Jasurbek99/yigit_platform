@@ -4452,7 +4452,8 @@
       "debt_buyer": "Debt: {{name}}",
       "spoiled_row": "Spoiled: {{v}}",
       "expense_row": "Cost: {{name}}",
-      "undo_error": "Could not undo. Delete the entry from the list."
+      "undo_error": "Could not undo. Delete the entry from the list.",
+      "maybe_saved": "Check the list — the entry may have been saved."
     },
     "sell": {
       "what": "What are you selling?",
@@ -4491,7 +4492,9 @@
       "undo_error": "Could not undo the sale. Delete it from the list.",
       "closed": "Truck closed. No boxes left.",
       "needs_receipt": "Ask the agent to enter how many boxes arrived.",
-      "in_progress": "The previous save is still in progress — wait a second."
+      "in_progress": "The previous save is still in progress — wait a second.",
+      "maybe_saved": "Check the list — the sale may have been saved.",
+      "on_the_road": "The truck is still on the road — selling opens after destination customs."
     },
     "spoil": {
       "button": "Spoiled",

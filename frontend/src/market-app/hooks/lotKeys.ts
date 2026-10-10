@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { httpStatus } from '@/utils/drfErrors';
 import type { ILot, ILotDetail, LotState } from '../types';
 
 /** Every lots list (open / closed); a write invalidates them all. */
@@ -26,4 +27,9 @@ export function applyLot(
 ): void {
   queryClient.setQueryData<ILotDetail>(lotKey(lot.id), (old) => (old ? { ...old, ...lot, ...edit?.(old) } : old));
   void queryClient.invalidateQueries({ queryKey: LOTS_KEY });
+}
+
+/** A create answered 5xx may still have been saved: refetch the lot detail so the list shows it. */
+export function refetchAfterServerError(queryClient: QueryClient, lotId: number, err: unknown): void {
+  if ((httpStatus(err) ?? 0) >= 500) void queryClient.invalidateQueries({ queryKey: lotKey(lotId) });
 }

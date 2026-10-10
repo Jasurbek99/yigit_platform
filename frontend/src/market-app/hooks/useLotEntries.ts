@@ -5,7 +5,7 @@ import type {
   EntryKind, IEntryWrite, IExpenseRowInput, IExpensesWrite, ILotDetail, ILotWrite, ISale, ISaleInput,
   ISpoilage, ISpoilageInput,
 } from '../types';
-import { applyLot } from './lotKeys';
+import { applyLot, refetchAfterServerError } from './lotKeys';
 
 const lotUrl = (lotId: number): string => `/market/lots/${lotId}/`;
 
@@ -26,6 +26,8 @@ export function useCreateSale(lotId: number): UseMutationResult<IEntryWrite<ISal
       idem.reset();
       applyLot(queryClient, lot, (d) => ({ sales: [entry, ...d.sales] }));
     },
+    // The key is kept: a retry of a save that did go through replays it.
+    onError: (err) => refetchAfterServerError(queryClient, lotId, err),
   });
 }
 
@@ -43,6 +45,8 @@ export function useCreateSpoilage(lotId: number): UseMutationResult<IEntryWrite<
       idem.reset();
       applyLot(queryClient, lot, (d) => ({ spoilage: [entry, ...d.spoilage] }));
     },
+    // The key is kept: a retry of a save that did go through replays it.
+    onError: (err) => refetchAfterServerError(queryClient, lotId, err),
   });
 }
 
@@ -60,6 +64,8 @@ export function useCreateExpenses(lotId: number): UseMutationResult<IExpensesWri
       idem.reset();
       applyLot(queryClient, lot, (d) => ({ expenses: [...entries, ...d.expenses] }));
     },
+    // The key is kept: a retry of a save that did go through replays it.
+    onError: (err) => refetchAfterServerError(queryClient, lotId, err),
   });
 }
 

@@ -60,7 +60,7 @@ export function ExpensesSheet({ lot, save, onUndo, onClose }: IExpensesSheetProp
       onClose();
       return true;
     } catch (err) {
-      const errors = sellErrors(err);
+      const errors = sellErrors(err, 'market.lot.maybe_saved');
       setError(errors._ ?? Object.values(errors).find(Boolean) ?? t('market.sell.save_error'));
       return false;
     }

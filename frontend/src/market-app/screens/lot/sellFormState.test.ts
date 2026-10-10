@@ -113,11 +113,12 @@ describe('saleBody', () => {
     expect(sellErrors(new Error('offline'))).toEqual({ _: SAVE_ERROR });
   });
 
-  it('never shows a machine code: 409 is «still saving», any other status the save error', () => {
+  it('never shows a machine code: 409 is «still saving», 5xx «check the list», any other the save error', () => {
     const bad = (data: object, status: number): object => ({ response: { status, data } });
     expect(sellErrors(bad({ error: 'idempotency_in_progress' }, 409)))
       .toEqual({ _: 'Предыдущее сохранение ещё идёт — подождите секунду.' });
-    expect(sellErrors(bad({ error: 'server_error' }, 500))).toEqual({ _: SAVE_ERROR });
+    expect(sellErrors(bad({ error: 'server_error' }, 500))).toEqual({ _: 'Проверьте список — продажа могла сохраниться.' });
+    expect(sellErrors(bad({}, 502), 'market.lot.maybe_saved')).toEqual({ _: 'Проверьте список — запись могла сохраниться.' });
     expect(sellErrors(bad({ error: 'invalid_idempotency_key' }, 400))).toEqual({ _: SAVE_ERROR });
     expect(sellErrors(bad({ error: 'Ой' }, 418))).toEqual({ _: SAVE_ERROR });
     expect(readableError(bad({ error: 'server_error' }, 500))).toBeNull();

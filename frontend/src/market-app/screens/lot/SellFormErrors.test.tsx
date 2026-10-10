@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from '@/i18n';
 import api from '@/services/api';
@@ -41,8 +41,28 @@ describe('SellForm errors', () => {
     await user.click(save);
     expect(await screen.findByRole('alert')).toHaveTextContent('Предыдущее сохранение ещё идёт — подождите секунду.');
     await user.click(save);
-    expect(await screen.findByText(/^Не удалось сохранить/)).toBeInTheDocument();
+    expect(await screen.findByText('Проверьте список — продажа могла сохраниться.')).toBeInTheDocument();
     expect(screen.queryByText(/idempotency_in_progress|server_error/)).not.toBeInTheDocument();
+  });
+
+  it('after a 500 refetches the lot and retries with the same Idempotency-Key', async () => {
+    vi.mocked(api.post)
+      .mockRejectedValueOnce({ response: { status: 500, data: { error: 'server_error' } } })
+      .mockResolvedValueOnce(saved());
+    const user = userEvent.setup();
+    renderLot();
+    await fillSale(user);
+    const lotReads = (): number => vi.mocked(api.get).mock.calls.filter(([url]) => url === '/market/lots/5/').length;
+    const before = lotReads();
+    const save = screen.getByRole('button', { name: 'Сохранить продажу' });
+    await user.click(save);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Проверьте список — продажа могла сохраниться.');
+    await waitFor(() => expect(lotReads()).toBe(before + 1));
+    await user.click(save);
+    await screen.findByText(/^Сохранено:/);
+    const keys = vi.mocked(api.post).mock.calls.map((c) => c[2]?.headers?.['Idempotency-Key']);
+    expect(keys[0]).toEqual(expect.any(String));
+    expect(keys[1]).toBe(keys[0]);
   });
 
   it('says the undo failed in words when the server answers with a code', async () => {

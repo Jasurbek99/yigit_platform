@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import api from '@/services/api';
 import type { ILot, ILotDetail, ISale, ISaleInput } from '../types';
 import { lotKey, LOTS_KEY } from './lotKeys';
-import { useCreateExpenses, useCreateSale, useDeleteEntry } from './useLotEntries';
+import { useCreateExpenses, useCreateSale, useCreateSpoilage, useDeleteEntry } from './useLotEntries';
 
 vi.mock('@/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }));
 
@@ -14,7 +14,7 @@ const LOT: ILot = {
   shipment: { id: 5, code: '0000005/26', export_code: '10AP116/26', status_code: 'satylyar', product: null },
   seller: { id: 3, name: 'Айдос' },
   boxes_received: 100, boxes_per_pallet: 50, tare_g: 450, default_price_kg: '45.00', currency: 'KZT',
-  opened_at: '2026-10-09T08:00:00+05:00', closed_at: null, needs_receipt: false,
+  opened_at: '2026-10-09T08:00:00+05:00', closed_at: null, needs_receipt: false, on_the_road: false,
   totals: {
     sold_boxes: 0, sold_kg: '0.00', spoiled_boxes: 0, spoiled_kg: '0.00', used: 0, left: 100,
     sales_total: '0.00', paid_total: '0.00', debt_total: '0.00', expenses_total: '0.00',
@@ -100,5 +100,23 @@ describe('lot entry mutations', () => {
     const detail = client.getQueryData<ILotDetail>(lotKey(7));
     expect(detail?.sales).toEqual([]);
     expect(detail?.totals.left).toBe(100);
+  });
+
+  it('a 5xx on a create refetches the lot detail and keeps the key; a 400 does neither', async () => {
+    vi.mocked(api.post)
+      .mockRejectedValueOnce({ response: { status: 400, data: { qty: ['Мало'] } } })
+      .mockRejectedValueOnce({ response: { status: 503, data: {} } })
+      .mockRejectedValueOnce({ response: { status: 503, data: {} } });
+    const { client, wrapper } = setup();
+    const { result } = renderHook(() => useCreateSpoilage(7), { wrapper });
+    const send = (): Promise<unknown> => act(() => result.current.mutateAsync({ boxes: 1, gross_kg: null })
+      .catch((e: unknown) => e));
+    await send();
+    expect(client.getQueryState(lotKey(7))?.isInvalidated).toBe(false);
+    await send();
+    expect(client.getQueryState(lotKey(7))?.isInvalidated).toBe(true);
+    await send();
+    const keys = vi.mocked(api.post).mock.calls.map((c) => c[2]?.headers?.['Idempotency-Key']);
+    expect(new Set(keys).size).toBe(1);
   });
 });
